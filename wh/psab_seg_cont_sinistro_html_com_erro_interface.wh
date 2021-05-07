@@ -1,0 +1,1743 @@
+/*
+
+Project      : gr5
+Program      : psab.seg.cont.sinistro.html
+Function     : psab_seg_cont_sinistro_html
+Created on   : 28-Jul-2006   10:54:17
+Descripition :
+
+*/
+
+    private paFL_STINT := {}
+
+   local lcNR_PASTA := '' ,;
+         lcTP_PASTA := '' ,;
+         lcWHERE    := '' ,;
+         lcSEGURADO := '' ,;
+         lcQuery    := ' ',;
+         lcTMP      := '',;
+         lcACTION   := '' as string
+
+   local laFIELDS   := {} ,;
+         laSAVE     := {} ,;
+         laSEGURADO := {} ,;
+         laSAVE_AUX := {} ,;
+         laWHERE    := {} ,;
+         laPUT      := {} ,;
+         laRESULT   := {} ,;
+         laRES      := {} ,;
+         laPEDIDOS  := {} ,;
+         laRESULTPAS:= {} ,;
+         laMARKUP   := {} as array
+
+   local ii 	:= 0 ,;
+         lnTOT := 0 ,;
+         xx 	:= 0 ,;
+         lnPOS := 0 as int
+
+   local llERRO := .F. ,;
+         llNovo := .f.  as logical
+
+   local objEbaoCfg  := EbaoConfigNew() AS Object
+
+   private objMarcacao // Objeto global neste programa
+   private objRequest
+   private objRetorno
+
+   local objI4pService := I4pServiceNew() AS Object 
+   local objMarc       := JudMkSinI4proNew() AS Object 
+   local objConsulta   := I4proRetSinJudNew() AS Object
+
+   if objI4pService:isEnabled()
+      WPUT('ifI4PRO', .T.)
+   endif
+
+
+   lcNR_PASTA := wGet('NR_PASTA','C')
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   lcNR_CONTROLE := wGet('NR_CONTROLE','C')
+   if upper(lcNR_CONTROLE) == 'NEW' .or. empty(lcNR_CONTROLE)
+      lcNR_CONTROLE := '0'
+   endif
+   lcACTION      := upper(wGet('ACTION','C'))
+   lcTP_PASTA    := wGet('TP_PASTA','C')
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   lcWHERE       := 'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE
+   lcTABLE       := 'pasta_seguro'
+   lcSEGURADO    := 'pasta_seguro_segurado'
+   laFIELDS      := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+   adel(laFIELDS,ascan(laFIELDS,'CIP_SEGURADO'))
+   asize(laFIELDS,len(laFIELDS)-1)
+   // Glauber 06/01/2011
+   AbasPerfil(lcTP_PASTA,laFIELDS)
+
+   laSEGURADO    := structtable(WSet("DB_ACTIVE"),lcSEGURADO,1,'A')
+   // Glauber 06/01/2011
+   AbasPerfil(lcTP_PASTA,laSEGURADO)
+
+    // Glauber 26/03/2014 - Erro na marcação do Sinistro, a rotina nunca estava marcando, apenas tentando marcar a reserva.
+
+   llNovo := iif(VAL(lcNR_CONTROLE) <> 0, .F., .T.)
+
+   if db_select({'fl_statusinterface','nm_fl_statusinterface'},'statusinterface',,,{'fl_statusinterface'}) == -1
+      error_sys(db_error())
+   endif
+   paFL_STINT := db_fetchall()
+   /*paFL_STINT    := {'Branco',;
+                     'Solicitado informações',;
+                     'Informações recebidas',;
+                     'Sinistro OK',;
+                     'Envio com marca J',;
+                     'Sinistro encerrado',;
+                     'Marca J confirmada',;
+                     'Sinistro não encontrado',;
+                     'Erro processamento',;
+                     'Sinistro não marcado com J'}*/
+
+   init_reqfield(WSet('_USER_INTERFACE'))
+
+   carrega_cbox({{'tipo_apolice','TP_APOLICE','Y'},;
+                 {'sinistro_status','FL_SINISTRO','Y'},;
+                 {'status_apolice','FL_APOLICE','Y'},;
+                 {'cossegurotipo','TP_COSSEGURO','Y'},;
+                 {'segurosituacaopagamento','NM_SIT_PAGAMENTO','Y'},;
+                 {'tipo_sinistro','TP_SINISTRO','Y'},;
+                 {'tipo_pagamento','TIPO_PAGAMENTO','Y'},;
+                 {'grau_parentesco','GRAU_PARENTESCO','Y'},;
+                 {'tp_expediente','TP_EXPEDIENTE','Y'},;
+                 {'lmi_cobertura','LMI_NM_COBERTURA','Y'}})
+//              {'tipo_pagamento','TIPO_PAGAMENTO','Y'},;
+
+   wPut('NR_CONTROLE','new')
+   wPut('FL_COSSEGURO.option','Y')
+   wPut('FL_RESSEGURO.option','Y')
+   wPut('FL_VICIOCONSTR.option','Y')
+   WPut('DT_CADASTRO',date())
+   WPut('LOGIN_CADASTRO',gcLOGIN)
+   WPut('DT_CADASTRO.readonly',.t.)
+   WPut('DT_CADASTRO.class','winputreadonly')
+   WPut('LOGIN_CADASTRO.readonly',.t.)
+   WPut('LOGIN_CADASTRO.class','winputreadonly')
+   WPut('FL_STATUSINTERFACE','0')
+   WPut('UF.option',uf())
+   WPut('UF_IMOVEL.option',uf())
+   WPut('VAR_FL_CALCULO_1.option','S')
+   WPut('VAR_FL_CALCULO_1','S')
+   WPut('ifNOVO',.t.)
+   //WPut('NM_FL_STATUSINTERFACE',paFL_STINT[1])
+   // GLAUBER 05/11/2015 - POR DEFAULT O SINISTRO NÃO EXISTE PARA INTERFACE LIFE
+
+   WPUT('FL_SINISTRO_EXISTE','N')
+/*
+Glauber 30/05/2016
+nício: 30/05/2016 11:53:00
+Prazo: 30/05/2016 11:53:00
+Acesse a Pasta Nº 7617 e providencie as informações solicitadas pelo Suporte.
+ Andamento: Glauber,
+Peço que verifique com prioridade alta a demanda abaixo :
+A interface com o Life é somente para o TP_PASTA = Cível Seguros
+Os usuários não estão conseguindo fazer nenhum tipo de alteração na Aba Seguros das pastas de Procon.
+Portanto, todas as interações que envolvem o Life, seja em Pedidos, Despesas ou Seguros é somente para o TP_PASTA = Cível Seguros
+Você pode verificar a interface e adicionar esta cláusula?
+Aguardo o retorno.
+Tks!!!
+Data de cadastro: 30/05/2016
+Solicitado por: Célia Pereira
+*/
+   lcinterface :=  alltrim(WSet('PATHWSLIFE'))
+   lcPasta     :=  WGet('TP_PASTA')
+   
+//   debug2(lcinterface)
+ //  debug2(lcpasta)
+   
+   if ! empty(alltrim(WSet('PATHWSLIFE'))) .and. WGet('TP_PASTA') == 'Cível Seguros'
+ //     wout('achou a interface ligada')
+      WPut('ifWS',.T.)
+      WPut('ifNOWS',.F.)
+      WPUT('ifI4PRO', .F.) // Interface I4Pro
+   else
+ //     wout('interface desligada')
+      WPut('ifWS',.F.)
+      WPut('ifNOWS',.T.)
+      WPUT('ifI4PRO', .F.) // Interface I4Pro
+   endif 
+     
+   if (! empty(WSet('PATHEBAO'))) // Interface Ebao
+      WPUT('ifEBAO',.T.)
+      objEbaoCfg:ObterConfiguracao()
+      laRES := Str2Array(objEbaoCfg:RamosEbao,",")
+      for ii := 1 to len(laRES)
+          lcTMP += '"' + laRES[ii] + '"' + iif( ii < len(laRES),",","")
+      next ii
+      WPut('ramosEBAO',lcTMP)
+   endif
+
+   lnPOS := ascan(paFL_STINT, { | x | x[1] == '0' })
+	 if lnPOS > 0
+   	WPut('NM_FL_STATUSINTERFACE',paFL_STINT[lnPOS,2])
+   endif
+
+   //---------- Verificando o Layout de Tela.
+   if db_select({'LAYOUT_PASTA'},'pasta_config',,{'TP_PASTA = '+DLAP+lcTP_PASTA+DLAP+'and LAYOUT_PASTA like '+DLAP+'%Exp%'+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRES_EXP := db_fetchrow()
+
+   if len(laRES_EXP) > 0
+      WPut('ifEXPEDIENTE',.t.)
+   else
+      WPut('ifEXPEDIENTE',.f.)
+   endif
+
+   if lcACTION == 'ALTER' .and. gbWAC_READ
+      carrega_seguro(lcNR_PASTA,lcNR_CONTROLE)
+  //    WPut('ifWS',.F.)
+  //    WPut('ifNOWS',.T.)
+      
+   elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+      if ! verif_reqfield(WSet('_USER_INTERFACE'))
+         llERRO := .T.
+      endif
+      // Glauber 08/09/2010
+      // 1a consistencia vinda do web service, se existe pagamentos pendentes nao
+      // deve ser salvo o sinistro
+      if WGet('PAGTO_PENDENTES','C') == 'S'
+         WAlert('Sinistro contem pagamentos pendentes.')
+         llERRO := .t.
+      endif
+
+//
+// Glauber 30/03/2015
+// Conforme solicitação de ajuste no e-mail de 27/03/2015, pasta 3356 e 3163
+
+     if (llNovo == .F.) .and. ExecutarWS(WGet('CD_RAMOSRSN'))
+        if db_select({'FL_STATUSINTERFACE','FL_SINISTRO'},'pasta_seguro',,{'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE}) == -1
+           error_sys(db_error())
+        endif
+
+        laRES :=  db_fetchall()
+        if len(laRES) > 1 .and. laRES[2,1] == '3'
+           WAlert('Este sinistro já foi marcado no E-vida, não é possível realizar alterações.')
+           llERRO := .t.
+//           get2put()
+//           pasta_abas(lcTP_PASTA)
+//           make_psthead(lcNR_PASTA,wGet('TP_PASTA','C'))
+//           carrega_seguro(lcNR_PASTA,lcNR_CONTROLE)
+//           return
+        endif
+
+     endif
+
+      //
+      // Glauber 15/10/2013
+      //
+      // Conforme solicitação do Alexandre via email com data 14/10 as 19:12 com o titulo Re: Interfaces ISJ, se o webservice retornar alguma
+      // mensagem de erro não deverá gravar nada do sinistro.
+      //
+      // Chama a interface webservice para marcar o sinistro
+     // Segunda validacao interface webservice
+
+     // Glauber 01/02/2016 - pasta 6277 - Caso o sinistro já exita no Isj não deve marcar e não deve gerar o pedido inicial
+
+     if (! llERRO) .and. ExecutarWS(WGet('CD_RAMOSRSN')) .and. (! VerifSinistro(WGet('NR_PASTA'), WGet('NR_SINISTRO','C')))
+
+wout('<br><b>ExecutarWS:' + transform(ExecutarWS(WGet('CD_RAMOSRSN'))))
+
+         if ExecutarWS(WGet('CD_RAMOSRSN')) .and. llNovo
+
+            if WGet('FL_SINISTRO','C') == 'Liberado' .or. WGet('FL_SINISTRO','C') == 'Recusado'
+               llERRO := WSUnimedMarca(.t.,.t.)
+               WAlert('O sinistro encontra-se '+WGet('FL_SINISTRO','C')+'. O mesmo vai ser reaberto.')
+            else
+               llERRO := WSUnimedMarca(.t.,.f.)
+            endif
+         endif
+      endif
+
+      // Glauber interface eBao
+
+      if  (! llERRO) .and. (! empty(WSet('PATHEBAO')) .and. llNovo ) // Interface Ebao
+          llERRO := (ComunicarEbao() == .F.)
+          
+
+         if (llERRO == .T.)
+            get2put()
+            pasta_abas(lcTP_PASTA)
+            make_psthead(lcNR_PASTA,wGet('TP_PASTA','C'))
+            return
+         endif
+      endif
+      
+
+      if objI4pService:isEnabled()
+
+         lnNR_CONTROLE := objI4pService:cloneSinistro(lcNR_PASTA, wGet('NR_SINISTRO'))
+
+         if (lnNR_CONTROLE > 0)
+wout('<br><b>ENCONTROU O SINISTRO EM OUTRA PASTA: lnNR_CONTROLE ->'+ transform(lnNR_CONTROLE))
+            carrega_seguro(lcNR_PASTA, AllTrim(lnNR_CONTROLE))
+            return
+          endif
+
+          laRESULTPAS                 := objI4pService:getPastaInfo(wGet('NR_PASTA'), nil)
+
+          //alimenta campos para envio
+          objMarc:NrSinistro         := wGet('NR_SINISTRO')
+          objMarc:NrPasta            := wGet('NR_PASTA')
+          objMarc:DtCitacao          := Transform(laRESULTPAS[2,db_fetchncol(laRESULTPAS,'DT_CITACAO')],'99-99-9999')
+          objMarc:IdPessoaAutor      := Wget('CIP_SEGURADO')
+          objMarc:NmAutor            := Wget('CIP_SEGURADO_PFPJ')
+          objMarc:NrCnpjCpfAutor     := objI4pService:getPfPjInfo(Wget('CIP_SEGURADO'),'CNPJ_CPF')
+          objMarc:CdUf               := objI4pService:getUf2Code(wGet('UF'))
+          objMarc:NmPerda            := Upper(laRESULTPAS[2,db_fetchncol(laRESULTPAS,'NM_PERDA')])
+          objMarc:VlEconomico        := AllTrim(laRESULTPAS[2,db_fetchncol(laRESULTPAS,'VL_ACAO')]) //wGet('VL_ESTIMADO','N')
+          objMarc:VlAcao             := AllTrim(laRESULTPAS[2,db_fetchncol(laRESULTPAS,'VL_ACAO')])
+          objMarc:VlPagamento        := wGet('VL_PREMIO_PAGO','N')
+          objMarc:NrProcessoJudicial := AllTrim(laRESULTPAS[2,db_fetchncol(laRESULTPAS,'NR_PROCESSO')])
+          objMarc:NmReclamante       := wGet('CIP_RECLAMANTE_PFPJ')          
+          objMarc:IdMotivoJudicial   := wGet('OBJETO_SINISTRO')                    
+          objMarc:NmRamo             := wGet('CD_RAMOSRSN')
+          objMarc:IdProdutoCobertura := wGet('SEGUROPRODUTO')
+          objMarc:NmCobertura        := wGet('SEGURORAMO')            
+
+          //debug2(objMarc:toString(),,10000)
+          
+          objRetorno := objI4pService:MarcarJudicial(objMarc) 
+          
+
+//wout('<br><b>Antes do save: ID_SIN_PASTA ->'+ transform(objRetorno:IdSinPasta))                
+
+          if objRetorno:Retorno:CdRetorno <> 0
+             walert("Erro de comunicação com I4Pro:"+objRetorno:Retorno:NmRetorno)
+             get2put()
+             pasta_abas(lcTP_PASTA)
+             make_psthead(lcNR_PASTA,wGet('TP_PASTA','C'))
+             llERRO := .T.            
+          endif
+
+          if ! llERRO
+              objI4pService:gravarTpCoseguro(objRetorno)
+              objI4pService:gravar2Pfpj(objRetorno)
+              objRetorno:NrCertificado := wGet('NR_SINISTRO')
+//              self := objI4pService:gravarTpCoseguro(objRetorno)
+          endif
+           
+           
+          WPUT('TP_COSSEGURO.class','winputreadonly disabled=true')
+          WPUT('TP_COSSEGURO.disabled',.t.)
+      endif
+
+      if ! llERRO
+         aadd(laSAVE,laFIELDS)
+
+         if ! objI4pService:isEnabled()
+            for ii := 1 to len(laFIELDS)
+                aadd(laSAVE_AUX,wGet(laFIELDS[ii],wmd_wfieldtype(laFIELDS[ii])))
+            next ii
+         else
+             for ii := 1 to len(laFIELDS)
+                   if laFIELDS[ii] == 'NR_CERTIFICADO'
+                      aadd(laSAVE_AUX, objRetorno:NrCertificado)
+                   elseif laFIELDS[ii] == 'DT_EMISSAO'
+                      aadd(laSAVE_AUX, ctod(objRetorno:DtEmissaoApolice))
+                   elseif laFIELDS[ii] == 'DT_VIGENCIA_INI'
+                      aadd(laSAVE_AUX, ctod(objRetorno:VigenciaDtInicio))
+                   elseif laFIELDS[ii] == 'DT_VIGENCIA_FIN'
+                      aadd(laSAVE_AUX, ctod(objRetorno:DtFimVigencia))
+                   elseif laFIELDS[ii] == 'VL_PREMIO'
+                      aadd(laSAVE_AUX, val(objRetorno:VlPremio))
+                   elseif laFIELDS[ii] == 'TP_COSSEGURO'
+                      aadd(laSAVE_AUX, objRetorno:CdTpCosseguro)
+                   elseif laFIELDS[ii] == 'PC_COSSEGURO'
+                      aadd(laSAVE_AUX, val(objRetorno:PcCosseguro))
+                   elseif laFIELDS[ii] == 'CIP_FILIAL_ATENDIMENTO'
+                      aadd(laSAVE_AUX,objRetorno:NmResseguradora)
+                   elseif laFIELDS[ii] == 'PC_RESSEGURO'
+                      aadd(laSAVE_AUX, val(objRetorno:PcResseguro))
+                   elseif laFIELDS[ii] == 'VL_RESSEGURO'
+                      aadd(laSAVE_AUX, val(objRetorno:VlIsResseguro))
+                   elseif laFIELDS[ii] == 'DT_CONTRATACAO'
+                      aadd(laSAVE_AUX, ctod(objRetorno:DtEmissaoEndosso))
+                   elseif laFIELDS[ii] == 'DT_CANCELAMENTO'
+                      aadd(laSAVE_AUX, ctod(objRetorno:EndossoDtinicioVigencia))
+                   elseif laFIELDS[ii] == 'DT_VLESTIMADO'
+                      aadd(laSAVE_AUX, ctod(objRetorno:DtFimVigenciaEndosso))
+                   elseif laFIELDS[ii] == 'FL_COSSEGURO'
+                          aadd(laSAVE_AUX, iif( ! Empty(objRetorno:PcCosseguro), 'Y','N'))
+                   elseif laFIELDS[ii] == 'FL_RESSEGURO'
+                          aadd(laSAVE_AUX, iif( ! Empty(objRetorno:PcResseguro), 'Y','N'))
+                   elseif laFIELDS[ii] == 'NR_SINISTRO_IRB'
+                          aadd(laSAVE_AUX, iif( ! empty(objRetorno:IdSinPasta), objRetorno:IdSinPasta,''))
+                   elseif laFIELDS[ii] == 'NR_SINISTRO_FENASEG'
+                          aadd(laSAVE_AUX, iif( ! empty(objMarc:IdProdutoCobertura), objMarc:IdProdutoCobertura,''))
+                   else
+                          aadd(laSAVE_AUX,wGet(laFIELDS[ii],wmd_wfieldtype(laFIELDS[ii])))
+                   endif
+
+            next ii
+         endif
+
+         aadd(laSAVE,laSAVE_AUX)
+//debug2(laSAVE,,30)
+
+         psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Seguro com Sinistro') //Gravar log de alterações da pasta
+
+         if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+            error_sys(db_error())
+         endif
+
+
+         if val(lcNR_CONTROLE) == 0
+            lcNR_CONTROLE := alltrim(str(db_insert_id()))
+            llNovo := .t.
+         endif
+         pst_mkpasta_filtro(lcNR_PASTA) // Alimenta campo pasta.pasta_filtro
+
+         /* Segurados */
+         if ! empty(WGet('CIP_SEGURADO','C'))
+            laSAVE := {{'NR_PASTA','NR_CONTROLE','CIP_SEGURADO','NR_CONTRATO'}}
+            aadd(laSAVE,{val(lcNR_PASTA),;
+                         val(lcNR_CONTROLE),;
+                         WGet('CIP_SEGURADO'),;
+                         WGet('NR_CONTRATO')})
+
+            if db_replace(laSAVE,'pasta_seguro_segurado',{'NR_PASTA='+lcNR_PASTA+;
+                                                          ' and NR_CONTROLE='+lcNR_CONTROLE+;
+                                                          ' and CIP_SEGURADO='+DLAP+WGet('CIP_SEGURADO','C')+DLAP}) == -1
+               error_sys(db_error())
+            endif
+            //carrega_seguro(lcNR_PASTA,lcNR_CONTROLE)
+         endif
+
+         /* LMI */
+         if WGet('LMI_VL','N') > 0 .or. WGet('LMI_VL_SINISTRADO','N') > 0
+            laSAVE := {{'NR_PASTA','NR_CONTROLE','LMI_NR','LMI_VL','LMI_VL_SINISTRADO','LMI_NM_COBERTURA'}}
+            aadd(laSAVE,{val(lcNR_PASTA),;
+                         val(lcNR_CONTROLE),;
+                         0,;
+                         WGet('LMI_VL'),;
+                         WGet('LMI_VL_SINISTRADO'),;
+                         WGet('LMI_NM_COBERTURA')})
+
+            if db_insert(laSAVE,'pasta_seguro_lmi') == -1
+               error_sys(db_error())
+            endif
+            //carrega_seguro(lcNR_PASTA,lcNR_CONTROLE)
+         endif
+
+         /* Beneficiarios */
+         if Val(WGet('CIP_BENEFICIARIO','C')) > 0
+
+            // Verifica se a somatória dos % de beneficiarios não ultrapassa 100 %
+
+            if db_select({'PC_PARTICIPACAO'},'pasta_seguro_beneficiario',,{'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE}) == -1
+               error_sys(db_error())
+            endif
+            laRESULT := db_fetchall()
+            lnTOT := 0
+            for ii := 2 to len(laRESULT)
+                lnTOT += laRESULT[ii,1]
+            next ii
+            if (lnTOT + wget('PC_PARTICIPACAO','N')) > 100
+               Walert('A somatória de % de participação não pode ultrapassar 100%')
+               get2put()
+               pasta_abas(lcTP_PASTA)
+               make_psthead(lcNR_PASTA,wGet('TP_PASTA','C'))
+               carrega_seguro(lcNR_PASTA,lcNR_CONTROLE)
+               return
+            endif
+            // Salva o Registro
+            laSAVE := {{'NR_PASTA','NR_CONTROLE','CIP_BENEFICIARIO','PC_PARTICIPACAO','GRAU_PARENTESCO'}}
+            aadd(laSAVE,{val(lcNR_PASTA),;
+                         val(lcNR_CONTROLE),;
+                         WGet('CIP_BENEFICIARIO'),;
+                         WGet('PC_PARTICIPACAO'),;
+                         WGet('GRAU_PARENTESCO')})
+            if db_replace(laSAVE,'pasta_seguro_beneficiario',{'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE+;
+                                           ' and CIP_BENEFICIARIO='+DLAP+WGet('CIP_BENEFICIARIO','C')+DLAP}) == -1
+               error_sys(db_error())
+            endif
+         endif
+         /* Vitimas */
+         if Val(WGet('CIP_VITIMA','C')) > 0
+            laSAVE := {{'NR_PASTA','NR_CONTROLE','CIP_VITIMA'}}
+            aadd(laSAVE,{val(lcNR_PASTA),;
+                         val(lcNR_CONTROLE),;
+                         WGet('CIP_VITIMA')})
+            if db_replace(laSAVE,'pasta_seguro_vitima',{'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE+;
+                                           ' and CIP_VITIMA='+DLAP+WGet('CIP_VITIMA','C')+DLAP}) == -1
+               error_sys(db_error())
+            endif
+         endif
+         /* Endereços do Imovel */
+         if ! empty(WGet('ENDERECO_IMOVEL','C'))
+            laSAVE := {{'NR_PASTA','NR_CONTROLE','ENDERECO_IMOVEL','MUNICIPIO_IMOVEL','UF_IMOVEL'}}
+            aadd(laSAVE,{val(lcNR_PASTA),;
+                         val(lcNR_CONTROLE),;
+                         WGet('ENDERECO_IMOVEL'),;
+                         WGet('MUNICIPIO_IMOVEL'),;
+                         WGet('UF_IMOVEL')})
+            if db_replace(laSAVE,'pasta_seguro_endereco_imovel',{'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE+;
+                                 ' and ENDERECO_IMOVEL='+DLAP+WGet('ENDERECO_IMOVEL','C')+DLAP}) == -1
+               error_sys(db_error())
+            endif
+         endif
+         if ! empty(alltrim(WSet('PATHWSLIFE'))) .and. WGet('TP_PASTA') == 'Cível Seguros' .and. llNovo == .T.
+         else
+            // Faz a atualizacao das flags na tabela pasta_seguro
+            laSAVE := {{'FL_STATUSINTERFACE','FL_SINISTRO'},;
+                       {'3',WGet('STATUS_APOLICE','C')}}
+            if db_replace(laSAVE,'pasta_seguro',{'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE}) == -1
+               error_sys(db_error())
+            endif
+         endif
+
+/*
+
+Glauber 30/05/2016
+nício: 30/05/2016 11:53:00
+Prazo: 30/05/2016 11:53:00
+Acesse a Pasta Nº 7617 e providencie as informações solicitadas pelo Suporte.
+Andamento: Glauber,
+Peço que verifique com prioridade alta a demanda abaixo :
+A interface com o Life é somente para o TP_PASTA = Cível Seguros
+Os usuários não estão conseguindo fazer nenhum tipo de alteração na Aba Seguros das pastas de Procon.
+Portanto, todas as interações que envolvem o Life, seja em Pedidos, Despesas ou Seguros é somente para o TP_PASTA = Cível Seguros
+Você pode verificar a interface e adicionar esta cláusula?
+Aguardo o retorno.
+Tks!!!
+Data de cadastro: 30/05/2016
+Solicitado por: Célia Pereira
+
+*/
+         if ! empty(alltrim(WSet('PATHWSLIFE'))) .and. WGet('TP_PASTA') == 'Cível Seguros' .and. llNovo == .T.
+            // Gera o pedido inicial e marca o sinistro no Life, operação = B
+            if LifeGeraPedido(WGet('CD_RAMOSRSN','C'),lcNR_CONTROLE) // Gera o pedido Inicial caso o ramo seja do evida
+
+                // Faz a atualizacao das flags na tabela pasta_seguro
+                laSAVE := {{'FL_STATUSINTERFACE','FL_SINISTRO'},;
+                           {'3',WGet('STATUS_APOLICE','C')}}
+                if db_replace(laSAVE,'pasta_seguro',{'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE}) == -1
+                   error_sys(db_error())
+                endif
+            else
+/*
+Glauber 10/06/2016
+Glauber,
+Conversei com o Alexandre e segue o que foi definido em relação a interface Life.
+- Pode empacotar e disponibilizar para o Robson atualizar hoje a noite
+- Sobre o ajuste em relação a mensagem de erro que retorna quando a interface identifica algum problema, neste caso, não deve salvar o sinistro enquanto o erro apontado não for sanado pelo usuário do ISJ ou do próprio Life.
+Então este ajuste irá posteriormente ok?
+Obrigada,
+Celia Margarida
+*/
+                if db_delete('pasta_seguro',{'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE}) == -1
+                   error_sys(db_error())
+                endif
+            endif
+         endif
+         
+        //wout('Vai gerar o pedido')
+         // Glauber 26/03/2014 - Gerar o pedido somente se o sinistro for novo.
+
+         // Glauber 01/02/2016 - pasta 6277 - Caso o sinistro já exita no Isj não deve marcar e não deve gerar o pedido inicial
+
+         if ! VerifSinistro(WGet('NR_PASTA'), WGet('NR_SINISTRO','C'))
+
+             if (ExecutarWS(WGet('CD_RAMOSRSN')) .and. llNovo)
+                GeraPedido(WGet('CD_RAMOSRSN','C'),lcNR_CONTROLE) // Gera o pedido Inicial caso o ramo seja do evida
+             endif
+         endif
+
+         // Glauber  - Ebao geração do pedido inicial atrelado ao sinistro
+
+
+         if  (! llERRO) .and. (! empty(WSet('PATHEBAO')) .and. llNovo .and. objEbaoCfg:Habilitada(NIL, WGet('CD_RAMOSRSN','C'))) // Interface Ebao
+            objMarcacao:NrControleSeguro := val(lcNR_CONTROLE)
+            objMarcacao:GerarPedidoInicial()
+
+            // Processar as diversas coberturas e subcoberturas que estão no campo hidden
+
+//                                                                                                       Valor              Codigo                       Descricao
+//            <input type="hidden" id="TODAS_COBERTURAS" name="TODAS_COBERTURAS" value="<CTList><CT><SI>100000</SI><cTCode>CI_440000302</cTCode><cTName>Danos Morais</cTName></CT></CTList>">
+
+            lcTMP := WGET('TODAS_COBERTURAS')
+            if (! empty(lcTMP))
+
+               lcTMP := StrTran(lcTMP,'<CTList>','')
+               lcTMP := StrTran(lcTMP,'</CTList>','')
+
+               lcTMP := StrTran(lcTMP,'<SI>','')
+               lcTMP := StrTran(lcTMP,'<cTCode>','')
+               lcTMP := StrTran(lcTMP,'<cTName>','')
+
+               lcTMP := StrTran(lcTMP,'</SI>',';')
+               lcTMP := StrTran(lcTMP,'</cTCode>',';')
+               lcTMP := StrTran(lcTMP,'</cTName>',';')
+
+               lcTMP := StrTran(lcTMP,'<CT>','')
+
+
+               laRES := Str2Array(lcTMP, {';','</CT>'})
+
+//debug2(laRES,,30)
+
+               for ii := 1 to len(laRES)
+                    if (! Empty(Alltrim(laRES[ii,1])))
+                        laSAVE := {{'NR_PASTA','NR_CONTROLE','LMI_NR','LMI_VL','LMI_VL_SINISTRADO','LMI_NM_COBERTURA'}}
+                        aadd(laSAVE,{val(lcNR_PASTA),;
+                                     val(lcNR_CONTROLE),;
+                                     0,;
+                                     laRES[ii,1],;
+                                     laRES[ii,1],;
+                                     laRES[ii,3]})
+
+                        if db_insert(laSAVE,'pasta_seguro_lmi') == -1
+                           error_sys(db_error())
+                        endif
+                    endif
+               next ii
+            endif
+
+         endif
+
+          
+          if objI4pService:isEnabled()
+             *** Rufino 16/01/2018 11:31:29            
+             *** INCLUI PEDIDO 1 CENTAVO
+             laPEDIDOS := objI4pService:getNRCONTROLE(wGet('NR_PASTA','C'))            
+         
+             objI4pService:GPedInicial(wGet('NR_PASTA','C'), laPEDIDOS[2,db_fetchncol(laPEDIDOS,'NR_CONTROLE')])          
+          endif
+
+         
+
+         carrega_seguro(lcNR_PASTA,lcNR_CONTROLE)
+      endif
+   elseif lcACTION == 'SAVEWS' .and. gbWAC_READ
+          // Glauber 08/09/2010 - Interface Webservice Unimed
+          // Este action eh porque devo capturar o retorno da tela
+          // mnt_sinistro_web e atualizar nos devidos actions desta tela
+
+          if ifWS == .T.
+                    laFROMTO := {{'CD_MOEDA','CD_MOEDA',''},;   
+                       {'SINISTRO_NUMERO','NR_SINISTRO',''},;
+                       {'ID_INTEGRACAO','NR_SINISTRO',''},;
+                       {'TP_INTEGRACAO','NR_SINISTRO',''},;
+                       {'CD_RAMOSRSN','CD_RAMOSRSN',''},;
+                       {'FL_SINISTRO','FL_SINISTRO',''},;
+                       {'PAGTO_PENDENTES','PAGTO_PENDENTES',''},;
+                       {'PAGTO_AGENDADOS','PAGTO_AGENDADOS',''},;
+                       {'TP_SINISTRO','TP_SINISTRO',''},;
+                       {'UF','UF',''},;
+                       {'CNPJ_CPF','CIP_SEGURADO',''},;
+                       {'NOME_SEGURADO','PFPJ',''},;
+                       {'DATA_SINISTRO','DT_SINISTRO', ''},;
+                       {'DATA_BAIXA','DT_BAIXA', ''},;
+                       {'NR_APOLICE','PFPJ',''},;
+                       {'STATUS_APOLICE','FL_APOLICE',''},;
+                       {'NR_PROPOSTA','NR_PROPOSTA',''},;
+                       {'DATA_CONTRATACAO','DT_CONTRATACAO',''},;
+                       {'VALOR_PREMIO_PAGO','VL_PREMIO_PAGO',''},;
+                       {'DATA_PAGTO_PREMIO','DT_PAGTO_PREMIO',''},;
+                       {'DATA_AVISO','DT_AVISO',''},;
+                       {'NR_ENDOSSO','NR_ENDOSSO',''},;
+                       {'CD_CORRETOR','CD_CORRETOR',''},;
+                       {'CD_ESTIPULANTE','CIP_ESTIPULANTE',''},;
+                       {'FL_COSSEGURO','FL_COSSEGURO',''},;
+                       {'NR_COSSEGURO_ORDEM','',''},;
+                       {'PC_COSSEGURO','FL_COSSEGURO',''},;
+                       {'CNPJ_CONGENERE','',''},;
+                       {'NR_COBERTURA','',''},;
+                       {'NM_LMI_COBERTURA','NM_LMI_COBERTURA1',''},;
+                       {'VL_LMI','VL_LMI1',''}}
+
+          else
+                laFROMTO := {{'CD_MOEDA','CD_MOEDA',''},;
+                       {'SINISTRO_NUMERO','NR_SINISTRO',''},;
+                       {'ID_INTEGRACAO','NR_SINISTRO',''},;
+                       {'TP_INTEGRACAO','NR_SINISTRO',''},;
+                       {'CD_RAMOSRSN','CD_RAMOSRSN',''},;
+                       {'FL_SINISTRO','FL_SINISTRO',''},;
+                       {'PAGTO_PENDENTES','PAGTO_PENDENTES',''},;
+                       {'PAGTO_AGENDADOS','PAGTO_AGENDADOS',''},;
+                       {'TP_SINISTRO','TP_SINISTRO',''},;
+                       {'UF','UF',''},;
+                       {'CNPJ_CPF','CIP_SEGURADO',''},;
+                       {'NOME_SEGURADO','PFPJ',''},;
+                       {'DATA_SINISTRO','DT_SINISTRO', ''},;
+                       {'DATA_BAIXA','DT_BAIXA', ''},;
+                       {'NR_APOLICE','PFPJ',''},;
+                       {'STATUS_APOLICE','FL_APOLICE',''},;
+                       {'NR_PROPOSTA','NR_PROPOSTA',''},;
+                       {'DATA_CONTRATACAO','DT_CONTRATACAO',''},;
+                       {'VALOR_PREMIO_PAGO','VL_PREMIO_PAGO',''},;
+                       {'DATA_PAGTO_PREMIO','DT_PAGTO_PREMIO',''},;
+                       {'DATA_AVISO','DT_AVISO',''},;
+                       {'NR_ENDOSSO','NR_ENDOSSO',''},;
+                       {'CD_CORRETOR','CD_CORRETOR',''},;
+                       {'CD_ESTIPULANTE','CIP_ESTIPULANTE',''},;
+                       {'FL_COSSEGURO','FL_COSSEGURO',''},;
+                       {'NR_COSSEGURO_ORDEM','',''},;
+                       {'PC_COSSEGURO','FL_COSSEGURO',''},;
+                       {'CNPJ_CONGENERE','',''},;
+                       {'NR_COBERTURA','',''},;
+                       {'LMI_NM_COBERTURA','LMI_NM_COBERTURA',''},;
+                       {'LMI_VL','LMI_VL',''},;
+                       {'LMI_VL_SINISTRADO','LMI_VL_SINISTRADO',''}}
+          endif             
+          // alimentar lafromto com os dados de retorno
+          for lnii := 1 to len(laFROMTO)
+              if laFROMTO[lnii,1] == 'CD_MOEDA'
+                 laFROMTO[lnii,3] := 1
+              else   
+                 laFROMTO[lnii,3] := WGet(laFROMTO[lnii,1],wmd_fieldtype(laFROMTO[lnii,2]))
+              endif
+          next lnii
+          // Preencher os campos da tela com os dados de retorno
+          for lnii := 1 to len(laFROMTO)
+              if ! empty(laFROMTO[lnii,2])
+                 Wput(laFROMTO[lnii,2],laFROMTO[lnii,3])
+              endif
+          next lnii      
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+
+//------------- 1a consistencia web para envio desflag de sinistro web - Sonia Perdigão 29/1/2009 - 18:00:14   
+// ------------------------------- nao esquecer de remontar a tela
+// --------------------------------
+// Glauber 02/11 - Conforme definicao da interface webservice somente podera ser excluido
+// um sinsitro caso o mesmo nao conste em outra pasta
+
+
+   // Glauber 07/10/2014 - Correção da chamada ao webservice, pegando o ramo do seguro
+
+   lcWHERE    := 'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE
+
+   if db_select({'CD_RAMOSRSN'},'pasta_seguro',,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+
+   if len(laRES) > 1 .and. ExecutarWS(laRES[2,1])
+      lcWHEREexc := 'NR_SINISTRO = '+DLAP+alltrim(WGET('NR_SINISTRO','C'))+DLAP + ;
+                    ' and NR_PASTA <> ' + lcNR_PASTA
+      if db_select({'NR_PASTA','NR_SINISTRO'},'pasta_seguro',,{lcWHEREexc}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         WAlert('O sinistro não pode ser excluido. O mesmo encontra-se na pasta '+str(laRESULT[2,1]))
+         get2put()
+         pasta_abas(lcTP_PASTA)
+         make_psthead(lcNR_PASTA,wGet('TP_PASTA','C'))
+      endif
+
+   endif
+   /* ----------- BLOQUEADO PROJETO SUSPENSO EM 09/02/2009
+      lcWHEREexc := 'NR_SINISTRO = '+DLAP+alltrim(WGET('NR_SINISTRO','C'))+DLAP
+      if db_select({'NR_PASTA','NR_SINISTRO'},'pasta_seguro',,{lcWHEREexc}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchall()
+      lcpasta_teste := 0
+      if len(laRESULT) > 0
+         for i := 2 to len(laresult)
+            lcpasta_teste := LARESULT[i,1]
+            lcWHERE1 := 'NR_PASTA = '+DLAP+STR(lcpasta_teste)+DLAP
+            if db_select({'NR_PASTA','FL_PASTA'},'pasta',,{lcWHERE1}) = -1
+               error_sys()
+            endif
+            lares1 := db_fetchall()
+            if len(lares1) > 0
+              if lares1[2,2] == 'Ativa' 
+                  walert('Não pode enviar arquivo para desflagar seguro!\nExiste(m) '+alltrim(str(laRESULT[1]))+' Pasta(s) com o mesmo Sinistro Ativo.')
+                  get2put()
+                  return (.f.)
+              endif    
+            endif
+          next i  
+      endif
+*/      
+
+// 2a consistencia web -------------------------------------------------------------------------
+// ------------------------------------
+// ------------------------------------
+//      lcWHEREexc := 'NR_PASTA = '+DLAP+alltrim(WGET('NR_PASTA','C'))+DLAP+' AND NR_SINISTRO = '+DLAP+alltrim(WGET('NR_SINISTRO','C'))+DLAP
+//      if db_select({'NR_PASTA','NR_SINISTRO','FL_INTERFACEGEM','FL_INTERFACEWEB'},'pasta_pedido',,{lcWHEREexc}) = -1
+//         error_sys()
+//      endif
+//      laRESULT := db_fetchall()
+//      if len(laRESULT) > 0
+//         for i := 2 to len(laresult)
+ //           IF LARESULT[i,3] == 'P' .or. LARESULT[i,4] == 'P' 
+  //             walert('Este sinistro Não pode ser deletado!\nExiste(m) lançamentos de Pedidos pendentes de retorno das interface.')
+   //            get2put()
+    //           return (.f.)
+     //       endif
+   //      next i  
+   //   endif
+   
+      if db_select({'count(*)'},'pasta_pedidos',,{'NR_CONTROLE_SEGURO ='+lcNR_CONTROLE}) == -1
+         error_sys()
+      endif
+      laRESPED := db_fetchrow()
+
+      if db_select({'count(*)'},'mvt_despesa',,{'NR_CONTROLE_SEGURO ='+lcNR_CONTROLE}) == -1
+        error_sys()
+      endif
+      laRESDESP := db_fetchrow()
+      if empty(WSet('PATHWSUNIMED')) .and. (laRESPED[1] > 0 .or. laRESDESP[1] > 0)
+         walert('Sinistro não pode ser excluído,\n existem Pedidos / Despesas vinculados a ele.')
+      else
+         // Glauber 23/12/2010
+         // Na rotina de exclusao o sinistro nao estava sendo desmarcado no webservice
+         // Chama a interface webservice para desmarcar o sinistro
+
+
+         if ExecutarWS(laRES[2,1])
+            // Glauber 11/03/2011
+            // Conforme solicitado pela unimed se nao houver saldo na reserva deve ser permitido
+            // a exclusao do sinistro e deve ser desmarcado o sinistro no webservice
+            lcQuery := 'select sum(vl_risco_calc) as VL_RISCO, ' +;
+                       'sum(vl_correcao) as VL_CORRECAO, ' +;
+                       'sum(vl_juros) as VL_JUROS ' +;
+                       'from pasta_pedidos ' +;
+                       'where NR_CONTROLE_SEGURO = ' + lcNR_CONTROLE + ' and '+;
+                       'PEDIDO_PROCESSO <> ' + DLAP + 'Sucumbência de Condenação' + DLAP
+            if db_query(lcQuery) == -1
+               error_sys(db_error())
+            endif
+            laRESDESP := db_fetchall()
+            if len(laRESDESP) > 0 .and. laRESDESP[2,1] > 0 .and.  laRESDESP[2,2] > 0 .and.  laRESDESP[2,3] > 0
+               walert('Sinistro não pode ser excluído,\n existem Pedidos com valor de reserva vinculados a ele.')
+               llErro := .t.
+            else
+               llErro := WSUnimedMarca(.f.,.f.)
+            endif
+         endif
+         if ! llErro
+         psab_logdel(lcNR_PASTA,'NR_CONTROLE',lcNR_CONTROLE,,'Seguro com Sinistro Contabil')
+         // Exclui Registros pasta pasta_seguro_lmi
+         if db_delete('pasta_seguro_lmi',lcWHERE) == -1
+            error_sys(db_error())
+         endif
+         // Exclui Registros pasta pasta_seguro_segurado
+         if db_delete('pasta_seguro_segurado',lcWHERE) == -1
+            error_sys(db_error())
+         endif
+
+         // Exclui Registros pasta pasta_seguro_vitima
+         if db_delete('pasta_seguro_vitima','NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE+;
+                                              ' and CIP_VITIMA='+DLAP+WGet('CIP_VITIMA','C')+DLAP) == -1
+            error_sys(db_error())
+         endif
+
+         // Exclui Registros pasta pasta_seguro_segurado
+         if db_delete('pasta_seguro_beneficiario','NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE+;
+                                              ' and CIP_BENEFICIARIO='+DLAP+WGet('CIP_BENEFICIARIO','C')+DLAP) == -1
+            error_sys(db_error())
+         endif
+
+         // Exclui Registros pasta pasta_seguro (Registro Principal)
+         if db_delete(lcTABLE,lcWHERE) == -1
+            error_sys(db_error())
+         endif
+       endif
+     
+     endif
+   elseif lcACTION == 'DELETE_LMI' .and. gbWAC_DELETE
+      psab_logdel(lcNR_PASTA,'LMI_NR',WGet('LMI_NR','C'),,'Seguro com Sinistro Contabil')
+      if db_delete('pasta_seguro_lmi','NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE+' and LMI_NR='+WGet('LMI_NR','C')) == -1
+         error_sys(db_error())
+      endif
+      carrega_seguro(lcNR_PASTA,lcNR_CONTROLE)
+   elseif lcACTION == 'DELETE_SEGURADO' .and. gbWAC_DELETE
+      psab_logdel(lcNR_PASTA,'CIP_SEGURADO',WGet('CIP_SEGURADO','C'),,'Seguro com Sinistro Contabil')
+      if db_delete('pasta_seguro_segurado','NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE+;
+                                           ' and CIP_SEGURADO='+DLAP+WGet('CIP_SEGURADO','C')+DLAP) == -1
+         error_sys(db_error())
+      endif
+      carrega_seguro(lcNR_PASTA,lcNR_CONTROLE)
+
+   elseif lcACTION == 'DELETE_VITIMA' .and. gbWAC_DELETE
+      psab_logdel(lcNR_PASTA,'CIP_SEGURADO',WGet('CIP_SEGURADO','C'),,'Seguro com Sinistro Contabil')
+      if db_delete('pasta_seguro_vitima','NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE+;
+                                           ' and CIP_VITIMA='+DLAP+WGet('CIP_VITIMA','C')+DLAP) == -1
+         error_sys(db_error())
+      endif
+      carrega_seguro(lcNR_PASTA,lcNR_CONTROLE)
+   elseif lcACTION == 'DELETE_BENEFICIARIO' .and. gbWAC_DELETE
+      psab_logdel(lcNR_PASTA,'CIP_SEGURADO',WGet('CIP_SEGURADO','C'),,'Seguro com Sinistro Contabil')
+      if db_delete('pasta_seguro_beneficiario','NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE+;
+                                           ' and CIP_BENEFICIARIO='+DLAP+WGet('CIP_BENEFICIARIO','C')+DLAP) == -1
+         error_sys(db_error())
+      endif
+      carrega_seguro(lcNR_PASTA,lcNR_CONTROLE)
+   elseif lcACTION == 'DELETE_IMOVEL' .and. gbWAC_DELETE
+
+      psab_logdel(lcNR_PASTA,'ENDEREÇO ',WGet('ENDERECO_IMOVEL','C'),,'Seguro com Sinistro Contabil')
+      if db_delete('pasta_seguro_endereco_imovel','NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE+;
+                   ' and ENDERECO_IMOVEL='+DLAP+WGet('ENDERECO_IMOVEL','C')+DLAP) == -1
+         error_sys(db_error())
+      endif
+      carrega_seguro(lcNR_PASTA,lcNR_CONTROLE)
+   endif
+   if db_select({'pasta_seguro.NR_CONTROLE',;
+                 'pasta_seguro.TP_SINISTRO',;
+                 'pasta_seguro.NR_EXPEDIENTE',;
+                 'pasta_seguro.TP_EXPEDIENTE',;
+                 'pfpj.PFPJ',;
+                 'pasta_seguro.NR_SINISTRO',;
+                 'tipo_sinistro.TP_SINISTRO',;
+                 'pasta_seguro.FL_SINISTRO',;
+                 'sinistro_status.FL_SINISTRO'},;
+                 lcTABLE,;
+                 {{2,'pfpj'         ,'pfpj.CIP=pasta_seguro.CIP_SEGURADO'},;
+                  {2,'tipo_sinistro','tipo_sinistro.TP_SINISTRO=pasta_seguro.TP_SINISTRO'},;
+                  {2,'sinistro_status','sinistro_status.FL_SINISTRO=pasta_seguro.FL_SINISTRO'}},;
+                 {'pasta_seguro.NR_PASTA='+lcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 0
+      WPut('lstSEG_SINISTRO',laRES)
+   endif
+   pasta_abas(lcTP_PASTA)
+   make_psthead(lcNR_PASTA,wGet('TP_PASTA','C'))
+return
+
+static function carrega_seguro(fcNR_PASTA,fcNR_CONTROLE)
+
+   local lcWHERE        := '' ,;
+         lcTABLE        := '' ,;
+         lcFL_STINT     := '' ,;
+         lcLAYOUT_PASTA := '' ,;
+         lcAUX          := '' ,;
+         lcNR_SINISTRO  := '' ,;
+         lcNR_ROW       := '' as string
+   local laFIELDS  := {} ,;
+         laRES     := {} ,;
+         laFOREIGN := {} ,;
+         laAUX     := {} ,;
+         laJOIN    := {} ,;
+         laPUT     := {} as array
+
+   local xx 	:= 0 ,;
+         ii 	:= 0 ,;
+         lnPOS := 0 as int
+
+   local lnVTR := 0.00 ,;
+         lnVTC := 0.00 ,;
+         lnVTJ := 0.00 ,;
+         lnVTA := 0.00 ,;
+         lnVA  := 0.00 as numeric
+
+   lcTABLE    := 'pasta_seguro'
+   laFIELDS   := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+   lcWHERE    := 'NR_PASTA='+fcNR_PASTA+' and NR_CONTROLE='+fcNR_CONTROLE
+
+   //pegando lcLAYOUT_PASTA
+   if db_select({'LAYOUT_PASTA'},'pasta_config',,{'TP_PASTA='+DLAP+WGet('TP_PASTA','C')+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchrow()
+   if len(laRES) > 0
+      lcLAYOUT_PASTA := lower(laRES[1])
+   endif
+
+   if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+
+   if len(laRES) > 1
+      db2Put(laRES)
+      WPut('NR_SINISTRO_OLD',laRES[2,db_fetchncol(laRES,'NR_SINISTRO')]) // Controle do NR_SINISTRO
+
+      lcFL_STINT := laRES[2,db_fetchncol(laRES,'FL_STATUSINTERFACE')]
+
+      if lcFL_STINT == '2' .and. lcLAYOUT_PASTA != 'juizo_filial'
+         WPut('ifVALIDAR',.t.)
+      endif
+
+      //if lcFL_STINT != '0' .and. lcFL_STINT != '7' .and. lcFL_STINT != '8' .and. lcFL_STINT != '9'
+      if lcFL_STINT == '6'
+         WPut('NR_SINISTRO.readonly',.t.)
+         WPut('NR_SINISTRO.class','winputreadonly')
+      endif
+
+      lnPOS := ascan(paFL_STINT, { | x | x[1] == lcFL_STINT })
+  		if lnPOS > 0
+  			WPut('NM_FL_STATUSINTERFACE',paFL_STINT[lnPOS,2])
+	   endif
+      //WPut('NM_FL_STATUSINTERFACE',paFL_STINT[val(lcFL_STINT)+1])
+
+      /* Carrega as Descrições dos campos CIP_* */
+      for ii:= 1 to len(laFIELDS)
+         if substr(laFIELDS[ii],1,4) == 'CIP_'
+            aadd(laFOREIGN,laFIELDS[ii])
+         endif
+      next ii
+      if len(laFOREIGN) > 0
+         for ii:= 1 to len(laFOREIGN)
+            if ! empty(laRES[2,ascan(laFIELDS,laFOREIGN[ii])])
+               if db_select({'PFPJ'},'pfpj',,;
+                            {'CIP='+DLAP+laRES[2,ascan(laFIELDS,laFOREIGN[ii])]+DLAP,'CIP <> '+DLAP+DLAP}) == -1
+                  error_sys(db_error())
+               endif
+               laPUT := db_fetchrow()
+               if len(laPUT) > 0
+                  WPut(laFOREIGN[ii]+'_PFPJ',laPUT[1])
+               endif
+            endif
+         next ii
+      endif
+
+      /* Carrega demais campos */
+      laFOREIGN := {{'centrocusto',{'NM_CCUSTO'},'CD_CCUSTO='+DLAP+laRES[2,db_fetchncol(laRES,'CD_CCUSTO')]+DLAP},;
+                    {'sinistro_causa',{'NM_CAUSA_SINISTRO'},'CD_CAUSA_SINISTRO='+str(laRES[2,db_fetchncol(laRES,'CD_CAUSA_SINISTRO')])},;
+                    {'moeda',{'NM_MOEDA'},'CD_MOEDA='+str(laRES[2,db_fetchncol(laRES,'CD_MOEDA')])},;
+                    {'segurocausanis',{'NM_CAUSA_NIS'},'CD_CAUSA_NIS='+str(laRES[2,db_fetchncol(laRES,'CD_CAUSA_NIS')])},;
+                    {'ramosrsn',{'SEGURORAMO','SEGUROPRODUTO','SEGUROPROFIT'},'CD_RAMOSRSN='+DLAP+laRES[2,db_fetchncol(laRES,'CD_RAMOSRSN')]+DLAP},;
+                    {'produto',{'NM_PRODUTO'},'CD_PRODUTO='+DLAP+laRES[2,db_fetchncol(laRES,'CD_PRODUTO')]+DLAP}}
+
+      for ii := 1 to len(laFOREIGN)
+         if db_select(laFOREIGN[ii,2],laFOREIGN[ii,1],,{laFOREIGN[ii,3]}) == -1
+            error_sys(db_error())
+         endif
+         laPUT := db_fetchrow()
+         if  len(laPUT) > 0
+           for xx := 1 to len(laPUT)
+              wPut(laFOREIGN[ii,2][xx],laPUT[xx])
+           next xx
+         endif
+      next ii
+
+      /* Carrega tabela Sinistro / Novo Auto */
+      lcNR_SINISTRO := laRES[2,db_fetchncol(laRES,'NR_SINISTRO')]
+      if ! empty(alltrim(lcNR_SINISTRO))
+         lcAUX := 'NU_IBM like '+DLAP
+         lcAUX += substr(lcNR_SINISTRO,1,13)
+         lcAUX += '%'+DLAP
+
+         if db_select({'NU_IBM','NU_SIN_GAR'},'TB_SIN_IBM_NOVOAUTO',,{lcAUX}) == -1
+            error_sys(db_error())
+         endif
+         laRES := db_fetchall()
+         if len(laRES) > 1
+            WPut('ifSIN_NOVOAUTO',.t.)
+            WPut('lstSIN_NOVOAUTO',laRES)
+         endif
+      endif
+
+      /* Carrega grid de valores LMI */
+      if db_select({'LMI_NM_COBERTURA','LMI_NR','LMI_VL','LMI_VL_SINISTRADO'},'pasta_seguro_lmi',,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      WPut('lstLMI',laRES)
+
+      /* Carrega Dados da Tabela pasta_seguro_segurado */
+      if db_select({'pasta_seguro_segurado.NR_PASTA',;
+                    'pasta_seguro_segurado.NR_CONTROLE',;
+                    'pasta_seguro_segurado.CIP_SEGURADO',;
+                    'pfpj.PFPJ as CIP_SEGURADO_PFPJ',;
+                    'pasta_seguro_segurado.NR_CONTRATO'},;
+                   'pasta_seguro_segurado',;
+                   {{2,'pfpj','pfpj.CIP=pasta_seguro_segurado.CIP_SEGURADO'}},;
+                   {'pasta_seguro_segurado.NR_PASTA='+fcNR_PASTA+' and pasta_seguro_segurado.NR_CONTROLE='+fcNR_CONTROLE}) == -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      WPut('lstSEGURADO',laRES)
+
+      /* Carrega grid de Beneficiarios */
+      lcWHERE    := 'pasta_seguro_beneficiario.NR_PASTA='+fcNR_PASTA+' and pasta_seguro_beneficiario.NR_CONTROLE='+fcNR_CONTROLE
+      laAUX := {'pasta_seguro_beneficiario.CIP_BENEFICIARIO',;
+                'pasta_seguro_beneficiario.PC_PARTICIPACAO',;
+                'pasta_seguro_beneficiario.GRAU_PARENTESCO',;
+                'pfpj.pfpj as CIP_BENEFICIARIO_PFPJ'}
+      laJOIN := {{2,'pfpj','pasta_seguro_beneficiario.CIP_BENEFICIARIO = pfpj.CIP'}}
+      if db_select(laAUX,'pasta_seguro_beneficiario',laJOIN,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+
+      laRES := db_fetchall()
+      WPut('lstBENEFICIARIOS',laRES)
+
+      /* Carrega grid de Vitimas */
+      lcWHERE    := 'pasta_seguro_vitima.NR_PASTA='+fcNR_PASTA+' and pasta_seguro_vitima.NR_CONTROLE='+fcNR_CONTROLE
+      laAUX := {'pasta_seguro_vitima.CIP_VITIMA',;
+                'pfpj.pfpj as CIP_VITIMA_PFPJ'}
+      laJOIN := {{2,'pfpj','pasta_seguro_vitima.CIP_VITIMA = pfpj.CIP'}}
+      if db_select(laAUX,'pasta_seguro_vitima',laJOIN,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+
+      laRES := db_fetchall()
+      WPut('lstVITIMAS',laRES)
+
+      /* Carrega grid de Endereços */
+      lcWHERE    := 'NR_PASTA='+fcNR_PASTA+' and NR_CONTROLE='+fcNR_CONTROLE
+      laAUX := {'ENDERECO_IMOVEL','MUNICIPIO_IMOVEL','UF_IMOVEL'}
+
+      if db_select(laAUX,'pasta_seguro_endereco_imovel',,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      WPut('lstENDERECO',laRES)
+      WPut('ifNOVO',.f.)
+
+      mkgedico('pasta_seguro') // Criação do link com o GED
+   endif
+return (nil)
+
+/*
+* Data......: 02/09/2010 - Glauber
+* Function..: WSUnimedMarca(plFLAG, plREABRE)
+* Objetivo..: Executa a marcação do sinistro via webservice.
+* Parâmetros:
+*  plFLAG   : Se .t. marca o sinistro, caso contrário desmarca.
+*  plREABRE : Se .t. reabre o sinistro.
+* Retorno...: .t. caso a comunicação ocorra com sucesso, .f. caso ocorra algum erro.
+*/
+
+Static Function WSUnimedMarca(plFLAG, plREABRE)
+
+local lcEnv    := '',;
+      lcRet    := '',;
+      lcParser := '',;
+      lcRun    := '',;
+      lcPath   := '',;
+      lcRAMO   := '',;
+      lcTMP    := '',;
+      lcLABEL  := ''
+local laCONF   := {},;
+      laRESULT := {},;
+      laWSet   := {},;
+      laRES    := {},;
+      laTMP    := {} as array
+local ii   := 0,;
+      lnii := 0 as int
+local llErro := .f.
+local llRetorno := .t.
+   lcPath := WSet('PATHWSUNIMED')
+   if ! file(lcPath+'InsoUnimedWsConsumer.exe')
+      error_sys('Aplicação de consumo webservice não esta presente no diretório informado no wprofile')
+      llErro := .t.
+   endif
+   // Valida os campos necessário para chamar o webservice
+
+   if empty(WGet('NR_SINISTRO','C'))
+      error_sys('O campo '+ lblfscreen('NR_SINISTRO') + ' é obrigatório.')
+      return
+//   elseif empty(WGet('CD_RAMOSRSN','C'))
+//      error_sys('O campo '+ lblfscreen('CD_RAMOSRSN') + ' é obrigatório.')
+//      return
+   endif
+
+
+  // wout('Retorno de WGet:'+WGet('CD_RAMOSRSN','C'))
+
+/*
+  Glauber 27/03/2014 - Conforme solicitado pelo Kleberney, agora ele esta validando a interface. Na última alteração solicitada em 15/10/2013, foi realizado a alteração de somente efetuar a gravação
+                       do sinistro, caso a comunicação do webservice estiver ok. Esta alteração foi feita, mas como não temos acesso ao webservice deles, não tivemos condições de testar.
+                       Como ele assumiu esta parte, agora estamos realizando os ajustes pontuais decorrente desta alteração.
+
+   if db_select({'pasta.DT_CITACAO',;
+                 'pasta_seguro.CD_RAMOSRSN'},;
+                 'pasta_seguro',;
+                 {{0,'pasta' ,'pasta.NR_PASTA = pasta_seguro.NR_PASTA'}},;
+                 {'pasta_seguro.NR_PASTA='+Wget('NR_PASTA','C')+ ' and pasta_seguro.NR_SINISTRO = ' + DLAP +WGet('NR_SINISTRO','C') + DLAP}) == -1
+      error_sys(db_error())
+   else
+      laRESULT := db_fetchall()
+      if len(laRESULT) == 1
+         WAlert('Não foi encontrado os dados do sinistro numero '+ WGet('CD_RAMOSRSN','C') + '.')
+        return
+     else
+        if empty(laRESULT[2,1])
+           WAlert('O campo '+ lblfscreen('DT_CITACAO') + ' da aba Informacoes principais é obrigatório.')
+           return
+        endif
+        if empty(laRESULT[2,1])
+           WAlert('O campo '+ lblfscreen('CD_RAMOSRSN') + ' da aba Seguro é obrigatório.')
+           return
+        endif
+     endif
+   endif
+
+*/
+
+
+// Glauber 07/10/2014 - Validando a operação de exclusão.
+
+
+   lcRAMO := WGet('CD_RAMOSRSN','C')
+
+   if empty(lcRAMO)
+
+         lcWHERE    := 'NR_PASTA='+wGet('NR_PASTA','C')+' and NR_CONTROLE='+wGet('NR_CONTROLE','C')
+
+         if db_select({'CD_RAMOSRSN'},'pasta_seguro',,{lcWHERE}) == -1
+            error_sys(db_error())
+         endif
+         laRES := db_fetchall()
+         if len(laRES) > 1
+            lcRAMO := laRES[2,1]
+         endif
+   endif
+
+
+   if db_select({'pasta.DT_CITACAO'}, 'pasta',,{'pasta.NR_PASTA='+Wget('NR_PASTA','C')}) == -1
+      error_sys(db_error())
+   else
+      laRESULT := db_fetchall()
+      if len(laRESULT) == 1
+         WAlert('Não foi encontrado os dados do sinistro numero '+ WGet('CD_RAMOSRSN','C') + '.')
+        return
+     else
+        if empty(laRESULT[2,1])
+           WAlert('O campo '+ lblfscreen('DT_CITACAO') + ' da aba Informacoes principais é obrigatório.')
+           return
+        endif
+        if empty(lcRAMO)
+           WAlert('O campo '+ lblfscreen('CD_RAMOSRSN') + ' da aba Seguro é obrigatório.')
+           return
+        endif
+     endif
+   endif
+
+   aadd(laRESULT[1],'CD_RAMOSRSN')
+   aadd(laRESULT[2],lcRAMO)
+
+
+   laCONF := RetornaConfWS()
+   if len(laCONF) > 0
+
+      laRESULT := {{'NR_SINISTRO','CD_RAMOSRSN','NR_CONTROLE','DT_CITACAO','FL_ACAO','FL_REABRE'},;
+                   {WGet('NR_SINISTRO'),lcRAMO,'1',dtos(laRESULT[2,1]),iif(plFLAG,'S','N'),iif(plREABRE,'S','')}}
+
+      // Consultar os dados do sinsitro
+      lcEnv  := lcPath + 'ENV' + Wset('LOGIN') + getTimeStamp() + '.XML'
+      lcRet  := lcPath + 'RET' + Wset('LOGIN') + getTimeStamp() + '.XML'
+
+      // Trata o header do resultset antes de enviar o mesmo para o processamento do parser
+      for ii := 1 to len(laRESULT[1])
+          laRESULT[1,ii] := lower(laRESULT[1,ii])
+      next ii // Marcar o sinistro no eVida
+      //debug2(laCONF,,30)
+      if plFLAG
+         lcParser := Parser2Str(laCONF[2,2],laRESULT) // Função presente na func_wic.wh
+      else   //Desmarcar
+         lcParser := Parser2Str(laCONF[2,8],laRESULT) // Função presente na func_wic.wh
+      endif
+      GravaArquivo(lcEnv,lcParser) // Função estatica neste programa que grava o xml
+
+   // Grava o log
+   if db_insert({{'NR_PASTA','NR_SINISTRO','ID_INTEGRACAO','ID_SERVICO','DT_OPERACAO','HR_OPERACAO','FL_ACAOJUD','RETORNO'},;
+                 {WGet('NR_PASTA'),WGet('NR_SINISTRO'),1,1,date(),time(),iif(plFLAG,'S','N'),lcParser}},'isjunimedservlog') == -1
+      error_sys(db_error())
+   endif
+
+// Executa o pedido das informações
+//
+     if WSet('WSUNIMEDDEBUG') != 'ENABLE'
+
+          // Executa o pedido das informações
+          lcRun := lcPath + 'InsoUnimedWsConsumer.exe IntegracaoIsj ' + lcEnv + ' ' + lcRet
+          ! (lcrun)
+
+          // Aguarda o tempo da resposta
+          inkey(laCONF[2,6])
+          // Obter o conteúdo da pesquisa
+          if (! file(lcRet))
+             Walert('Erro ao receber o arquivo de retorno:'+lcRet)
+             llErro := .t.
+          endif
+          lcTMP  := GetFileContent(lcRet) // Resgata o conteúdo do arquivo de retorno
+          lcERRO := TrataErroWS(lcTMP) // Verifica se no conteúdo do retorno contém algum erro.
+
+          // Grava o log
+          if db_insert({{'NR_PASTA','NR_SINISTRO','ID_INTEGRACAO','ID_SERVICO','DT_OPERACAO','HR_OPERACAO','FL_ACAOJUD','RETORNO'},;
+                     {WGet('NR_PASTA'),WGet('NR_SINISTRO'),1,9,date(),time(),iif(plFLAG,'S','N'),lcERRO}},'isjunimedservlog') == -1
+             error_sys(db_error())
+          endif
+
+          if ! empty(lcERRO)
+              WAlert('Erro ao processar o retorno do webservice: '+lcERRO)
+              llErro := .t.
+          endif
+          if ! llErro
+             lcTMP := strtran(lcTMP,'<sinistro>','')
+             lcTMP := strtran(lcTMP,'</sinistro>','')
+             laTMP := xml2array(lcTMP,{'<','/>'})
+
+             // Processa o conteúdo do xml para montar o array do WPut
+
+             //debug2(laTMP,,30)
+             // Atualiza a tela com os valores retornados
+          endif
+     endif     
+   else
+       error_sys('Nao foi encontrado a configuracao do WS')
+   endif
+return(llErro)
+
+
+
+
+
+/*
+* Data......: 08/09/2010 - Glauber
+* Function..: GeraPedido(pcRAMO, pcNR_CONTROLE)
+* Objetivo..: Verifica se o ramo eh do e-vida e gera o pedido inicial de 0,01
+* Parâmetros:
+*
+* pcRAMO       : Codigo do Ramo
+* pcNR_CONTROLE: NR_CONTROLE de pasta_seguro
+* Retorno...: Nada
+*/
+
+Static Function GeraPedido(pcRAMO,pcNR_CONTROLE)
+
+local lcEnv     := '',;
+      lcRet     := '',;
+      lcParser  := '',;
+      lcRun     := '',;
+      lcPath    := '',;
+      lcTMP     := '',;
+      lcLABEL   := '',;
+      lcWHERE   := '',;
+      lcCD_RAMO := '' as string
+local laCONF   := {},;
+      laRESULT := {},;
+      laWSet   := {},;
+      laSAVE   := {},;
+      laSeq    := {},;
+      laPADRAO := {},;
+      laTMP    := {} as array
+local ii            := 0,;
+      lnii          := 0,;
+      lnSeq         := 0,;
+      lnNR_CONTROLE := 0 as int
+local llErro := .f.
+
+
+   laCONF := RetornaConfWS()
+//  wout('Configuração')
+//  debug2(laCONF,,300)
+   if len(laCONF) > 0
+      // Verifica se ramo eh do evida
+      if db_select({'pasta_seguro.CD_RAMOSRSN'},;
+                    'pasta_seguro',;
+                    {{0,'pasta' ,'pasta.NR_PASTA = pasta_seguro.NR_PASTA'}},;
+                    {'pasta_seguro.NR_PASTA='+Wget('NR_PASTA','C')+ ' and pasta_seguro.NR_SINISTRO = ' + DLAP +WGet('NR_SINISTRO','C') + DLAP}) == -1
+               error_sys(db_error())
+      else
+           laRESULT := db_fetchall()
+           if len(laRESULT) == 1
+              WAlert('Não foi encontrado o código do ramo deste sinistro. \n Não será gerado o lançamento do pedido inicial para o webservice.')
+              return
+           else
+              if empty(laRESULT[2,1])
+                 WAlert('Não foi encontrado o código do ramo deste sinistro. \n Não será gerado o lançamento do pedido inicial para o webservice.')
+                 return
+              else
+                 lcCD_RAMO := laRESULT[2,1]
+              endif
+           endif
+      endif
+//      wout('ramo:'+lcCD_RAMO)
+//      wout('configuração:'+laCONF[2,3])
+      if at(lcCD_RAMO,laCONF[2,3]) > 0
+
+         // Glauber 26/01
+         // Atualização da reserva
+
+/*
+
+Glauber 11/04/2014
+
+Conformo solicitação do Kleberney via email na data do dia 10/04, retirar a chamada que envia o ajuste da reserva.
+Segundo ele, esta operação é realizada automaticamente na primeira chamada que marca o sinsistro.
+
+*/
+
+
+         lcPath := WSet('PATHWSUNIMED')
+
+         if ! file(lcPath+'InsoUnimedWsConsumer.exe')
+            error_sys('Aplicação de consumo webservice não esta presente no diretório informado no wprofile. \n Não será gerado o lançamento do pedido inicial para o webservice.')
+            llErro := .t.
+         endif
+
+         if ! llErro
+            // Glauber 21/03/2011
+            // Mudar a flag de calculo automatico para N conforme solicitacao da unimed
+            laSAVE := {{'NR_PASTA',;
+                       'PEDIDO_PROCESSO',;
+                       'NR_CONTROLE_SEGURO',;
+                       'DT_RISCO',;
+                       'VL_RISCO',;
+                       'VL_RISCO_CALC',;
+                       'PC_RISCO',;
+                       'DT_MOVTO_PED',;
+                       'FL_INTERFACEGEM',;
+                       'FL_CALCULO'},;
+                       {WGet('NR_PASTA'),; // NR_PASTA
+                       'Pedido inicial interface eVida' ,; // PEDIDO_PROCESSO
+                       pcNR_CONTROLE,; // NR_CONTROLE_SEGURO
+                       date(),;        // DT_RISCO
+                       0.01,;          // VL_RISCO
+                       0.01,;          // VL_RISCO_CALC
+                       100,;           // PC_RISCO
+                       date(),;        // DT_MOVTO_PED
+                       '2',;           // FL_INTERFACEGEM
+                       'N'}}           // FL_CALCULO
+            if db_insert(laSAVE,'pasta_pedidos') == -1
+               error_sys(db_error())
+            endif
+            lnNR_CONTROLE := db_insert_id()
+            //
+            // Glauber 01/02/2011
+            // Gerar os lançamentos contábeis para o gem
+            //
+            // Observacao: não é serviço porco ou gambiarra minha, mas no registro
+            // para lançamento contábil o valor do risco e do risco calculado, deve
+            // ser informado como 0.00 em vez de 0.01, pois a função xcont só contabiliza a
+            // diferença pega pelo pedido e como a interface gem necessita do lançamento
+            // contábil eu sempre tenho que informa 0.00 neste trecho.
+
+            laPADRAO := valores_padroes(WGet('NR_PASTA','C'),WGet('TP_PASTA','C')) // função estatica no final do programa.
+            if len(laPADRAO) > 1
+                laSAVE := {{'NR_PASTA',;
+                        'NR_CONTROLE',;
+                        'PEDIDO_PROCESSO',;
+                        'NR_CONTROLE_SEGURO',;
+                        'VL_RISCO',;
+                        'PC_RISCO',;
+                        'VL_RISCO_CALC',;
+                        'VL_CORRECAO',;
+                        'VL_JUROS',;
+                        'DT_RISCO',;
+                        'FL_CALCULO',;
+                        'DT_MOVTO_PED',;
+                        'COMENTARIOS_PED',;
+                        'OCOR_PEDIDO',;
+                        'TX_EXPEDIENTE'},;
+                        {WGet('NR_PASTA'),;
+                        lnNR_CONTROLE,;
+                        'Pedido inicial interface eVida',;
+                        pcNR_CONTROLE,;
+                        0.00,; //0.01
+                        100,;
+                        0.00,; // 0.01
+                        0.00,;
+                        0.00,;
+                        laPADRAO[2],;
+                        'N',;
+                        laPADRAO[1],;
+                        laPADRAO[3],;
+                        laPADRAO[3],;
+                        ''}}
+            else
+                laSAVE := {{'NR_PASTA',;
+                        'NR_CONTROLE',;
+                        'PEDIDO_PROCESSO',;
+                        'NR_CONTROLE_SEGURO',;
+                        'VL_RISCO',;
+                        'PC_RISCO',;
+                        'VL_RISCO_CALC',;
+                        'VL_CORRECAO',;
+                        'VL_JUROS',;
+                        'DT_RISCO',;
+                        'FL_CALCULO',;
+                        'DT_MOVTO_PED',;
+                        'COMENTARIOS_PED',;
+                        'OCOR_PEDIDO',;
+                        'TX_EXPEDIENTE'},;
+                        {WGet('NR_PASTA'),;
+                        lnNR_CONTROLE,;
+                        'Pedido inicial interface eVida',;
+                        pcNR_CONTROLE,;
+                        0.00,;
+                        100,;
+                        0.00,;
+                        0.00,;
+                        0.00,;
+                        DATE(),;
+                        'N',;
+                        DATE(),;
+                        '',;
+                        '',;
+                        ''}}
+            endif
+            xcont(laSAVE,WGet('NR_PASTA','C'),WGet('TP_PASTA','C'))
+
+            // Atualizar a reserva via webservice
+            // Atualiza o valor da sequencia na tabela
+/*            
+            if db_select({'nr_sequencia + 1 as nr_sequencia' },'seq_interfaces',,{'PROGRAM='+DLAP+'mnt_sinistro_web_html'+DLAP}) == -1
+               error_sys(db_error())
+            endif
+            laSeq := db_fetchrow()
+            lnSeq := laSeq[1]
+
+            if db_update({{'NR_SEQUENCIA'},{lnSeq}},'seq_interfaces',{'PROGRAM='+DLAP+'mnt_sinistro_web_html'+DLAP}) == -1
+               error_sys(db_error())
+            endif
+
+           laRESULT := {{'NR_SINISTRO','CD_RAMOSRSN','NR_CONTROLE','TP_INTEGRACAO','VALOR_RESERVA','AJUSTE_RESERVA','AJUSTE_CORRECAO_MONETARIA','AJUSTE_JUROS','AJUSTE_SUCUMBENCIA','MANTER_COM_ACAO','ENCERRAR_SINISTRO'},;
+                        {WGet('NR_SINISTRO'),lcCD_RAMO,alltrim(transform(lnSeq,'999999')),'2','0,01','0,01','0,00','0,00','0,00','S','N'}}
+           lcEnv  := lcPath + 'ENV' + Wset('LOGIN') + getTimeStamp() + '.XML'
+           lcRet  := lcPath + 'RET' + Wset('LOGIN') + getTimeStamp() + '.XML'
+           lcParser := Parser2Str(laCONF[2,9],laRESULT) // Função presente na func_wic.wh
+           GravaArquivo(lcEnv,lcParser) // Função estatica neste programa que grava o xml
+
+   // Grava o log
+   if db_insert({{'NR_PASTA','NR_SINISTRO','ID_INTEGRACAO','ID_SERVICO','DT_OPERACAO','HR_OPERACAO','FL_ACAOJUD','RETORNO'},;
+                 {WGet('NR_PASTA'),WGet('NR_SINISTRO'),lnSeq,2,date(),time(),'',lcParser}},'isjunimedservlog') == -1
+      error_sys(db_error())
+   endif
+
+
+           // Executa o pedido das informações
+            // lcRun := lcPath + 'InsoUnimedWsConsumer.exe IntegracaoIsj ' + lcEnv + ' ' + lcRet
+            lcRun := lcPath + WSet('WSAPPNAME')+' '+laCONF[2,7]+' ' + lcEnv + ' ' + lcRet
+            ! (lcrun)
+
+           // Aguarda o tempo da resposta
+           inkey(laCONF[2,6])
+           // Obter o conteúdo da pesquisa
+           if (! file(lcRet))
+              Walert('Erro ao receber o arquivo de retorno:'+lcRet+ ' o arquivo não foi encontrado.')
+              llErro := .t.
+           endif
+           lcTMP  := GetFileContent(lcRet) // Resgata o conteúdo do arquivo de retorno
+           lcERRO := TrataErroWS(lcTMP) // Verifica se no conteúdo do retorno contém algum erro.
+
+   // Grava o log
+   if db_insert({{'NR_PASTA','NR_SINISTRO','ID_INTEGRACAO','ID_SERVICO','DT_OPERACAO','HR_OPERACAO','FL_ACAOJUD','RETORNO'},;
+                 {WGet('NR_PASTA'),WGet('NR_SINISTRO'),2,9,date(),time(),'',lcERRO}},'isjunimedservlog') == -1
+      error_sys(db_error())
+   endif
+
+
+           if ! empty(lcERRO)
+              WAlert('Erro ao processar o retorno do webservice: '+lcERRO)
+              llErro := .t.
+           endif
+*/           
+            laSAVE := {{'NR_PASTA',;
+                        'NR_CONTROLE',;
+                        'PEDIDO_PROCESSO',;
+                        'DT_MOVTO_PED',;
+                        'DT_RISCO',;
+                        'VL_RISCO',;
+                        'VL_RISCO_CALC',;
+                        'PC_RISCO',;
+                        'FL_INTERFACEGEM',;
+                        'LOGIN_CADASTRO'},;
+                        {WGet('NR_PASTA'),;
+                        lnNR_CONTROLE,;
+                        'Pedido inicial interface eVida',;
+                        date(),;
+                        date(),;
+                        0.01,;
+                        0.01,;
+                        100,;
+                        iif(llErro,'','2'),;
+                        'webservice'}}
+            if db_insert(laSAVE,'pasta_detal_pedidos') == -1 
+               error_sys(db_error())
+            endif
+         endif              
+      endif
+   else
+      WAlert('Não foi encontrado configuração para geração automática do pedido. \n Não será gerado o lançamento do pedido inicial para o webservice.')
+   endif
+
+return
+
+
+* Function  : valores_padroes(fcNR_PASTA,fcTP_PASTA)
+* Objetivo  : Alimentar os campos DT_MOVTO_PED, DT_RISCO, OCOR_PEDIDO com valores padrões
+* Parâmetros: 
+*             fcNR_PASTA : Numero da Pasta
+*             fcTP_PASTA : Tipo da Pasta
+*             
+* Autor     : Valdimari Martins - 09/02/2009              
+
+static function valores_padroes(fcNR_PASTA, fcTP_PASTA)
+   local laRESULT      := {},;
+         laRESULT_OCOR := {},;
+         laRETORNO     := {} as array
+
+   if db_select({'DT_RISCO_CONF','OCOR_PEDIDO_INICIO'},'pasta_config',,{'TP_PASTA = '+DLAP+fcTP_PASTA+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT_OCOR:=db_fetchrow()
+
+   if empty(laRESULT_OCOR[2]) .OR. laRESULT_OCOR[2] == ''
+      walert('A parametrização dos Pedidos para esta Pasta \n ainda não foi realizada')
+      return(laRETORNO)
+   else
+      if len(laRESULT_OCOR) > 0
+         if !empty(laRESULT_OCOR[1])
+            if db_select({laRESULT_OCOR[1]},'pasta',,{'NR_PASTA = '+fcNR_PASTA}) == -1
+               error_sys(db_error())
+            endif
+            laRESULT:=db_fetchrow()
+            if len(laRESULT) > 0
+               laRETORNO := {date(),laRESULT[1],laRESULT_OCOR[2]}
+            else
+               walert('A parametrização dos Pedidos para esta Pasta \n ainda não foi realizada')
+            endif
+         else
+            laRETORNO := {date(),'',laRESULT_OCOR[2]}
+         endif   
+      else
+         walert('A parametrização dos Pedidos para esta Pasta \n ainda não foi realizada')
+      endif
+   endif         
+return(laRETORNO)
+
+
+
+
+
+Static Function getTimeStamp()
+
+    return (alltrim(DTOS(DATE())) + strtran(TIME(),':','') + alltrim(wic_random()))
+
+
+
+
+
+
+
+
+
+/*
+* Data......: 01/08/2016 - Glauber
+* Function..: ComunicarEbao()
+* Objetivo..: Enviar o pedido de marcação do sinistro ao eBao
+* Parâmetros:
+*
+*
+*
+* Retorno...: .T. Caso o sinistro seja marcado com sucesso
+*/
+
+Static Function ComunicarEbao()
+
+    local laFIELDS    := {'pasta.NR_PROCESSO',;
+                          'pfpj.CNPJ_CPF',;
+                          'pasta.VL_ACAO',;
+                          'pasta.PC_RISCO'},;
+          laJOIN      := {},;
+          laRES       := {} AS Array
+
+    local lcRISCO     := '0' AS String
+
+
+    local llRET       := .T.
+
+
+    objEbaoCfg  := EbaoConfigNew()
+
+    if ! objEbaoCfg:Habilitada(NIL, WGet('CD_RAMOSRSN','C'))
+       return .T.
+    endif
+
+    if db_select(laFIELDS,'pasta, pfpj',,{'pfpj.CIP = '+ DLAP +WGET('CIP_SEGURADO')+DLAP,'pasta.NR_PASTA = ' + WGet('NR_PASTA','C')}) == -1
+       error_sys(db_error())
+    endif
+
+    laRES := db_fetchall()
+
+// 1- perda provável
+// 2- perda possível
+// 3- perda remota"
+
+
+    if laRES[2,4] == 100
+       lcRISCO := '1'
+    elseif laRES[2,4] == 50
+       lcRISCO := '2'
+    elseif laRES[2,4] == 0
+       lcRISCO := '3'
+    endif
+
+    objMarcacao := EbaoMarcarSinistroNew()
+    objRequest  := HeaderRequestNew()
+    objRetorno  := RetMkSinistroNew()
+
+
+
+    objRequest:TpIntegracao          := 3
+    objRequest:SinistroNumero        := WGet('NR_SINISTRO')
+    objRequest:Ramo                  := WGet('CD_RAMOSRSN','C')
+
+    objMarcacao:NrPasta              := WGet('NR_PASTA')
+    objMarcacao:TpPasta              := WGet('TP_PASTA')
+    objMarcacao:NrControleSeguro     := 0
+    objMarcacao:HeaderRequest        := objRequest
+    objMarcacao:FlgAcaoJudicialValor := 'S'
+    objMarcacao:PastaJudicial        := WGet('NR_PASTA')
+    objMarcacao:NumProcesso          := laRES[2,1]
+    objMarcacao:NomeAutor            := WGet('CIP_RECLAMANTE_PFPJ')
+    objMarcacao:DocAutor             := laRES[2,2]
+    objMarcacao:UfReclamacao         := WGet('UF_ACIDENTE')
+    objMarcacao:VlPleiteado          := laRES[2,3]
+    objMarcacao:VlOferecido          := 0
+    objMarcacao:VlEstimativa         := 0
+    objMarcacao:ClasEstimativa       := lcRISCO
+    objMarcacao:MotivoOperacao       := '1'
+
+    objRetorno := objMarcacao:MarcarSinistro()
+
+    llRET      := (objRetorno:RetEbao:CdRetorno == 0)
+
+    if (! llRET)
+       WAlert(objRetorno:RetEbao:NmRetorno)
+    endif
+
+//wout('<br><b>CdRetorno:'+alltrim(objRetorno:RetEbao:CdRetorno))
+//wout('<br><b>NmRetorno:'+alltrim(objRetorno:RetEbao:NmRetorno))
+
+return llRET
+
+
+
+/*
+* Data......: 08/09/2010 - Glauber
+* Function..: LifeGeraPedido(pcRAMO, pcNR_CONTROLE)
+* Objetivo..: Verifica se o ramo eh do e-vida e gera o pedido inicial de 0,01
+* Parâmetros:
+*
+* pcRAMO       : Codigo do Ramo
+* pcNR_CONTROLE: NR_CONTROLE de pasta_seguro
+* Retorno...: Nada
+*/
+
+Static Function LifeGeraPedido(pcRAMO,pcNR_CONTROLE)
+
+    local objetoLife                  := IsjLifeNew() as Object
+          objetoLife:NrPasta          := WGet('NR_PASTA')
+          objetoLife:TpPasta          := WGet('TP_PASTA')
+          objetoLife:NrSinistro       := WGet('NR_SINISTRO')
+          objetoLife:NrCertificado    := WGet('NR_CERTIFICADO')
+          objetoLife:Base             := WGet('FL_APOLICE')
+          objetoLife:PedidoProcesso   := WGet('LMI_NM_COBERTURA')
+          objetoLife:NrControleSeguro := pcNR_CONTROLE
+          objetoLife:DataRisco        := Date()
+          objetoLife:ValorRisco       := 0.01
+          objetoLife:PcRisco          := 100
+
+
+    return objetoLife:GerarPedidoInicialLife()

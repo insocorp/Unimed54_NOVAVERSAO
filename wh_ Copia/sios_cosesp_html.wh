@@ -1,0 +1,688 @@
+/*
+
+Project      : gr5
+Program      : sios_cosesp.html
+Function     : sios_cosesp_html
+Created on   : 14-Sep-2006   14:01:59
+Descripition : Interface com SIOS Cosesp
+
+*/
+
+   local lcPARAMETRO := upper(alltrim(pcPARAM)) as string          // pcPARAM parametro enviado pelo daemon. E-Envio ou R-Recebimento
+
+   local lcTABLE   := '' ,;
+         lcFILEIN  := '' ,;
+         lcFILEOUT := ''  as string
+
+   local laRESULT := {} ,;
+         laJOIN   := {}  as array
+
+   local lnHAND   := 0  ,;
+         ii       := 0   as int
+
+   lcFILEIN  := WSet("FILESIOSINPUT")   // Path+Nome arquivo de recebimento de dados.
+
+   lcFILEOUT := WSet("FILESIOSOUTPUT")  // Path+Nome arquivo de envio de dados.
+   lcFILEOUT := strtran(lcFILEOUT,'[date]',dtos(date()))   // substitui [date] se houver no nome do arquivo.
+   lcFILEOUT := strtran(lcFILEOUT,'[time]',strtran(time(),':','-'))  // substitui [time] se houver no nome do arquivo.
+
+   if lcPARAMETRO == 'E'     //  Envio de dados.
+      if empty(lcFILEOUT)
+         qout('Arquivo de envio não informado.')
+         return
+      endif
+      lnHAND := fcreate(lcFILEOUT, 0)
+   else                      //  Recebimento de dados.
+      lnHAND := fopen(lcFILEIN, 0)
+   endif
+
+   if lnHAND >= 0
+      proc_detalhe(lcPARAMETRO,lnHAND)
+      fclose(lnHAND)
+   else
+      if lcPARAMETRO == 'E'     //  Envio de dados.
+         qout('Problemas ao criar arquivo de envio : '+lcFILEOUT)
+      else
+         qout('Problemas na leitura do arquivo de recebimento: '+lcFILEIN)
+      endif
+   endif
+return
+
+
+/*
+* Function..: proc_detalhe(fcTIPO,fcHAND)
+* Parâmetros: R - Recebimento
+              E - Envio
+* Retorno...: .t. / .f.
+*/
+static function proc_detalhe(fcTIPO,fcHAND)
+
+   #define NEWLINE chr(13) + chr(10)
+
+   local ii    := 0 ,;
+         zz    := 0 ,;
+         lnPOS := 0  as int
+
+   local lcLINE        := '' ,;
+         lcWHERE       := '' ,;
+         lcNR_SINISTRO := '' ,;
+         lcRAMO        := '' ,;
+         lcFONTE       := '' ,;
+         lcNR_APOLICE  := '' ,;
+         lcNR_PROPOSTA := ''  as string
+
+   local laRESULT := {} ,;
+         laRES    := {} ,;
+         laFIELDS := {} ,;
+         laSAVEAUX:= {}  as array
+
+   local llERRO := .f. as logical
+
+   if fcTIPO = 'E'       // Envio de dados
+      // Buscando os dados a enviar
+      laFIELDS  := { 'pasta_seguro.NR_SINISTRO' ,;
+                     'pasta_seguro.CD_RAMOSRSN' ,;
+                     'pasta_seguro.NR_APOLICE'  ,;
+                     'pasta_seguro.NR_PROPOSTA' ,;
+                     'pasta_seguro.NR_CONTROLE'  }
+      /*
+        0 Branco
+        1 Solicitado informações
+        2 Informações recebidas                 mostra botão para confirmação dos dados recebidos
+        3 Informações OK
+        4 Envio com marca J
+        5 Sinistro encerrado
+        6 Marca J confirmada
+        7 Sinistro não encontrado
+        8 Erro processamento
+        9 Sinistro não marcado com J
+      */
+      if db_select(laFIELDS,'pasta_seguro',,{"NR_SINISTRO <> '' AND (FL_STATUSINTERFACE IS NULL OR "+;
+                                                                    "FL_STATUSINTERFACE = '0' OR "  +;
+                                                                    "FL_STATUSINTERFACE = '1')" }) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         if db_select({'nr_sequencia'},'seq_interfaces',,{"program = 'sios_cosesp_html'"}) == -1
+            db_rollback()
+          	db_error()
+     	   endif
+         laRES := db_fetchall()
+
+         lcWHERE := 'NR_CONTROLE in ( '
+         lcLINE := ''
+         // registro HEADER
+         lcLINE += '00'+'0000001'+dtos(date())+ strzero(laRES[2,1],7) +replicate(' ',24)+NEWLINE
+         for ii := 2 to len(laRESULT)
+             lcNR_SINISTRO := alltrim(laRESULT[ii,db_fetchncol(laRESULT, 'NR_SINISTRO')])   // N 11
+             lcRAMO        := alltrim(laRESULT[ii,db_fetchncol(laRESULT, 'CD_RAMOSRSN')])   // N 4
+             lcFONTE       := '000'                                                         // N 3
+             lcNR_APOLICE  := alltrim(laRESULT[ii,db_fetchncol(laRESULT, 'NR_APOLICE')])    // N 9
+             lcNR_PROPOSTA := alltrim(laRESULT[ii,db_fetchncol(laRESULT, 'NR_PROPOSTA')])   // N 9
+             if len(lcNR_SINISTRO) > 11
+                lcNR_SINISTRO := substr(lcNR_SINISTRO,1,11)
+             else
+                lcNR_SINISTRO := strzero(val(lcNR_SINISTRO),11)
+             endif
+             if len(lcRAMO) > 4
+                lcRAMO := substr(lcRAMO,1,4)
+             else
+                lcRAMO := strzero(val(lcRAMO),4)
+             endif
+             if len(lcFONTE) > 3
+                lcFONTE := substr(lcFONTE,1,3)
+             else
+                lcFONTE := strzero(val(lcFONTE),3)
+             endif
+             if len(lcNR_APOLICE) > 9
+                lcNR_APOLICE := substr(lcNR_APOLICE,1,9)
+             else
+                lcNR_APOLICE := strzero(val(lcNR_APOLICE),9)
+             endif
+             if len(lcNR_PROPOSTA) > 9
+                lcNR_PROPOSTA := substr(lcNR_PROPOSTA,1,9)
+             else
+                lcNR_PROPOSTA := strzero(val(lcNR_PROPOSTA),9)
+             endif
+             // Montando registro DETALHE
+             lcLINE += '01'+strzero(ii-1,7)+lcNR_SINISTRO+lcRAMO+lcFONTE+lcNR_APOLICE+lcNR_PROPOSTA+'1'+NEWLINE
+
+             lcWHERE += alltrim(laRESULT[ii,db_fetchncol(laRESULT, 'NR_CONTROLE')])
+             if ii <> len(laRESULT)
+                lcWHERE += ', '
+             endif
+         next ii
+         if len(lcWHERE) > 1
+            lcWHERE += ' )'
+            if db_update({{"FL_STATUSINTERFACE"},{'1'}},'pasta_seguro',{lcWHERE}) == -1 // altera o Flag de pasta_seguro
+               db_rollback()
+               error_sys(db_error())
+   	      endif
+         endif
+         lcLINE += '02'+'0000001'+strzero(len(laRESULT)-1,7)+replicate(' ', 30)+NEWLINE
+         if FWrite(fcHAND,lcLINE) <= 0
+            walert("Erro na gravação do arquivo.")
+            return(.f.)
+         endif
+
+         if db_update({{'nr_sequencia'},{laRES[2,1]+1}},'seq_interfaces',{"program ='sios_cosesp_html'"}) == -1
+            db_rollback()
+            error_sys(db_error())
+         endif
+
+      endif
+   elseif fcTIPO = 'R'   // Recebendo dados do sinistro.
+      db_begin()
+      while .t.
+          lcLINE := freadtxt (fcHAND)        // Le linha a linha do arquivo referenciado em fcHAND
+          if ferror() <> 0
+             exit
+          endif
+          if substr(lcLINE,1,2) = "01"  // apolice
+             salva_dados(1, lcLINE)
+          elseif substr(lcLINE,1,2) = "02"  // sinistro
+             salva_dados(2, lcLINE)
+          elseif substr(lcLINE,1,2) = "03"  // cobertura
+             salva_dados(3, lcLINE)
+          elseif substr(lcLINE,1,2) = "04"  // segurado
+             salva_dados(4, lcLINE)
+          elseif substr(lcLINE,1,2) = "05"  // beneficiario
+             salva_dados(5, lcLINE)
+          elseif substr(lcLINE,1,2) = "06"  // cancelamento
+             salva_dados(6, lcLINE)
+          elseif substr(lcLINE,1,2) = "07"  // corretor
+             salva_dados(7, lcLINE)
+          elseif substr(lcLINE,1,2) = "08"  // estipulante
+             salva_dados(8, lcLINE)
+          elseif substr(lcLINE,1,2) = "09"  // veiculo
+             salva_dados(9, lcLINE)
+          elseif substr(lcLINE,1,2) = "10"  // vitima
+             salva_dados(10, lcLINE)
+      	 endif
+      enddo
+      db_commit()
+   endif
+return
+
+
+/*
+* Function..: salva_dados(fnTIPO, fcLINE)
+* Parâmetros: fnTIPO, fcLINE
+* Retorno...: Array com estrutura para salvar registro
+*/
+static function salva_dados(fnTIPO, fcLINE)
+
+       local ii         := 1 ,;
+             lnPOS      := 0  as int
+       local laDETVAL   := {} ,;
+             laPASTA    := {} ,;
+             laCOBERTURA:= {} ,;
+             laSAVE     := {} ,;
+             laSAVE1    := {} ,;
+             laSAVEAUX  := {}  as array
+
+       local lcWHERE       := '' ,;
+             lcCIP         := '' ,;
+             lcOPERACAO    := '' ,;
+             lcCOBERTURA   := '' ,;
+             lcNR_SINISTRO := '' as string
+       local llGRAVA := .t. as logical
+
+       laDETVAL := cria_array(fnTIPO)
+       // Adiciona os dados do arquivo texto no array.
+       for ii := 1 to len(laDETVAL)
+           if laDETVAL[ii,7] == 'NR_SINISTRO'
+              lcNR_SINISTRO := substr(fcLINE, laDETVAL[ii,3] , laDETVAL[ii,4])
+           endif
+           if laDETVAL[ii,7] == 'OPERACAO'
+              lcOPERACAO := substr(fcLINE, laDETVAL[ii,3] , laDETVAL[ii,4])
+           endif
+
+           if laDETVAL[ii,7] == 'NM_LMI_COBERTURA'
+              laCOBERTURA := cria_array(11)
+              lcCOBERTURA := ''
+              lcCOBERTURA := substr(fcLINE, laDETVAL[ii,3] , laDETVAL[ii,4])
+              lnPOS := ascan(laCOBERTURA,{ |ab| ab[1] == lcCOBERTURA })
+              if lnPOS > 0
+                 laDETVAL[ii,1] := laCOBERTURA[lnPOS,2]
+              endif
+           endif
+           if laDETVAL[ii,8] == 'S'                           // flag que indica que o campo vai ser gravado
+              // fazer os tratamentos para os campos
+              if laDETVAL[ii,2] == 'N'
+                 if laDETVAL[ii,5] > 0                                                     // campo definido como numérico e tem casas decimais
+                    laDETVAL[ii,1] :=  val(substr(fcLINE, laDETVAL[ii,3],(laDETVAL[ii,4]-laDETVAL[ii,5]))+;
+                                      '.'+;
+                                      substr(fcLINE, (laDETVAL[ii,3]+(laDETVAL[ii,4]-laDETVAL[ii,5])),laDETVAL[ii,5]))
+                 else
+                    laDETVAL[ii,1] := val(substr(fcLINE, laDETVAL[ii,3],laDETVAL[ii,4])) // Adiciona os dados do arquivo texto no array.
+                 endif
+              elseif laDETVAL[ii,2] == 'D'
+                 if substr(fcLINE, laDETVAL[ii,3],laDETVAL[ii,4]) == '00000000' .or.;
+                    empty(substr(fcLINE, laDETVAL[ii,3],laDETVAL[ii,4]))
+                    laDETVAL[ii,1] := nil
+                 else
+                    laDETVAL[ii,1] := alltrim(substr( fcLINE, laDETVAL[ii,3] , laDETVAL[ii,4]))
+                 endif
+              else
+                 laDETVAL[ii,1] := alltrim(substr( fcLINE, laDETVAL[ii,3] , laDETVAL[ii,4]))
+              endif
+              aadd(laSAVEAUX , laDETVAL[ii,7])    // monta vetor com os campos a serem salvos
+              aadd(laSAVE1   , laDETVAL[ii,1])    // monta vetor com os conteudos a serem salvos
+           elseif laDETVAL[ii,8] == 'F'           // flag que indica que o campo vai ser gravado
+              aadd(laSAVEAUX , laDETVAL[ii,7])
+              aadd(laSAVE1   , laDETVAL[ii,1])
+           endif
+       next ii
+       lcWHERE := 'NR_SINISTRO='+DLAP+lcNR_SINISTRO+DLAP
+       // buscando o nr_pasta e nr_controle para o insert em pasta_seguro
+       if db_select({'NR_PASTA','NR_CONTROLE'},'pasta_seguro',,{lcWHERE}) == -1
+          error_sys(db_error())
+       endif
+       laPASTA := db_fetchall()
+       if fnTIPO = 1 .or. fnTIPO = 2 .or. fnTIPO = 6 .or. fnTIPO = 9  // grava em pasta_seguro
+          if len(laSAVEAUX) > 0
+             aadd(laSAVE, laSAVEAUX)
+             aadd(laSAVE, laSAVE1)
+             if fnTIPO = 1
+                if lcOPERACAO == '3' .or. lcOPERACAO == '4' // Sinistro não encontrado
+                   llGRAVA    := .f.
+                   lcOPERACAO := '7'
+                else
+                   lcOPERACAO := '2'
+                endif
+                if db_update({{"FL_STATUSINTERFACE"},{lcOPERACAO}},'pasta_seguro',{lcWHERE}) == -1 // altera o Flag de pasta_seguro para o sistema não solicitar mais dados do sinistro
+                   db_rollback()
+                   error_sys(db_error())
+   	          endif
+             endif
+             if llGRAVA
+                if db_update(laSAVE,'pasta_seguro',{lcWHERE}) == -1
+                   db_rollback()
+                   error_sys(db_error())
+                /*else
+                    if len(laPASTA) > 1
+                       psab_logs(laSAVE,'pasta_seguro','NR_PASTA='+str(laPASTA[1,1])+' AND NR_CONTROLE='+str(laPASTA[1,2]),;
+                                 str(laPASTA[1,1]),'Seguro com Sinistro') //Gravar log de alterações da pasta
+                    endif*/
+		        endif
+		     endif
+          endif
+       elseif fnTIPO = 3           // grava em pasta_seguro_lmi
+          if len(laSAVEAUX) > 0
+             if len(laPASTA) > 1
+                aadd(laSAVEAUX, laPASTA[1,1])     //  nr_pasta
+                aadd(laSAVEAUX, laPASTA[1,2])     //  nr_controle
+                aadd(laSAVE1  , laPASTA[2,1])     //  numero da pasta
+                aadd(laSAVE1  , laPASTA[2,2])     //  numero de controle
+                aadd(laSAVE   , laSAVEAUX)
+                aadd(laSAVE   , laSAVE1)
+                if db_insert(laSAVE,'pasta_seguro_lmi') == -1
+                   db_rollback()
+                   error_sys(db_error())
+	  	        endif
+             endif
+          endif
+       elseif fnTIPO = 4                                                                        // grava em pasta_seguro_segurado
+          // realizando a busca do cip atravez do pfpj.pfpj
+          if len(laSAVEAUX) > 0
+             lcCIP := cip_pfpj(substr(laSAVE1[ascan(laSAVEAUX,'PFPJ')],1,45),'EMP')
+             if len(laPASTA) > 1
+                lcWHERE := 'NR_PASTA='+str(laPASTA[2,1])+' and NR_CONTROLE='+str(laPASTA[2,2])+' and CIP_SEGURADO='+DLAP+lcCIP+DLAP
+                aadd(laSAVE   , {'NR_PASTA'  , 'NR_CONTROLE','CIP_SEGURADO'})
+                aadd(laSAVE   , {laPASTA[2,1], laPASTA[2,2] ,lcCIP})
+                if db_replace(laSAVE,'pasta_seguro_segurado',{lcWHERE}) == -1
+                   db_rollback()
+                   error_sys(db_error())
+	  	          endif
+             endif
+          endif
+       elseif fnTIPO = 5                                                                        // grava em pasta_seguro_beneficiario
+          // realizando a busca do cip atravez do pfpj.pfpj
+          if len(laSAVEAUX) > 0
+             lcCIP := cip_pfpj(substr(laSAVE1[ascan(laSAVEAUX,'PFPJ')],1,45),'EMP')
+             if len(laPASTA) > 1
+                lcWHERE := 'NR_PASTA='+str(laPASTA[2,1])+' and NR_CONTROLE='+str(laPASTA[2,2])+' and CIP_BENEFICIARIO='+DLAP+lcCIP+DLAP
+                aadd(laSAVE   , {'NR_PASTA'  , 'NR_CONTROLE','CIP_BENEFICIARIO','PC_PARTICIPACAO'})
+                aadd(laSAVE   , {laPASTA[2,1], laPASTA[2,2] ,lcCIP             , laSAVE1[ascan(laSAVEAUX,'PC_PARTICIPACAO')]})
+                if db_replace(laSAVE,'pasta_seguro_beneficiario',{lcWHERE}) == -1
+                   db_rollback()
+                   error_sys(db_error())
+	  	          endif
+             endif
+          endif
+       elseif fnTIPO = 7 .or. fnTIPO = 8                                                        // grava em pasta_seguro
+          // realizando a busca do cip atravez do pfpj.pfpj
+          if len(laSAVEAUX) > 0
+             lcCIP := cip_pfpj(substr(laSAVE1[ascan(laSAVEAUX,'PFPJ')],1,45),'EMP')
+             if fnTIPO = 7
+                aadd(laSAVE, {'CIP_CORRETOR'})
+             else
+                aadd(laSAVE, {'CIP_ESTIPULANTE'})
+             endif
+             aadd(laSAVE, {lcCIP})
+             if db_update(laSAVE,'pasta_seguro',{lcWHERE}) == -1
+                db_rollback()
+                error_sys(db_error())
+		       endif
+          endif
+       elseif fnTIPO = 10                                                                       // grava em pasta_seguro_vitima
+          // realizando a busca do cip atravez do pfpj.pfpj
+          if len(laSAVEAUX) > 0
+             lcCIP := cip_pfpj(substr(laSAVE1[ascan(laSAVEAUX,'PFPJ')],1,45),'EMP')
+             if len(laPASTA) > 1
+                lcWHERE := 'NR_PASTA='+str(laPASTA[2,1])+' and NR_CONTROLE='+str(laPASTA[2,2])+' and CIP_VITIMA='+DLAP+lcCIP+DLAP
+                aadd(laSAVE   , {'NR_PASTA'  , 'NR_CONTROLE','CIP_VITIMA'})
+                aadd(laSAVE   , {laPASTA[2,1], laPASTA[2,2] ,lcCIP       })
+                if db_replace(laSAVE,'pasta_seguro_vitima',{lcWHERE}) == -1
+                   db_rollback()
+                   error_sys(db_error())
+	  	          endif
+             endif
+          endif
+       endif
+return
+
+/*
+* Function..: cria_array(fcTIPO)
+* Parâmetros: fcTIPO  tipo de registro a ler
+* Retorno...: Array com estrutura do layout Pagnet
+              1 - Conteudo do campo lido
+              2 - Tipo do Dado (N-Num, D-Date, C-Char)
+              3 - Posicao Inicial
+              4 - Número de caracteres a ler a partir da Pos. Ini
+              5 - Casas decimais
+              6 - Destino/Origem Tabela
+              7 - Destino/Origem Campo
+              8 - Campo vai ser gravado ?<S/N>
+*/
+static function cria_array(fnTIPO)
+
+   local laESTRU := {} as array
+
+   if fnTIPO = 1  // apolice
+
+      laESTRU := { { ""   , "N",    1,   2, 0, ""             , ""                    ,"N" } ,; //1  Tipo de registro
+                   { ""   , "N",    3,   7, 0, ""             , ""                    ,"N" } ,; //2  Nr sequencial
+                   { ""   , "A",   10,  11, 0, "pasta_seguro" , "NR_SINISTRO"         ,"N" } ,; //3  Nr sinistro
+                   { ""   , "A",   21,   4, 0, "pasta_seguro" , "CD_RAMOSRSN"         ,"S" } ,; //4  ramo
+                   { ""   , "N",   25,   5, 0, ""             , ""                    ,"N" } ,; //5  fonte
+                   { ""   , "A",   30,   9, 0, "pasta_seguro" , "NR_APOLICE"          ,"S" } ,; //6  numero da apolice
+                   { ""   , "A",   39,   9, 0, "pasta_seguro" , "NR_APOLICE_ANTERIOR" ,"S" } ,; //7  numero da apolice anterior
+                   { ""   , "A",   48,   9, 0, "pasta_seguro" , "NR_PROPOSTA"         ,"S" } ,; //8  numero da proposta
+                   { ""   , "A",   57,   9, 0, "pasta_seguro" , "NR_CERTIFICADO"      ,"S" } ,; //9  numero do certificado
+                   { ""   , "A",   66,  20, 0, "pasta_seguro" , "NR_BILHETE"          ,"S" } ,; //10 numero do bilhete
+                   { ""   , "N",   86,   1, 0, ""             , ""                    ,"N" } ,; //11 reativacao
+                   { ""   , "D",   87,   8, 0, "pasta_seguro" , "DT_EMISSAO"          ,"S" } ,; //12 data de emissao
+                   { ""   , "D",   95,   8, 0, "pasta_seguro" , "DT_CONTRATACAO"      ,"S" } ,; //13 data de contratacao
+                   { ""   , "D",  103,   8, 0, "pasta_seguro" , "DT_VIGENCIA_INI"     ,"S" } ,; //14 data de inicio de vigencia
+                   { ""   , "D",  111,   8, 0, "pasta_seguro" , "DT_VIGENCIA_FIN"     ,"S" } ,; //15 data e final de vigencia
+                   { ""   , "N",  119,   5, 2, "pasta_seguro" , "PC_COSSEGURO"        ,"S" } ,; //16 percentual de co seguro
+                   { ""   , "N",  124,   5, 2, ""             , ""                    ,"N" } ,; //17 percentual de re seguro quota
+                   { ""   , "N",  129,   5, 2, "pasta_seguro" , "PC_RESSEGURO"        ,"S" } ,; //18 percentual de re seguro
+                   { ""   , "N",  134,  15, 2, "pasta_seguro" , "VL_PREMIO"           ,"S" } ,; //19 valor do premio
+                   { ""   , "N",  149,   5, 0, "pasta_seguro" , "NR_ENDOSSO"          ,"S" } ,; //20 numero do endosso
+                   { ""   , "N",  154,   1, 0, ""             , "OPERACAO"            ,"N" }  } //21 operacao
+
+   elseif fnTIPO = 2 //sinistro
+
+      laESTRU := { { ""   , "N",    1,   2, 0, ""             , ""                     ,"N" } ,; //1  Tipo de registro
+                   { ""   , "N",    3,   7, 0, ""             , ""                     ,"N" } ,; //2  Nr sequencial
+                   { ""   , "A",   10,  11, 0, "pasta_seguro" , "NR_SINISTRO"          ,"N" } ,; //3  Nr sinistro
+                   { ""   , "N",   21,   5, 0, ""             , ""                     ,"N" } ,; //4  fonte
+                   { ""   , "A",   26,  13, 0, "pasta_seguro" , "NR_SINISTRO_ANTERIOR" ,"S" } ,; //5  numero do sinistro anterior
+                   { ""   , "A",   39,  20, 0, "pasta_seguro" , "NR_SINISTRO_IRB"      ,"S" } ,; //6  numero de sinistro IRB
+                   { ""   , "A",   59,  20, 0, "pasta_seguro" , "NR_SINISTRO_FENASEG"  ,"S" } ,; //7  numero de sinistro fenaseg
+                   { ""   , "D",   79,   8, 0, "pasta_seguro" , "DT_SINISTRO"          ,"S" } ,; //8  data da ocorrencia
+                   { ""   , "D",   87,   8, 0, "pasta_seguro" , "DT_AVISO"             ,"S" } ,; //9  data do aviso
+                   { ""   , "N",   95,  57, 0, ""             , ""                     ,"N" }  } //10 filler
+
+   elseif fnTIPO = 3 // cobertura
+
+      laESTRU := { { ""   , "N",    1,   2, 0, ""                 , ""                 ,"N"  } ,; //1  Tipo de registro
+                   { ""   , "N",    3,   7, 0, ""                 , ""                 ,"N"  } ,; //2  Nr sequencial
+                   { ""   , "N",   10,  11, 0, "pasta_seguro"     , "NR_SINISTRO"      ,"N"  } ,; //3  Nr sinistro
+                   { ""   , "N",   21,   5, 0, ""                 , ""                 ,"N"  } ,; //4  fonte
+                   { ""   , "N",   26,  15, 2, "pasta_seguro_lmi" , "LMI_VL"           ,"S"  } ,; //5  importancia segurada
+                   { ""   , "A",   41,   4, 0, "pasta_seguro_lmi" , "LMI_NM_COBERTURA" ,"F"  } ,; //6  cobertura
+                   { ""   , "N",   45, 105, 0, ""                 , ""                 ,"N"  }  } //7  filler
+
+   elseif fnTIPO = 4 // segurado
+
+      laESTRU := { { ""   , "N",    1,   2, 0, ""                      , ""              ,"N"  } ,; //1  Tipo de registro
+                   { ""   , "N",    3,   7, 0, ""                      , ""              ,"N"  } ,; //2  Nr sequencial
+                   { ""   , "N",   10,  11, 0, "pasta_seguro"          , "NR_SINISTRO"   ,"N"  } ,; //3  Nr sinistro
+                   { ""   , "N",   21,   5, 0, ""                      , ""              ,"N"  } ,; //4  fonte
+                   { ""   , "N",   26,   1, 0, ""                      , ""              ,"N"  } ,; //5  tipo de segurado
+                   { ""   , "A",   27,  50, 0, "pfpj"                  , "PFPJ"          ,"S"  } ,; //6  nome
+                   { ""   , "A",   77,  14, 0, "pfpj"                  , "CNPJ_CPF"      ,"S"  } ,; //7  cpf cnpj
+                   { ""   , "D",   91,   8, 0, "pfpj"                  , "DT_NASCIMENTO" ,"S"  } ,; //8  data de nascimento
+                   { ""   , "N",   99,   1, 0, ""                      , ""              ,"N"  } ,; //9  estado civil
+                   { ""   , "N",  100,  50, 0, ""                      , ""              ,"N"  }  } //10 filler
+
+   elseif fnTIPO = 5 // beneficiario
+
+      laESTRU := { { ""   , "N",    1,   2, 0, ""                         , ""                ,"N" } ,; //1  Tipo de registro
+                   { ""   , "N",    3,   7, 0, ""                         , ""                ,"N" } ,; //2  Nr sequencial
+                   { ""   , "A",   10,  11, 0, "pasta_seguro"             , "NR_SINISTRO"     ,"N" } ,; //3  Nr sinistro
+                   { ""   , "N",   21,   5, 0, ""                         , ""                ,"N" } ,; //4  fonte
+                   { ""   , "A",   26,  50, 0, "pfpj"                     , "PFPJ"            ,"S" } ,; //5  nome
+                   { ""   , "A",   76,  11, 0, "pfpj"                     , "CNPJ_CPF"        ,"N" } ,; //6  cpf
+                   { ""   , "N",   87,   5, 2, "pasta_seguro_beneficiario", "PC_PARTICIPACAO" ,"S" } ,; //7  percentual de participacao
+                   { ""   , "N",   92,  58, 0, ""                         , ""                ,"N" }  } //8  filler
+
+   elseif fnTIPO = 6   // cancelamento
+
+      laESTRU := { { ""   , "N",    1,   2, 0, ""             , ""                   ,"N"  } ,; //1  Tipo de registro
+                   { ""   , "N",    3,   7, 0, ""             , ""                   ,"N"  } ,; //2  Nr sequencial
+                   { ""   , "A",   10,  11, 0, "pasta_seguro" , "NR_SINISTRO"        ,"N"  } ,; //3  Nr sinistro
+                   { ""   , "N",   21,   5, 0, ""             , ""                   ,"N"  } ,; //4  fonte
+                   { ""   , "A",   26,  50, 0, "pasta_seguro" , "MOTIVO_CANCELAMENTO","S"  } ,; //5  motivo cancelamento
+                   { ""   , "D",   76,   8, 0, "pasta_seguro" , "DT_CANCELAMENTO"    ,"S"  } ,; //6  data do cancelamento
+                   { ""   , "N",   84,  66, 0, ""             , ""                   ,"N"  }  } //7  filler
+
+   elseif fnTIPO = 7 // corretor
+
+      laESTRU := { { ""   , "N",    1,   2, 0, ""              , ""             ,"N"  } ,; //1  Tipo de registro
+                   { ""   , "N",    3,   7, 0, ""              , ""             ,"N"  } ,; //2  Nr sequencial
+                   { ""   , "A",   10,  11, 0, "pasta_seguro"  , "NR_SINISTRO"  ,"N"  } ,; //3  Nr sinistro
+                   { ""   , "N",   21,   5, 0, ""              , ""             ,"N"  } ,; //4  fonte
+                   { ""   , "N",   26,   7, 0, ""              , ""             ,"N"  } ,; //5  codigo do corretor
+                   { ""   , "A",   33,  50, 0, "pfpj"          , "PFPJ"         ,"S"  } ,; //6  nome do corretor
+                   { ""   , "N",   83,  67, 0, ""              , ""             ,"N"  }  } //7  filler
+
+   elseif fnTIPO = 8  // estipulante
+
+      laESTRU := { { ""   , "N",    1,   2, 0, ""             , ""           ,"N"  } ,; //1  Tipo de registro
+                   { ""   , "N",    3,   7, 0, ""             , ""           ,"N"  } ,; //2  Nr sequencial
+                   { ""   , "A",   10,  11, 0, "pasta_seguro" , "NR_SINISTRO","N"  } ,; //3  Nr sinistro
+                   { ""   , "N",   21,   5, 0, ""             , ""           ,"N"  } ,; //4  fonte
+                   { ""   , "N",   26,   7, 0, ""             , ""           ,"N"  } ,; //5  cod estipulante
+                   { ""   , "A",   33,  50, 0, "pfpj"         , "PFPJ"       ,"S"  } ,; //6  nome do estipulante
+                   { ""   , "N",   83,  67, 0, ""             , ""           ,"N"  }  } //7  filler
+
+   elseif fnTIPO = 9 // veiculo
+
+      laESTRU := { { ""   , "N",    1,   2, 0, ""              , ""             ,"N"  } ,; //1  Tipo de registro
+                   { ""   , "N",    3,   7, 0, ""              , ""             ,"N"  } ,; //2  Nr sequencial
+                   { ""   , "A",   10,  11, 0, "pasta_seguro"  , "NR_SINISTRO"  ,"N"  } ,; //3  Nr sinistro
+                   { ""   , "N",   21,   5, 0, ""              , ""             ,"N"  } ,; //4  fonte
+                   { ""   , "A",   26,  50, 0, "pasta_seguro"  , "VEICULO"      ,"S"  } ,; //5  nome do veiculo
+                   { ""   , "A",   76,  20, 0, "pasta_seguro"  , "NR_CHASSI"    ,"S"  } ,; //6  chassis
+                   { ""   , "A",   96,   7, 0, "pasta_seguro"  , "PLACA_VEICULO","S"  } ,; //7  placa
+                   { ""   , "N",  103,  47, 0, ""              , ""             ,"N"  }  } //8  filler
+
+
+   elseif fnTIPO = 10  // vitima
+
+      laESTRU := { { ""   , "N",    1,   2, 0, ""             , ""            ,"N"  } ,; //1  Tipo de registro
+                   { ""   , "N",    3,   7, 0, ""             , ""            ,"N"  } ,; //2  Nr sequencial
+                   { ""   , "A",   10,  11, 0, "pasta_seguro" , "NR_SINISTRO" ,"N"  } ,; //3  Nr sinistro
+                   { ""   , "N",   21,   5, 0, ""             , ""            ,"N"  } ,; //4  fonte
+                   { ""   , "A",   26,  50, 0, "pfpj"         , "PFPJ"        ,"S"  } ,; //5  nome da vitima
+                   { ""   , "N",   76,  11, 0, ""             , ""            ,"N"  } ,; //6  cpf
+                   { ""   , "N",   87,   8, 0, ""             , ""            ,"N"  } ,; //7  data de nascimento
+                   { ""   , "N",   95,   1, 0, ""             , ""            ,"N"  } ,; //8  estado civil
+                   { ""   , "N",   96,  54, 0, ""             , ""            ,"N"  }  } //9  filler
+
+
+   elseif fnTIPO = 11  // Descricao das coberturas utilizadas
+                //Cod Descricao
+
+      aadd(laESTRU, {"0002"   , "INDENIZAÇÃO ESPECIAL DE MORTE POR ACIDENTE - IEA" })
+      aadd(laESTRU, {"0003"   , "INVALIDEZ PERMANENTE TOTAL OU PARCIAL POR ACIDENTE - IPA"})
+      aadd(laESTRU, {"0004"   , "INVALIDEZ PERMANENTE TOTAL POR DOENÇA - IPD"})
+      aadd(laESTRU, {"0005"   , "BÁSICA - MORTE"})
+      aadd(laESTRU, {"0006"   , "DESPESAS MÉDICO HOSPITALARES - DMH"})
+      aadd(laESTRU, {"0008"   , "AUXÍLIO CESTA BÁSICA"})
+      aadd(laESTRU, {"0009"   , "AUXÍLIO EDUCAÇÃO"})
+      aadd(laESTRU, {"0011"   , "INCÊNDIO, EXPLOSÃO E QUEDA DE RAIO"})
+      aadd(laESTRU, {"0013"   , "DANOS ELÉTRICOS"})
+      aadd(laESTRU, {"0021"   , "COBERTURA BÁSICA"})
+      aadd(laESTRU, {"0021"   , "COBERTURA BÁSICA, ROUBO E ACIDENTE"})
+      aadd(laESTRU, {"0047"   , "INVALIDEZ PERMANENTE POR ACIDENTE MAJORADO - IPAM"})
+      aadd(laESTRU, {"0048"   , "CÔNJUGE - MORTE QUALQUER NATUREZA"})
+      aadd(laESTRU, {"0049"   , "FILHOS - MORTE QUALQUER NATUREZA"})
+      aadd(laESTRU, {"0050"   , "BENFEITORIAS"})
+      aadd(laESTRU, {"0051"   , "MÁQUINAS E IMPLEMENTOS AGRÍCOLAS"})
+      aadd(laESTRU, {"0052"   , "MUDAS E SEMENTES CORR FERT DEFENSIVOS RAÇÕES"})
+      aadd(laESTRU, {"0053"   , "PRODUTOS AGROPECUARIOS BENEF TRANSFORMADOS OU NÃO"})
+      aadd(laESTRU, {"0054"   , "SACARIAS EMBALAGENS E RECIPIENTES"})
+      aadd(laESTRU, {"0055"   , "VEÍCULOS RURAIS CARGA MAIS DE 7 TON"})
+      aadd(laESTRU, {"0056"   , "VEÍCULOS RURAIS CARGA ATÉ 7 TON"})
+      aadd(laESTRU, {"0057"   , "VEÍCULOS RURAIS MISTOS"})
+      aadd(laESTRU, {"0072"   , "MORTE POR ACIDENTE - MA"})
+      aadd(laESTRU, {"0102"   , "MORTE NATURAL - MN"})
+      aadd(laESTRU, {"0111"   , "MORTE POR ACIDENTE"})
+      aadd(laESTRU, {"0112"   , "INVALIDEZ PERMANENTE TOTAL OU PARCIAL POR ACIDENTE"})
+      aadd(laESTRU, {"0195"   , "CONJUGE - MORTE ACIDENTAL - MA"})
+      aadd(laESTRU, {"0196"   , "CONJUGE - IVALIDEZ PERMANENTE POR ACIDENTE - IPA"})
+      aadd(laESTRU, {"0197"   , "CONJUGE - MORTE NATURAL - MN"})
+      aadd(laESTRU, {"0331"   , "DIÁRIA DE INCAPACIDADE TEMPORÁRIA - DIT"})
+      aadd(laESTRU, {"0332"   , "DOENÇA TERMINAL - DT"})
+      aadd(laESTRU, {"0335"   , "VENDAVAL, FURACÃO, CICLONE, TORNADO, GRANIZO, QUEDA DE AER"})
+      aadd(laESTRU, {"0336"   , "PERDA E/OU PAGAMENTO DE ALUGUEL"})
+      aadd(laESTRU, {"0337"   , "QUEBRA DE VIDROS"})
+      aadd(laESTRU, {"0338"   , "ROUBO OU FURTO QUALIFICADO"})
+      aadd(laESTRU, {"0339"   , "RESPONSABILIDADE CIVIL FAMILIAR"})
+      aadd(laESTRU, {"0341"   , "IMPACTO DE VEÍCULOS TERRESTRES E QUEDA DE AERONAVES"})
+      aadd(laESTRU, {"0342"   , "VENDAVAL, CHUVA DE GRANIZO E FUMAÇA"})
+      aadd(laESTRU, {"0343"   , "DESPESAS FIXAS COM RECOMPOSIÇÃO DE DOCUMENTOS"})
+      aadd(laESTRU, {"0344"   , "DESPESAS FIXAS DECORRENTES DE INCENDIO, RAIO OU EXPLOSÃO"})
+      aadd(laESTRU, {"0345"   , "MUDANÇA DE LOCAL POR INCENDIO, QUEDA DE RAIO OU EXPLOSÃO"})
+      aadd(laESTRU, {"0346"   , "TUMULTOS E GREVES"})
+      aadd(laESTRU, {"0347"   , "FIDELIDADE DE EMPREGADOS"})
+      aadd(laESTRU, {"0348"   , "ROUBO DE BENS"})
+      aadd(laESTRU, {"0349"   , "ROUBO DE VALORES"})
+      aadd(laESTRU, {"0350"   , "VIDROS / ANÚNCIOS"})
+      aadd(laESTRU, {"0351"   , "RESPONSABILIDADE CIVIL OPERAÇÕES"})
+      aadd(laESTRU, {"0352"   , "ACIDENTES PESSOAIS DE EMPREGADOS DO SEGURADO"})
+      aadd(laESTRU, {"0353"   , "AUXÍLIO FUNERAL"})
+      aadd(laESTRU, {"0354"   , "MORTE"})
+      aadd(laESTRU, {"0355"   , "INVALIDEZ PERMANENTE"})
+      aadd(laESTRU, {"0356"   , "DESPESAS DE ASSISTÊNCIA MÉDICA E SUPLEMENTARES (DMAS)"})
+      aadd(laESTRU, {"0357"   , "INCÊNDIO"})
+      aadd(laESTRU, {"0358"   , "EXPLOSÃO"})
+      aadd(laESTRU, {"0359"   , "TERREMOTO"})
+      aadd(laESTRU, {"0360"   , "QUEIMADAS EM ZONA RURAIS"})
+      aadd(laESTRU, {"0361"   , "BÁSICA 1 (PT/AS/AG)"})
+      aadd(laESTRU, {"0362"   , "BÁSICA 2 (PT/AS/AG/RCA)"})
+      aadd(laESTRU, {"0363"   , "BÁSICA 3 (PT/AS/AG/RCA/AP)"})
+      aadd(laESTRU, {"0364"   , "DESEMBOLSOS"})
+      aadd(laESTRU, {"0365"   , "RESPONSABILIDADES EXCEDENTES"})
+      aadd(laESTRU, {"0366"   , "VALOR AUMENTADO"})
+      aadd(laESTRU, {"0367"   , "RC GUARDA DE VEÍCULOS"})
+      aadd(laESTRU, {"0368"   , "RC COND PROP E LOCATÁRIOS DE IMÓVEIS"})
+      aadd(laESTRU, {"0369"   , "RC OBRAS CIVIS E/OU SERV DE MONTAGEM/DESMONTAGEM"})
+      aadd(laESTRU, {"0370"   , "RC PREST DE SERVIÇOS EM LOCAIS DE TERCEIROS"})
+      aadd(laESTRU, {"0371"   , "COBERTURA COMPREENSIVA"})
+      aadd(laESTRU, {"0372"   , "RESTRITA"})
+      aadd(laESTRU, {"0373"   , "AMPLA"})
+      aadd(laESTRU, {"0374"   , "RISCOS DIVERSOS"})
+      aadd(laESTRU, {"0375"   , "MIP"})
+      aadd(laESTRU, {"0376"   , "DFI"})
+      aadd(laESTRU, {"0377"   , "CASCOS"})
+      aadd(laESTRU, {"0378"   , "RETA"})
+      aadd(laESTRU, {"0379"   , "BÁSICA"})
+      aadd(laESTRU, {"0380"   , "COLISÃO, INCÊNDIO E ROUBO"})
+      aadd(laESTRU, {"0381"   , "INCÊNDIO E ROUBO"})
+      aadd(laESTRU, {"0382"   , "DANOS MATERIAIS"})
+      aadd(laESTRU, {"0383"   , "DANOS PESSOAIS"})
+      aadd(laESTRU, {"0384"   , "RCC"})
+      aadd(laESTRU, {"0385"   , "ASSISTÊNCIA ON-LINE"})
+      aadd(laESTRU, {"0386"   , "ACESSÓRIOS"})
+      aadd(laESTRU, {"0387"   , "ADCIONAL MORTE POR ACIDENTE LOCAL TRABALHO"})
+      aadd(laESTRU, {"0388"   , "COBERTURA GENÉRICA RAMO 31 (3108)"})
+      aadd(laESTRU, {"0389"   , "COBERTURA GENERICA RAMO 53 (5303)"})
+      aadd(laESTRU, {"0390"   , "COBERTURA GENÉRICA RAMO 31 (3104)"})
+      aadd(laESTRU, {"0391"   , "COBERTURA GENÉRICA RAMO 31 (3106)"})
+      aadd(laESTRU, {"0392"   , "COBERTURA GENERICA RAMO 31 (3107)"})
+      aadd(laESTRU, {"0393"   , "COBERTURA GENERICA RAMO 53 (5304)"})
+      aadd(laESTRU, {"0394"   , "AUTO - VIDROS"})
+      aadd(laESTRU, {"0395"   , "AUTO - LANTERNA FAROIS"})
+      aadd(laESTRU, {"0396"   , "AUTO - DESP. EXT. 23-C"})
+      aadd(laESTRU, {"0397"   , "AUTO - PLANO 24H"})
+      aadd(laESTRU, {"0398"   , "INVALIDEZ FUNCIONAL PERMANENTE TOTAL POR DOENÇA - IPDF"})
+      aadd(laESTRU, {"0399"   , "AUXILIO NATALIDADE"})
+      aadd(laESTRU, {"0400"   , "AUXILIO NUPCIAL"})
+   endif
+
+return(laESTRU)
+
+/*
+* Function..: gera_cip_pfpj(fcVAL, fcTIPO, fnHAND1)
+* Objetivo..: Solicita o numero do cip da tabela pfpj
+* Parâmetros: fcVAL   valor do pfpj.PFPJ
+              fcTIPO
+* Retorno...: CIP de fcVAL recebido
+*/
+Static Function cip_pfpj(fcVAL, fcTIPO)
+
+         local lcVAL     := '' as string
+         local laFIELDS  := {"CIP","NR_CONTROLE"}                        // colunas a serem geradas no select
+         local laWHERE   := {"PFPJ like '%"+alltrim(fcVAL)+"%'" } as array // clausula where para solicitacao de dados ao SNT
+         local lcTABLE   := "pfpj"                                       // tabela a serem consultada
+         local lcINSERT  := "insert into " + lcTABLE + " (PFPJ, PFPJ_TIPO) VALUES (" as string
+         local lcUPDATE  := "update " + lcTABLE + " set CIP = " as string
+         local lnRET     := 0 as int
+         local laDATA    := {} as array
+
+         if db_select(laFIELDS,lcTABLE,,laWHERE) == -1
+            qout("Problemas em db_select. ProcLine: "+alltrim(str(procline()))+" ProcName: "+ProcName())
+            qout("Erro Select -> "+db_error())
+         endif
+         laDATA := db_fetchrow()
+         if len(laDATA) > 0
+            lcVAL := laDATA[1]
+         else
+            lcINSERT += "'" + alltrim(fcVAL) + "'" + ",'" + fcTIPO + "')"
+            if db_insert({{"PFPJ","PFPJ_TIPOS","LOGIN_CADASTRO","DT_CADASTRO"},;
+                          {alltrim(fcVAL),fcTIPO,'Import. SIOS',dtos(date())}},lcTABLE) == -1
+               qout("Erro Insert -> "+db_error())
+               qout("Ultimo Comando -> " + wset("_LASTSQL"))
+               lcVAL := ""
+            else
+               if db_select(laFIELDS, lcTABLE, ,laWHERE) == -1
+                  qout("Erro Select -> "+db_error())
+                  qout("Ultimo Comando -> " + wset("_LASTSQL"))
+               endif
+               // lendo cada linha do select
+               laDATA := db_fetchrow()
+               if len(laDATA) > 0
+                  lcVAL    := strzero(laDATA[2],6,0)
+                  lcUPDATE += "'" + lcVAL + "' "
+                  lcUPDATE += "WHERE NR_CONTROLE = " + alltrim(str(laDATA[2]))
+                  if db_update( { {"CIP"}, {lcVAL} },lcTABLE,{"nr_controle = " + alltrim( str( laDATA[2] ) ) } ) == -1
+                     qout("Problemas na atualizacao da tabela PFPJ")
+                     qout("Erro Update -> "+db_error())
+                     qout("Ultimo Comando -> " + wset("_LASTSQL"))
+                     lcVAL := ""
+                  endif
+               else
+                  qout("Problemas na leitura da tabela PFPJ")
+                  lcVAL := ""
+               endif
+            endif
+         endif
+return (lcVAL)

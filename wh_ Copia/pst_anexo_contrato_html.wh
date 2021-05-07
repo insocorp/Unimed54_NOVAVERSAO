@@ -1,0 +1,185 @@
+/*Alterado em 31/01/2009 - Eliana inclusao rotina para Lits
+*Chama funcoes : verifica_relacionamento
+*                ver_aba
+*                montar_filho
+*                sincroniza_pasta
+
+Project      : gr5
+Program      : pst.anexo.contrato.html
+Function     : pst_anexo_contrato_html
+Created on   : 26-Feb-2003   17:52:16
+Descripition : Popup de pasta para cadastro de Contrato Anexo
+
+*/
+
+   local lcACTION      := '',;
+         lcTP_PASTA    := '',;
+         lcWHERE       := '',;
+         lcProgram     := 'pst_anexo_contrato_html' ,;
+         lcRelac       := '' ,;
+         lcTABLE       := '',;
+         lcNR_PASTA    := '',;
+         lcNR_CONTRATO := '' as string
+
+   local laRESULT      := {} ,;
+         laSAVE        := {} ,;
+         laSAVE_AUX    := {} ,;
+         laFIELDS      := {} ,;
+         laLABELS      := {} ,;
+         laVALIDA      := {} as array
+   local ii := 0 as int
+   local llReturn   := .f. as logical
+
+   lcACTION      := upper(alltrim(WGet('ACTION','C')))
+   lcNR_PASTA    := alltrim(WGet('NR_PASTA','C'))
+   lcTP_PASTA    := wGet('TP_PASTA','C')
+   lcNR_CONTRATO := alltrim(WGet('NR_CONTRATO_ANEXO','C'))
+   lcTABLE       := 'pasta_contrato_anexo'
+   lcWHERE       := 'pasta_contrato_anexo.NR_PASTA='+lcNR_PASTA+' and pasta_contrato_anexo.NR_CONTRATO_ANEXO ='+DLAP+lcNR_CONTRATO+DLAP
+   laFIELDS      := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS      := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   laVALIDA      := {'NR_CONTRATO_ANEXO'}
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   // Glauber 06/01/2011
+   AbasPerfil(lcTP_PASTA,laFIELDS)
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   make_psthead(lcNR_PASTA,lcTP_PASTA) //Cabeçalho
+
+   if empty(lcACTION)
+      lcACTION = 'NEW'
+   endif
+
+   wPut('LOGIN',gcLOGIN)
+   wPut('TP_PASTA',lcTP_PASTA)
+   wPut('OBJETO','')
+
+//------------  Verificando relacionamento    -----------------------------------
+
+   lcRelac:=verifica_relacionamento(lcNR_PASTA,lcTp_pasta)
+
+//------------ Verificando se Aba pode ser alterada  ------------------------
+
+   if lcRelac = 'F' .or. lcRelac = 'P'
+      llReturn:=Ver_ABA(lcTP_PASTA, lcProgram)
+     
+   endif         
+   if lcRelac = 'F' .and. llReturn  
+      walert('Somente Para Consulta - Pasta Pertence a Litsconsorte')
+
+   elseif lcACTION = 'NEW' .and. gbWAC_CREATE
+//       wPut('TITLE',lcTP_PASTA+' - Inclusão de novo Contrato Anexo')
+   elseif lcACTION = 'ALTER' .and. gbWAC_READ
+      mkgedico(lcTABLE,lcNR_PASTA,lcNR_CONTRATO)
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      db2put(db_fetchall())
+      amkgedico(lcTABLE,lcNR_PASTA,lcNR_CONTRATO)
+//       wPut('TITLE',lcTP_PASTA+' - Alteração do Contrato Anexo'+getWPut('NR_CONTRATO_ANEXO'))
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+      for ii := 1 to len(laVALIDA)
+          if empty(alltrim(WGet(laVALIDA[ii],'C')))
+             walert(laLABELS[ascan(laFIELDS,laVALIDA[ii])]+' é um campo obrigatório!')
+             get2Put()
+             lista_anexo(lcNR_PASTA)
+             pasta_abas(lcTP_PASTA)
+             return(.f.)
+          endif
+      next ii
+      aadd(laSAVE,laFIELDS)
+      for ii := 1 to len(laFIELDS)
+         aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+      next ii
+      aadd(laSAVE,laSAVE_AUX)
+
+//--------------------Qdo for gravar  db_update/db_replace/Db_insert
+       if lcRelac = '' .or. lcRelac = 'P' .or. (lcRelac = 'F' .and. llReturn = .f.)   // se .f. posso alterar atraves do filho
+          psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Anexo')
+          if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+             error_sys(db_error())
+          endif
+          if lcRelac = 'P' .and. llReturn 
+             laFilho:=Montar_filho(lcNR_PASTA,lcTp_pasta)
+             if len(laFilho) > 0
+//---------excluindo anexo contrato ------------------------------------------------
+                for ii :=1 to len(lafilho)
+                    lcWHEREP := 'pasta_contrato_anexo.NR_PASTA='+str(lafilho[ii])+' and pasta_contrato_anexo.NR_CONTRATO_ANEXO ='+DLAP+lcNR_CONTRATO+DLAP
+                    laSave[2,1]:=str(lafilho[ii])
+                    if db_replace(laSAVE,lcTABLE,{lcWHEREP}) = -1
+                       error_sys(db_error())
+                    endif
+                next ii
+             endif   
+          endif
+       endif
+          
+//       wPut('TITLE',lcTP_PASTA+' - Inclusão de novo Contrato Anexo')
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+      if !empty(lcNR_PASTA) .and. !empty(lcNR_CONTRATO)
+
+        if lcRelac = '' .or. lcRelac = 'P' .or. (lcRelac = 'F' .and. llReturn = .f.)      // se .f. posso alterar atraves do filho
+            psab_logdel(lcNR_PASTA,'NR_CONTRATO_ANEXO',lcNR_CONTRATO,,'Anexo')
+            if db_delete(lcTABLE,lcWHERE) == -1
+               error_sys(db_error())
+            endif
+            if lcRelac = 'P' .and. llReturn 
+               laFilho:=Montar_filho(lcNR_PASTA,lcTp_pasta)
+               if len(laFilho) > 0
+//---------excluindo anexo contrato ------------------------------------------------
+                  for ii :=1 to len(lafilho)
+                    lcWHEREP := 'pasta_contrato_anexo.NR_PASTA='+str(lafilho[ii])+' and pasta_contrato_anexo.NR_CONTRATO_ANEXO ='+DLAP+lcNR_CONTRATO+DLAP
+                      if db_delete(lcTABLE, lcWherep) == -1
+//                          error_sys(db_error())
+                      endif
+                  next ii
+               endif   
+            endif
+        endif
+
+//          wPut('TITLE',lcTP_PASTA+' - Inclusão de novo Contrato Anexo')
+      endif
+   endif
+   lista_anexo(lcNR_PASTA)
+   pasta_abas(lcTP_PASTA)
+return
+
+/*
+* Function..: lista_anexo(fcNR_PASTA)
+* Objetivo..: Gerar Listagem de Recursos
+* Parâmetros: fcNR_PASTA
+* Retorno...: nil
+*/
+static function lista_anexo(fcNR_PASTA)
+
+   if db_select({'*'},'pasta_contrato_anexo',,{'NR_PASTA='+fcNR_PASTA},{'NR_CONTRATO_ANEXO'}) == -1
+      error_sys(db_error())
+   endif
+   wPut('lstANEXO',db_fetchall())
+
+return(nil)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

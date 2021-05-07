@@ -1,0 +1,21 @@
+/*
+
+Project      : gr5
+Program      : pst.ocorrido.html
+Function     : pst_ocorrido_html
+Created on   : 01-Mar-2004   14:32:05
+Descripition : Manutenção de Pasta - Sub-aba Ocorrido
+
+*/
+
+   local lcNR_PASTA := '' as string
+   
+   lcNR_PASTA := wGet('NR_PASTA','C')
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   pst_cabec(lcNR_PASTA,wGet('TP_PASTA','C'),.F.) //Cabeçalho
+
+   mnt_pasta_html(lcNR_PASTA,'ALTER','ocorrido')

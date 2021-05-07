@@ -1,0 +1,65 @@
+/*
+
+Project      : gr5
+Program      : area.mnt.html
+Function     : area_mnt_html
+Created on   : 18-Oct-2005   16:51:26
+Descripition : Cadastro de área
+
+
+
+ */
+
+local laPARAM        := {},;
+      laINPUT_OBJ    := {},;
+      laSELECT       := {} as array
+
+laPARAM := {{'CONTRATO_RENOVACAO',''     ,'*'},;
+            {'TP_PASTA'     ,''     ,'*'},;
+            {'FL_ATIVO','',},;
+            {'ACTION'       ,'ALTER',   }}
+
+ laINPUT_OBJ := {{'TP_PASTA',1, ,'Y',"loadcboxorder_build('pasta_config','TP_PASTA',.T.,{'TP_PASTA'})"},;
+                { , , , , },;
+                {'CONTRATO_RENOVACAO',0, ,'Y',   },;
+                { , , , , },;
+                {'FL_ATIVO',1,,'Y','{"S","I","D"}' }}
+
+laSELECT := {'TP_PASTA','CONTRATO_RENOVACAO','FL_ATIVO'}
+
+if upper(alltrim(WGet('ACTIONBP'))) == 'ALTER'
+   mkgedico('contrato_renovacao',WGet('TP_PASTA','C'),WGet('CONTRATO_RENOVACAO','C'))
+endif
+
+xbp2('contrato_renovacao',;                                             //Tabela alvo
+    ,;                                                                  //Joins
+    ,;                                                                  //Where
+    {'TP_PASTA','CONTRATO_RENOVACAO'},;                                 //Order by
+    ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+    ,;                                                                  //Group by
+    ,;                                                                  //Limit
+    ,;                                                                  //Banco de Dados
+    2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+    'gr5',;                                                             //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                                           //Programa chamador
+    laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+    ,;                                                                  //Parâmetros para os botões das linhas do grid
+    'cont_renovacao.mnt.html',;                                                   //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+    ,;                                                                  //Retorno java (nil) - usado apenas para Search
+    ,;                                                                  //Campos usados na pesquisa rápida
+    ,;                                                                  //Campos Ocultos
+    laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+    laSELECT ,;                                                         //Campos exibidos no grid
+    laSELECT)                                                           //Campos usados no select
+return
+
+
+
+
+
+
+
+
+
+

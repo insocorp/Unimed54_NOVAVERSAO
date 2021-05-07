@@ -1,0 +1,186 @@
+/*
+
+Project      : gr5
+Program      : deleta_pedidos_mnt_html
+Function     : deleta_pedidos_mnt_html
+Created on   : 03/12/2014
+Descripition : exclui pedido permanentemente
+
+*/
+
+local lcACTION      := '' ,;
+      lcTABLE       := '' ,;
+      lcTABLE_PED   := '' ,;
+      lcTABLE_DET   := '' ,;
+      lcWHERE       := '' ,;
+      lcWHERE1      := '' ,;
+      lcWHERE2      := '' ,;
+      lcINICIO      := '' ,;
+      lcQUERY       := '' as string
+
+
+local laRES        := {},;
+      laRES_EXP    := {} as array
+
+
+
+
+WPut('TITLE','Exclusão de Pedidos')
+
+lcNR_PASTA:= wget('NR_PASTA','C')
+lcACTION  := upper(Wget('ACTION'))
+
+if lcACTION == 'BUSCA'
+
+   lcQUERY := 'select ' 
+   lcQUERY += 'pasta.NR_PASTA,'
+   lcQUERY += 'pasta.TP_PASTA,'
+   lcQUERY += 'pasta_config.GERA_EST_AUT'
+   lcQUERY += ' from pasta' 
+   lcQUERY += ' left join pasta_config on pasta_config.TP_PASTA=pasta.TP_PASTA'
+   lcQUERY += ' where pasta.NR_PASTA='+lcNR_PASTA
+   
+   if db_query(lcQUERY) == -1
+      error_sys(db_error())
+   endif
+   laRES_EXP := db_fetchall()
+   
+   if len(laRES_EXP)==1 
+      walert('Tipo de pasta não localizado !')
+      return(nil)
+   endif
+   
+   ***03/12/2014 rufino verifica layout de pedidos com rateio ou sem rateio   
+   if laRES_EXP[2,3] = 'S'
+      WPut('ABA_PED_NOVA','S')
+   else
+      WPut('ABA_PED_NOVA','N')
+   endif 
+   
+   if laRES_EXP[2,3] = 'N'
+   
+      lcQUERY := 'SELECT '
+      lcQUERY += 'pasta_pedidos.NR_PASTA,'
+      lcQUERY += 'pasta_pedidos.nr_controle,'     
+      lcQUERY += 'pasta_pedidos.PEDIDO_PROCESSO,'
+      lcQUERY += 'pasta_pedidos.NR_CONTROLE_SEGURO,'
+      lcQUERY += 'pasta_pedidos.DT_RISCO,'
+      lcQUERY += 'pasta_pedidos.VL_RISCO,'
+      lcQUERY += 'pasta_pedidos.VL_RISCO_CALC,'
+      lcQUERY += 'pasta_pedidos.VL_CORRECAO,'
+      lcQUERY += 'pasta_pedidos.VL_JUROS'
+      lcQUERY += ' FROM ' 
+      lcQUERY += 'pasta_pedidos'
+      lcQUERY += ' where pedido_processo <> "Total Pedido"'
+      lcQUERY += ' and pasta_pedidos.NR_PASTA='+lcNR_PASTA
+      lcQUERY += ' and (pasta_pedidos.nr_pedido_origem is null or pasta_pedidos.nr_pedido_origem=0)'
+      lcQUERY += ' order by pasta_pedidos.nr_controle'
+
+   else
+
+      lcQUERY := 'SELECT '
+      lcQUERY += 'pasta_pedidos.NR_PASTA,'
+      lcQUERY += 'pasta_pedidos.nr_controle,'     
+      lcQUERY += 'pasta_pedidos.PEDIDO_PROCESSO,'
+      lcQUERY += 'pasta_pedidos.NR_CONTROLE_SEGURO,'
+      lcQUERY += 'pasta_pedidos.DT_RISCO,'
+      lcQUERY += 'pasta_pedidos.VL_RISCO,'
+      lcQUERY += 'CASE'
+      lcQUERY += '  WHEN sum(est.VL_RISCO_CALC) is null THEN 0'
+      lcQUERY += '  ELSE CAST(sum(est.VL_RISCO_CALC) AS numeric(18,2))'
+      lcQUERY += 'END as VL_RISCO_CALC,'
+      lcQUERY += 'CASE'
+      lcQUERY += '  WHEN sum(est.VL_CORRECAO) is null THEN 0'
+      lcQUERY += '  ELSE CAST(sum(est.VL_CORRECAO) AS numeric(18,2))'
+      lcQUERY += 'END as VL_CORRECAO,'
+      lcQUERY += 'CASE'
+      lcQUERY += '  WHEN sum(est.VL_JUROS) is null THEN 0'
+      lcQUERY += '  ELSE CAST(sum(est.VL_JUROS) AS numeric(18,2))'
+      lcQUERY += 'END as VL_JUROS'
+      lcQUERY += ' FROM '
+      lcQUERY += 'pasta_pedidos' 
+      lcQUERY += ' left join pasta_pedidos est on est.nr_pasta=pasta_pedidos.nr_pasta and est.nr_pedido_origem=pasta_pedidos.nr_controle'
+
+      lcQUERY += ' where pasta_pedidos.NR_PASTA='+lcNR_PASTA
+      lcQUERY += ' and (pasta_pedidos.nr_pedido_origem is null or pasta_pedidos.nr_pedido_origem=0)'
+
+      lcQUERY += ' group by '
+      lcQUERY += 'pasta_pedidos.NR_PASTA,'
+      lcQUERY += 'pasta_pedidos.nr_controle,'     
+      lcQUERY += 'pasta_pedidos.PEDIDO_PROCESSO,'
+      lcQUERY += 'pasta_pedidos.NR_CONTROLE_SEGURO,'
+      lcQUERY += 'pasta_pedidos.DT_RISCO,'
+      lcQUERY += 'pasta_pedidos.VL_RISCO'
+      lcQUERY += ' order by pasta_pedidos.nr_controle'
+   
+   endif
+
+   if db_query(lcQUERY) == -1  
+      error_sys(db_error())
+   endif     
+   laRES := db_fetchall()
+
+   if len(laRES)==1 
+      walert('Numero da pasta não localizada !')
+      return(nil)
+   endif   
+
+   WPut('lstPEDIDOS',laRES)
+
+   
+elseif lcACTION == 'DELETE_PEDIDO' .and. gbWAC_DELETE
+
+    lcNR_PASTA    := wget('NR_PASTA','C')
+    lcNR_CONTROLE := wget('NR_CONTROLE','C')
+    
+    psab_logdel(lcNR_PASTA,'PEDIDO_PROCESSO',WGet('PEDIDO_PROCESSO','C'),,'Exclusão de Pedidos')
+    psab_logdel(lcNR_PASTA,'NR_CONTROLE',WGet('NR_CONTROLE','C'),,'Exclusão de Pedidos')
+    psab_logdel(lcNR_PASTA,'NR_CONTROLE_SEGURO',WGet('NR_CONTROLE_SEGURO','C'),,'Exclusão de Pedidos')
+    psab_logdel(lcNR_PASTA,'DT_RISCO',WGet('DT_RISCO','C'),,'Exclusão de Pedidos')
+    psab_logdel(lcNR_PASTA,'VL_RISCO_CALC',WGet('VL_RISCO_CALC','C'),,'Exclusão de Pedidos')
+    psab_logdel(lcNR_PASTA,'VL_RISCO',WGet('VL_RISCO','C'),,'Exclusão de Pedidos')
+    psab_logdel(lcNR_PASTA,'VL_CORRECAO',WGet('VL_CORRECAO','C'),,'Exclusão de Pedidos')
+    psab_logdel(lcNR_PASTA,'VL_JUROS',WGet('VL_JUROS','C'),,'Exclusão de Pedidos')   
+
+    lcQUERY := 'DELETE '
+    lcQUERY += 'FROM pasta_detal_pedidos'
+    lcQUERY += ' WHERE pasta_detal_pedidos.NR_DETAL in ('
+    lcQUERY += 'SELECT ' 
+    lcQUERY += 'pasta_detal_pedidos.NR_DETAL' 
+    lcQUERY += ' FROM pasta_detal_pedidos'
+    lcQUERY += ' WHERE pasta_detal_pedidos.NR_CONTROLE in ('
+    lcQUERY += 'SELECT ' 
+    lcQUERY += 'pasta_pedidos.NR_CONTROLE' 
+    lcQUERY += ' FROM pasta_pedidos' 
+    lcQUERY += ' WHERE pasta_pedidos.NR_PASTA='+lcNR_PASTA
+    lcQUERY += ' AND (pasta_pedidos.NR_CONTROLE='+lcNR_CONTROLE 
+    lcQUERY += ' OR pasta_pedidos.NR_PEDIDO_ORIGEM='+lcNR_CONTROLE
+    lcQUERY += ')))'    
+
+    if db_query(lcQUERY) == -1 
+       error_sys(db_error())
+    endif  
+    
+    lcQUERY := 'delete ' 
+    lcQUERY += 'from pasta_pedidos' 
+    lcQUERY += ' WHERE pasta_pedidos.NR_PASTA='+lcNR_PASTA
+    lcQUERY += ' AND (pasta_pedidos.NR_CONTROLE='+lcNR_CONTROLE 
+    lcQUERY += ' OR pasta_pedidos.NR_PEDIDO_ORIGEM='+lcNR_CONTROLE 
+    lcQUERY += ')' 
+
+    if db_query(lcQUERY) == -1
+       error_sys(db_error())
+    endif         
+
+    walert('Registro excluido !')
+
+endif
+
+ WPut('lcACTION','')
+
+return(nil)
+
+
+
+
+

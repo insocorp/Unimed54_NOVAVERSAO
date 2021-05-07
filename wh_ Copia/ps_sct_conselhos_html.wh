@@ -1,0 +1,349 @@
+/*
+
+Project      : gr5
+Program      : ps.sct.conselhos.html
+Function     : ps_sct_conselhos_html
+Created on   : 24-Jan-2004   12:52:36
+Descripition :
+
+*/
+
+   local lcACTION     := '' ,;
+         lcTP_PASTA   := '' ,;
+         lcTABLE      := '' ,;
+         lcFIELDS     := '' ,;
+         lcNR_PASTA   := '' ,;
+         lcMANDATO    := '' ,;
+         lcINICIO     := '' ,;
+         lcFIM        := '' ,;
+         lcFTCONSELHO := '' as string
+         
+   local laRESULT   := {} ,;
+         laRES      := {} ,;
+         laPUT      := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laWHERE    := {} ,;
+         laFIELDS   := {} ,;
+         laLABELS   := {} ,;
+         laDEF      := {} ,;
+         laDEFV     := {} ,;
+         laATI      := {} ,;
+         laATIV     := {} ,;
+         laINA      := {} ,;
+         laINAV     := {} ,;
+         laPUTV     := {} ,;
+         laFIELD    := {} ,;
+         laVALIDA   := {} as array
+
+   local ii         := 0 ,;
+         liPOS      := 0 as int
+
+   local llERRO := .F. as logical
+
+   lcACTION      := upper(alltrim(WGet('ACTION','C')))
+   lcTP_PASTA    := WGet('TP_PASTA','C')
+   lcNR_PASTA    := WGet('NR_PASTA','C')
+   lcNR_CONTROLE := WGet('NR_CONTROLE','C')
+   if lcNR_CONTROLE = 'New'
+      lcNR_CONTROLE := '0'
+   endif
+   lcTABLE       := 'pasta_sct_conselhos'
+   laWHERE       := {'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE+;
+                     ' and CONSELHO='+DLAP+wGet('CONSELHO','C')+DLAP}
+   lcMANDATO     := wGet('MANDATO','C')
+   lcINICIO  := WGet('DT_INICIO','C')
+   lcFIM     := WGet('DT_TERMINO','C')
+   lcFTCONSELHO  := wGet('FTCONSELHO','C')
+   laFIELDS      := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS      := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   laVALIDA      := {'CONSELHO','CIP_CONSELHEIRO'}
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   make_psthead(lcNR_PASTA,lcTP_PASTA) //Cabeçalho
+
+   *** Rufino 05/07/2012
+   *** marca em vermelho campos obrigatorios
+   init_reqfield(WSet('_USER_INTERFACE'))   
+
+   if empty(lcACTION)
+      lcACTION := 'NEW'
+   endif
+
+   wPut('TP_PASTA',lcTP_PASTA)
+
+   // Combo Conselho
+   laDEF := {}
+   laDEFV:= {}
+
+   laATI := {}
+   laATIV:= {}
+
+   laINA := {}
+   laINAV:= {}
+
+   laPUT := {}
+   laPUTV:= {}
+
+   laFIELD := structtable(WSet("DB_ACTIVE"),'conselho',1,'A')
+   liPOS   := ascan(laFIELD,'FL_ATIVO')
+
+   if liPOS<>0
+      laFIELD:={'CONSELHO','FL_ATIVO'}
+     else
+      laFIELD:={'CONSELHO'}
+    endif
+
+   if db_select(laFIELD,'conselho',,,{'CONSELHO'}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+
+   for jj := 2 to len(laRES)
+       if liPOS<>0
+          if laRES[jj,2] == 'D'
+             aadd(laDEF,laRES[jj,1])
+             aadd(laDEFV,laRES[jj,1])
+
+           elseif laRES[jj,2] == 'I'
+             aadd(laINA,laRES[jj,1])
+             aadd(laINAV,laRES[jj,1])
+           else
+             aadd(laATI,laRES[jj,1])
+             aadd(laATIV,laRES[jj,1])
+          endif
+       else
+          aadd(laATI,laRES[jj,1])
+          aadd(laATIV,laRES[jj,1])
+       endif
+   next jj
+
+   if len(laDEF) == 0
+      aadd(laDEF,'') // Adiciona uma linha vazia no inicio do combo, caso seja solicitado
+      aadd(laDEFV,'0')
+   endif
+
+   for jj=1 to len(laDEF)
+       aadd(laPUT,laDEF[jj])
+       aadd(laPUTV,laDEFV[jj])
+   next jj
+
+   for jj=1 to len(laATI)
+       aadd(laPUT,laATI[jj])
+       aadd(laPUTV,laATIV[jj])
+   next jj
+
+   for jj=1 to len(laINA)
+       aadd(laPUT,'INATIVO - '+laINA[jj])
+       aadd(laPUTV,laINAV[jj])
+   next jj
+
+   WPut('CONSELHO.option',laPUT)
+   WPut('CONSELHO.optionvalue',laPUTV)
+
+   aadd(laPUT,'Todos')
+   aadd(laPUTV,'Todos')
+
+   WPut('FTCONSELHO.option',laPUT)
+   WPut('FTCONSELHO.optionvalue',laPUTV)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+   wPut('MANDATO_OPT',{'Atual','Passado','Todos'})
+
+   if empty(lcFTCONSELHO)
+      lcFTCONSELHO := 'Todos'
+   endif
+
+   if lcACTION == 'NEW' .and. gbWAC_CREATE
+      WPut('NR_CONTROLE','New')
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+
+      if db_select(laFIELDS,lcTABLE,,laWHERE) = -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2put(laRESULT)
+         amkgedico(lcTABLE,lcNR_PASTA,lcNR_CONTROLE,WGet('CONSELHO','C'))
+         if db_select({'PFPJ'},'pfpj',,{'CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_CONSELHEIRO')]+DLAP}) == -1
+            error_sys(db_error())
+         endif
+         laPUT := db_fetchrow()
+         if len(laPUT) > 0
+            WPut('CIP_CONSELHEIRO_PFPJ',laPUT[1])
+         endif
+      endif
+   elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+      if ! verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+         llERRO := .T.
+      endif
+
+      if ! llERRO
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+
+         psab_logs(laSAVE,lcTABLE,'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE+;
+                                  ' and CONSELHO='+DLAP+WGet('CONSELHO','C')+DLAP,lcNR_PASTA,'Conselhos')
+
+         if db_replace(laSAVE,lcTABLE,laWHERE) = -1
+            error_sys(db_error())
+         endif
+      endif
+      WPut('NR_CONTROLE','New')
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      psab_logdel(lcNR_PASTA,'CONSELHO',WGet('CONSELHO','C'),,'Conselhos')
+
+      if db_delete(lcTABLE,laWHERE[1]) = -1
+         error_sys(db_error())
+      endif
+      WPut('NR_CONTROLE','New')
+   elseif lcACTION == 'REELEICAO' .and. gbWAC_WRITE
+      if ! verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+         llERRO := .T.
+      endif
+
+      if ! llERRO
+         aadd(laSAVE,laFIELDS)
+//         debug2(lasave)
+         
+         for ii := 1 to len(laFIELDS)
+            if laFIELDS[ii] == 'NR_CONTROLE'
+              aadd(laSAVE_AUX,0)
+            elseif laFIELDS[ii] == 'DT_MANDATO_INICIO' 
+              aadd(laSAVE_AUX,ctod('  /  /    '))
+            elseif laFIELDS[ii] == 'DT_MANDATO_FIM'
+               aadd(laSAVE_AUX,ctod('  /  /    '))
+            elseif laFIELDS[ii] == 'NR_ATA'   
+               aadd(laSAVE_AUX,'')
+            else
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+            endif   
+         next ii
+//         DEBUG2(LASAVE_AUX)
+         aadd(laSAVE,laSAVE_AUX)
+
+         if db_replace(laSAVE,lcTABLE,laWHERE) = -1
+            error_sys(db_error())
+         endif
+      endif
+      WPut('NR_CONTROLE','New')
+   endif
+
+   /* Listagem */
+   laWHERE := {'NR_PASTA='+lcNR_PASTA}
+   if !empty(lcINICIO) .or. !empty(lcFIM)
+      if !empty(ctod(lcINICIO))
+         aadd(laWHERE,'DT_MANDATO_INICIO  > '+DLAP+dtos(ctod(lcINICIO))+DLAP)
+      endif
+      if !empty(ctod(lcFIM))
+          aadd(laWHERE,'DT_MANDATO_FIM  < '+DLAP+dtos(ctod(lcFIM))+DLAP)
+      endif    
+      if !empty(ctod(lcINICIO)) .and. !empty(ctod(lcFIM))
+         aadd(laWHERE,'DT_MANDATO_INICIO  > '+DLAP+dtos(ctod(lcINICIO))+DLAP+ ' and ' + 'DT_MANDATO_FIM  < '+DLAP+dtos(ctod(lcFIM))+DLAP)
+      endif
+   else
+      if lcMANDATO == 'Atual'
+         aadd(laWHERE,'DT_MANDATO_FIM is null  or DT_MANDATO_FIM >= '+DLAP+dtos(date())+DLAP)
+      elseif lcMANDATO == 'Passado'
+         aadd(laWHERE,'DT_MANDATO_FIM is not null and DT_MANDATO_FIM < '+DLAP+dtos(date())+DLAP)
+      endif   
+   endif
+   if lcFTCONSELHO <> 'Todos'
+      aadd(laWHERE,'CONSELHO='+DLAP+lcFTCONSELHO+DLAP)
+   endif   
+
+   if db_select({'pasta_sct_conselhos.NR_CONTROLE',;
+                 'pasta_sct_conselhos.CONSELHO',;
+                 'pasta_sct_conselhos.CIP_CONSELHEIRO',;
+                 'pfpj.PFPJ',;
+                 'pasta_sct_conselhos.CARGO',;
+                 'pasta_sct_conselhos.NR_ATA',;
+                 'pasta_sct_conselhos.DT_MANDATO_INICIO',;
+                 'pasta_sct_conselhos.DT_MANDATO_FIM'},;
+                lcTABLE,;
+                {{2,'pfpj','pfpj.CIP=pasta_sct_conselhos.CIP_CONSELHEIRO'}},;
+                laWHERE) = -1
+      error_sys(db_error())
+   endif
+   laRESULT :=  db_fetchall()
+   if len(laRESULT) > 1
+      aadd(laRESULT[1],'(row)')
+      for ii := 2 to len(laRESULT)
+         aadd(laRESULT[ii],'(row)'+wic_action('wicaction/ps.sct.conselhos.html'+;
+                                              '?TP_PASTA='+lcTP_PASTA+;
+                                              '&NR_PASTA='+lcNR_PASTA+;
+                                              '&NR_CONTROLE='+str(laRESULT[ii, db_fetchncol(laRESULT,'NR_CONTROLE')])+;
+                                              '&CONSELHO='+laRESULT[ii, db_fetchncol(laRESULT,'CONSELHO')]+;
+                                              '&ACTION=ALTER'))
+      next ii
+      for ii := 1 to len(laRESULT)
+         adel(laRESULT[ii],1)
+         asize(laRESULT[ii], len(laRESULT[ii])-1)
+      next ii
+      WPut('GRID_CONSELHOS',grid_create(laRESULT))
+   endif
+   wPut('MANDATO',lcMANDATO)
+   wPut('FTCONSELHO',lcFTCONSELHO)
+   pasta_abas(lcTP_PASTA)
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

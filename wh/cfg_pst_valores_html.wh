@@ -1,0 +1,191 @@
+/*
+
+Project      : gr5
+Program      : cfg.pst.valores.html
+Function     : cfg_pst_valores_html
+Created on   : 28-May-2004   18:10:11
+Descripition : Definição dos Campos Valores
+
+*/
+
+   local lcACTION      := '',;
+         lcWHERE       := '',;
+         lcTABLE       := '',;
+         lcTP_PASTA    := '',;
+         lcNR_CONTROLE := '',;
+         lcVALIDA      := '',;
+         lcTIPO        := '' as string
+
+   local laPUT      := {} ,;
+         laFIELDS   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laVALIDA   := {} ,;
+         laFIND_REC := {} ,;
+         laLABELS   := {} as array
+
+   local ii    := 0 ,;
+         lnPOS := 0 as int
+
+   local llERROR := .f. as logical
+
+   lcACTION       := upper(WGet('ACTION','C'))
+   lcTP_PASTA     := WGet('TP_PASTA','C')
+   lcNR_CONTROLE  := WGet('NR_CONTROLE','C')
+   if val(lcNR_CONTROLE) == 0
+       lcNR_CONTROLE := '0'
+   endif
+   lcTABLE        := 'pasta_config_valores'
+   lcWHERE        := 'TP_PASTA = '+DLAP+lcTP_PASTA+DLAP+' and NR_CONTROLE = '+lcNR_CONTROLE
+   laFIELDS       := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+   laLABELS       := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'A')
+
+   /* Campos obrigatórios
+   * Formato do array abaixo
+   * 1 - Campo para captura da informação no HTML - WGet()
+   * 2 - Parte do label a exibir em caso de erro, está inf. e capturado do Wictrix
+   */
+   laVALIDA := {{'WFIELD_VALOR',laLABELS[ascan(laFIELDS,'WFIELD_VALOR')]}}
+   for ii := 1 to len(laVALIDA)
+      *WPut(laVALIDA[ii,1]+'.label.style.color','#FF0000')
+      *WPut(laVALIDA[ii,1]+'.label.style.font-weight','bold')
+      WPut(laVALIDA[ii,1]+'.style.border','2px solid red')
+   next ii
+
+   /* Relacionamentos que devem ser validados
+   * Formato do array abaixo
+   * 1 - Tabela
+   * 2 - Campo para captura da informação no HTML - WGet()
+   * 3 - Campo para montagem da cláusula WHERE usada em db_findrec()
+   * 4 - Parte do label a exibir em caso de erro, está inf. e capturado do Wictrix
+   */
+   //laFIND_REC := {{'cd_pasta_valores','WFIELD_VALOR','WFIELD_VALOR',laLABELS[ascan(laFIELDS,'WFIELD_VALOR')]},;
+   //               {'indice_reajuste','CD_INDICE','CD_INDICE',laLABELS[ascan(laFIELDS,'CD_INDICE')]}}
+   laFIND_REC := {{'indice_reajuste','CD_INDICE','CD_INDICE',laLABELS[ascan(laFIELDS,'CD_INDICE')]}}
+
+
+   /* Combo*/
+   WPut('FL_INDICECALC.option',{'Pasta','Cadastrado'})
+   WPut('FL_INDICECALC.optionvalue',{'P','C'})
+   WPut('TP_PASTA',lcTP_PASTA)
+   WPut('TITLE','Definição dos Campos Valores')
+   if lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laPUT := db_fetchall()
+      if len(laPUT) > 0
+         db2Put(laPUT)
+         /*
+         lnPOS := db_fetchncol(laPUT,'FL_ATUAL_VALOR')
+         if laPUT[2,lnPOS] == 'C'
+            WPut('FL_ATUAL_VALOR','Calculado')
+         elseif laPUT[2,lnPOS] == 'M'
+            WPut('FL_ATUAL_VALOR','Manual')
+         elseif laPUT[2,lnPOS] == 'L'
+            WPut('FL_ATUAL_VALOR','Calculado/Manual')
+         endif
+         */
+         if db_select({'NM_INDICE'},'indice_reajuste',,{'CD_INDICE='+str(laPUT[2,db_fetchncol(laPUT,'CD_INDICE')])}) = -1
+            error_sys(db_error())
+         endif
+         laPUT := db_fetchrow()
+         if len(laPUT) > 0
+            wPut('NM_INDICE',laPUT[1])
+         endif
+         WPut('TITLE','Alteração na definição dos campos de valores')
+      endif
+   elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+       if WGet('FL_INDICECALC','C') == 'C'
+          aadd(laVALIDA,{'CD_INDICE',laLABELS[ascan(laFIELDS,'CD_INDICE')]})
+       endif
+       for ii := 1 to len(laVALIDA)
+          lcVALIDA := alltrim(WGet(laVALIDA[ii,1],'C'))
+          if len(lcVALIDA) = 0 .or. lcVALIDA == '0'
+             walert(laVALIDA[ii,2]+' é um campo obrigatório!')
+             get2Put()
+             llERROR := .t.
+             exit
+             //return(.f.)
+          endif
+       next ii
+
+       if ! llERROR
+          for ii := 1 to len(laFIND_REC)
+             lcVALIDA := alltrim(WGet(laFIND_REC[ii,2],'C'))
+             if !empty(lcVALIDA) .and. lcVALIDA <> '0'
+                if valtype(WGet(laFIND_REC[ii,2])) == 'C'
+                   lcVALIDA := DLAP+lcVALIDA+DLAP
+                endif
+
+                if len(db_findrec({laFIND_REC[ii,3]},laFIND_REC[ii,1],laFIND_REC[ii,3]+'='+lcVALIDA)) = 0
+                   walert(laFIND_REC[ii,4]+' é inválido(a) ou não pode ser encontrado(a)!')
+                   get2Put()
+                   llERROR := .t.
+                   exit
+                   //return(.f.)
+                endif
+             endif
+          next ii
+       endif
+       if ! llERROR
+          aadd(laSAVE,laFIELDS)
+          for ii := 1 to len(laFIELDS)
+             aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+          next ii
+          aadd(laSAVE,laSAVE_AUX)
+          if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+             error_sys(db_error())
+          endif
+       endif
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+       if db_delete(lcTABLE,lcWHERE) = -1
+          error_sys(db_error())
+       endif
+   endif
+
+   if db_select({'pasta_config_valores.NR_CONTROLE',;
+                 'pasta_config_valores.WFIELD_VALOR',;
+                 'pasta_config_valores.WFIELD_DATABASE',;
+                 'pasta_config_valores.WFIELD_DATABASE_JUROS',;
+                 'pasta_config_valores.CD_INDICE',;
+                 'indice_reajuste.NM_INDICE',;
+                 'pasta_config_valores.FL_INDICECALC'},;
+                 lcTABLE,;
+                 {{2,'indice_reajuste','pasta_config_valores.CD_INDICE=indice_reajuste.CD_INDICE'}},;
+                {'pasta_config_valores.TP_PASTA='+DLAP+lcTP_PASTA+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laPUT := db_fetchall()
+   if len(laPUT) > 0
+      aadd(laPUT[1],'(row)')
+      for ii := 2 to len(laPUT)
+         aadd(laPUT[ii],'(row)wicaction/cfg.pst.valores.html?ACTION=ALTER'+;
+                        '&TP_PASTA='+lcTP_PASTA+;
+                        '&NR_CONTROLE='+str(laPUT[ii,db_fetchncol(laPUT,'NR_CONTROLE')]))
+         lnPOS := db_fetchncol(laPUT,'FL_INDICECALC')
+         if laPUT[ii,lnPOS] == 'C'
+            laPUT[ii,lnPOS] := 'Cadastrado'
+         elseif laPUT[ii,lnPOS] == 'P'
+            laPUT[ii,lnPOS] := 'Pasta'
+         endif
+      next ii
+
+      /* Remove coluna NR_CONTROLE da Grid */
+      lnPOS := ascan(laPUT[1],'NR_CONTROLE')
+      if lnPOS > 0
+         adel(laPUT[1],lnPOS)
+         asize(laPUT[1],len(laPUT[1])-1)
+         for ii := 2 to len(laPUT)
+            adel(laPUT[ii],lnPOS)
+            asize(laPUT[ii],len(laPUT[ii])-1)
+         next ii
+      endif
+      WPut('GRID_PST_VALORES',grid_create(laPUT))
+   endif
+return
+
+
+
+
+

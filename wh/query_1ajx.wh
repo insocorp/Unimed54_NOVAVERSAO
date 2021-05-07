@@ -1,0 +1,105 @@
+/*
+
+Project      : gr5
+Program      : query.ajx
+Function     : query_ajx
+Created on   : 16-May-2006   14:47:40
+Descripition : Programa genérica para fazer consultas e retornar Array no formato Javascript para utilização com método Ajax.
+
+
+*/
+
+  WSet('_WDEBUG','DISABLE')
+
+   local lcTABLE   := WGet('TABLE','C') ,;
+         lcFIELDS  := WGet('FIELDS','C') ,;
+         lcWHERE   := WGet('WHERE','C') ,;
+         lcJOIN    := alltrim(WGet('JOIN','C')) ,;
+         lcORDERBY := alltrim(WGet('ORDERBY','C')) as string
+
+   local laFIELDS  := {} ,;
+         laORDERBY := {} ,;
+         laJOIN    := {} ,;
+         laAUX     := {} as array
+
+local lcORDERTYPE   := WGet('ORDERTYPE','C') 
+ 
+
+   laFIELDS := str2array(lcFIELDS,',')
+   laFIELDS := {lcFIELDS}
+   if ! empty(lcORDERBY)
+//      wout(lcORDERBY)
+      laORDERBY := str2array(lcORDERBY,',')
+   endif
+   
+   if ! empty(lcJOIN)
+      laAUX := str2array(WGet('JOIN','C'),'|')
+      if len(laAUX) > 0
+         for ii := 1 to len(laAUX)
+            aadd(laJOIN,str2array(laAUX[ii],','))
+         next ii
+         for ii := 1 to len(laJOIN)
+            laJOIN[ii,1] := val(laJOIN[ii,1])
+         next ii
+      endif
+   endif
+   if empty(lcORDERTYPE) 
+      if db_select(laFIELDS,lcTABLE,laJOIN,{lcWHERE},laORDERBY) == -1
+         WOut('[['+db_error()+']]')
+         //error_sys(db_error())
+      endif
+   else
+
+      if db_select(laFIELDS,lcTABLE,laJOIN,{lcWHERE},laORDERBY,lcORDERTYPE) == -1
+         WOut('[['+db_error()+']]')
+         //error_sys(db_error())
+      endif
+   endif
+
+//   if db_select(laFIELDS,lcTABLE,laJOIN,{lcWHERE},laORDERBY) == -1
+//      WOut('[['+db_error()+']]')
+      //error_sys(db_error())
+//   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      lcAUX := '['
+      for ii := 1 to len(laRESULT)
+         if ii > 1
+            lcAUX += ','
+         endif
+
+         lcAUX += '['
+         for xx := 1 to len(laRESULT[ii])
+            if xx > 1
+               lcAUX += ','
+            endif
+            if ii == 1
+               lcAUX += DLMT+str2html(lblfscreen(laRESULT[ii,xx]))+DLMT
+               //lcAUX += DLMT+lblfscreen(laRESULT[ii,xx])+DLMT
+            else
+               lcAUX += DLMT+str2html(transform(laRESULT[ii,xx]))+DLMT
+               //lcAUX += DLMT+transform(laRESULT[ii,xx])+DLMT
+            endif
+         next xx
+         lcAUX += ']'
+      next ii
+      lcAUX += ']'
+      WOut(lcAUX)
+   else
+      WOut('[]')
+   endif
+
+return
+
+
+
+
+
+
+
+
+
+
+
+
+

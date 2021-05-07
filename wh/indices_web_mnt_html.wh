@@ -1,0 +1,48 @@
+/*
+
+Project      : isj_398
+Program      : indices.web.mnt.html
+Function     : indices_web_mnt_html
+Created on   : 01/08/2012 17:53:59
+Descripition : 
+
+*/
+
+local lcACTION      := '' 
+      
+      
+      
+local llERRO:=.f. as logical           
+
+WPut('TITLE','Captura de Indices - WebService')
+      
+//lcTABLE       := 'pasta_incorporacao'
+
+lcACTION      := upper(Wget('ACTION'))
+
+
+if lcACTION == 'EXECUT' .and. gbWAC_CREATE 
+   
+// atualizar seq_interfaces   
+      
+//      xupdval()
+      
+      walert('Pagina em Manutencao. Indisponivel para Captura')
+
+   
+endif
+
+return
+
+
+
+
+
+
+
+
+
+
+
+
+

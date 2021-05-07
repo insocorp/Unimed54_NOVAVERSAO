@@ -1,0 +1,269 @@
+/*
+
+Project      : gr5
+Program      : deliberacao.mnt.html
+Function     : mnt_pst_objeto_html
+Created on   : 2009-09-03 14:23:42
+Descripition : Manutenção Deliberações
+
+*/
+
+   local laRESULT   := {} ,;
+         laSAVE     := {} ,;
+         laSAVEAUX  := {} ,;
+         laMVTSAVE  := {} ,;
+         laRES      := {} ,;
+         laFIELDS   := {} ,;
+         laVALIDA   := {} ,;
+         laFOREIGN  := {} ,;
+         laPUT      := {} as array
+
+   local lcWHERE   := '' ,;
+         lcTABLE   := 'assembleia_deliberacao' ,;
+         x1        := '' ,;
+         lcPROCURA := '' ,; 
+         lcACTION  := ''  as string
+
+   local xx := 0 as int
+
+   laFIELDS  := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   // função para checar aspas simples e duplas
+   // 2009-09-03 14:24:12 - Sonia Perdigão                   
+
+   x1 := alltrim(wget('ASSEMBLEIA_DELIBERACAO','C'))
+   x1 := strtran(x1,chr(39)," ")
+   x1 := strtran(x1,chr(34)," ")
+   
+   lcWHERE   := 'ASSEMBLEIA_DELIBERACAO = '+DLAP+x1+DLAP
+   lcACTION  := alltrim(upper(WGet('ACTION')))
+   laVALIDA  := {'ASSEMBLEIA_DELIBERACAO'}
+
+
+   WPut('FL_ATIVO','S')
+   WPut('FL_ATIVO.option',{'Ativo','Inativo','Default'})
+   WPut('FL_ATIVO.optionvalue',{'S','I','D'})
+
+   lcFL_ATIVO = (wget('FL_ATIVO','C'))
+
+
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+   if lcACTION == 'ALTER'
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2put(laRESULT)
+      endif
+
+   elseif lcACTION == 'DELETE'
+      if db_delete(lcTABLE,lcWHERE) = -1
+         error_sys(db_error())
+      endif
+
+   elseif lcACTION == 'SAVE'
+      if verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+         for xx := 1 to len(laFIELDS)
+            // função para checar aspas simples e duplas
+            // 18/2/2009 16:39:27 - Sonia Perdigão    
+            x1 := wget(laFIELDS[xx])
+            x1 := strtran(x1,chr(39)," ")
+            x1 := strtran(x1,chr(34)," ")
+            aadd(laSAVEAUX,WGet(laFIELDS[xx]))
+         next xx
+         aadd(laSAVE,laFIELDS)
+         aadd(laSAVE,laSAVEAUX)
+         if db_replace(laSAVE,lcTABLE,{lcWHERE},) == -1
+            error_sys(db_error())
+         endif
+      endif
+
+   elseif lcACTION == 'SEARCH'
+
+      x1        := lower(x1)
+      lcPROCURA += 'ASSEMBLEIA_DELIBERACAO like '+DLAP+'%'+x1+'%'+DLAP
+      Monta_Grade(lcPROCURA)
+      get2put()
+   endif
+   if lcACTION <> 'SEARCH'
+      Monta_Grade()
+   endif   
+return
+
+//---------- Montagem da Grade com os dados cadastrados
+Static Function Monta_Grade(pc_filtro)
+local laFIELDS := {},;
+      laRESULT := {} as array
+local lcTABLE  := '',;
+      lcWHERE  := '' as string
+local ii       := 0 as numeric
+
+   lcTABLE  := 'assembleia_deliberacao'
+   laFIELDS := {'ASSEMBLEIA_DELIBERACAO','FL_ATIVO'}
+   if db_select(laFIELDS,lcTABLE,,iif(empty(pc_filtro),'',{pc_filtro})) == -1
+      error_sys(db_error())
+   endif
+   laRESULT  := db_fetchall()
+   lnCOUNT   := len(laRESULT)-1
+   if lnCOUNT > 0
+	   laPAGINAS := paginacao(lnCOUNT,'','')
+	   laLIMIT   := param_fetch(laPAGINAS,'LIMIT')
+	   
+	      if db_select(laFIELDS,lcTABLE,,iif(empty(pc_filtro),'',{pc_filtro}),,,,laLIMIT) == -1
+	         error_sys(db_error())
+	      endif
+	   
+	   laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         //Resumo da pesquisa
+         lcCODE := alltrim(str(laLIMIT[1]+1))+'-'
+         if ((len(laRESULT)-1) < (laLIMIT[2]-laLIMIT[1]))
+            lcCODE += alltrim(str(len(laRESULT)-1))
+         elseif param_fetch(laPAGINAS,'GOTO_PAGE') == param_fetch(laPAGINAS,'NR_PAGES') //lnNR_PAGES
+            lcCODE += alltrim(str(lnCOUNT))
+         else
+            lcCODE += alltrim(str(laLIMIT[1]+param_fetch(laPAGINAS,'ROWS_PAGE')))
+         endif
+         lcCODE += ' de '+alltrim(str(lnCOUNT))
+         if lnCOUNT > 1
+            lcCODE := ' Resultados '+lcCODE+' registros'
+         else
+            lcCODE := ' Resultado '+lcCODE+' registro'
+         endif
+         wput('RESUME_RESULTSET',lcCODE)
+         aadd(laRESULT[1],'(row)')
+         for ii := 2 to len(laRESULT)
+            aadd(laRESULT[ii],'(row)'+wic_action('wicaction/deliberacao.mnt.html?'+;
+                                                 'ASSEMBLEIA_DELIBERACAO='+laRESULT[ii, db_fetchncol(laRESULT,'ASSEMBLEIA_DELIBERACAO')]+;
+                                                 '&FL_ATIVO='+laRESULT[ii,db_fetchncol(laRESULT,'FL_ATIVO')]+;
+                                                 '&ACTION=ALTER'))
+         next ii
+         wPut('lstTRCT',grid_create(laRESULT))
+      else
+         wPut('lstTRCT','<center>Nenhum registro foi encontrado</center>')
+      endif
+   endif
+return
+
+Static function paginacao(fnCOUNT,fcMSGTYPE,fcQUICK_SEARCH)
+  local ii          := 0 ,;
+        lnGOTO_PAGE := WGet('GOTO_PAGE','N') ,;
+        lnNR_PAGES  := 0 ,;
+        lnROWS_PAGE := 0 ,;
+        lnMAX_PAGES := 0 ,;
+        lnPAGE_INI  := 0 ,;
+        lnPAGE_FIN  := 0 ,;
+        lnLIMIT1    := 0 ,;
+        lnLIMIT2    := 0 as int
+
+   local lcCODE     := '' as string
+
+   local laPAGES    := {} ,;
+         laLIMIT    := {} ,;
+         laRETURN   := {} as array
+
+   if lnCOUNT > 0
+      if lnGOTO_PAGE <= 0
+         lnGOTO_PAGE := 1
+      endif
+      lnMAX_PAGES := iif(val(WSet('MAX_PAGES'))==0,10,val(WSet('MAX_PAGES')))
+      lnROWS_PAGE := iif(val(WSet('ROWS_PAGE'))==0,10,val(WSet('ROWS_PAGE')))
+
+      if lnROWS_PAGE > fnCOUNT
+         lnROWS_PAGE := fnCOUNT
+      endif
+      lnNR_PAGES := fnCOUNT/lnROWS_PAGE
+
+      if (fnCOUNT % lnROWS_PAGE) > 0
+         lnNR_PAGES += 1
+      endif
+
+      lnMAX_PAGES := iif(lnNR_PAGES < lnMAX_PAGES,lnNR_PAGES,lnMAX_PAGES)
+      if lnGOTO_PAGE == 1
+         lnPAGE_INI := 1                              // Página inicial
+         lnPAGE_FIN := lnMAX_PAGES                    // Página final
+      else
+         if alltrim(WGet('MORE')) == 'Y'              // Visualizar as próximas 10 páginas, se possível
+            lnPAGE_INI := lnGOTO_PAGE
+            lnPAGE_FIN := lnMAX_PAGES+(lnGOTO_PAGE-1)
+            if lnPAGE_FIN > lnNR_PAGES
+               lnPAGE_FIN := lnNR_PAGES
+            endif
+         elseif alltrim(WGet('LESS')) == 'Y'          // Visualizar as 10 páginas anteriores, se possível
+            lnPAGE_INI := lnGOTO_PAGE-lnMAX_PAGES+1
+            lnPAGE_FIN := lnGOTO_PAGE
+         else
+            lnPAGE_INI := WGet('FIRST_PAGE','N')
+            lnPAGE_FIN := WGet('LAST_PAGE','N')
+         endif
+      endif
+
+      aadd(laPAGES,{'PROGRAM_CALL','NR_PAGE'})
+      for ii := lnPAGE_INI to lnPAGE_FIN
+          lcCODE := wic_action('wicaction/deliberacao.mnt.html?GOTO_PAGE='+alltrim(str(ii)))
+          lcCODE += '&FIRST_PAGE='+alltrim(str(lnPAGE_INI))+'&LAST_PAGE='+alltrim(str(lnPAGE_FIN))
+          if ii == lnPAGE_INI
+             lcCODE += '&LESS=Y'
+          endif
+          if ii == lnPAGE_FIN .and. lnPAGE_FIN < lnNR_PAGES
+             lcCODE += '&MORE=Y'
+          endif
+
+          // Manter a pesquisa do usuário caso ela exista e demais parametros
+          if !empty(fcQUICK_SEARCH)
+             lcCODE += '&QUICK_SEARCH='+fcQUICK_SEARCH
+          endif
+
+          if !empty(fcMSGTYPE)
+             lcCODE += '&MSGTYPE='+fcMSGTYPE
+          endif
+
+          aadd(laPAGES,{lcCODE,alltrim(str(ii))})
+      next ii
+      WPut('ifRESULT',.T.)
+      WPut('PAGES',laPAGES)
+
+      lnLIMIT1 := iif(lnGOTO_PAGE == 1,0,((lnGOTO_PAGE*lnROWS_PAGE)-1)-(lnROWS_PAGE-1))
+      lnLIMIT2 := lnROWS_PAGE
+      laLIMIT  := {lnLIMIT1,lnLIMIT2}
+
+      aadd(laRETURN,{'NR_PAGES',lnNR_PAGES})
+      aadd(laRETURN,{'ROWS_PAGE',lnROWS_PAGE})
+      aadd(laRETURN,{'GOTO_PAGE',lnGOTO_PAGE})
+      aadd(laRETURN,{'LIMIT',laLIMIT})
+   else
+      aadd(laRETURN,{'NR_PAGES' ,0})
+      aadd(laRETURN,{'ROWS_PAGE',0})
+      aadd(laRETURN,{'GOTO_PAGE',0})
+      aadd(laRETURN,{'LIMIT',{}})
+   endif
+return(laRETURN)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

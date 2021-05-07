@@ -1,0 +1,269 @@
+                                                                                                                    
+//
+// Glauber - 10/2017
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+/*
+*
+* Rufino - 11/2017
+*
+* Classe...........: I4proMovimentoSinistroJudicial
+*
+* Objetivo.........: Classe que gera dados de movimentação de sinistros para o I4Pro
+*
+* Atributos........:
+*
+*    EXPORT NrSinistro
+*    EXPORT IdSinPasta
+*    EXPORT NrPasta
+*    EXPORT CdEvento
+*    EXPORT NmEvento
+*    EXPORT NmStatusPasta
+*    EXPORT NrProcessoJudicial
+*    EXPORT NmReclamante
+*    EXPORT NmPerda
+*    EXPORT VlEconomico
+*    EXPORT VlAcao
+*    EXPORT DtOperacao
+*    EXPORT VlReservaFinal
+*    EXPORT Coberturas
+*    EXPORT Retorno      
+*    EXPORT IdProdutoCobertura
+*    EXPORT VlOperacao
+*    EXPORT VlJuros
+*    EXPORT VlCorrecao
+*    EXPORT VlMulta
+*    EXPORT NmObs
+*    EXPORT IdTpMotivo
+*    EXPORT DtCancelamento
+*    EXPORT IdTpMotivoCancelamento
+*    EXPORT NmMotivoCancelamento
+*    EXPORT DvGeraCarta
+*    EXPORT DvSucumbencia
+*    EXPORT DvTributa
+*    EXPORT DvNaoGeraPagamento
+*    EXPORT NmLinhaDigitavel
+*    EXPORT DvDepositoJudicial
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD toString()
+*
+*
+* Classes Ligadas..:
+*
+*    I4ProRetorno
+*
+*/
+
+CLASS I4proMovimentoSinistroJudicial
+
+    // Atributos publico
+    
+    EXPORT NrSinistro                
+    EXPORT IdSinPasta                
+    EXPORT NrPasta                   
+    EXPORT CdEvento                  
+    EXPORT NmEvento                  
+    EXPORT NmStatusPasta             
+    EXPORT NrProcessoJudicial        
+    EXPORT NmReclamante              
+    EXPORT NmPerda                   
+    EXPORT VlEconomico               
+    EXPORT VlAcao                    
+    EXPORT DtOperacao                
+    EXPORT VlReservaFinal            
+    EXPORT Coberturas                
+    EXPORT Retorno 
+
+    EXPORT IdProdutoCobertura
+    EXPORT VlOperacao
+    EXPORT VlJuros
+    EXPORT VlCorrecao
+    EXPORT VlMulta
+    EXPORT NmObs
+    EXPORT IdTpMotivo
+    EXPORT DtCancelamento
+    EXPORT IdTpMotivoCancelamento
+    EXPORT NmMotivoCancelamento
+    EXPORT DvGeraCarta
+    EXPORT DvSucumbencia
+    EXPORT DvTributa
+    EXPORT DvNaoGeraPagamento
+    EXPORT NmLinhaDigitavel
+    EXPORT DvDepositoJudicial                      
+
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()                          CLASS I4proMovimentoSinistroJudicial
+    PROTOTYPE METHOD Destroy()                       CLASS I4proMovimentoSinistroJudicial
+    PROTOTYPE METHOD toString()                      CLASS I4proMovimentoSinistroJudicial
+    
+    
+/*
+*
+* Rufino - 11/2017
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*                       
+*/
+
+METHOD Init() CLASS I4proMovimentoSinistroJudicial  
+
+    self:NrSinistro         := ''
+    self:IdSinPasta         := ''
+    self:NrPasta            := ''
+    self:CdEvento           := ''
+    self:NmEvento           := ''
+    self:NmStatusPasta      := ''
+    self:NrProcessoJudicial := ''
+    self:NmReclamante       := ''
+    self:NmPerda            := ''
+    self:VlEconomico        := ''
+    self:VlAcao             := ''
+    self:DtOperacao         := ''
+    self:VlReservaFinal     := ''
+    self:Coberturas         := {}
+    self:Retorno            := I4proRetornoNew()
+    
+    self:IdProdutoCobertura    := ''
+    self:VlOperacao            := ''
+    self:VlJuros               := ''
+    self:VlCorrecao            := ''
+    self:VlMulta               := ''
+    self:NmObs                 := ''
+    self:IdTpMotivo            := ''
+    self:DtCancelamento        := ''
+    self:IdTpMotivoCancelamento:= ''
+    self:NmMotivoCancelamento  := ''
+    self:DvGeraCarta           := ''
+    self:DvSucumbencia         := ''
+    self:DvTributa             := ''
+    self:DvNaoGeraPagamento    := ''
+    self:NmLinhaDigitavel      := ''
+    self:DvDepositoJudicial    := ''  
+
+return(self) 
+
+/*
+*
+* Rufino - 11/2017
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS I4proMovimentoSinistroJudicial
+
+
+    self:NrSinistro         := nil
+    self:IdSinPasta         := nil
+    self:NrPasta            := nil
+    self:CdEvento           := nil
+    self:NmEvento           := nil
+    self:NmStatusPasta      := nil
+    self:NrProcessoJudicial := nil
+    self:NmReclamante       := nil
+    self:NmPerda            := nil
+    self:VlEconomico        := nil
+    self:VlAcao             := nil
+    self:DtOperacao         := nil
+    self:VlReservaFinal     := nil
+    self:Coberturas         := nil
+    self:Retorno            := nil
+
+    self:IdProdutoCobertura    := nil
+    self:VlOperacao            := nil
+    self:VlJuros               := nil
+    self:VlCorrecao            := nil
+    self:VlMulta               := nil
+    self:NmObs                 := nil
+    self:IdTpMotivo            := nil
+    self:DtCancelamento        := nil
+    self:IdTpMotivoCancelamento:= nil
+    self:NmMotivoCancelamento  := nil
+    self:DvGeraCarta           := nil
+    self:DvSucumbencia         := nil
+    self:DvTributa             := nil
+    self:DvNaoGeraPagamento    := nil
+    self:NmLinhaDigitavel      := nil
+    self:DvDepositoJudicial    := nil
+    self:Retorno            := nil    
+    
+    
+    
+    
+
+return(nil)
+
+
+/*
+*
+* Rufino - 11/2017
+*
+* Metodo....: toString()
+* Objetivo..: Retornar uma String com a representação do Objeto.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             String
+*
+*/
+
+METHOD toString() CLASS I4proMovimentoSinistroJudicial
+
+return 'I4proConsultaSinistro [NrSinistro='         +  Transform(self:NrSinistro) +;              
+                             ',IdSinPasta='         +  Transform(self:IdSinPasta) +;              
+                             ',NrPasta='            +  Transform(self:NrPasta) +;                 
+                             ',CdEvento='           +  Transform(self:CdEvento) +;                
+                             ',NmEvento='           +  Transform(self:NmEvento) +;                
+                             ',NmStatusPasta='      +  Transform(self:NmStatusPasta) +;           
+                             ',NrProcessoJudicial=' +  Transform(self:NrProcessoJudicial) +;      
+                             ',NmReclamante='       +  Transform(self:NmReclamante) +;            
+                             ',NmPerda='            +  Transform(self:NmPerda) +;                 
+                             ',VlEconomico='        +  Transform(self:VlEconomico) +;             
+                             ',VlAcao='             +  Transform(self:VlAcao) +;                  
+                             ',DtOperacao='         +  Transform(self:DtOperacao) +;              
+                             ',VlReservaFinal='     +  Transform(self:VlReservaFinal) +;  
+                             ',Coberturas='         +  Transform(self:Coberturas) +;
+                             ',IdProdutoCobertura='     + Transform(self:IdProdutoCobertura) +;            
+                             ',VlOperacao='             + Transform(self:VlOperacao) +;                    
+                             ',VlJuros='                + Transform(self:VlJuros) +;                       
+                             ',VlCorrecao='             + Transform(self:VlCorrecao) +;                    
+                             ',VlMulta='                + Transform(self:VlMulta) +;                       
+                             ',NmObs='                  + Transform(self:NmObs) +;                         
+                             ',IdTpMotivo='             + Transform(self:IdTpMotivo) +;                    
+                             ',DtCancelamento='         + Transform(self:DtCancelamento) +;                
+                             ',IdTpMotivoCancelamento=' + Transform(self:IdTpMotivoCancelamento) +;        
+                             ',NmMotivoCancelamento='   + Transform(self:NmMotivoCancelamento) +;          
+                             ',DvGeraCarta='            + Transform(self:DvGeraCarta) +;                   
+                             ',DvSucumbencia='          + Transform(self:DvSucumbencia) +;                 
+                             ',DvTributa='              + Transform(self:DvTributa) +;                     
+                             ',DvNaoGeraPagamento='     + Transform(self:DvNaoGeraPagamento) +;            
+                             ',NmLinhaDigitavel='       + Transform(self:NmLinhaDigitavel) +;              
+                             ',DvDepositoJudicial='     + Transform(self:DvDepositoJudicial) +;                                       
+                             ',Retorno='                + Transform(self:Retorno:toString()) + ']' 

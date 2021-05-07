@@ -1,0 +1,3900 @@
+/*
+
+Project      : isj_51
+Program      : psab.ped2.html
+Function     : psab_ped2_html
+Created on   : 16-Nov-2010   11:16:27
+Descripition :
+
+*/
+
+   local lcTABLE       := 'pasta' ,;
+         lcFLWEB       := WGet('FL_INTERFACEWEB','C') ,;
+         lcFLGEM       := WGet('FL_INTERFACEGEM','C') ,;
+         lcPROGRAM     := 'psab_ped2_html',;
+         lcNR_ROW      := '1',;
+         lcSEGURO      := '0',;
+         lcTP_EXP      := '' ,;
+         lcRELAC       := '' ,;
+         lcWHERE       := '' ,;
+         lcWHEREDETAL  := '' ,;
+         lcWHEREOCOR   := '' ,;
+         lcWHEREDESP   := '' ,;
+         lcAUX         := '' ,;
+         lcAUX2        := '' ,;
+         lcVAR         := '' ,;
+         lcMSG         := '' ,;
+         lcPC_RISCO    := '' ,;
+         lcDT          := '' ,;
+         lcDT_RISCO    := '' ,;
+         lcCD_INDICE   := '' ,;
+         lcOCORPAI     := '' ,;
+         lcOBSPAI      := '' ,;
+         lcACHO        := '' ,;
+         lcALSU        := '' ,;
+         lcFLSUC       := '' as string
+
+   local laFIELDS       := {} ,;
+         laFIELDS_AUX   := {} ,;
+         laFIELDSDETAL  := {} ,;
+         laRESULT       := {} ,;
+         laRESULTDETAL  := {} ,;
+         laRESULTPEDDT  := {} ,;
+         laMVT_DESPPED  := {} ,;
+         laSAVE         := {} ,;
+         laSAVE_AUX     := {} ,;
+         laSAVELOG      := {} ,;
+         laSAVELOG_AUX  := {} ,;
+         laPEDIDO_ATUAL := {} ,;
+         laCAMPO        := {} ,;
+         laRESULT_PAS   := {} ,;
+         laRESULT_OCOR  := {} ,;
+         laLINHA_ATUAL  := {} ,;
+         laVLATUAL      := {} ,;
+         laTMP          := {} ,;
+         laRESPAI       := {} ,;
+         laCONFPAS      := {} ,;
+         laOBRIGA       := {} ,;
+         laFOREIGN      := {} as array
+
+   local ii            := 0 ,;
+         xx            := 0 ,;
+         zz            := 0 ,;
+         qq            := 0 ,;
+         yy            := 0 ,;
+         lnPOS         := 0 ,;
+         lnSAVE        := 0 ,;
+         lnLINHASAVE   := 0 ,;
+         lnCONT_CAMPOS := 0 ,;    // Qtos Campos são replicáveis Pai p/ Filho
+         lnULTIMO      := 0 ,;
+         lnNRCSUC      := 0 as int
+
+   local lnVTR             := 0.00 ,; //Total VL_RISCO
+         lnVTC             := 0.00 ,; //Total VL_CORRECAO
+         lnVTJ             := 0.00 ,; //Total VL_JURO
+         lnVTA             := 0.00 ,; //Total VL_ATUALIZADO
+         lnVA              := 0.00 ,;
+         lnVTRC            := 0.00 ,;
+         lnVRC             := 0.00 ,;
+         lnVCDIFF          := 0.00 ,;
+         lnVJDIFF          := 0.00 ,;
+         lnVCSUC           := 0.00 ,;
+         lnVL_ATUAL        := 0.00 ,;
+         lnPC_RISCO        := 0.00 ,;
+         lnPCRISCO2        := 0.00 ,;
+         lnRISCO           := 0.00 ,;
+         lnVL_RISCO_ORIGEM := 0.00 ,;
+         lnVLTOTRISCO      := 0.00 ,;
+         lnRISCO_CALC      := 0.00 ,;
+         lnDIF             := 0.00 ,;
+         lnINDANT          := 0.00 ,;
+         lnINDATU          := 0.00 ,;
+         lnARED            := 0.00 as numeric
+
+   local lnPED_ORIGEM := 0 as int
+
+   local llAUX       := .t. ,;
+         llRETURN    := .t. ,;
+         llENCERRADA := .f.,;
+         llERROR     := .f.,;
+         llALTPED    := .f.,;
+         llErro      := .f. as logical
+
+   local ldDTSUC as date
+
+
+
+   local lcNR_PASTA    := WGet('NR_PASTA','C') ,;
+         lcNR_CONTROLE := WGet('NR_CONTROLE','C') ,;
+         lcTP_PASTA    := WGet('TP_PASTA','C') ,;
+         lcACTION      := upper(WGet('ACTION','C')) as string
+
+   laFIELDS      := {'PC_RISCO',;
+                     'CD_MOEDA',;
+                     'VL_CAUSA',;
+                     'VL_ACAO',;
+                     'VL_RISCO',;
+                     'VL_RISCO2',;
+                     'VL_RISCO_HONORARIO',;
+                     'PC_SUCUMBENCIA_CONDENACAO',;
+                     'VL_MULTA',;
+                     'VL_AUTOR',;
+                     'CD_INDICE',;
+                     'DT_ATUALIZACAO',;
+                     'VL_PROVISAO_CALC',;
+                     'FL_PASTA'}
+
+
+   wac_tp_pasta(lcTP_PASTA)               // Função para verificação de permissões por pasta, encontra-se na func.wic
+
+   make_psthead(lcNR_PASTA,lcTP_PASTA)    //Cabeçalho
+
+   *** RUFINO 25/08/2017 11:46:24 Retirado obrigatoriedade (VL_RISCO) conf.reuniao Alexandre/Celia 25/08/2017 11:00
+   ***laOBRIGA:={'NM_INDICE','DT_RISCO','VL_RISCO','OCOR_PEDIDO','DT_JUROS'}   
+   
+   laOBRIGA:={'NM_INDICE','DT_RISCO','OCOR_PEDIDO','DT_JUROS'}
+
+   init_reqfield(WSet('_USER_INTERFACE'),laOBRIGA)
+   *** ATENÇÃO A OBRIGATORIEDADE TAMBE E MARCADA NA FUNCAO pegalabel().
+
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+   *Exibe os botÃµes permitidos
+   *gbWAC_READ   = PODE LER
+   *gbWAC_CREATE = PODE CRIAR NOVO
+   *gbWAC_DELETE = PODE APAGAR
+   *gbWAC_WRITE  = PODE GRAVAR
+
+   if gbWAC_CREATE
+      WPut('ifNOVO',.t.)
+   endif
+   if gbWAC_DELETE
+
+   endif
+   if gbWAC_WRITE
+      WPut('ifMANU',.t.)
+      WPut('ifSALVAR',.t.)
+   endif
+
+
+   if psab_find(lcTP_PASTA,'psab.seg.cont.sinistro.html') == .t.
+      WPut('ifSINISTRO','T')
+      //---------- Verificando o Layout de Tela.
+      if db_select({'LAYOUT_PASTA'},'pasta_config',,{'TP_PASTA = '+DLAP+lcTP_PASTA+DLAP+'and (LAYOUT_PASTA like '+DLAP+'%Exp%'+DLAP+' or LAYOUT_PASTA like '+DLAP+'%exp%'+DLAP+')'}) == -1
+         error_sys(db_error())
+      endif
+      laRES_EXP := db_fetchrow()
+      if len(laRES_EXP) > 0
+         WPut('ifEXPEDIENTE','T')
+      else
+         WPut('ifEXPEDIENTE','F')
+      endif
+   else
+      WPut('ifSINISTRO','F')
+      WPut('ifEXPEDIENTE','F')
+   endif
+
+   if lcACTION == 'SAVENEW' .and. gbWAC_CREATE
+
+
+      laSAVE      := {'NR_PASTA',;
+                      'PEDIDO_PROCESSO',;
+                      'VL_RISCO',;
+                      'PC_RISCO',;
+                      'VL_RISCO_CALC',;
+                      'DT_RISCO',;
+                      'FL_CALCULO',;
+                      'DT_MOVTO_PED',;
+                      'COMENTARIOS_PED',;
+                      'OCOR_PEDIDO',;
+                      'POSSIVEL',;
+                      'PROVAVEL',;
+                      'REMOTO',;
+                      'NR_CONTROLE_SEGURO',;
+                      'TP_EXPEDIENTE',;
+                      'DT_JUROS'}
+
+      laRESULT :={}
+
+      if WGet('PED_NOVOS','C')<>''
+         laRESULT := str2array(WGet('PED_NOVOS','C'),'|')
+         aadd(laLINHA_ATUAL,laSAVE)
+      endif
+
+      for ii := 1 to len(laRESULT)
+          aadd(laTMP,str2array(laRESULT[ii],'|'))
+
+          for zz := 1 to len(laTMP[ii])
+              lcAUX:=array2str(laTMP[ii],',')
+              aadd(laLINHA_ATUAL,str2array(lcAUX,','))
+          next zz
+
+      next ii
+
+      if len(laLINHA_ATUAL)>1
+         geraprevisao(laLINHA_ATUAL)
+      endif
+
+   endif
+
+   if lcACTION == 'SAVEALTER' .and. gbWAC_WRITE
+
+      laSAVE      := {'NR_PASTA',;
+                      'NR_CONTROLE_PAI',;
+                      'NR_CONTROLE',;
+                      'PEDIDO_PROCESSO',;
+                      'OCOR_PEDIDO',;
+                      'ACAO',;
+                      'DT_RISCO',;
+                      'VL_RISCO_CALC',;
+                      'VL_CORRECAO',;
+                      'VL_JUROS',;
+                      'FL_CALCULO',;
+                      'COMENTARIOS_PED',;
+                      'VL_RISCO',;
+                      'ZERA_SALDO',;
+                      'PEDIDO_PAI',;
+                      'NR_CONTROLE_SEGURO',;
+                      'DT_JUROS'}
+
+      laRESULT := str2array(WGet('PED_MANUT','C'),'|')
+
+      aadd(laLINHA_ATUAL,laSAVE)
+
+      for ii := 1 to len(laRESULT)
+          aadd(laTMP,str2array(laRESULT[ii],'|'))
+
+          for zz := 1 to len(laTMP[ii])
+              lcAUX:=array2str(laTMP[ii],',')
+              aadd(laLINHA_ATUAL,str2array(lcAUX,','))
+          next zz
+
+      next ii
+
+      if len(laLINHA_ATUAL)>1
+         atuprevisao(laLINHA_ATUAL)
+      endif
+   endif
+
+
+   if lcACTION == 'SAVEPASTA' .and. gbWAC_WRITE
+
+      if verif_reqfield(WSet('_USER_INTERFACE'),laOBRIGA)
+
+
+         laFIELDS_AUX  := {'CD_MOEDA',;
+                           'VL_CAUSA',;
+                           'VL_ACAO',;
+                           'VL_RISCO',;
+                           'VL_RISCO2',;
+                           'VL_MULTA',;
+                           'CD_INDICE',;
+                           'DT_ATUALIZACAO',;
+                           'PC_SUCUMBENCIA_CONDENACAO'}
+
+         aadd(laCONFPAS,laFIELDS_AUX)
+
+         laFIELDS_AUX  := {WGet('CD_MOEDA','N'),;
+                           WGet('VL_CAUSA','N'),;
+                           WGet('VL_ACAO','N'),;
+                           WGet('VL_RISCO','N'),;
+                           WGet('VL_RISCO2','N'),;
+                           WGet('VL_MULTA','N'),;
+                           WGet('CD_INDICE','N'),;
+                           WGet('DT_ATUALIZACAO','D'),;
+                           WGet('PC_SUCUMBENCIA_CONDENACAO','N')}
+
+         aadd(laCONFPAS,laFIELDS_AUX)
+
+         laDIFFROW := db_diffrow(laCONFPAS,'pasta','NR_PASTA='+WGet('NR_PASTA','C'))
+
+         if len(laDIFFROW)>0
+
+            lcACHO    :='N'
+            lcALSU    :='N'
+
+            laCONFPAS :={}
+
+            laSAVE_AUX:={}
+            *** cria linha com os fields alterados
+            for yy:=1 to len(laDIFFROW)
+                if laDIFFROW[YY,1] == 'CD_INDICE'
+                   lcACHO:='S'
+                endif
+
+                if laDIFFROW[YY,1] == 'PC_SUCUMBENCIA_CONDENACAO'
+                   lnINDANT:=laDIFFROW[YY,2]
+                   lnINDATU:=laDIFFROW[YY,3]
+                   lcALSU:='S'
+                endif
+
+                aadd(laSAVE_AUX,laDIFFROW[YY,1])
+            next yy
+            aadd(laCONFPAS,laSAVE_AUX)
+
+
+            laSAVE_AUX:={}
+            *** cria linha com o valor dos campos alterados
+            for yy:=1 to len(laDIFFROW)
+                aadd(laSAVE_AUX,laDIFFROW[YY,3])
+            next yy
+            aadd(laCONFPAS,laSAVE_AUX)
+
+            *** indice alterado recalcula todas as provisoes
+            if lcACHO=='S'
+               EstiRecalcula(WGet('TP_PASTA','C'),WGet('NR_PASTA','C'),val(WGet('CD_INDICE','C')),0)
+            endif
+
+            *** percentual de sucumbencia alterado recalcula todas sucumbencias
+            if lcALSU=='S'
+               altsucumb(lnINDANT,lnINDATU)
+            endif
+
+            *grava log de alteração
+            lcWHERE:= 'NR_PASTA='+WGet('NR_PASTA','C')
+            if psab_logs(laCONFPAS,'pasta',lcWHERE,WGet('NR_PASTA','C'),'Pedidos') == .f.
+               error_sys(db_error())
+            endif
+
+            lcWHERE:= 'NR_PASTA='+WGet('NR_PASTA','C')
+            if db_update(laCONFPAS,'pasta',{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+
+
+
+
+
+
+
+         endif
+
+      endif
+
+   endif
+
+   **if lcACTION == 'NEW' .and. gbWAC_READ
+   if gbWAC_READ
+      pegalabel('pasta_detal_pedidos','FIELD_DETAL','LABEL_DETAL','FIELD_OBRI',WSet('_USER_INTERFACE'),laOBRIGA)
+      if db_select(laFIELDS,'pasta',,{'NR_PASTA='+lcNR_PASTA}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+
+      if len(laRESULT) > 1
+
+         db2Put(laRESULT) //manda dados da pasta para o html
+
+         carrega_moeda()
+         carrega_indice()
+
+         WPut('NM_MOEDA',laRESULT[2,db_fetchncol(laRESULT,'CD_MOEDA')])
+         WPut('NM_INDICE',laRESULT[2,db_fetchncol(laRESULT,'CD_INDICE')])
+
+
+         valores_padroes(lcNR_PASTA,WGet('TP_PASTA','C'))
+         carregaobj(lcTP_PASTA)
+         carregapedidos(lcNR_PASTA,lcTP_PASTA)
+         carregaseg()
+
+         laFOREIGN := {{'xCD_MOEDA','CD_MOEDA','moeda','NM_MOEDA'},;
+                       {'xCD_INDICE','CD_INDICE','indice_reajuste','NM_INDICE'}}
+
+         /* Selecionando Relacionamentos */
+         for ii := 1 to len(laFOREIGN)
+            lnPOS := ascan(laRESULT[1],laFOREIGN[ii,1])
+            if lnPOS > 0
+
+               if valtype(laRESULT[2,lnPOS]) == 'N'
+                  if laRESULT[2,lnPOS] == 0
+                     llAUX := .f.
+                  else
+                     lcAUX := laFOREIGN[ii,2]+'='+str(laRESULT[2,lnPOS])
+                     llAUX := .t.
+                  endif
+               else
+                  if empty(alltrim(laRESULT[2,lnPOS]))
+                     llAUX := .f.
+                  else
+                     lcAUX := laFOREIGN[ii,2]+'='+DLAP+laRESULT[2,lnPOS]+DLAP
+                     llAUX := .t.
+                  endif
+               endif
+
+               if llAUX
+                  if db_select({laFOREIGN[ii,4]},laFOREIGN[ii,3],,{lcAUX}) == -1
+                     error_sys(db_error())
+                  endif
+
+                  db2Put(db_fetchall())
+               endif
+            endif
+         next ii
+
+      endif
+
+   endif
+
+return
+
+*************************************
+static function carregaobj()
+*************************************
+local lcTABLEDET := '' ,;
+      lcWHEREDET := '' ,;
+      lcOBJ      := '' as string
+
+local laRESULT := {} as array
+
+local ii := 0 as int
+
+if db_select({'OCOR_SUCU'},'pasta_config',,{'TP_PASTA = '+DLAP+WGet('TP_PASTA','C')+DLAP}) == -1
+   error_sys(db_error())
+endif
+laRESULT:=db_fetchrow()
+
+lcTABLEDET      := 'pasta_objeto'
+lcWHEREDET      := 'TP_PASTA = '+DLAP+WGet('TP_PASTA','C')+DLAP+' and FL_ATIVO <>'+DLAP+'I'+DLAP+' and FL_VISIVEL ='+DLAP+'W'+DLAP+' and OBJETO <>'+DLAP+laRESULT[1]+DLAP
+
+if db_select({'OBJETO'},;
+              lcTABLEDET,,;
+              {lcWHEREDET},{'OBJETO'}) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchall()
+
+lcOBJ:=''
+for ii := 2 to len(laRESULT)
+    if lcOBJ==''
+       lcOBJ:=laRESULT[ii,1]
+      else
+       lcOBJ:=lcOBJ+'|'+laRESULT[ii,1]
+    endif
+next ii
+WPut('OBJETOS',lcOBJ)
+
+return(nil)
+
+
+*************************************
+static function atuprevisao(laALTER)
+*************************************
+
+local lcFL_CALCULO      := '' ,;
+      lcPEDIDO_PROCESSO := '' ,;
+      lcCOMENTARIOS_PED := '' ,;
+      lcWHERE           := '' ,;
+      lcOCOR_PEDIDO     := '' ,;
+      lcCOLUNA          := '' ,;
+      lcOBS             := '' ,;
+      lcALT_DT_RISCO    := 'N',;
+      lcALT_DT_JUROS    := 'N',;
+      lcALT_FL_CALCULO  := 'N',;
+      lcALT_PC_RISCO    := 'N',;
+      lcZERA_SALDO      := 'N',;
+      lcFL_LOG_EST      := 'N',;
+      lcACAORI          := '' ,;
+      lcSALDO_ZERO      := 'N' as string
+
+local lnVL_RISCO        := 0.00 ,;
+      lnDVL_RISCO       := 0.00 ,;
+      lnSVL_CALC        := 0.00 ,;
+      lnVL_CALC         := 0.00 ,;
+      lnSVL_CORR        := 0.00 ,;
+      lnVL_CORR         := 0.00 ,;
+      lnSVL_JURO        := 0.00 ,;
+      lnVL_JURO         := 0.00 ,;
+      lnPC_RISCO        := 0.00 ,;
+      lnXPC_RISCO       := 0.00 ,;
+      lnVL_AACALC       := 0.00 ,;
+      lnVL_CALCD        := 0.00 ,;
+      lnVL_CORRD        := 0.00 ,;
+      lnVL_COMP         := 0.00 ,;
+      lnVL_JUROD        := 0.00 as numeric
+
+local ii                := 0 ,;
+      xx                := 0 ,;
+      yy                := 0 ,;
+      rr                := 0 ,;
+      lnNR_CONTROLE     := 0 as int
+
+local laFIELDS          := {} ,;
+      laDFIELDS         := {} ,;
+      laSAVE            := {} ,;
+      laSAVE_AUX        := {} ,;
+      laSAVE_DET        := {} ,;
+      laSAVE_COR        := {} ,;
+      laDIFFROW         := {} ,;
+      laCONFPED         := {} ,;
+      laCONFPAI         := {} ,;
+      laRESULT          := {} ,;
+      laSAVE_XDET       := {} ,;
+      la2SAVE_AUX       := {} ,;
+      laDFC             := {} ,;
+      laCFC             := {} ,;
+      laCONFFIL         := {} as array
+
+local ldDT_RISCO as date
+
+lnNR_PEDIDO_ORIGEM := 0
+
+laFIELDS   := {'NR_PASTA',;
+               'NR_CONTROLE',;
+               'PEDIDO_PROCESSO',;
+               'DT_MOVTO_PED',;
+               'DT_RISCO',;
+               'VL_RISCO',;
+               'VL_RISCO_CALC',;
+               'PC_RISCO',;
+               'VL_CORRECAO',;
+               'VL_JUROS',;
+               'FL_CALCULO',;
+               'COMENTARIOS_PED',;
+               'OCOR_PEDIDO',;
+               'DT_ALTERACAO',;
+               'HR_ALTERACAO',;
+               'LOGIN_CADASTRO',;
+               'FL_LOG_ESTIMATIVA'}
+
+aadd(laSAVE_DET,laFIELDS)
+
+
+laDFC:= aclone(laSAVE_DET)
+aadd(laDFC[1],'NR_CONTROLE_SEGURO')
+
+
+
+laFIELDS   := {'NR_PASTA',;
+               'NR_CONTROLE',;
+               'PEDIDO_PROCESSO',;
+               'DT_MOVTO_PED',;
+               'DT_RISCO',;
+               'VL_RISCO',;
+               'VL_RISCO_CALC',;
+               'PC_RISCO',;
+               'VL_CORRECAO',;
+               'VL_JUROS',;
+               'FL_CALCULO',;
+               'OCOR_PEDIDO',;
+               'DT_ALTERACAO',;
+               'HR_ALTERACAO',;
+               'LOGIN_CADASTRO',;
+               'FL_LOG_ESTIMATIVA'}
+
+aadd(laSAVE_COR,laFIELDS)
+
+laCFC:= aclone(laSAVE_COR)
+aadd(laCFC[1],'NR_CONTROLE_SEGURO')
+
+
+lnNR_PEDIDO_ORIGEM:=0
+
+for ii := 2 to len(laALTER) //atenção laALTER so contem as linhas de estimativa
+
+    *** dados de cada estimativa
+    lnNR_CONTROLE := VAL(laALTER[ii,db_fetchncol(laALTER,'NR_CONTROLE')])
+
+    lnVL_RISCO    := VAL(laALTER[ii,db_fetchncol(laALTER,'VL_RISCO')])
+    ldDT_RISCO    := ctod(laALTER[ii,db_fetchncol(laALTER,'DT_RISCO')])
+    lnVL_CALC     := VAL(laALTER[ii,db_fetchncol(laALTER,'VL_RISCO_CALC')])
+    ldDT_JUROS    := ctod(laALTER[ii,db_fetchncol(laALTER,'DT_JUROS')])
+
+    *** agora o PC_RISCO e apenas informativo não e mais utilizado para calculo
+    if lnVL_RISCO=lnVL_CALC
+       lnPC_RISCO    :=100
+    else
+       lnPC_RISCO    := (lnVL_CALC * 100) / lnVL_RISCO
+       lnPC_RISCO    := round(lnPC_RISCO,0)
+    endif
+
+    lnVL_CORR     := VAL(laALTER[ii,db_fetchncol(laALTER,'VL_CORRECAO')])
+    lnVL_JURO     := VAL(laALTER[ii,db_fetchncol(laALTER,'VL_JUROS')])
+
+    if laALTER[ii,db_fetchncol(laALTER,'FL_CALCULO')] == 'true'
+       lcFL_CALCULO:='S'
+      else
+       lcFL_CALCULO:=''
+    endif
+
+    if laALTER[ii,db_fetchncol(laALTER,'ZERA_SALDO')] == 'true'
+       lcZERA_SALDO:='S'
+      else
+       lcZERA_SALDO:=''
+    endif
+
+    if lnNR_PEDIDO_ORIGEM <> VAL(laALTER[ii,db_fetchncol(laALTER,'NR_CONTROLE_PAI')])
+
+
+       *** verifica se dados do lançamento pai foi alterado
+       lnNR_PEDIDO_ORIGEM := VAL(laALTER[ii,db_fetchncol(laALTER,'NR_CONTROLE_PAI')])
+
+       laCONFPAI  := {}
+
+       laFIELDS    := {'VL_RISCO','DT_RISCO','DT_JUROS','FL_CALCULO'}
+       aadd(laCONFPAI,laFIELDS)
+
+       laFIELDS    := {lnVL_RISCO,ldDT_RISCO,ldDT_JUROS,lcFL_CALCULO}
+       aadd(laCONFPAI,laFIELDS)
+
+       laDIFFROW := db_diffrow(laCONFPAI,'pasta_pedidos','NR_CONTROLE='+laALTER[ii,db_fetchncol(laALTER,'NR_CONTROLE_PAI')])
+
+       ** laDIFFROW
+       **  campo alterado                   dados anteriores                 novos dados
+       **| DT_RISCO                       | 08/12/2009                     | 07/10/2014                    |
+
+       lcSALDO_ZERO := 'N'
+
+       if len(laDIFFROW)>0 //dados do lançamento pai foi alterado deve fazer _update
+
+          *wout('vai atualizar no pai controle: '+ STR(lnNR_PEDIDO_ORIGEM))
+          *debug2(laCONFPAI,,30)
+          
+          lcOBS := ''
+
+          for rr := 1 to len(laDIFFROW)
+
+             *** estava sem valor de risco
+             if (laDIFFROW[rr,1]=='VL_RISCO' .and. VAL(str(laDIFFROW[rr,2])) == 0)
+                lcSALDO_ZERO := 'S'
+             endif
+
+             if laDIFFROW[rr,1]=='VL_RISCO'
+                lcOBS:='Foi alterado o valor do risco'
+                lnDVL_RISCO:= VAL(str(laDIFFROW[rr,3])) - VAL(str(laDIFFROW[rr,2]))
+             endif
+
+             if laDIFFROW[rr,1]=='DT_RISCO'
+                if lcOBS == ''
+                   lcOBS:='Foi alterada a data do risco'
+                else
+                   lcOBS:=lcOBS + ' / data do risco'
+                endif
+             endif
+
+             if laDIFFROW[rr,1]=='DT_JUROS'
+                if lcOBS == ''
+                   lcOBS:='Foi alterada a data do juros'
+                else
+                   lcOBS:=lcOBS + ' / data do juros'
+                endif
+             endif
+
+             if laDIFFROW[rr,1]=='FL_CALCULO'
+                if lcOBS == ''
+
+                   if lcFL_CALCULO=''
+                      lcOBS:='Foi desmarcado calculo automatico'
+                   else
+                      lcOBS:='Foi marcado calculo automatico'
+                   endif
+                else
+                   if lcFL_CALCULO=''
+                      lcOBS:=lcOBS + ' / desmarcado calculo aut'
+                   else
+                      lcOBS:=lcOBS + ' / marcado calculo aut'
+                   endif
+
+                endif
+             endif
+
+          next rr
+
+          if lcOBS != ''
+             lcOBS:=lcOBS + '.'
+          endif
+
+          *** cria detal do pai
+          laSAVE_AUX    := {WGet('NR_PASTA','C'),;
+                               laALTER[ii,db_fetchncol(laALTER,'NR_CONTROLE_PAI')],;
+                               laALTER[ii,db_fetchncol(laALTER,'PEDIDO_PAI')],;
+                               date(),;
+                               ldDT_RISCO,;
+                               lnDVL_RISCO,;
+                               0,;
+                               lnPC_RISCO,;
+                               0,;
+                               0,;
+                               lcFL_CALCULO,;
+                               lcOBS,;
+                               '',;
+                               date(),;
+                               time(),;
+                               gcLOGIN,;
+                               'S'}
+          aadd(laSAVE_DET,laSAVE_AUX)  //utilizado no _insert
+
+
+          *** pega pai para contabilizar
+          la2SAVE_AUX   := {WGet('NR_PASTA','C'),;
+                               laALTER[ii,db_fetchncol(laALTER,'NR_CONTROLE_PAI')],;
+                               laALTER[ii,db_fetchncol(laALTER,'PEDIDO_PAI')],;
+                               date(),;
+                               ldDT_RISCO,;
+                               lnDVL_RISCO,;
+                               0,;
+                               lnPC_RISCO,;
+                               0,;
+                               0,;
+                               lcFL_CALCULO,;
+                               lcOBS,;
+                               '',;
+                               date(),;
+                               time(),;
+                               gcLOGIN,;
+                               'S',;
+                               laALTER[ii,db_fetchncol(laALTER,'NR_CONTROLE_SEGURO')]}
+
+          aadd(laDFC,la2SAVE_AUX)
+          aadd(laCFC,la2SAVE_AUX)
+
+          ** grava log de alteração do pai
+          lcWHERE:= 'NR_CONTROLE='+STR(lnNR_PEDIDO_ORIGEM)
+          if psab_logs(laCONFPAI,'pasta_pedidos',lcWHERE,WGet('NR_PASTA','C'),'Pedidos') == .f.
+             error_sys(db_error())
+          endif
+
+          lcWHERE:= 'NR_CONTROLE='+STR(lnNR_PEDIDO_ORIGEM)
+          if db_update(laCONFPAI,'pasta_pedidos',{lcWHERE}) == -1
+             error_sys(db_error())
+          endif
+       else
+
+          *** pega pai para contabilizar
+          la2SAVE_AUX   := {WGet('NR_PASTA','C'),;
+                               laALTER[ii,db_fetchncol(laALTER,'NR_CONTROLE_PAI')],;
+                               laALTER[ii,db_fetchncol(laALTER,'PEDIDO_PAI')],;
+                               date(),;
+                               ldDT_RISCO,;
+                               0,;
+                               0,;
+                               0,;
+                               0,;
+                               0,;
+                               '',;
+                               '',;
+                               '',;
+                               date(),;
+                               time(),;
+                               gcLOGIN,;
+                               'S',;
+                               laALTER[ii,db_fetchncol(laALTER,'NR_CONTROLE_SEGURO')]}
+
+          aadd(laDFC,la2SAVE_AUX)
+          aadd(laCFC,la2SAVE_AUX)
+
+          lnVL_RISCO=0
+
+       endif
+
+    endif
+
+    laCONFFIL   := {}
+    laFIELDS    := {'VL_RISCO_CALC',;
+                    'VL_CORRECAO',;
+                    'VL_JUROS',;
+                    'DT_RISCO',;
+                    'FL_CALCULO',;
+                    'PC_RISCO',;
+                    'DT_JUROS'}
+
+    aadd(laCONFFIL,laFIELDS)
+
+
+    if laALTER[ii,db_fetchncol(laALTER,'ACAO')] =='-'
+
+       laFIELDS    := {(lnVL_CALC * -1),;
+                       (lnVL_CORR * -1),;
+                       (lnVL_JURO * -1),;
+                       ldDT_RISCO,;
+                       lcFL_CALCULO,;
+                       lnPC_RISCO,;
+                       ldDT_JUROS}
+    else
+
+       laFIELDS    := {lnVL_CALC,;
+                       lnVL_CORR,;
+                       lnVL_JURO,;
+                       ldDT_RISCO,;
+                       lcFL_CALCULO,;
+                       lnPC_RISCO,;
+                       ldDT_JUROS}
+    endif
+
+
+    aadd(laCONFFIL,laFIELDS)
+
+    laDIFFROW := db_diffrow(laCONFFIL,'pasta_pedidos','NR_CONTROLE='+STR(lnNR_CONTROLE))
+
+    *** so grava quando exite diferença entre lançamento anterior e o atual
+    *** mas se mandou zerar o saldo e não existiu diferença indica que pagamento e total (baixa o saldo)
+    lcBAIXA_SAL:='S'
+    if lcZERA_SALDO=='S'
+       *** verifica se algum valor foi alterado
+       *** se algum foi alterado não zera total, zera so a culuna que tem diferença
+
+       lcCOLUNA :=''
+       laAUXF   :={}
+       laAUXV   :={}
+       laAUXDIF :={}
+
+       laCONFPED:={}
+
+       for xx:=1 to len(laDIFFROW)
+           if laDIFFROW[xx,1]=='VL_RISCO_CALC'
+              lcBAIXA_SAL:='N'
+              aadd(laAUXF,'VL_RISCO_CALC')
+              aadd(laAUXV,0)
+              aadd(laAUXDIF,{'VL_RISCO_CALC',laDIFFROW[xx,2],laDIFFROW[xx,2]})
+           endif
+           if laDIFFROW[xx,1]=='VL_CORRECAO'
+              lcBAIXA_SAL:='N'
+              aadd(laAUXF,'VL_CORRECAO')
+              aadd(laAUXV,0)
+              aadd(laAUXDIF,{'VL_CORRECAO',laDIFFROW[xx,2],laDIFFROW[xx,2]})
+           endif
+           if laDIFFROW[xx,1]=='VL_JUROS'
+              lcBAIXA_SAL:='N'
+              aadd(laAUXF,'VL_JUROS')
+              aadd(laAUXV,0)
+              aadd(laAUXDIF,{'VL_JUROS',laDIFFROW[xx,2],laDIFFROW[xx,2]})
+           endif
+       next xx
+
+       if  lcBAIXA_SAL=='S'
+          *** se nenhum valor foi alterado baixa o que estiver digitado
+          *** aqui forço o laDIFFROW com alteraçoes baixa todas colunas
+          aadd(laDIFFROW,{'VL_RISCO_CALC',lnVL_CALC,lnVL_CALC})
+          aadd(laDIFFROW,{'VL_CORRECAO',lnVL_CORR,lnVL_CORR})
+          aadd(laDIFFROW,{'VL_JUROS',lnVL_JURO,lnVL_JURO})
+         *else
+          *laDIFFROW:=laAUXDIF
+       endif
+
+    endif
+
+    if len(laDIFFROW)>0 //algum campo foi alterado
+
+       lnVL_CALCD       := 0
+       lnVL_AACALC      := 0
+       lnVL_CORRD       := 0
+       lnVL_AACORR      := 0
+       lnVL_JUROD       := 0
+       lnVL_AAJURO      := 0
+       lnVL_COMP        := 0
+       lcALT_DT_RISCO   := 'N'
+       lcALT_FL_CALCULO := 'N'
+       lcALT_PC_RISCO   := 'N'
+       lcALT_DT_JUROS   := 'N'
+       lcACAORI         := laALTER[ii,db_fetchncol(laALTER,'ACAO')]
+
+       for xx:=1 to len(laDIFFROW)
+
+           *** se ação for de substituição
+
+           if lcACAORI =='S'
+              if laDIFFROW[xx,1]=='VL_RISCO_CALC' .or. laDIFFROW[xx,1]=='VL_CORRECAO' .or. laDIFFROW[xx,1]=='VL_JUROS'
+                 *** se o valor digtado for diferente de zero
+                 if laDIFFROW[xx,3]<>0
+                    *** se o valor digitado for maior que o que tinha soma a diferença
+                    if laDIFFROW[xx,3]>laDIFFROW[xx,2]
+                       laDIFFROW[xx,3]:=laDIFFROW[xx,3]-laDIFFROW[xx,2]
+                       laALTER[ii,db_fetchncol(laALTER,'ACAO')]:='+'
+                    else
+                       laDIFFROW[xx,3]:=(laDIFFROW[xx,2]-laDIFFROW[xx,3]) * -1
+                       laALTER[ii,db_fetchncol(laALTER,'ACAO')]:='-'
+                    endif
+
+                 else
+                    *** digitou zero subritra o valor que tinha
+                    laDIFFROW[xx,3]:=laDIFFROW[xx,2] * -1
+                    laALTER[ii,db_fetchncol(laALTER,'ACAO')]:='-'
+                 endif
+
+              endif
+           endif
+
+           if laDIFFROW[xx,1]=='VL_RISCO_CALC'
+
+              *if laALTER[ii,db_fetchncol(laALTER,'ACAO')] =='-'
+              *   lnVL_CALCD:=laDIFFROW[xx,3] * -1
+              *  else
+              *   lnVL_CALCD:=laDIFFROW[xx,3]
+              *endif
+
+              lnVL_CALCD:=laDIFFROW[xx,3]
+
+           endif
+
+           if laDIFFROW[xx,1]=='VL_CORRECAO'
+
+              *if laALTER[ii,db_fetchncol(laALTER,'ACAO')] =='-'
+              *   lnVL_CORRD:=laDIFFROW[xx,3] * -1
+              *  else
+              *   lnVL_CORRD:=laDIFFROW[xx,3]
+              *endif
+
+              lnVL_CORRD:=laDIFFROW[xx,3]
+
+           endif
+
+           if laDIFFROW[xx,1]=='VL_JUROS'
+
+              *if laALTER[ii,db_fetchncol(laALTER,'ACAO')] =='-'
+              *   lnVL_JUROD:=laDIFFROW[xx,3] * -1
+              *  else
+              *   lnVL_JUROD:=laDIFFROW[xx,3]
+              *endif
+
+              lnVL_JUROD:=laDIFFROW[xx,3]
+
+           endif
+
+           if laDIFFROW[xx,1]=='DT_RISCO'
+              lcALT_DT_RISCO:='S'
+           endif
+           if laDIFFROW[xx,1]=='FL_CALCULO'
+              lcALT_FL_CALCULO:='S'
+           endif
+           if laDIFFROW[xx,1]=='PC_RISCO'
+              lcALT_PC_RISCO:='S'
+           endif
+           if laDIFFROW[xx,1]=='DT_JUROS'
+              lcALT_DT_JUROS:='S'
+           endif
+       next xx
+
+       laDFIELDS    := {'VL_RISCO_CALC',;
+                        'VL_CORRECAO',;
+                        'VL_JUROS'}
+
+       lcWHERE:= 'NR_CONTROLE='+STR(lnNR_CONTROLE)
+       if db_select(laDFIELDS,'pasta_pedidos',,{lcWHERE}) == -1
+          error_sys(db_error())
+       endif
+       laRESULT := db_fetchall()
+
+       *** pega saldo antes da movimentação
+       lnVL_AACALC:=laRESULT[2,db_fetchncol(laRESULT,'VL_RISCO_CALC')]
+       lnVL_AACORR:=laRESULT[2,db_fetchncol(laRESULT,'VL_CORRECAO')]
+       lnVL_AAJURO:=laRESULT[2,db_fetchncol(laRESULT,'VL_JUROS')]
+
+
+       *** se algum valor foi alterado (valor digitado diferente de zero)
+       if (lnVL_CALCD<>0 .or. lnVL_CORRD<>0 .or. lnVL_JUROD<>0)
+          *** lança o digitado no pasta_detal_pedidos = (movimentado)
+          laSAVE_AUX    := {WGet('NR_PASTA','C'),;
+                            lnNR_CONTROLE,;
+                            laALTER[ii,db_fetchncol(laALTER,'PEDIDO_PROCESSO')],;
+                            date(),;
+                            ldDT_RISCO,;
+                            0,;
+                            lnVL_CALCD,;
+                            lnPC_RISCO,;
+                            lnVL_CORRD,;
+                            lnVL_JUROD,;
+                            lcFL_CALCULO,;
+                            laALTER[ii,db_fetchncol(laALTER,'COMENTARIOS_PED')],;
+                            laALTER[ii,db_fetchncol(laALTER,'OCOR_PEDIDO')],;
+                            date(),;
+                            time(),;
+                            gcLOGIN,;
+                            'N'}
+
+          aadd(laSAVE_DET,laSAVE_AUX)  //utilizado no _insert
+
+          *** pega para contabilizar
+
+          la2SAVE_AUX    := {WGet('NR_PASTA','C'),;
+                            lnNR_CONTROLE,;
+                            laALTER[ii,db_fetchncol(laALTER,'PEDIDO_PROCESSO')],;
+                            date(),;
+                            ldDT_RISCO,;
+                            0,;
+                            lnVL_CALCD,;
+                            lnPC_RISCO,;
+                            lnVL_CORRD,;
+                            lnVL_JUROD,;
+                            lcFL_CALCULO,;
+                            laALTER[ii,db_fetchncol(laALTER,'COMENTARIOS_PED')],;
+                            laALTER[ii,db_fetchncol(laALTER,'OCOR_PEDIDO')],;
+                            date(),;
+                            time(),;
+                            gcLOGIN,;
+                            'N',;
+                            laALTER[ii,db_fetchncol(laALTER,'NR_CONTROLE_SEGURO')]}
+
+          aadd(laDFC,la2SAVE_AUX)
+
+          if lcZERA_SALDO=='S'
+
+             *if lcBAIXA_SAL=='S'
+
+                lnVL_CALCD := (lnVL_AACALC + lnVL_CALCD) * -1
+                lnVL_CORRD := (lnVL_AACORR + lnVL_CORRD) * -1
+                lnVL_JUROD := (lnVL_AAJURO + lnVL_JUROD) * -1
+
+                *** só se existir saldo em alguma coluna
+                if lnVL_CALCD !=0 .or. lnVL_CORRD !=0 .or. lnVL_JUROD !=0
+                   *** cria lançamento que zera o saldo no pasta_detal_pedidos
+                   laSAVE_XDET   := {WGet('NR_PASTA','C'),;
+                                     lnNR_CONTROLE,;
+                                     laALTER[ii,db_fetchncol(laALTER,'PEDIDO_PROCESSO')],;
+                                     date(),;
+                                     ldDT_RISCO,;
+                                     0,;
+                                     lnVL_CALCD,;
+                                     lnPC_RISCO,;
+                                     lnVL_CORRD,;
+                                     lnVL_JUROD,;
+                                     lcFL_CALCULO,;
+                                     laALTER[ii,db_fetchncol(laALTER,'COMENTARIOS_PED')],;
+                                     WGet('OCOR_ESTO','C'),;
+                                     date(),;
+                                     time(),;
+                                     gcLOGIN,;
+                                     'N'}
+
+                   aadd(laSAVE_DET,laSAVE_XDET)  //utilizado no _insert
+
+                   *** pega para contabilizar
+                   laSAVE_XDET   := {WGet('NR_PASTA','C'),;
+                                     lnNR_CONTROLE,;
+                                     laALTER[ii,db_fetchncol(laALTER,'PEDIDO_PROCESSO')],;
+                                     date(),;
+                                     ldDT_RISCO,;
+                                     0,;
+                                     lnVL_CALCD,;
+                                     lnPC_RISCO,;
+                                     lnVL_CORRD,;
+                                     lnVL_JUROD,;
+                                     lcFL_CALCULO,;
+                                     laALTER[ii,db_fetchncol(laALTER,'COMENTARIOS_PED')],;
+                                     WGet('OCOR_ESTO','C'),;
+                                     date(),;
+                                     time(),;
+                                     gcLOGIN,;
+                                     'N',;
+                                     laALTER[ii,db_fetchncol(laALTER,'NR_CONTROLE_SEGURO')]}
+
+
+                   aadd(laDFC,laSAVE_XDET)
+
+                endif
+
+                *** zera todas colunas
+                laCONFPED  :={}
+                aadd(laCONFPED,laDFIELDS)
+                aadd(laCONFPED,{0,0,0})
+
+
+             ** grava log de alteração zerando saldo
+             lcWHERE:= 'NR_CONTROLE='+STR(lnNR_CONTROLE)
+             if psab_logs(laCONFPED,'pasta_pedidos',lcWHERE,WGet('NR_PASTA','C'),'Pedidos') == .f.
+                error_sys(db_error())
+             endif
+
+             lcWHERE:= 'NR_CONTROLE='+STR(lnNR_CONTROLE)
+             if db_update(laCONFPED,'pasta_pedidos',{lcWHERE}) == -1
+                error_sys(db_error())
+             endif
+
+          endif
+       endif
+
+       *** atualiza saldo do pedido
+       if lcZERA_SALDO=='' .and. (lnVL_CALCD <> 0 .or. lnVL_CORRD <> 0 .or. lnVL_JUROD <> 0 .or. lcALT_DT_RISCO=='S' .or. lcALT_FL_CALCULO=='S' .or. lcALT_PC_RISCO=='S' .or. lcALT_DT_JUROS=='S'  )
+
+          laCONFPED :={}
+          laSAVE_AUX:={}
+          for yy:=1 to len(laDIFFROW)
+              aadd(laSAVE_AUX,laDIFFROW[YY,1])
+          next yy
+          aadd(laCONFPED,laSAVE_AUX)
+
+          ***joga a diferença no pedido =(saldo)
+          laSAVE_AUX:={}
+
+
+
+
+
+          for yy:=1 to len(laDIFFROW)
+
+                 if laDIFFROW[yy,1]=='VL_RISCO_CALC'
+                    if lcSALDO_ZERO == 'N'
+
+                       aadd(laSAVE_AUX,(laDIFFROW[yy,2] + lnVL_CALCD))
+
+                      else
+                       aadd(laSAVE_AUX,lnVL_CALCD)
+                    endif
+                 endif
+
+
+                 if laDIFFROW[yy,1]=='VL_CORRECAO'
+                    if lcSALDO_ZERO == 'N'
+
+                       aadd(laSAVE_AUX,(laDIFFROW[yy,2] + lnVL_CORRD))
+
+                      else
+                       aadd(laSAVE_AUX,lnVL_CORRD)
+                    endif
+                 endif
+
+                 if laDIFFROW[yy,1]=='VL_JUROS'
+                    if lcSALDO_ZERO == 'N'
+
+                       aadd(laSAVE_AUX,(laDIFFROW[yy,2] + lnVL_JUROD))
+
+                      else
+                       aadd(laSAVE_AUX,lnVL_JUROD)
+                    endif
+                 endif
+
+                 if laDIFFROW[yy,1]=='DT_RISCO'
+                    aadd(laSAVE_AUX,laDIFFROW[yy,3])
+                 endif
+
+                 if laDIFFROW[yy,1]=='FL_CALCULO'
+                    aadd(laSAVE_AUX,laDIFFROW[yy,3])
+                 endif
+
+                 if laDIFFROW[yy,1]=='PC_RISCO'
+                    *** não registra, deixa a impressão que não foi alterada
+                    aadd(laSAVE_AUX,laDIFFROW[yy,2])
+                 endif
+
+                 if laDIFFROW[yy,1]=='DT_JUROS'
+                    aadd(laSAVE_AUX,laDIFFROW[yy,3])
+                 endif
+
+          next yy
+          aadd(laCONFPED,laSAVE_AUX)
+
+          ***wout('vai atualizar no pedido controle: '+ STR(lnNR_CONTROLE))
+          ***debug2(laCONFPED,,30)
+
+          ** grava log de alteração com a diferença
+          lcWHERE:= 'NR_CONTROLE='+STR(lnNR_CONTROLE)
+          if psab_logs(laCONFPED,'pasta_pedidos',lcWHERE,WGet('NR_PASTA','C'),'Pedidos') == .f.
+             error_sys(db_error())
+          endif
+
+          if lcZERA_SALDO=='' .or. lcSALDO_ZERO == 'S'
+             *** grava resto como saldo  OU movimetado como saldo pois o saldo anterior era zero (pedido novo)
+             lcWHERE:= 'NR_CONTROLE='+STR(lnNR_CONTROLE)
+             if db_update(laCONFPED,'pasta_pedidos',{lcWHERE}) == -1
+                error_sys(db_error())
+             endif
+           endif
+       endif
+
+
+       *** calcula correção e juros caso não esteja marcado para zerar saldo caso não seja digitado zero como movimento
+       if lcFL_CALCULO=='S' .and. lcZERA_SALDO=='' //.and. (lnVL_CALCD <> 0 .or. lnVL_CORRD <> 0 .or. lnVL_JUROD <> 0)
+
+          *** valor anterior mais o movimentado
+          lnSVL_CALC := (lnVL_AACALC + lnVL_CALCD)
+          lnVL_CORRD := (lnVL_AACORR + lnVL_CORRD)
+          lnVL_JUROD := (lnVL_AAJURO + lnVL_JUROD)
+
+          laRESXUP:=calcorjur(WGet('TP_PASTA','C'),WGet('NR_PASTA','C'),val(WGet('CD_INDICE','C')),ldDT_RISCO,lnSVL_CALC,ldDT_JUROS)
+
+          lnVRC := lnSVL_CALC
+
+          lnVCDIFF  := round(laRESXUP[1,1],2) - round(lnVL_CORRD,2)
+          lnVJDIFF  := round(laRESXUP[1,2],2) - round(lnVL_JUROD,2)
+
+          if laRESXUP[1,4] == '+'
+             lnVCDIFF  := lnVCDIFF * (-1) //Inversão de sinal
+             lnVJDIFF  := lnVJDIFF * (-1) //Inversão de sinal
+          endif
+
+          lcOCOR:= laRESXUP[1,3]
+          if (lnVCDIFF<>0 .or. lnVJDIFF<>0)
+              laSAVE_AUX    := {WGet('NR_PASTA','C'),;
+                                str(lnNR_CONTROLE),;
+                                laALTER[ii,db_fetchncol(laALTER,'PEDIDO_PROCESSO')],;
+                                date(),;
+                                ldDT_RISCO,;
+                                0,;
+                                0,;
+                                lnPC_RISCO,;
+                                lnVCDIFF,;
+                                lnVJDIFF,;
+                                lcFL_CALCULO,;
+                                lcOCOR,;
+                                date(),;
+                                time(),;
+                                gcLOGIN,;
+                                'N'}
+
+              aadd(laSAVE_COR,laSAVE_AUX)  //utilizado no _insert
+
+              *** pega para contabilizar
+
+              la2SAVE_AUX   := {WGet('NR_PASTA','C'),;
+                                str(lnNR_CONTROLE),;
+                                laALTER[ii,db_fetchncol(laALTER,'PEDIDO_PROCESSO')],;
+                                date(),;
+                                ldDT_RISCO,;
+                                0,;
+                                0,;
+                                lnPC_RISCO,;
+                                lnVCDIFF,;
+                                lnVJDIFF,;
+                                lcFL_CALCULO,;
+                                lcOCOR,;
+                                date(),;
+                                time(),;
+                                gcLOGIN,;
+                                'N',;
+                                laALTER[ii,db_fetchncol(laALTER,'NR_CONTROLE_SEGURO')]}
+
+
+              aadd(laCFC,la2SAVE_AUX)
+
+          endif
+       endif
+    endif
+next ii
+
+if len(laSAVE_DET) > 1
+
+   *wout('laDFC')
+   *debug2(laDFC,,30)
+
+   *** contabiliza detalhes do pedido
+   xcont(laDFC,WGet('NR_PASTA','C'),WGet('TP_PASTA','C'))
+   ***************
+
+   if db_insert(laSAVE_DET,'pasta_detal_pedidos') == -1
+       error_sys(db_error())
+   endif
+endif
+
+if len(laSAVE_COR) > 1
+   *wout('laSAVE_COR')
+   *debug2(laSAVE_COR,,30)
+
+   *wout('laCFC')
+   *debug2(laCFC,,30)
+
+   *** contabiliza detalhes do pedido
+   xcont(laCFC,WGet('NR_PASTA','C'),WGet('TP_PASTA','C'))
+   ***************
+
+   if db_insert(laSAVE_COR,'pasta_detal_pedidos') == -1
+       error_sys(db_error())
+   endif
+endif
+
+
+*debug2(laSAVE_DET)
+*| NR_PASTA   | NR_CONTROL | PEDIDO_PRO | DT_MOVTO_P | DT_RISCO   | VL_RISCO   | VL_RISCO_C | PC_RISCO   | VL_CORRECA | VL_JUROS   | FL_CALCULO | COMENTARIO | OCOR_PEDID | DT_ALTERAC | HR_ALTERAC | LOGIN_CADA | FL_LOG_EST |
+*| ------------------------------------------------------------------------------------------------------------------------
+*| 11020      | 5.426,00   | Provável   | 10/02/2016 | 11/01/2010 | 0,00       | -1.000,00  | 33,00      | 0,00       | 0,00       | S          |            | Ajuste do  | 10/02/2016 | 18:19:36   | rufino     | N          |
+*| ------------------------------------------------------------------------------------------------------------------------
+
+*debug2(laSAVE_COR)
+*| NR_PASTA   | NR_CONTROL | PEDIDO_PRO | DT_MOVTO_P | DT_RISCO   | VL_RISCO   | VL_RISCO_C | PC_RISCO   | VL_CORRECA | VL_JUROS   | FL_CALCULO | OCOR_PEDID | DT_ALTERAC | HR_ALTERAC | LOGIN_CADA | FL_LOG_EST |
+*| ------------------------------------------------------------------------------------------------------------------------
+*| 11020      | 5426       | Provável   | 10/02/2016 | 11/01/2010 | 0,00       | 0,00       | 33,00      | -392,50    | 0,00       | S          | Correção M | 10/02/2016 | 18:19:37   | rufino     | N          |
+
+
+atucor(laSAVE_COR)
+
+*** atualiza sucumbencia
+
+upsucumb(laSAVE_DET,laSAVE_COR)
+
+
+return(nil)
+***********************************************
+static function upsucumb(faSAVE_DET,faSAVE_COR)
+***********************************************
+*** atenção do xupdval tem essa função parecida.
+local lnVLSUC       := 0.00 as numeric
+local lcPDPRO       := '' as string
+
+
+local laFIELDS          := {} ,;
+      laDFIELDS         := {} ,;
+      laJUNCAO          := {} ,;
+      laAUX             := {} ,;
+      laWHERE           := {} ,;
+      laRES             := {} ,;
+      laRES1            := {} ,;
+      laRES2            := {} ,;
+      laRES3            := {} as array
+
+local lcWHERE           :='' as string
+
+local xx                := 0 ,;
+      cc                := 0 as int
+
+local llErro            := .F. as logical
+
+if db_select({'OCOR_SUCU'},'pasta_config',,{'TP_PASTA = '+DLAP+WGet('TP_PASTA','C')+DLAP}) == -1
+   error_sys(db_error())
+endif
+laRES:=db_fetchrow()
+
+lnVLSUC = (WGet('PC_SUCUMBENCIA_CONDENACAO','N') / 100)
+lcPDPRO = laRES[1]
+
+if len(lcPDPRO) == 0  .or. lnVLSUC == 0
+   *** não tem titulo sucumbencia, ou % sucumbencia=0 então não cria sucumbência
+   return (nil)
+endif
+
+*** cria sucumbencia
+criasucumb()
+
+
+*debug2(laSAVE_DET)
+*| NR_PASTA   | NR_CONTROL | PEDIDO_PRO | DT_MOVTO_P | DT_RISCO   | VL_RISCO   | VL_RISCO_C | PC_RISCO   | VL_CORRECA | VL_JUROS   | FL_CALCULO | COMENTARIO | OCOR_PEDID | DT_ALTERAC | HR_ALTERAC | LOGIN_CADA | FL_LOG_EST |
+*| ------------------------------------------------------------------------------------------------------------------------
+*| 11020      | 5.426,00   | Provável   | 10/02/2016 | 11/01/2010 | 0,00       | -1.000,00  | 33,00      | 0,00       | 0,00       | S          |            | Ajuste do  | 10/02/2016 | 18:19:36   | rufino     | N          |
+*| ------------------------------------------------------------------------------------------------------------------------
+
+*debug2(laSAVE_COR)
+*| NR_PASTA   | NR_CONTROL | PEDIDO_PRO | DT_MOVTO_P | DT_RISCO   | VL_RISCO   | VL_RISCO_C | PC_RISCO   | VL_CORRECA | VL_JUROS   | FL_CALCULO | OCOR_PEDID | DT_ALTERAC | HR_ALTERAC | LOGIN_CADA | FL_LOG_EST |
+*| ------------------------------------------------------------------------------------------------------------------------
+*| 11020      | 5426       | Provável   | 10/02/2016 | 11/01/2010 | 0,00       | 0,00       | 33,00      | -392,50    | 0,00       | S          | Correção M | 10/02/2016 | 18:19:37   | rufino     | N          |
+
+
+
+if len(faSAVE_COR)>1
+   for xx:=2 to len(faSAVE_COR)
+       laAUX:={}
+       for cc:=1 to len(faSAVE_COR[xx])
+           if cc = 12 //posição da nova coluna
+              aadd(laAUX,'')
+           endif
+           aadd(laAUX,faSAVE_COR[xx,cc])
+       next cc
+       faSAVE_COR[xx]:=laAUX
+    next xx
+endif
+
+
+laJUNCAO:={}
+*** pega o titulo das culunas de uma das duas arrays
+if len(faSAVE_DET)>1
+   aadd(laJUNCAO,faSAVE_DET[1])
+
+   for xx:=2 to len(faSAVE_DET)
+       *** se o conteudo for numerico troca por catacter
+       if valtype(faSAVE_DET[xx,db_fetchncol(faSAVE_DET,'NR_CONTROLE')]) == 'N'
+          faSAVE_DET[xx,db_fetchncol(faSAVE_DET,'NR_CONTROLE')] = str(faSAVE_DET[xx,db_fetchncol(faSAVE_DET,'NR_CONTROLE')])
+       endif
+
+       aadd(laJUNCAO,faSAVE_DET[xx])
+   next xx
+
+else
+   aadd(laJUNCAO,faSAVE_COR[1])
+endif
+
+*** junta as duas arrays
+
+for xx:=2 to len(faSAVE_COR)
+    aadd(laJUNCAO,faSAVE_COR[xx])
+next xx
+
+for xx:=2 to len(laJUNCAO)
+
+    laFIELDS := {'NR_CONTROLE_SEGURO','NR_PEDIDO_ORIGEM'}
+    lcWHERE:= 'NR_PASTA='+WGet('NR_PASTA','C') + ' AND NR_CONTROLE=' + laJUNCAO[xx,ascan(laJUNCAO[1],'NR_CONTROLE')]
+
+    if db_select(laFIELDS,'pasta_pedidos',,{lcWHERE}) == -1
+       error_sys(db_error())
+       llErro := .T.
+    endif
+    laRES:=db_fetchall()
+
+
+    *** procura o pai e pega o numero do controle do pai
+    laFIELDS := {'NR_CONTROLE','VL_RISCO'}
+    lcWHERE:= 'NR_PASTA='+WGet('NR_PASTA','C') + ' AND NR_CONTROLE_SEGURO=' + str(laRES[2,ascan(laRES[1],'NR_CONTROLE_SEGURO')]) + ' AND PEDIDO_PROCESSO='+DLAP+lcPDPRO+DLAP
+    if db_select(laFIELDS,'pasta_pedidos',,{lcWHERE}) == -1
+       error_sys(db_error())
+       llErro := .T.
+    endif
+    laRES1:=db_fetchall()
+
+    if len(laRES1)>1
+       *** ja existe sucumbemcia  pois chamo a funcao criasucumb() antes, que cria a linha com valores zero
+
+       if laJUNCAO[xx,db_fetchncol(laJUNCAO,'VL_RISCO')] <> 0
+          *** indica alteração no pai
+          *** trata o pai
+
+          lcWHERE := 'NR_PASTA='+WGet('NR_PASTA','C') + ' AND NR_CONTROLE=' + str(laRES1[2,db_fetchncol(laRES1,'NR_CONTROLE')])
+          laFIELDS:= {'VL_RISCO','DT_MOVTO_PED'}
+
+          laAUX   := {}
+          aadd(laAUX,laFIELDS)
+
+          laFIELDS:= {(laJUNCAO[xx,db_fetchncol(laJUNCAO,'VL_RISCO')] * lnVLSUC) + laRES1[2,db_fetchncol(laRES1,'VL_RISCO')],;
+                       laJUNCAO[xx,db_fetchncol(laJUNCAO,'DT_MOVTO_PED')]}
+
+          aadd(laAUX,laFIELDS)
+
+          if db_update(laAUX,'pasta_pedidos',{lcWHERE}) == -1
+             error_sys(db_error())
+             llErro := .T.
+          endif
+
+          laDFIELDS   := {'NR_PASTA',;
+                         'NR_CONTROLE',;
+                         'PEDIDO_PROCESSO',;
+                         'DT_MOVTO_PED',;
+                         'DT_RISCO',;
+                         'VL_RISCO',;
+                         'VL_RISCO_CALC',;
+                         'PC_RISCO',;
+                         'VL_CORRECAO',;
+                         'VL_JUROS',;
+                         'FL_CALCULO',;
+                         'COMENTARIOS_PED',;
+                         'OCOR_PEDIDO',;
+                         'DT_ALTERACAO',;
+                         'HR_ALTERACAO',;
+                         'LOGIN_CADASTRO',;
+                         'FL_LOG_ESTIMATIVA'}
+
+          laAUX   := {}
+          aadd(laAUX,laDFIELDS)
+
+          laDFIELDS := {WGet('NR_PASTA','C'),;
+                       laRES1[2,db_fetchncol(laRES1,'NR_CONTROLE')],;
+                       laJUNCAO[xx,db_fetchncol(laJUNCAO,'PEDIDO_PROCESSO')],;
+                       laJUNCAO[xx,db_fetchncol(laJUNCAO,'DT_MOVTO_PED')],;
+                       laJUNCAO[xx,db_fetchncol(laJUNCAO,'DT_RISCO')],;
+                       laJUNCAO[xx,db_fetchncol(laJUNCAO,'VL_RISCO')] * lnVLSUC,;
+                       0,;
+                       laJUNCAO[xx,db_fetchncol(laJUNCAO,'PC_RISCO')],;
+                       0,;
+                       0,;
+                       'S',;
+                       laJUNCAO[xx,db_fetchncol(laJUNCAO,'COMENTARIOS_PED')],;
+                       laJUNCAO[xx,db_fetchncol(laJUNCAO,'OCOR_PEDIDO')],;
+                       laJUNCAO[xx,db_fetchncol(laJUNCAO,'DT_ALTERACAO')],;
+                       laJUNCAO[xx,db_fetchncol(laJUNCAO,'HR_ALTERACAO')],;
+                       laJUNCAO[xx,db_fetchncol(laJUNCAO,'LOGIN_CADASTRO')],;
+                       'S'}
+
+          aadd(laAUX,laDFIELDS)
+
+          if db_insert(laAUX,'pasta_detal_pedidos') == -1
+             error_sys(db_error())
+             llErro := .T.
+          endif
+
+       else
+
+          *** trata os riscos (vl_risco_calculado)
+          *** procura o filho com o mesmo pedido_processo
+
+          laFIELDS := {'NR_CONTROLE','VL_RISCO_CALC','VL_CORRECAO','VL_JUROS'}
+          lcWHERE:= 'NR_PASTA='+WGet('NR_PASTA','C') + ' AND NR_PEDIDO_ORIGEM=' + str(laRES1[2,db_fetchncol(laRES1,'NR_CONTROLE')]) + ' AND PEDIDO_PROCESSO='+DLAP+laJUNCAO[xx,db_fetchncol(laJUNCAO,'PEDIDO_PROCESSO')]+DLAP
+          if db_select(laFIELDS,'pasta_pedidos',,{lcWHERE}) == -1
+             error_sys(db_error())
+             llErro := .T.
+          endif
+          laRES2:=db_fetchall()
+
+          if len(laRES2)>1
+             lcWHERE:= 'NR_PASTA='+WGet('NR_PASTA','C') + ' AND NR_CONTROLE=' + str(laRES2[2,db_fetchncol(laRES2,'NR_CONTROLE')])
+
+             laFIELDS    := {'VL_RISCO_CALC',;
+                             'VL_CORRECAO',;
+                             'VL_JUROS'}
+
+             laAUX := {}
+             aadd(laAUX,laFIELDS)
+
+             laFIELDS    := {(laJUNCAO[xx,db_fetchncol(laJUNCAO,'VL_RISCO_CALC')] * lnVLSUC) + laRES2[2,db_fetchncol(laRES2,'VL_RISCO_CALC')],;
+                             (laJUNCAO[xx,db_fetchncol(laJUNCAO,'VL_CORRECAO')] * lnVLSUC) + laRES2[2,db_fetchncol(laRES2,'VL_CORRECAO')],;
+                             (laJUNCAO[xx,db_fetchncol(laJUNCAO,'VL_JUROS')] * lnVLSUC) + laRES2[2,db_fetchncol(laRES2,'VL_JUROS')]}
+
+             aadd(laAUX,laFIELDS)
+
+             if db_update(laAUX,'pasta_pedidos',{lcWHERE}) == -1
+                error_sys(db_error())
+                llErro := .T.
+             endif
+
+             laDFIELDS   := {'NR_PASTA',;
+                            'NR_CONTROLE',;
+                            'PEDIDO_PROCESSO',;
+                            'DT_MOVTO_PED',;
+                            'DT_RISCO',;
+                            'VL_RISCO',;
+                            'VL_RISCO_CALC',;
+                            'PC_RISCO',;
+                            'VL_CORRECAO',;
+                            'VL_JUROS',;
+                            'FL_CALCULO',;
+                            'COMENTARIOS_PED',;
+                            'OCOR_PEDIDO',;
+                            'DT_ALTERACAO',;
+                            'HR_ALTERACAO',;
+                            'LOGIN_CADASTRO',;
+                            'FL_LOG_ESTIMATIVA'}
+
+             laAUX:={}
+             aadd(laAUX,laDFIELDS)
+
+             laDFIELDS := {WGet('NR_PASTA','C'),;
+                          laRES2[2,db_fetchncol(laRES2,'NR_CONTROLE')],;
+                          laJUNCAO[xx,db_fetchncol(laJUNCAO,'PEDIDO_PROCESSO')],;
+                          laJUNCAO[xx,db_fetchncol(laJUNCAO,'DT_MOVTO_PED')],;
+                          laJUNCAO[xx,db_fetchncol(laJUNCAO,'DT_RISCO')],;
+                          0,;
+                          laJUNCAO[xx,db_fetchncol(laJUNCAO,'VL_RISCO_CALC')] * lnVLSUC,;
+                          laJUNCAO[xx,db_fetchncol(laJUNCAO,'PC_RISCO')],;
+                          laJUNCAO[xx,db_fetchncol(laJUNCAO,'VL_CORRECAO')] * lnVLSUC,;
+                          laJUNCAO[xx,db_fetchncol(laJUNCAO,'VL_JUROS')] * lnVLSUC,;
+                          'S',;
+                          laJUNCAO[xx,db_fetchncol(laJUNCAO,'COMENTARIOS_PED')],;
+                          laJUNCAO[xx,db_fetchncol(laJUNCAO,'OCOR_PEDIDO')],;
+                          laJUNCAO[xx,db_fetchncol(laJUNCAO,'DT_ALTERACAO')],;
+                          laJUNCAO[xx,db_fetchncol(laJUNCAO,'HR_ALTERACAO')],;
+                          laJUNCAO[xx,db_fetchncol(laJUNCAO,'LOGIN_CADASTRO')],;
+                          'N'}
+
+             aadd(laAUX,laDFIELDS)
+
+             if db_insert(laAUX,'pasta_detal_pedidos') == -1
+                error_sys(db_error())
+                llErro := .T.
+             endif
+
+          endif
+       endif
+    endif
+next xx
+
+return(llErro)
+*************************************
+static function atucor(faSAVE_COR)
+*************************************
+*** atuaiza saldos dos pedidos no (pasta_pedidos)
+
+local laFIELDS          := {} ,;
+      laCONFCOR         := {} ,;
+      laFCOR            := {} ,;
+      laDADOS           := {} ,;
+      laATUCOR          := {} ,;
+      laAUX             := {} ,;
+      laRES             := {} as array
+
+local lcWHERE           :='' as string
+
+local xx                := 0 ,;
+      yy                := 0 as int
+
+
+laFCOR     := {'NR_PASTA',;
+               'NR_CONTROLE',;
+               'PEDIDO_PROCESSO',;
+               'DT_MOVTO_PED',;
+               'DT_RISCO',;
+               'VL_RISCO',;
+               'VL_RISCO_CALC',;
+               'PC_RISCO',;
+               'VL_CORRECAO',;
+               'VL_JUROS',;
+               'FL_CALCULO',;
+               'OCOR_PEDIDO',;
+               'DT_ALTERACAO',;
+               'HR_ALTERACAO',;
+               'LOGIN_CADASTRO'}
+
+for xx:=2 to len(faSAVE_COR)
+
+    laCONFCOR:= {}
+
+    laFIELDS := {'VL_CORRECAO','VL_JUROS'}
+
+    lcWHERE:= 'NR_CONTROLE='+faSAVE_COR[xx,ascan(laFCOR,'NR_CONTROLE')]
+
+    if db_select(laFIELDS,'pasta_pedidos',,{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+    laRESULT:=db_fetchall()
+
+    aadd(laCONFCOR,laFIELDS)
+    if len(laRESULT)>1
+       laDADOS   := {laRESULT[2,1] + val(str(faSAVE_COR[xx,ascan(laFCOR,'VL_CORRECAO')])),;
+                     laRESULT[2,2] + val(str(faSAVE_COR[xx,ascan(laFCOR,'VL_JUROS')]))}
+    else
+       laDADOS   := {val(str(faSAVE_COR[xx,ascan(laFCOR,'VL_CORRECAO')])),;
+                     val(str(faSAVE_COR[xx,ascan(laFCOR,'VL_JUROS')]))}
+    endif
+
+    aadd(laCONFCOR,laDADOS)
+
+    if db_update(laCONFCOR,'pasta_pedidos',{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+
+next xx
+
+
+
+return(nil)
+
+
+
+*************************************
+static function geraprevisao(laNOVOS)
+*************************************
+
+local lcFL_CALCULO      := '' ,;
+      lcPEDIDO_PROCESSO := '' ,;
+      lcCOMENTARIOS_PED := '' ,;
+      lcNR_CONTROLE     := '' ,;
+      lcFL_LOG_EST      := 'N',;
+      lcLANC_ZERADO     := 'N',;
+      lcOCOR_PEDIDO     := '' as string
+
+local lnVL_RISCO        := 0.00 ,;
+      lnVL_CALC         := 0.00 ,;
+      lnPOSSIVEL        := 0.00 ,;
+      lnPROVAVEL        := 0.00 ,;
+      lnREMOTO          := 0.00 ,;
+      lnVCDIFF          := 0.00 ,;
+      lnVJDIFF          := 0.00 ,;
+      lnPC_RISCO        := 0.00 as numeric
+
+local ii                := 0 ,;
+      xx                := 0 ,;
+      liPOS             := 0 ,;
+      liNR_PEDIDO_ORIGEM:= 0 as int
+
+local laFIELDS          := {} ,;
+      laFIELDC          := {} ,;
+      laFIELDU          := {} ,;
+      laSAVE            := {} ,;
+      laSAVESU          := {} ,;
+      laRES             := {} ,;
+      laSAVE_DET        := {} ,;
+      laSAVEDSU         := {} ,;
+      laRESXUP          := {} ,;
+      laSEQ_OCOR        := {} ,;
+      laCONTSEG1        := {} ,;
+      laCONTSEG2        := {} ,;
+      laCONTSEG3        := {} ,;
+      laSAVE_AUX        := {} ,;
+      la2SAVE_AUX       := {} ,;
+      la3SAVE_AUX       := {} as array
+
+
+laFIELDS   := {'NR_PASTA',;
+               'NR_CONTROLE',;
+               'PEDIDO_PROCESSO',;
+               'DT_MOVTO_PED',;
+               'DT_RISCO',;
+               'VL_RISCO',;
+               'VL_RISCO_CALC',;
+               'PC_RISCO',;
+               'VL_CORRECAO',;
+               'VL_JUROS',;
+               'FL_CALCULO',;
+               'COMENTARIOS_PED',;
+               'OCOR_PEDIDO',;
+               'DT_ALTERACAO',;
+               'HR_ALTERACAO',;
+               'LOGIN_CADASTRO',;
+               'FL_LOG_ESTIMATIVA'}
+
+aadd(laSAVE_DET,laFIELDS)
+aadd(laSAVEDSU,laFIELDS)
+
+
+
+laFIELDS    := {'NR_PASTA',;
+                'PEDIDO_PROCESSO',;
+                'VL_RISCO',;
+                'PC_RISCO',;
+                'VL_RISCO_CALC',;
+                'DT_RISCO',;
+                'FL_CALCULO',;
+                'DT_MOVTO_PED',;
+                'COMENTARIOS_PED',;
+                'OCOR_PEDIDO',;
+                'NR_PEDIDO_ORIGEM',;
+                'NR_RISCO',;
+                'NR_CONTROLE_SEGURO',;
+                'VL_CORRECAO',;
+                'VL_JUROS',;
+                'TP_EXPEDIENTE',;
+                'DT_JUROS'}
+
+aadd(laSAVESU,laFIELDS)
+
+laFIELDC := aclone(laSAVE_DET)
+aadd(laFIELDC[1],'NR_CONTROLE_SEGURO')
+
+for ii := 2 to len(laNOVOS)
+
+     liNR_PEDIDO_ORIGEM := 0
+
+     lnPOSSIVEL := 0.00
+     lnPROVAVEL := 0.00
+     lnREMOTO   := 0.00
+
+     for xx := 0 to 3
+
+       lnVL_RISCO  := VAL(laNOVOS[ii,db_fetchncol(laNOVOS,'VL_RISCO')])
+
+       if laNOVOS[ii,db_fetchncol(laNOVOS,'FL_CALCULO')] == 'true'
+          lcFL_CALCULO:='S'
+         else
+          lcFL_CALCULO:=''
+       endif
+
+
+       if xx ==0  //pai
+          lnPC_RISCO        := 0
+          lcPEDIDO_PROCESSO := laNOVOS[ii,db_fetchncol(laNOVOS,'PEDIDO_PROCESSO')]
+          lnVL_RISCO        := VAL(laNOVOS[ii,db_fetchncol(laNOVOS,'VL_RISCO')])
+          lnVL_CALC         := 0
+          lcCOMENTARIOS_PED := laNOVOS[ii,db_fetchncol(laNOVOS,'COMENTARIOS_PED')]
+        else
+          lcCOMENTARIOS_PED := ''
+       endif
+
+       laSEQ_OCOR := str2array(WGet('SEQ_OCOR','C'),',')
+
+       if xx == val(laSEQ_OCOR[4])
+          lnPROVAVEL:= VAL(laNOVOS[ii,db_fetchncol(laNOVOS,'PROVAVEL')])
+          lnPC_RISCO:= (100 * lnPROVAVEL) / lnVL_RISCO
+          lnPC_RISCO:= round(lnPC_RISCO,0)
+          lcPEDIDO_PROCESSO:='Provável'
+          lnVL_RISCO       :=0
+          lnVL_CALC        :=lnPROVAVEL
+        endif
+
+       if xx == val(laSEQ_OCOR[5])
+          lnPOSSIVEL:= VAL(laNOVOS[ii,db_fetchncol(laNOVOS,'POSSIVEL')])
+          lnPC_RISCO:= (100 * lnPOSSIVEL) / lnVL_RISCO
+          lnPC_RISCO:= round(lnPC_RISCO,0)
+          lcPEDIDO_PROCESSO:='Possível'
+          lnVL_RISCO       :=0
+          lnVL_CALC        :=lnPOSSIVEL
+       endif
+
+       if xx == val(laSEQ_OCOR[6])
+          lnREMOTO:= VAL(laNOVOS[ii,db_fetchncol(laNOVOS,'REMOTO')])
+          lnPC_RISCO:= (100 * lnREMOTO) / lnVL_RISCO
+          lnPC_RISCO:= round(lnPC_RISCO,0)
+          lcPEDIDO_PROCESSO:='Remota'
+          lnVL_RISCO       :=0
+          lnVL_CALC        :=lnREMOTO
+       endif
+
+       laSAVE := {}
+       aadd(laSAVE,laFIELDS)
+
+       laSAVE_AUX := {laNOVOS[ii,db_fetchncol(laNOVOS,'NR_PASTA')],;
+                     lcPEDIDO_PROCESSO,;
+                     lnVL_RISCO,;
+                     lnPC_RISCO,;
+                     lnVL_CALC,;
+                     ctod(laNOVOS[ii,db_fetchncol(laNOVOS,'DT_RISCO')]),;
+                     lcFL_CALCULO,;
+                     ctod(laNOVOS[ii,db_fetchncol(laNOVOS,'DT_MOVTO_PED')]),;
+                     lcCOMENTARIOS_PED,;
+                     '',;
+                     liNR_PEDIDO_ORIGEM,;
+                     xx,;
+                     val(laNOVOS[ii,db_fetchncol(laNOVOS,'NR_CONTROLE_SEGURO')]),;
+                     0,;
+                     0,;
+                     laNOVOS[ii,db_fetchncol(laNOVOS,'TP_EXPEDIENTE')],;
+                     ctod(laNOVOS[ii,db_fetchncol(laNOVOS,'DT_JUROS')])}
+
+       aadd(laSAVE,laSAVE_AUX)
+       aadd(laSAVESU,laSAVE_AUX)
+
+       if db_insert(laSAVE,'pasta_pedidos') == -1
+          error_sys(db_error())
+       endif
+
+       if db_select({'max(NR_CONTROLE)'},'pasta_pedidos') == -1
+	        error_sys(db_error())
+    	 endif
+       laRES     := db_fetchrow()
+
+       lcNR_CONTROLE:= str(laRES[1])
+
+       if xx==0
+          liNR_PEDIDO_ORIGEM := val(lcNR_CONTROLE)
+          lcFL_LOG_EST:='S'
+          lnVL_RISCO  := VAL(laNOVOS[ii,db_fetchncol(laNOVOS,'VL_RISCO')])
+         else
+          lcFL_LOG_EST:='N'
+          lnVL_RISCO  := 0
+       endif
+
+       lnVCDIFF := 0
+       lnVJDIFF := 0
+
+       *** calcula correção e juros
+       if lcFL_CALCULO=='S'
+          laRESXUP:=calcorjur(WGet('TP_PASTA','C'),WGet('NR_PASTA','C'),WGet('CD_INDICE','N'),ctod(laNOVOS[ii,db_fetchncol(laNOVOS,'DT_RISCO')]),lnVL_CALC,ctod(laNOVOS[ii,db_fetchncol(laNOVOS,'DT_JUROS')]))
+
+          if laRESXUP[1,1]!=0
+             lnVCDIFF  := laRESXUP[1,1]
+            else
+             lnVCDIFF  := 0
+          endif
+
+          if laRESXUP[1,2]!=0
+             lnVJDIFF  := laRESXUP[1,2]
+            else
+             lnVJDIFF  := 0
+          endif
+
+          if laRESXUP[1,4] == '+'
+             lnVCDIFF  := lnVCDIFF * (-1) //Inversão de sinal
+             lnVJDIFF  := lnVJDIFF * (-1) //Inversão de sinal
+          endif
+
+       endif
+
+       if lnVL_CALC==0 .and. xx!=0
+          lcLANC_ZERADO:='S'
+         else
+          lcLANC_ZERADO:='N'
+       endif
+
+       *** so grava se algun não estiver zerado
+       if lcLANC_ZERADO=='N'
+
+          laSAVE_AUX := {}
+
+          laSAVE_AUX := {laNOVOS[ii,db_fetchncol(laNOVOS,'NR_PASTA')],;
+                     lcNR_CONTROLE,;
+                     lcPEDIDO_PROCESSO,;
+                     date(),;
+                     ctod(laNOVOS[ii,db_fetchncol(laNOVOS,'DT_RISCO')]),;
+                     lnVL_RISCO,;
+                     lnVL_CALC,;
+                     lnPC_RISCO,;
+                     lnVCDIFF,;
+                     lnVJDIFF,;
+                     lcFL_CALCULO,;
+                     lcCOMENTARIOS_PED,;
+                     laNOVOS[ii,db_fetchncol(laNOVOS,'OCOR_PEDIDO')],;
+                     date(),;
+                     time(),;
+                     gcLOGIN,;
+                     lcFL_LOG_EST}
+
+          aadd(laSAVE_DET,laSAVE_AUX)  //utilizado no _insert
+
+          aadd(laSAVEDSU,laSAVE_AUX)
+
+
+          la2SAVE_AUX:={}
+
+          la2SAVE_AUX := {laNOVOS[ii,db_fetchncol(laNOVOS,'NR_PASTA')],;
+                     lcNR_CONTROLE,;
+                     lcPEDIDO_PROCESSO,;
+                     date(),;
+                     ctod(laNOVOS[ii,db_fetchncol(laNOVOS,'DT_RISCO')]),;
+                     lnVL_RISCO,;
+                     lnVL_CALC,;
+                     lnPC_RISCO,;
+                     lnVCDIFF,;
+                     lnVJDIFF,;
+                     lcFL_CALCULO,;
+                     lcCOMENTARIOS_PED,;
+                     laNOVOS[ii,db_fetchncol(laNOVOS,'OCOR_PEDIDO')],;
+                     date(),;
+                     time(),;
+                     gcLOGIN,;
+                     lcFL_LOG_EST,;
+                     laNOVOS[ii,db_fetchncol(laNOVOS,'NR_CONTROLE_SEGURO')]}
+
+          aadd(laFIELDC,la2SAVE_AUX)
+
+       endif
+
+     next xx
+
+next ii
+
+*** contabiliza detalhes do pedido
+xcont(laFIELDC,WGet('NR_PASTA','C'),WGet('TP_PASTA','C'))
+
+
+if db_insert(laSAVE_DET,'pasta_detal_pedidos') == -1
+   error_sys(db_error())
+endif
+
+** update pedido juros e correção
+atucor(laSAVE_DET)
+
+*** cria sucumbencia
+newsucumb(laSAVESU,laSAVEDSU)
+
+
+return (nil)
+*********************************************
+static function criasucumb()
+*********************************************
+*** atenção no xupdval tem essa funcão parecida.
+local laFIELDS      := {} as array
+local laRES         := {} as array
+local laRES1        := {} as array
+local laRES2        := {} as array
+local laRES3        := {} as array
+local laWHERE       := {} as array
+local laSAVE        := {} as array
+local laFPAI        := {} as array
+local laFFIL        := {} as array
+local xx            := 0 as int
+local lcWHERE       := '' as string
+local lcQUERY       := '' as string
+local lnVLSUC       := 0.00 as numeric
+local lnTVL_RISCO   := 0.00 as numeric
+local lcPDPRO       := '' as string
+
+
+
+if db_select({'OCOR_SUCU'},'pasta_config',,{'TP_PASTA = '+DLAP+WGet('TP_PASTA','C')+DLAP}) == -1
+   error_sys(db_error())
+endif
+laRES:=db_fetchrow()
+
+lnVLSUC = (WGet('PC_SUCUMBENCIA_CONDENACAO','N') / 100)
+lcPDPRO = laRES[1]
+
+if len(lcPDPRO) == 0  .or. lnVLSUC == 0
+   *** não tem titulo sucumbencia, ou % sucumbencia=0 então não cria sucumbência
+   return (nil)
+endif
+
+laFPAI       := {'NR_PASTA',;
+                'PEDIDO_PROCESSO',;
+                'NR_CONTROLE_SEGURO',;
+                'VL_RISCO',;
+                'FL_CALCULO',;
+                'DT_MOVTO_PED',;
+                'VL_RISCO_CALC',;
+                'PC_RISCO',;
+                'VL_CORRECAO',;
+                'VL_JUROS',;
+                'NR_RISCO',;
+                'NR_PEDIDO_ORIGEM'}
+
+laFFIL       := {'NR_PASTA',;
+                'PEDIDO_PROCESSO',;
+                'NR_CONTROLE_SEGURO',;
+                'VL_RISCO_CALC',;
+                'VL_CORRECAO',;
+                'VL_JUROS',;
+                'NR_PEDIDO_ORIGEM',;
+                'NR_RISCO',;
+                'FL_CALCULO',;
+                'DT_MOVTO_PED',;
+                'VL_RISCO',;
+                'PC_RISCO'}
+
+***pego todos os numeros de seguros amarrados a pedidos que não tem sucumbencia criada
+***se não retornou nada indica as sucumbencias ja foram criadas
+lcQUERY := ""
+lcQUERY += "select NR_CONTROLE_SEGURO,"
+lcQUERY += " sum(VL_RISCO) as VL_RISCO"
+lcQUERY += " from pasta_pedidos"
+lcQUERY += " where NR_PASTA=" + WGet('NR_PASTA','C')
+lcQUERY += " and NR_PEDIDO_ORIGEM=0"
+lcQUERY += " and PEDIDO_PROCESSO <>"+DLAP+lcPDPRO+DLAP
+lcQUERY += " and NR_CONTROLE_SEGURO not in("
+lcQUERY += " select NR_CONTROLE_SEGURO"
+lcQUERY += " from pasta_pedidos"
+lcQUERY += " where NR_PASTA=" + WGet('NR_PASTA','C')
+lcQUERY += " and NR_PEDIDO_ORIGEM=0"
+lcQUERY += " and PEDIDO_PROCESSO ="+DLAP+lcPDPRO+DLAP
+lcQUERY += ")"
+lcQUERY += " group by NR_CONTROLE_SEGURO"
+
+if db_query(lcQUERY) == -1
+   error_sys(db_error())
+endif
+laRES1 := db_fetchall()
+
+if len(laRES1)>1
+   *** criar sucumbemcia para os nr_controle_seguro retornados
+   for xx:=2 to len(laRES1)
+       *** 0
+       *** 27
+
+
+       laSAVE:={}
+       aadd(laSAVE,laFPAI)
+
+       laSAVE_AUX := {WGet('NR_PASTA','C'),;
+                     lcPDPRO,;
+                     str(laRES1[xx,db_fetchncol(laRES1,'NR_CONTROLE_SEGURO')]),;
+                     0,;
+                     'S',;
+                     date(),;
+                     0,;
+                     0,;
+                     0,;
+                     0,;
+                     0,;
+                     0}
+
+       aadd(laSAVE,laSAVE_AUX)
+
+       if db_insert(laSAVE,'pasta_pedidos') == -1
+          error_sys(db_error())
+       endif
+
+       if db_select({'max(NR_CONTROLE)'},'pasta_pedidos') == -1
+          error_sys(db_error())
+       endif
+       laRES:= db_fetchrow()
+
+       lcQUERY := ""
+       lcQUERY += "select"
+       lcQUERY += " PEDIDO_PROCESSO,"
+       lcQUERY += " sum(VL_RISCO_CALC) as VL_RISCO_CALC,"
+       lcQUERY += " sum(VL_CORRECAO) as VL_CORRECAO,"
+       lcQUERY += " sum(VL_JUROS) as VL_JUROS,"
+       lcQUERY += " NR_RISCO"
+       lcQUERY += " from pasta_pedidos"
+       lcQUERY += " where PEDIDO_PROCESSO <>"+DLAP+lcPDPRO+DLAP
+       lcQUERY += " and NR_PEDIDO_ORIGEM in("
+       lcQUERY += " select NR_CONTROLE"
+       lcQUERY += " from pasta_pedidos"
+       lcQUERY += " where NR_PASTA = " + WGet('NR_PASTA','C')
+       lcQUERY += " and NR_CONTROLE_SEGURO =" + str(laRES1[xx,db_fetchncol(laRES1,'NR_CONTROLE_SEGURO')])
+       lcQUERY += " and NR_PEDIDO_ORIGEM = 0"
+       lcQUERY += ")"
+       lcQUERY += " group by PEDIDO_PROCESSO,NR_RISCO"
+       lcQUERY += " order by NR_RISCO"
+
+       if db_query(lcQUERY) == -1
+          error_sys(db_error())
+       endif
+       laRES2 := db_fetchall()
+
+       laSAVE:={}
+       aadd(laSAVE,laFFIL)
+
+       for yy=2 to len(laRES2)
+           laSAVE_AUX := {WGet('NR_PASTA','C'),;
+                         laRES2[yy,db_fetchncol(laRES2,'PEDIDO_PROCESSO')],;
+                         str(laRES1[xx,db_fetchncol(laRES1,'NR_CONTROLE_SEGURO')]),;
+                         0,;
+                         0,;
+                         0,;
+                         laRES[1],;
+                         laRES2[yy,db_fetchncol(laRES2,'NR_RISCO')],;
+                         'S',;
+                         date(),;
+                         0,;
+                         100}
+
+           aadd(laSAVE,laSAVE_AUX)
+       next ww
+
+       if db_insert(laSAVE,'pasta_pedidos') == -1
+          error_sys(db_error())
+       endif
+
+   next xx
+endif
+return (nil)
+
+*********************************************
+static function altsucumb(fnINDANT,fnINDATU)
+*********************************************
+local lnVLSUC       := 0.00 as numeric
+local lcPDPRO       := '' as string
+local lcOBS         := '' as string
+local laRES         := {} as array
+
+if db_select({'OCOR_SUCU'},'pasta_config',,{'TP_PASTA = '+DLAP+WGet('TP_PASTA','C')+DLAP}) == -1
+   error_sys(db_error())
+endif
+laRES:=db_fetchrow()
+
+lcPDPRO = laRES[1]
+
+if fnINDANT == 0 .and. fnINDATU == 0 .and. len(lcPDPRO) == 0
+   *** não tem titulo sucumbencia, ou % sucumbencia=0 então não cria sucumbência
+   return (nil)
+endif
+
+if fnINDATU <> 0
+   lnVLSUC = (WGet('PC_SUCUMBENCIA_CONDENACAO','N') / 100)
+  else
+   lnVLSUC = 0
+endif
+
+if fnINDANT <> 0 .and. fnINDATU <> 0
+   lcOBS := 'Percentual de Sucumbência alterado'
+else
+   lcOBS := ''
+endif
+
+
+*** cria linhas de sucumbencia caso não exista
+criasucumb()
+
+*** select abaixo traz o numero de controle apenas dos pais que não fazem parte de sucumbencia
+lcQUERY := ""
+lcQUERY += "select NR_PASTA,NR_CONTROLE_SEGURO,sum(VL_RISCO) as  VL_RISCO from pasta_pedidos"
+lcQUERY += " where NR_PASTA = " + WGet('NR_PASTA','C')
+lcQUERY += " and NR_PEDIDO_ORIGEM=0"
+lcQUERY += " and NR_CONTROLE not in ("
+lcQUERY += " select NR_CONTROLE"
+lcQUERY += " from pasta_pedidos"
+lcQUERY += " where PEDIDO_PROCESSO = "+DLAP+lcPDPRO+DLAP
+lcQUERY += " and NR_PASTA = " + WGet('NR_PASTA','C')
+lcQUERY += " union all"
+lcQUERY += " select NR_CONTROLE from pasta_pedidos where NR_PEDIDO_ORIGEM in ("
+lcQUERY += " select NR_CONTROLE"
+lcQUERY += " from pasta_pedidos"
+lcQUERY += " where PEDIDO_PROCESSO = "+DLAP+lcPDPRO+DLAP
+lcQUERY += " and NR_PASTA = " + WGet('NR_PASTA','C')
+lcQUERY += ")"
+lcQUERY += "order by NR_CONTROLE"
+lcQUERY += ")"
+lcQUERY += "group by NR_PASTA,NR_CONTROLE_SEGURO"
+
+if db_query(lcQUERY) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+for xx:=2 to len(laRES)
+
+    *** procura o pai
+    laFIELDS   := {'NR_PASTA',;
+                   'NR_CONTROLE',;
+                   'PEDIDO_PROCESSO',;
+                   'DT_MOVTO_PED',;
+                   'DT_RISCO',;
+                   'VL_RISCO',;
+                   'VL_RISCO_CALC',;
+                   'PC_RISCO',;
+                   'VL_CORRECAO',;
+                   'VL_JUROS',;
+                   'FL_CALCULO',;
+                   'COMENTARIOS_PED',;
+                   'OCOR_PEDIDO'}
+
+    lcWHERE:= 'NR_PASTA='+WGet('NR_PASTA','C') + ' AND NR_CONTROLE_SEGURO=' + str(laRES[xx,ascan(laRES[1],'NR_CONTROLE_SEGURO')]) + ' AND PEDIDO_PROCESSO='+DLAP+lcPDPRO+DLAP
+    if db_select(laFIELDS,'pasta_pedidos',,{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+    laRES1:=db_fetchall()
+
+    lnVL_RISCO := laRES[xx,ascan(laRES[1],'VL_RISCO')] * lnVLSUC
+
+    lnDVL_RISCO:= lnVL_RISCO - laRES1[2,db_fetchncol(laRES1,'VL_RISCO')]
+
+    lcWHERE := 'NR_PASTA='+WGet('NR_PASTA','C') + ' AND NR_CONTROLE=' + str(laRES1[2,db_fetchncol(laRES1,'NR_CONTROLE')])
+
+
+    laFIELDS:= {'VL_RISCO','DT_MOVTO_PED'}
+
+    laAUX   := {}
+    aadd(laAUX,laFIELDS)
+
+    laFIELDS:= {lnVL_RISCO,date()}
+
+    aadd(laAUX,laFIELDS)
+
+    if db_update(laAUX,'pasta_pedidos',{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+
+    laDFIELDS   := {'NR_PASTA',;
+                   'NR_CONTROLE',;
+                   'PEDIDO_PROCESSO',;
+                   'DT_MOVTO_PED',;
+                   'DT_RISCO',;
+                   'VL_RISCO',;
+                   'VL_RISCO_CALC',;
+                   'PC_RISCO',;
+                   'VL_CORRECAO',;
+                   'VL_JUROS',;
+                   'FL_CALCULO',;
+                   'COMENTARIOS_PED',;
+                   'OCOR_PEDIDO',;
+                   'DT_ALTERACAO',;
+                   'HR_ALTERACAO',;
+                   'LOGIN_CADASTRO',;
+                   'FL_LOG_ESTIMATIVA'}
+
+    laAUX   := {}
+    aadd(laAUX,laDFIELDS)
+
+    laDFIELDS :={laRES1[2,db_fetchncol(laRES1,'NR_PASTA')],;
+                 laRES1[2,db_fetchncol(laRES1,'NR_CONTROLE')],;
+                 laRES1[2,db_fetchncol(laRES1,'PEDIDO_PROCESSO')],;
+                 date(),;
+                 ctod('  /  /    '),;
+                 lnDVL_RISCO,;
+                 0,;
+                 laRES1[2,db_fetchncol(laRES1,'PC_RISCO')],;
+                 0,;
+                 0,;
+                 'S',;
+                 lcOBS,;
+                 '',;
+                 date(),;
+                 time(),;
+                 gcLOGIN,;
+                 'S'}
+
+    aadd(laAUX,laDFIELDS)
+
+
+    *** inclui detal da diferença
+    if db_insert(laAUX,'pasta_detal_pedidos') == -1
+       error_sys(db_error())
+    endif
+
+next xx
+
+
+
+
+*** select abaixo traz o numero de controle apenas dos riscos que não fazem parte de sucumbencia
+lcQUERY := ""
+lcQUERY += "select NR_RISCO,PEDIDO_PROCESSO,NR_CONTROLE_SEGURO,SUM(VL_RISCO_CALC) AS VL_RISCO_CALC,SUM(VL_CORRECAO) AS VL_CORRECAO,SUM(VL_JUROS) AS VL_JUROS"
+lcQUERY += " from pasta_pedidos"
+lcQUERY += " where NR_PASTA = " + WGet('NR_PASTA','C')
+lcQUERY += " and NR_PEDIDO_ORIGEM<>0"
+lcQUERY += " and NR_CONTROLE not in ("
+lcQUERY += " select NR_CONTROLE"
+lcQUERY += " from pasta_pedidos"
+lcQUERY += " where PEDIDO_PROCESSO = "+DLAP+lcPDPRO+DLAP
+lcQUERY += " and NR_PASTA = " + WGet('NR_PASTA','C')
+lcQUERY += " union all"
+lcQUERY += " select NR_CONTROLE from pasta_pedidos where NR_PEDIDO_ORIGEM in ("
+lcQUERY += " select NR_CONTROLE"
+lcQUERY += " from pasta_pedidos"
+lcQUERY += " where PEDIDO_PROCESSO = "+DLAP+lcPDPRO+DLAP
+lcQUERY += " and NR_PASTA = " + WGet('NR_PASTA','C')
+lcQUERY += ")"
+lcQUERY += "order by NR_CONTROLE"
+lcQUERY += ")"
+lcQUERY += "group by NR_RISCO,PEDIDO_PROCESSO,NR_CONTROLE_SEGURO"
+lcQUERY += " order by NR_CONTROLE_SEGURO,NR_RISCO"
+
+if db_query(lcQUERY) == -1
+   error_sys(db_error())
+endif
+laRES2 := db_fetchall()
+
+for xx:=2 to len(laRES2)
+
+    *** procura o pai pego numero de controle do pai
+    laFIELDS   := {'NR_CONTROLE'}
+
+    lcWHERE:= 'NR_PASTA='+WGet('NR_PASTA','C') + ' AND NR_CONTROLE_SEGURO=' + str(laRES2[xx,ascan(laRES2[1],'NR_CONTROLE_SEGURO')]) + ' AND PEDIDO_PROCESSO='+DLAP+lcPDPRO+DLAP
+    if db_select(laFIELDS,'pasta_pedidos',,{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+    laRES:=db_fetchall()
+
+
+    *** procura o risco
+    laFIELDS   := {'NR_PASTA',;
+                   'NR_CONTROLE',;
+                   'PEDIDO_PROCESSO',;
+                   'DT_MOVTO_PED',;
+                   'DT_RISCO',;
+                   'VL_RISCO',;
+                   'VL_RISCO_CALC',;
+                   'PC_RISCO',;
+                   'VL_CORRECAO',;
+                   'VL_JUROS',;
+                   'FL_CALCULO',;
+                   'COMENTARIOS_PED',;
+                   'OCOR_PEDIDO'}
+
+    lcWHERE:= 'NR_PASTA='+WGet('NR_PASTA','C') + ' AND NR_CONTROLE_SEGURO=' + str(laRES2[xx,ascan(laRES2[1],'NR_CONTROLE_SEGURO')]) + ' AND PEDIDO_PROCESSO=' + DLAP + laRES2[xx,ascan(laRES2[1],'PEDIDO_PROCESSO')] + DLAP  + ' AND NR_PEDIDO_ORIGEM=' + str(laRES[2,ascan(laRES[1],'NR_CONTROLE')])
+    if db_select(laFIELDS,'pasta_pedidos',,{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+    laRES3:=db_fetchall()
+
+    lnVL_RC  := laRES2[xx,ascan(laRES2[1],'VL_RISCO_CALC')] * lnVLSUC
+    lnVL_COR := laRES2[xx,ascan(laRES2[1],'VL_CORRECAO')] * lnVLSUC
+    lnVL_JUR := laRES2[xx,ascan(laRES2[1],'VL_JUROS')] * lnVLSUC
+
+    lnDVL_RC:= lnVL_RC - laRES3[2,db_fetchncol(laRES3,'VL_RISCO_CALC')]
+    lnDVL_COR:= lnVL_COR - laRES3[2,db_fetchncol(laRES3,'VL_CORRECAO')]
+    lnDVL_JUR:= lnVL_JUR - laRES3[2,db_fetchncol(laRES3,'VL_JUROS')]
+
+
+    lcWHERE := 'NR_PASTA='+WGet('NR_PASTA','C') + ' AND NR_CONTROLE=' + str(laRES3[2,db_fetchncol(laRES3,'NR_CONTROLE')])
+
+    laFIELDS:= {'VL_RISCO_CALC','VL_CORRECAO','VL_JUROS'}
+
+    laAUX   := {}
+    aadd(laAUX,laFIELDS)
+
+    laFIELDS:= {lnVL_RC,lnVL_COR,lnVL_JUR}
+
+    aadd(laAUX,laFIELDS)
+
+    if db_update(laAUX,'pasta_pedidos',{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+
+    laDFIELDS   := {'NR_PASTA',;
+                   'NR_CONTROLE',;
+                   'PEDIDO_PROCESSO',;
+                   'DT_MOVTO_PED',;
+                   'DT_RISCO',;
+                   'VL_RISCO',;
+                   'VL_RISCO_CALC',;
+                   'PC_RISCO',;
+                   'VL_CORRECAO',;
+                   'VL_JUROS',;
+                   'FL_CALCULO',;
+                   'COMENTARIOS_PED',;
+                   'OCOR_PEDIDO',;
+                   'DT_ALTERACAO',;
+                   'HR_ALTERACAO',;
+                   'LOGIN_CADASTRO',;
+                   'FL_LOG_ESTIMATIVA'}
+
+    laAUX   := {}
+    aadd(laAUX,laDFIELDS)
+
+    laDFIELDS :={laRES3[2,db_fetchncol(laRES3,'NR_PASTA')],;
+                 laRES3[2,db_fetchncol(laRES3,'NR_CONTROLE')],;
+                 laRES3[2,db_fetchncol(laRES3,'PEDIDO_PROCESSO')],;
+                 date(),;
+                 ctod('  /  /    '),;
+                 0,;
+                 lnDVL_RC,;
+                 laRES3[2,db_fetchncol(laRES3,'PC_RISCO')],;
+                 lnDVL_COR,;
+                 lnDVL_JUR,;
+                 'S',;
+                 lcOBS,;
+                 '',;
+                 date(),;
+                 time(),;
+                 gcLOGIN,;
+                 'N'}
+
+    aadd(laAUX,laDFIELDS)
+
+    *** inclui detal da diferença
+    if db_insert(laAUX,'pasta_detal_pedidos') == -1
+       error_sys(db_error())
+    endif
+
+
+next xx
+
+
+
+return (nil)
+*********************************************
+static function newsucumb(faSAVESU,faSAVEDSU)
+*********************************************
+local xx            := 0 as int
+local liNR_CONTROLE := 0 as int
+local liNR_SEQ      := 0 as int
+local lnVLSUC       := 0.00 as numeric
+local lcPDPRO       := '' as string
+local lcNR_CPAI     := '' as string
+local lcWHERE       := '' as string
+local lcRISCO       := '' as string
+local laFIELDS      := {} as array
+local laRES         := {} as array
+local laRESULT      := {} as array
+
+local laRESPAI      := {} as array
+local laRESFIL      := {} as array
+
+local laWHERE       := {} as array
+local laNR_CSEGURO  := {} as array
+
+local laAUX         := {} as array
+
+
+local lnNV_VL_RISCO      := 0.00 as numeric
+local lnNV_RISCO_CALC    := 0.00 as numeric
+
+local liLINHA  := 0 as int
+local liLINHA2 := 0 as int
+
+local liNR_PAI := 0 as int
+
+
+*select * from pasta_pedidos where nr_pasta=11020 order by nr_controle
+
+*select * from pasta_detal_pedidos where nr_pasta=11020 order by nr_detal
+
+*-- delete from pasta_pedidos where nr_pasta=11020 and dt_movto_ped='2016-02-15'; delete from pasta_detal_pedidos where nr_pasta=11020 and dt_alteracao='2016-02-15';
+
+
+if db_select({'OCOR_SUCU'},'pasta_config',,{'TP_PASTA = '+DLAP+WGet('TP_PASTA','C')+DLAP}) == -1
+   error_sys(db_error())
+endif
+laRESULT:=db_fetchrow()
+
+lcPDPRO = laRESULT[1]
+lnVLSUC = (WGet('PC_SUCUMBENCIA_CONDENACAO','N') / 100)
+
+if len(lcPDPRO) == 0  .or. lnVLSUC == 0
+   *** não tem titulo sucumbencia, ou % sucumbencia=0 então não cria sucumbência
+   return (nil)
+endif
+
+criasucumb()
+
+liNR_PAI := 0
+
+laNR_CSEGURO := {}
+
+for xx:=2 to len(faSAVESU)
+
+    if faSAVESU[xx,ascan(faSAVESU[1],'VL_RISCO_CALC')] == 0
+       *** indica que o lançamento e o pai( o pedido)
+
+       *** procura lançamento com titulo sucumbencia
+       laFIELDS := {'NR_CONTROLE','VL_RISCO','NR_CONTROLE_SEGURO'}
+       lcWHERE:= 'NR_PASTA='+WGet('NR_PASTA','C') + ' AND NR_CONTROLE_SEGURO=' + str(faSAVESU[xx,ascan(faSAVESU[1],'NR_CONTROLE_SEGURO')]) + ' AND PEDIDO_PROCESSO='+DLAP+lcPDPRO+DLAP
+       if db_select(laFIELDS,'pasta_pedidos',,{lcWHERE},{'NR_CONTROLE'}) == -1
+          error_sys(db_error())
+       endif
+       laRESPAI:=db_fetchall()
+
+    endif
+
+    *** achou sucumbencia
+    if len(laRESPAI)>1
+
+       *** cria campo nr_controle para guardar o numero para o update
+       if ascan(faSAVESU[1],'NR_CONTROLE') == 0
+          aadd(faSAVESU[1],'NR_CONTROLE')
+       endif
+
+       *** pega o numero do controle da sucumbencia ja existente
+       liNR_PAI:=laRESPAI[2,ascan(laRESPAI[1],'NR_CONTROLE')]
+       liNR_SEQ:=liNR_PAI
+
+       *** pega o valor do risco
+       lnNV_VL_RISCO := laRESPAI[2,2]
+
+       *** iguala o nr_controle dos pais com o nr_controle da sucumbencia ja cadastrada
+       *** indica que o lançamento e o pai( o pedido)
+
+       if laRESPAI[2,3] == faSAVESU[xx,db_fetchncol(faSAVESU,'NR_CONTROLE_SEGURO')]
+
+          if faSAVESU[xx,ascan(faSAVESU[1],'VL_RISCO')] != 0
+             aadd(faSAVESU[xx],liNR_PAI)
+             lnNV_VL_RISCO:= lnNV_VL_RISCO + (faSAVESU[xx, ascan(faSAVESU[1],'VL_RISCO')] * lnVLSUC )
+             faSAVESU[xx,ascan(faSAVESU[1],'PEDIDO_PROCESSO')] = lcPDPRO
+             faSAVESU[xx,ascan(faSAVESU[1],'VL_RISCO')] = lnNV_VL_RISCO
+             faSAVESU[xx,ascan(faSAVESU[1],'DT_RISCO')] = ctod('  /  /    ')
+             faSAVESU[xx,ascan(faSAVESU[1],'DT_JUROS')] = ctod('  /  /    ')
+             faSAVESU[xx,ascan(faSAVESU[1],'FL_CALCULO')] = 'S'
+
+
+             laAUX:={}
+             aadd(laAUX,faSAVESU[1])
+             aadd(laAUX,faSAVESU[xx])
+
+             laWHERE := {}
+
+             aadd(laWHERE,'NR_CONTROLE = ' + str(liNR_PAI))
+             aadd(laWHERE,'NR_CONTROLE_SEGURO = ' + str(faSAVESU[xx,db_fetchncol(faSAVESU,'NR_CONTROLE_SEGURO')]))
+
+             if db_update(laAUX,'pasta_pedidos',laWHERE) == -1
+                error_sys(db_error())
+             endif
+
+             asize(faSAVESU[xx],0)
+
+          else
+
+             laFIELDS := {'NR_CONTROLE','PEDIDO_PROCESSO','VL_RISCO_CALC','VL_CORRECAO','VL_JUROS','NR_CONTROLE_SEGURO'}
+             lcWHERE:= 'NR_PASTA='+WGet('NR_PASTA','C')+' AND NR_CONTROLE_SEGURO='+ str(faSAVESU[xx,ascan(faSAVESU[1],'NR_CONTROLE_SEGURO')]) + ' AND NR_PEDIDO_ORIGEM=' + DLAP + alltrim(str(liNR_PAI)) + DLAP + ' AND PEDIDO_PROCESSO=' + DLAP + faSAVESU[xx,ascan(faSAVESU[1],'PEDIDO_PROCESSO')] + DLAP
+
+             if db_select(laFIELDS,'pasta_pedidos',,{lcWHERE},{'PEDIDO_PROCESSO'}) == -1
+                error_sys(db_error())
+             endif
+             laRESFIL:=db_fetchall()
+
+             *** tratando lançamentos de riscos
+
+             lnNV_RISCO_CALC := laRESFIL[2,3]
+
+             if laRESFIL[2,2] == faSAVESU[xx,db_fetchncol(faSAVESU,'PEDIDO_PROCESSO')]
+
+                *** guarda o numero do controle encontrado para o update
+                aadd(faSAVESU[xx],laRESFIL[2,1])
+
+                faSAVESU[xx,db_fetchncol(faSAVESU,'NR_PEDIDO_ORIGEM')] = laRESPAI[2,1]
+
+                *** pega o valor ja existente e acumula
+                lnNV_RISCO_CALC := lnNV_RISCO_CALC + (faSAVESU[xx,db_fetchncol(faSAVESU,'VL_RISCO_CALC')] * lnVLSUC)
+                faSAVESU[xx,db_fetchncol(faSAVESU,'VL_RISCO_CALC')] = lnNV_RISCO_CALC
+
+                faSAVESU[xx,ascan(faSAVESU[1],'DT_RISCO')] = ctod('  /  /    ')
+                faSAVESU[xx,ascan(faSAVESU[1],'DT_JUROS')] = ctod('  /  /    ')
+                faSAVESU[xx,ascan(faSAVESU[1],'FL_CALCULO')] = 'S'
+
+                laAUX:={}
+                aadd(laAUX,faSAVESU[1])
+                aadd(laAUX,faSAVESU[xx])
+
+                laWHERE := {}
+
+                aadd(laWHERE,'NR_CONTROLE = ' + str(faSAVESU[xx,db_fetchncol(faSAVESU,'NR_CONTROLE')]))
+                aadd(laWHERE,'NR_CONTROLE_SEGURO = ' + str(faSAVESU[xx,db_fetchncol(faSAVESU,'NR_CONTROLE_SEGURO')]))
+
+                if db_update(laAUX,'pasta_pedidos',laWHERE) == -1
+                   error_sys(db_error())
+                endif
+
+                asize(faSAVESU[xx],0)
+
+             endif
+
+          endif
+
+       endif
+
+    endif
+
+next xx
+
+*** identificando numero do seguro e atualizando array detal
+aadd(faSAVEDSU[1],'NR_CONTROLE_SEGURO')
+
+for xx:=2 to len(faSAVEDSU)
+
+    laFIELDS := {'NR_CONTROLE_SEGURO'}
+    lcWHERE:= 'NR_PASTA='+WGet('NR_PASTA','C') + ' AND NR_CONTROLE='+ faSAVEDSU[xx,ascan(faSAVEDSU[1],'NR_CONTROLE')]
+    if db_select(laFIELDS,'pasta_pedidos',,{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+    laRES:=db_fetchall()
+
+    *** pega o numero do seguro
+    aadd(faSAVEDSU[xx],str(laRES[2,1]))
+
+    if faSAVEDSU[xx,ascan(faSAVEDSU[1],'VL_RISCO')] != 0
+       faSAVEDSU[xx,ascan(faSAVEDSU[1],'VL_RISCO')] := faSAVEDSU[xx,ascan(faSAVEDSU[1],'VL_RISCO')] * lnVLSUC
+       faSAVEDSU[xx,ascan(faSAVEDSU[1],'PEDIDO_PROCESSO')] := lcPDPRO
+
+       laFIELDS := {'NR_CONTROLE'}
+       lcWHERE  := 'NR_PASTA='+WGet('NR_PASTA','C') + ' AND NR_CONTROLE_SEGURO='+ str(laRES[2,1]) + ' AND PEDIDO_PROCESSO=' + DLAP+ lcPDPRO + DLAP
+       if db_select(laFIELDS,'pasta_pedidos',,{lcWHERE}) == -1
+          error_sys(db_error())
+       endif
+       laRES:=db_fetchall()
+
+       lnORIG:=laRES[2,1]
+
+       faSAVEDSU[xx,ascan(faSAVEDSU[1],'NR_CONTROLE')] := str(lnORIG)
+
+    else
+
+       faSAVEDSU[xx,ascan(faSAVEDSU[1],'VL_RISCO_CALC')] := faSAVEDSU[xx,ascan(faSAVEDSU[1],'VL_RISCO_CALC')] * lnVLSUC
+       faSAVEDSU[xx,ascan(faSAVEDSU[1],'VL_CORRECAO')] := faSAVEDSU[xx,ascan(faSAVEDSU[1],'VL_CORRECAO')] * lnVLSUC
+       faSAVEDSU[xx,ascan(faSAVEDSU[1],'VL_JUROS')] := faSAVEDSU[xx,ascan(faSAVEDSU[1],'VL_JUROS')] * lnVLSUC
+
+       laFIELDS := {'NR_CONTROLE'}
+       lcWHERE:= 'NR_PASTA='+WGet('NR_PASTA','C') + ' AND NR_PEDIDO_ORIGEM=' + str(lnORIG) + ' AND PEDIDO_PROCESSO=' + DLAP + faSAVEDSU[xx,ascan(faSAVEDSU[1],'PEDIDO_PROCESSO')] + DLAP
+       if db_select(laFIELDS,'pasta_pedidos',,{lcWHERE}) == -1
+          error_sys(db_error())
+       endif
+       laRES:=db_fetchall()
+
+       faSAVEDSU[xx,ascan(faSAVEDSU[1],'NR_CONTROLE')] := str(laRES[2,1])
+
+    endif
+
+next xx
+
+lnPOS:=ascan(faSAVEDSU[1],'NR_CONTROLE_SEGURO')
+for xx:=1 to len(faSAVEDSU)
+    adel(faSAVEDSU[xx],lnPOS)
+    asize(faSAVEDSU[xx],len(faSAVEDSU[xx])-1)
+next xx
+
+if db_insert(faSAVEDSU,'pasta_detal_pedidos') == -1
+   error_sys(db_error())
+endif
+
+
+** update pedido juros e correção
+for xx:=2 to len(faSAVEDSU)
+
+    laFIELDS := {'NR_CONTROLE','VL_RISCO_CALC','VL_CORRECAO','VL_JUROS'}
+    lcWHERE:= 'NR_PASTA='+WGet('NR_PASTA','C') + ' AND NR_CONTROLE=' + faSAVEDSU[xx,db_fetchncol(faSAVEDSU,'NR_CONTROLE')]
+    if db_select(laFIELDS,'pasta_pedidos',,{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+    laRES:=db_fetchall()
+
+
+    laFIELDS := {'VL_CORRECAO','VL_JUROS'}
+    laDADOS  := {laRES[2,3]+faSAVEDSU[xx,db_fetchncol(faSAVEDSU,'VL_CORRECAO')],laRES[2,4]+faSAVEDSU[xx,db_fetchncol(faSAVEDSU,'VL_JUROS')]}
+    lcWHERE:= 'NR_PASTA='+WGet('NR_PASTA','C') + ' AND NR_CONTROLE=' + faSAVEDSU[xx,db_fetchncol(faSAVEDSU,'NR_CONTROLE')]
+    if db_update({laFIELDS,laDADOS},'pasta_pedidos',{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+
+
+next xx
+
+return (nil)
+
+
+**********************************************************************************
+static function pegalabel(lcTABLE,lcVARF,lcVARL,lcVARO,fcPROGRAM,faDEFAULT_FIELDS)
+**********************************************************************************
+*** cria array com labels da tabela escolhida e envia para variavel html
+local laFIELDS := {} ,;
+      laPUT    := {} ,;
+      laVALIDA := {} ,;
+      laOBRIGA := {} ,;
+      laLABELS := {} as array
+
+local ii:= 0 as int
+
+laFIELDS := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+laLABELS := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+
+aadd(laFIELDS,'NR_CONTROLE_SEGURO')
+aadd(laFIELDS,'NR_SINISTRO')
+aadd(laFIELDS,'TP_EXPEDIENTE')
+aadd(laFIELDS,'DT_JUROS')
+
+aadd(laLABELS,lblfscreen('NR_CONTROLE_SEGURO'))
+aadd(laLABELS,lblfscreen('NR_SINISTRO'))
+aadd(laLABELS,lblfscreen('TP_EXPEDIENTE'))
+aadd(laLABELS,lblfscreen('DT_JUROS'))
+
+WPut(lcVARF,array2str(laFIELDS,','))
+WPut(lcVARL,array2str(laLABELS,','))
+
+laPUT := wmd_reqfield(fcPROGRAM)
+if len(laPUT) > 0
+   if ! empty(alltrim(laPUT[2]))
+      laVALIDA := str2array(laPUT[2],',')
+   endif
+endif
+
+if valtype(faDEFAULT_FIELDS) == 'A'
+   if len(faDEFAULT_FIELDS) > 0
+      for ii := 1 to len(faDEFAULT_FIELDS)
+         if ascan(laVALIDA,faDEFAULT_FIELDS[ii]) == 0
+            aadd(laVALIDA,faDEFAULT_FIELDS[ii])
+         endif
+      next ii
+   endif
+endif
+
+for ii := 1 to len(laFIELDS)
+    if ascan(laVALIDA,laFIELDS[ii]) == 0
+       aadd(laOBRIGA,'N')
+    else
+       aadd(laOBRIGA,'S')
+    endif
+next ii
+
+WPut(lcVARO,array2str(laOBRIGA,','))
+
+
+return
+
+*****************************************************
+static function carregapedidos(lcNR_PASTA,lcTP_PASTA)
+*****************************************************
+local laRES1       := {} ,;
+      laTESTI      := {} ,;
+      laLINHA_ATUAL:= {} as array
+
+local lnVTRC := 0.00 ,; //Total VL_RISCO_CALC
+      lnVTR  := 0.00 ,; //Total VL_RISCO
+      lnVTPO := 0.00 ,; //Total POSSIVE
+      lnVTPR := 0.00 ,; //Total PROVAVE
+      lnVTRE := 0.00 ,; //Total REMOTO
+      lnVTATU:= 0.00 ,;
+      lnVTTU := 0.00 ,;
+      lnVA   := 0.00 as numeric
+
+local ii     := 0 as int
+
+local CO_POSSIVEL := 0  as int
+local CO_PROVAVEL := 0  as int
+local CO_REMOTO   := 0  as int
+
+local llENCERRADA:= .f. as logical
+
+local lcNR_ROW     := '' as string
+local lcNR_CONTROLE:= '' as string
+
+if db_select({'distinct(pasta_pedidos.NR_CONTROLE)',;
+              'pasta_pedidos.PEDIDO_PROCESSO',;
+              'pasta_pedidos.NR_CONTROLE_SEGURO',;
+              'pasta_seguro.NR_SINISTRO',;
+              'pasta_pedidos.VL_RISCO',;
+              'pasta_pedidos.PC_RISCO',;
+              'exito_riscoperda.RISCOPERDA',;
+              'pasta_pedidos.DT_MOVTO_PED',;
+              'pasta_pedidos.DT_RISCO',;
+              'pasta_pedidos.VL_RISCO_CALC',;
+              'pasta_pedidos.VL_CORRECAO',;
+              'pasta_pedidos.VL_JUROS',;
+              'pasta_pedidos.FL_CALCULO',;
+              'pasta_pedidos.OCOR_PEDIDO',;
+              'pasta_pedidos.COMENTARIOS_PED',;
+              'pasta_pedidos.TP_EXPEDIENTE',;
+              'pasta_pedidos.FLAG',;
+              'pasta_pedidos.DT_JUROS'},;
+              'pasta_pedidos',;
+              {{2,'exito_riscoperda','exito_riscoperda.PC_RISCO=pasta_pedidos.PC_RISCO'},;
+               {2,'pasta_seguro','pasta_seguro.NR_CONTROLE=pasta_pedidos.NR_CONTROLE_SEGURO'},;
+               {2,'pasta_objeto','pasta_objeto.OBJETO=pasta_pedidos.PEDIDO_PROCESSO'}},;
+              {'pasta_pedidos.NR_PASTA='+lcNR_PASTA+ ' and (pasta_pedidos.NR_PEDIDO_ORIGEM is null or pasta_pedidos.NR_PEDIDO_ORIGEM = 0 )'},;
+              {'pasta_pedidos.NR_CONTROLE'}) == -1
+   error_sys(db_error())
+endif
+laRES1 := db_fetchall()
+
+if len(laRES1) > 1
+
+   aadd(laRES1[1],'VAR_NR_CONTROLE')
+   aadd(laRES1[1],'VAR_PEDIDO_PROCESSO')
+   aadd(laRES1[1],'VAR_NR_CONTROLE_SEGURO')
+   aadd(laRES1[1],'VAR_NR_SINISTRO')
+   aadd(laRES1[1],'VAR_VL_RISCO')
+   aadd(laRES1[1],'VAR_PC_RISCO')
+   aadd(laRES1[1],'VAR_PC_RISCO_RISCOPERDA')
+   aadd(laRES1[1],'VAR_DT_RISCO')
+   aadd(laRES1[1],'VAR_VL_RISCO_CALC')
+   aadd(laRES1[1],'VAR_VL_CORRECAO')
+   aadd(laRES1[1],'VAR_VL_JUROS')
+   aadd(laRES1[1],'VAR_VL_ATUALIZADO')
+   aadd(laRES1[1],'VAR_FL_CALCULO')
+   aadd(laRES1[1],'VAR_DT_MOVTO_PED')
+   aadd(laRES1[1],'VAR_COMENTARIOS_PED')
+   aadd(laRES1[1],'VAR_OCOR_PEDIDO')
+   aadd(laRES1[1],'VAR_TP_EXPEDIENTE')
+   aadd(laRES1[1],'VAR_FLAG')
+   aadd(laRES1[1],'VAR_LNK')
+   aadd(laRES1[1],'VAR_TBL')
+   aadd(laRES1[1],'VAR_CHK')
+   aadd(laRES1[1],'VAR_VL_POSSIVEL')
+   aadd(laRES1[1],'VAR_VL_PROVAVEL')
+   aadd(laRES1[1],'VAR_VL_REMOTO')
+   aadd(laRES1[1],'VAR_VL_ATU')
+   aadd(laRES1[1],'VAR_DT_JUROS')
+   aadd(laRES1[1],'VAR_CMyClasseA')
+   aadd(laRES1[1],'VAR_CMyClasseB')
+
+   lnVTR   := 0.00 //Total VL_RISCO
+   lnVTPO  := 0.00 //Total POSSIVEL
+   lnVTPR  := 0.00 //Total PROVAVEL
+   lnVTRE  := 0.00 //Total REMOTO
+   lnVTATU := 0.00 //Total ATU
+   lnVTTU  := 0.00
+
+   for ii := 2 to len(laRES1)
+      lcNR_ROW := alltrim(str(ii))
+
+      aadd(laRES1[ii],'VAR_NR_CONTROLE_'+lcNR_ROW)
+      aadd(laRES1[ii],'VAR_PEDIDO_PROCESSO_'+lcNR_ROW)
+      aadd(laRES1[ii],'VAR_NR_CONTROLE_SEGURO_'+lcNR_ROW)
+      aadd(laRES1[ii],'VAR_NR_SINISTRO_'+lcNR_ROW)
+      aadd(laRES1[ii],'VAR_VL_RISCO_'+lcNR_ROW)
+      aadd(laRES1[ii],'VAR_PC_RISCO_'+lcNR_ROW)
+      aadd(laRES1[ii],'VAR_PC_RISCO_'+lcNR_ROW+'_RISCOPERDA')
+      aadd(laRES1[ii],'VAR_DT_RISCO_'+lcNR_ROW)
+      aadd(laRES1[ii],'VAR_VL_RISCO_CALC_'+lcNR_ROW)
+      aadd(laRES1[ii],'VAR_VL_CORRECAO_'+lcNR_ROW)
+      aadd(laRES1[ii],'VAR_VL_JUROS_'+lcNR_ROW)
+      aadd(laRES1[ii],'VAR_VL_ATUALIZADO_'+lcNR_ROW)
+      aadd(laRES1[ii],'VAR_FL_CALCULO_'+lcNR_ROW)
+      aadd(laRES1[ii],'VAR_DT_MOVTO_PED_'+lcNR_ROW)
+      aadd(laRES1[ii],'VAR_COMENTARIOS_PED_'+lcNR_ROW)
+      aadd(laRES1[ii],'VAR_OCOR_PEDIDO_'+lcNR_ROW)
+      aadd(laRES1[ii],'VAR_TP_EXPEDIENTE_'+lcNR_ROW)
+      aadd(laRES1[ii],'VAR_FLAG_'+lcNR_ROW)
+      aadd(laRES1[ii],'VAR_LNK_'+lcNR_ROW)
+      aadd(laRES1[ii],'VAR_TBL_'+lcNR_ROW)
+      aadd(laRES1[ii],'VAR_CHK_'+lcNR_ROW)
+      aadd(laRES1[ii],'VAR_VL_POSSIVEL_'+lcNR_ROW)
+      aadd(laRES1[ii],'VAR_VL_PROVAVEL_'+lcNR_ROW)
+      aadd(laRES1[ii],'VAR_VL_REMOTO_'+lcNR_ROW)
+      aadd(laRES1[ii],'VAR_VL_ATU_'+lcNR_ROW)
+      aadd(laRES1[ii],'VAR_DT_JUROS_'+lcNR_ROW)
+
+      aadd(laRES1[ii],'VAR_CMyClasseA_'+lcNR_ROW)
+      aadd(laRES1[ii],'VAR_CMyClasseB_'+lcNR_ROW)
+
+
+      WPut('VAR_NR_CONTROLE_'+lcNR_ROW,            laRES1[ii,db_fetchncol(laRES1,'NR_CONTROLE')])
+      WPut('VAR_PEDIDO_PROCESSO_'+lcNR_ROW,        laRES1[ii,db_fetchncol(laRES1,'PEDIDO_PROCESSO')])
+      WPut('VAR_NR_CONTROLE_SEGURO_'+lcNR_ROW,     laRES1[ii,db_fetchncol(laRES1,'NR_CONTROLE_SEGURO')])
+      WPut('VAR_NR_SINISTRO_'+lcNR_ROW,            laRES1[ii,db_fetchncol(laRES1,'NR_SINISTRO')])
+      WPut('VAR_VL_RISCO_'+lcNR_ROW,               wpictrans('VL_RISCO',laRES1[ii,db_fetchncol(laRES1,'VL_RISCO')]))
+      WPut('VAR_PC_RISCO_'+lcNR_ROW,               laRES1[ii,db_fetchncol(laRES1,'PC_RISCO')])
+      WPut('VAR_DT_RISCO_'+lcNR_ROW,               laRES1[ii,db_fetchncol(laRES1,'DT_RISCO')])
+      WPut('VAR_VL_RISCO_CALC_'+lcNR_ROW,          wpictrans('VL_RISCO_CALC',laRES1[ii,db_fetchncol(laRES1,'VL_RISCO_CALC')]))
+      WPut('VAR_VL_CORRECAO_'+lcNR_ROW,            wpictrans('VL_CORRECAO',laRES1[ii,db_fetchncol(laRES1,'VL_CORRECAO')]))
+      WPut('VAR_VL_JUROS_'+lcNR_ROW,               wpictrans('VL_JUROS',laRES1[ii,db_fetchncol(laRES1,'VL_JUROS')]))
+      WPut('VAR_DT_MOVTO_PED_'+lcNR_ROW,           laRES1[ii,db_fetchncol(laRES1,'DT_MOVTO_PED')])
+      WPut('VAR_COMENTARIOS_PED_'+lcNR_ROW,        laRES1[ii,db_fetchncol(laRES1,'COMENTARIOS_PED')])
+      WPut('VAR_OCOR_PEDIDO_'+lcNR_ROW,            laRES1[ii,db_fetchncol(laRES1,'OCOR_PEDIDO')])
+      WPut('VAR_TP_EXPEDIENTE_'+lcNR_ROW,          laRES1[ii,db_fetchncol(laRES1,'TP_EXPEDIENTE')])
+      WPut('VAR_FLAG_'+lcNR_ROW,                   laRES1[ii,db_fetchncol(laRES1,'FLAG')])
+      WPut('VAR_DT_JUROS_'+lcNR_ROW,               laRES1[ii,db_fetchncol(laRES1,'DT_JUROS')])
+
+
+      lcNR_CONTROLE=str(laRES1[ii,db_fetchncol(laRES1,'NR_CONTROLE')])
+
+      laTESTI=CarregaEstimativa(lcNR_PASTA,lcTP_PASTA,lcNR_CONTROLE)
+
+      *** se achou estimativa
+      if len(laTESTI)<>0
+
+         CO_POSSIVEL:=0
+         CO_PROVAVEL:=0
+         CO_REMOTO  :=0
+
+         *** identifica qual coluna e de qual probabilidade
+         if laTESTI[1,1]=='Possível'
+            CO_POSSIVEL:=1
+         elseif laTESTI[1,2]=='Possível'
+            CO_POSSIVEL:=2
+         elseif laTESTI[1,3]=='Possível'
+            CO_POSSIVEL:=3
+         endif
+
+         if laTESTI[1,1]=='Provável'
+            CO_PROVAVEL:=1
+         elseif laTESTI[1,2]=='Provável'
+            CO_PROVAVEL:=2
+         elseif laTESTI[1,3]=='Provável'
+            CO_PROVAVEL:=3
+         endif
+
+         if laTESTI[1,1]=='Remota'
+            CO_REMOTO:=1
+         elseif laTESTI[1,2]=='Remota'
+            CO_REMOTO:=2
+         elseif laTESTI[1,3]=='Remota'
+            CO_REMOTO:=3
+         endif
+
+         WPut('VAR_VL_POSSIVEL_'+lcNR_ROW,            wpictrans('VL_RISCO',laTESTI[2,CO_POSSIVEL]))
+         WPut('VAR_VL_PROVAVEL_'+lcNR_ROW,            wpictrans('VL_RISCO',laTESTI[2,CO_PROVAVEL]))
+         WPut('VAR_VL_REMOTO_'+lcNR_ROW,              wpictrans('VL_RISCO',laTESTI[2,CO_REMOTO]))
+
+         lnVTR  := lnVTR  + laRES1[ii,db_fetchncol(laRES1,'VL_RISCO')]
+         lnVTPO := lnVTPO + laTESTI[2,CO_POSSIVEL]
+         lnVTPR := lnVTPR + laTESTI[2,CO_PROVAVEL]
+         lnVTRE := lnVTRE + laTESTI[2,CO_REMOTO]
+
+         lnVTATU:= laTESTI[2,1] +  laTESTI[2,2] + laTESTI[2,3]
+         lnVTTU:= lnVTTU + (laTESTI[2,1] +  laTESTI[2,2] + laTESTI[2,3])
+
+         WPut('VAR_VL_ATU_'+lcNR_ROW,              wpictrans('VL_RISCO',lnVTATU))
+      endif
+
+   next ii
+
+   WPut('lstPEDIDOS',laRES1)
+
+   WPut('VAR_E_VL_RISCO',wpictrans('VL_RISCO',lnVTR))
+   WPut('VAR_E_VL_POSSIVEL',wpictrans('VL_RISCO',lnVTPO))
+   WPut('VAR_E_VL_PROVAVEL',wpictrans('VL_RISCO',lnVTPR))
+   WPut('VAR_E_VL_REMOTO',wpictrans('VL_RISCO',lnVTRE))
+   WPut('VAR_E_VL_ATU',wpictrans('VL_RISCO',lnVTTU))
+
+   WPut('VLTOT_POSSIVEL',wpictrans('VL_RISCO',lnVTPO))
+   WPut('VLTOT_PROVAVEL',wpictrans('VL_RISCO',lnVTPR))
+   WPut('VLTOT_REMOTO',wpictrans('VL_RISCO',lnVTRE))
+   WPut('VLTOT_ATU',wpictrans('VL_RISCO',lnVTTU))
+
+endif
+
+return
+****************************
+function geraestimativa
+
+return
+*****************************
+
+* Function  : valores_padroes(fcNR_PASTA,fcTP_PASTA)
+static function valores_padroes(fcNR_PASTA, fcTP_PASTA)
+   local laRESULT      := {},;
+         laRESULT_OCOR := {} as array
+
+   local lcLINHA       := "" as string
+
+   if db_select({'DT_RISCO_CONF','OCOR_PEDIDO_INICIO','FL_RISCO_CEM','OCOR_PEDIDO_CORRECAO','OCOR_PEDIDO_RATEIO','NS_PROV','NS_POSS','NS_REMO','WFIELD_DATABASE_JUROS','OCOR_SUCU','CONTSDXP','CONTSXP','CPOSSIVEL','CPROVAVEL','CREMOTO'},'pasta_config',,{'TP_PASTA = '+DLAP+fcTP_PASTA+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT_OCOR:=db_fetchrow()
+
+   if (empty(laRESULT_OCOR[2]) .OR. laRESULT_OCOR[2]='') .OR. (empty(laRESULT_OCOR[4]) .OR. laRESULT_OCOR[4]='') .OR. (empty(laRESULT_OCOR[5]) .OR. laRESULT_OCOR[5]='') .OR. (empty(laRESULT_OCOR[6]) .OR. laRESULT_OCOR[6]='') .OR. (empty(laRESULT_OCOR[7]) .OR. laRESULT_OCOR[7]='') .OR. (empty(laRESULT_OCOR[8]) .OR. laRESULT_OCOR[8]='')
+      walert('A parametrização dos Pedidos para esta Pasta \n ainda não foi realizada')
+      return(.f.)
+   else
+      if len(laRESULT_OCOR) > 0
+         if !empty(laRESULT_OCOR[1]) .and. !empty(laRESULT_OCOR[9])
+            if db_select({laRESULT_OCOR[1],laRESULT_OCOR[9]},'pasta',,{'NR_PASTA = '+fcNR_PASTA}) == -1
+               error_sys(db_error())
+            endif
+            laRESULT:=db_fetchrow()
+
+            if len(laRESULT) > 0
+               WPut('VAR_DT_MOVTO_PED_1',date())
+               WPut('VAR_DT_RISCO_1',laRESULT[1])
+               WPut('VAR_DT_JUROS_1',laRESULT[2])
+               WPut('OCOR_INIC',laRESULT_OCOR[2])
+               WPut('VAR_FL_RISCO_CEM',laRESULT_OCOR[3])
+               WPut('OCOR_CALC',laRESULT_OCOR[4])
+               WPut('OCOR_ESTO',laRESULT_OCOR[5])
+
+               WPut('PED_SUCU',laRESULT_OCOR[10])
+               WPut('CONT_SDXP',laRESULT_OCOR[11])
+               WPut('CONT_SXP',laRESULT_OCOR[12])
+               WPut('CPOSSIVEL',laRESULT_OCOR[13])
+               WPut('CPROVAVEL',laRESULT_OCOR[14])
+               WPut('CREMOTO',laRESULT_OCOR[15])
+
+               lcLINHA:=DLAP+'Provável'+DLAP
+               lcLINHA+=','+DLAP+'Possível'+DLAP
+               lcLINHA+=','+DLAP+'Remoto'+DLAP
+               lcLINHA+=','+laRESULT_OCOR[6]
+               lcLINHA+=','+laRESULT_OCOR[7]
+               lcLINHA+=','+laRESULT_OCOR[8]
+
+               WPut('SEQ_OCOR',lcLINHA)
+            else
+               walert('A parametrização dos Pedidos para esta Pasta \n ainda não foi realizada')
+            endif
+         else
+            WPut('VAR_DT_MOVTO_PED_1',date())
+            WPut('VAR_DT_RISCO_1','')
+            WPut('VAR_DT_JUROS_1','')
+            WPut('OCOR_INIC',laRESULT_OCOR[2])
+
+            WPut('VAR_FL_RISCO_CEM',laRESULT_OCOR[3])
+            WPut('OCOR_CALC',laRESULT_OCOR[4])
+            WPut('OCOR_ESTO',laRESULT_OCOR[5])
+
+            lcLINHA:=DLAP+'Provável'+DLAP
+            lcLINHA+=','+DLAP+'Possível'+DLAP
+            lcLINHA+=','+DLAP+'Remoto'+DLAP
+            lcLINHA+=','+laRESULT_OCOR[6]
+            lcLINHA+=','+laRESULT_OCOR[7]
+            lcLINHA+=','+laRESULT_OCOR[8]
+
+            WPut('SEQ_OCOR',lcLINHA)
+
+         endif
+      else
+         walert('A parametrização dos Pedidos para esta Pasta \n ainda não foi realizada')
+      endif
+   endif
+return(nil)
+
+***********************************************************************
+static Function CarregaEstimativa(pcNR_PASTA, pcTp_Pasta,pcNR_CONTROLE)
+***********************************************************************
+local laRES       := {} as array
+
+local laRES2      := {} as array
+local laTIT       := {} as array
+local laTITAUX    := {} as array
+
+local laVAL       := {} as array
+local laVALAUX    := {} as array
+
+local ii          := 0 as int
+
+if db_select({'pasta_pedidos.NR_CONTROLE',;
+              'pasta_pedidos.PEDIDO_PROCESSO',;
+              'pasta_pedidos.VL_RISCO_CALC + pasta_pedidos.VL_CORRECAO + pasta_pedidos.VL_JUROS as VL_ATUALIZADO'},;
+              'pasta_pedidos',,;
+              {'(pasta_pedidos.NR_PEDIDO_ORIGEM = ' +pcNR_CONTROLE+')'},;
+              {'pasta_pedidos.NR_CONTROLE'}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+for ii := 2 to len(laRES)
+    aadd(laTITAUX,laRES[ii,2])
+    aadd(laVALAUX,laRES[ii,3])
+next ii
+aadd(laTIT,laTITAUX)
+aadd(laTIT,laVALAUX)
+
+return(laTIT)
+
+*********************************************************************************************
+static Function calcorjur(fcTP_PASTA,fcNR_PASTA,fnCD_INDICE,fdDT_RISCO,fnVL_RISCO,fdDT_JUROS)
+*********************************************************************************************
+*** Calculo da correção e Juros
+
+local laMARKUP  := {} as array
+local laJUROS   := {} as array
+local laRESULT  := {} as array
+local laRES     := {} as array
+local laRETURN  := {} as array
+
+local lnVC      := 0.00 as numeric
+local lnVJ      := 0.00 as numeric
+
+local lcFL_OPERADOR := '' as string
+
+local ldJUROS
+
+laMARKUP  := getmarkup(fnCD_INDICE,date2ym(date()),date2ym(fdDT_RISCO))
+laJUROS   := getmarkup_juros(fnCD_INDICE,date2ym(date()),date2ym(fdDT_JUROS))
+
+if laMARKUP[1] != 0
+   lnVC  := round(fnVL_RISCO * (laMARKUP[1]-1),2)
+  else
+   lnVC  := 0
+endif
+
+if laJUROS[1] != 0
+   lnVJ  := round((fnVL_RISCO+lnVC) * (laJUROS[1]-1),2)
+  else
+   lnVJ  := 0
+endif
+
+
+
+** transacao_contabil_correcao_estorno.FL_OPERADOR
+** transacao_contabil_juro_estorno.FL_OPERADOR
+** lcFL_OPERADOR = FL_OPERADOR
+
+lcFL_OPERADOR := '-'
+
+aadd(laRETURN,{lnVC,lnVJ,WGet('OCOR_CALC','C'),lcFL_OPERADOR})
+
+return(laRETURN)
+
+******************************************************************************
+Static Function EstiRecalcula(fcTP_PASTA,fcNR_PASTA,fnCD_INDICE,fnNR_CONTROLE)
+******************************************************************************
+* Objetivo  : Recalcula todas as estimativas geradas de uma determinada pasta com base em um determinado índice.
+*** indice alterado recalcula todas as provisoes
+local laPEDIDOS     := {},;
+      laOCORRECIA   := {},;
+      laRES         := {},;
+      laESTIMATIVAS := {},;
+      laFIELDS      := {},;
+      laSAVE_COR    := {},;
+      laRESXUP      := {},;
+      laSAVE_AUX    := {},;
+      laRESULT      := {} as array
+
+local lcOCOR        :='' as string
+
+local ldDT_RISCO as date
+
+local lnVL_CALC     := 0.00,;
+      lnVRC         := 0.00,;
+      lnVL_CORR     := 0.00,;
+      lnVL_JURO     := 0.00,;
+      lnVCDIFF      := 0.00,;
+      lnVJDIFF      := 0.00 as numeric
+
+local xx := 0 as int
+
+
+laPEDIDOS := {'pasta_pedidos.NR_PASTA',;
+              'pasta_pedidos.NR_CONTROLE',;
+              'pasta.TP_PASTA'}
+
+laESTIMATIVAS := {'NR_CONTROLE',;
+                  'PEDIDO_PROCESSO',;
+                  'VL_RISCO',;
+                  'PC_RISCO',;
+                  'DT_RISCO',;
+                  'VL_RISCO_CALC',;
+                  'VL_CORRECAO',;
+                  'VL_JUROS',;
+                  'FL_CALCULO',;
+                  'DT_MOVTO_PED',;
+                  'COMENTARIOS_PED',;
+                  'OCOR_PEDIDO',;
+                  'NR_PEDIDO_ORIGEM',;
+                  'DT_JUROS'}
+
+laFIELDS   := {'NR_PASTA',;
+               'NR_CONTROLE',;
+               'PEDIDO_PROCESSO',;
+               'DT_MOVTO_PED',;
+               'DT_RISCO',;
+               'VL_RISCO',;
+               'VL_RISCO_CALC',;
+               'PC_RISCO',;
+               'VL_CORRECAO',;
+               'VL_JUROS',;
+               'FL_CALCULO',;
+               'OCOR_PEDIDO',;
+               'DT_ALTERACAO',;
+               'HR_ALTERACAO',;
+               'LOGIN_CADASTRO'}
+
+aadd(laSAVE_COR,laFIELDS)
+
+if db_select({'OCOR_SUCU'},'pasta_config',,{'TP_PASTA = '+DLAP+WGet('TP_PASTA','C')+DLAP}) == -1
+   error_sys(db_error())
+endif
+laRESULT:=db_fetchrow()
+
+*** pega os pedidos pai (cabeça)
+if db_select(laPedidos,'pasta_pedidos',;
+             {{2,'pasta','(pasta.NR_PASTA = pasta_pedidos.NR_PASTA)'}},;
+              {'pasta_pedidos.NR_PASTA='+fcNR_PASTA+ ' and (pasta_pedidos.NR_PEDIDO_ORIGEM is null or pasta_pedidos.NR_PEDIDO_ORIGEM = 0 ) and  pasta_pedidos.PEDIDO_PROCESSO<>'+DLAP+laRESULT[1]+DLAP}) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchall()
+
+if len(laRESULT)>1
+
+   for xx := 2 to len(laRESULT)
+       if db_select(laESTIMATIVAS,'pasta_pedidos',,;
+                    {'pasta_pedidos.NR_PASTA='+fcNR_PASTA+ ' and (pasta_pedidos.NR_PEDIDO_ORIGEM = ' + str(laRESULT[xx,db_fetchncol(laRESULT,'NR_CONTROLE')])+' and FL_CALCULO = ' + DLAP + 'S' + DLAP + ') and pasta_pedidos.VL_RISCO_CALC<>0'}) == -1
+          error_sys(db_error())
+       endif
+       laRES := db_fetchall()
+
+       for ww := 2 to len(laRES)
+           if laRES[ww,db_fetchncol(laRES,'FL_CALCULO')] =='S'
+
+              ldDT_RISCO:=laRES[ww,db_fetchncol(laRES,'DT_RISCO')]
+              lnVL_CALC :=laRES[ww,db_fetchncol(laRES,'VL_RISCO_CALC')]
+              lnVL_CORR :=laRES[ww,db_fetchncol(laRES,'VL_CORRECAO')]
+              lnVL_JURO :=laRES[ww,db_fetchncol(laRES,'VL_JUROS')]
+              ldDT_JUROS:=laRES[ww,db_fetchncol(laRES,'DT_JUROS')]
+
+              laRESXUP:=calcorjur(WGet('TP_PASTA','C'),WGet('NR_PASTA','C'),fnCD_INDICE,ldDT_RISCO,lnVL_CALC,ldDT_JUROS)
+
+              lnVRC := lnVL_CALC
+
+              lnVCDIFF  := laRESXUP[1,1] - round(lnVL_CORR,2)
+              lnVJDIFF  := laRESXUP[1,2] - round(lnVL_JURO,2)
+
+              if laRESXUP[1,4] == '+'
+                 lnVCDIFF  := lnVCDIFF * (-1) //Inversão de sinal
+                 lnVJDIFF  := lnVJDIFF * (-1) //Inversão de sinal
+              endif
+
+              lcOCOR:= laRESXUP[1,3]
+
+              if (lnVCDIFF<>0 .or. lnVJDIFF<>0)
+                  laSAVE_AUX    := {fcNR_PASTA,;
+                                    str(laRES[ww,db_fetchncol(laRES,'NR_CONTROLE')]),;
+                                    laRES[ww,db_fetchncol(laRES,'PEDIDO_PROCESSO')],;
+                                    date(),;
+                                    ldDT_RISCO,;
+                                    0,;
+                                    0,;
+                                    laRES[ww,db_fetchncol(laRES,'PC_RISCO')],;
+                                    lnVCDIFF,;
+                                    lnVJDIFF,;
+                                    laRES[ww,db_fetchncol(laRES,'FL_CALCULO')],;
+                                    lcOCOR,;
+                                    date(),;
+                                    time(),;
+                                    gcLOGIN}
+
+                  aadd(laSAVE_COR,laSAVE_AUX)  //utilizado no _insert
+              endif
+           endif
+       next ww
+   next xx
+endif
+
+if len(laSAVE_COR) > 1
+   if db_insert(laSAVE_COR,'pasta_detal_pedidos') == -1
+       error_sys(db_error())
+   endif
+endif
+
+** update pedido
+atucor(laSAVE_COR)
+
+*** prepara array para correção sucumbencia
+if ascan(laSAVE_COR[1],'FL_LOG_ESTIMATIVA') = 0
+   aadd(laSAVE_COR[1],'FL_LOG_ESTIMATIVA')
+   for ww := 2 to len(laSAVE_COR)
+       aadd(laSAVE_COR[ww],'N')
+   next ww
+endif
+
+
+if ascan(laSAVE_COR[1],'COMENTARIOS_PED') = 0
+
+   laSAVE_AUX:={}
+   for ww := 1 to len(laSAVE_COR[1])
+       if laSAVE_COR[1,ww]<>'FL_CALCULO'
+          aadd(laSAVE_AUX,laSAVE_COR[1,ww])
+       else
+          aadd(laSAVE_AUX,laSAVE_COR[1,ww])
+          aadd(laSAVE_AUX,'COMENTARIOS_PED')
+       endif
+   next ww
+
+   laSAVE_COR[1]:=laSAVE_AUX
+
+endif
+
+upsucumb({},laSAVE_COR)
+
+return(nil)
+
+********************************
+static function carrega_indice()
+********************************
+
+local lcWHERE:=''
+local laRES:={}
+local laLST_NOVA:={}
+local laVINCULADO:={}
+
+local paAUTO     :={} as array
+
+
+
+local  laOPT    := {} ,;
+       laOPTV   := {} ,;
+       laPUT    := {} ,;
+       laDEF    := {} ,;
+       laDEFV   := {} ,;
+       laATI    := {} ,;
+       laATIV   := {} ,;
+       laINA    := {} ,;
+       laINAV   := {} ,;
+       laPUTV   := {} ,;
+       laFIELD  := {} as array
+
+
+local  jj    := 1  ,;
+       liPOS := 0  as int
+
+
+laDEF := {}
+laDEFV:= {}
+
+laATI := {}
+laATIV:= {}
+
+laINA := {}
+laINAV:= {}
+
+laPUT := {}
+laPUTV:= {}
+
+laFIELD := structtable(WSet("DB_ACTIVE"),'indice_reajuste',1,'A')
+liPOS   := ascan(laFIELD,'FL_ATIVO')
+
+if liPOS<>0
+   laFIELD:={'CD_INDICE','NM_INDICE','FL_ATIVO'}
+  else
+   laFIELD:={'CD_INDICE','NM_INDICE'}
+ endif
+
+if db_select(laFIELD,'indice_reajuste',,,{'CD_INDICE'}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+for jj := 2 to len(laRES)
+    if liPOS<>0
+       if laRES[jj,3] == 'D'
+          aadd(laDEF,laRES[jj,2])
+          aadd(laDEFV,laRES[jj,1])
+
+        elseif laRES[jj,3] == 'I'
+          aadd(laINA,laRES[jj,2])
+          aadd(laINAV,laRES[jj,1])
+
+        else
+          aadd(laATI,laRES[jj,2])
+          aadd(laATIV,laRES[jj,1])
+       endif
+    else
+       aadd(laATI,laRES[jj,2])
+       aadd(laATIV,laRES[jj,1])
+    endif
+next jj
+
+if len(laDEF) == 0
+   aadd(laDEF,'') // Adiciona uma linha vazia no inicio do combo, caso seja solicitado
+   aadd(laDEFV,'')
+endif
+
+for jj=1 to len(laDEF)
+    aadd(laPUT,laDEF[jj])
+    aadd(laPUTV,laDEFV[jj])
+next jj
+
+for jj=1 to len(laATI)
+    aadd(laPUT,laATI[jj])
+    aadd(laPUTV,laATIV[jj])
+next jj
+
+for jj=1 to len(laINA)
+    aadd(laPUT,'INATIVO - '+laINA[jj])
+    aadd(laPUTV,laINAV[jj])
+next jj
+
+
+WPut('NM_INDICE.option',laPUT)
+WPut('NM_INDICE.optionvalue',laPUTV)
+
+return(nil)
+
+********************************
+static function carrega_moeda()
+********************************
+
+local lcWHERE:=''
+local laRES:={}
+local laLST_NOVA:={}
+local laVINCULADO:={}
+
+local paAUTO     :={} as array
+
+
+
+local  laOPT    := {} ,;
+       laOPTV   := {} ,;
+       laPUT    := {} ,;
+       laDEF    := {} ,;
+       laDEFV   := {} ,;
+       laATI    := {} ,;
+       laATIV   := {} ,;
+       laINA    := {} ,;
+       laINAV   := {} ,;
+       laPUTV   := {} ,;
+       laFIELD  := {} as array
+
+
+local  jj    := 1  ,;
+       liPOS := 0  as int
+
+
+laDEF := {}
+laDEFV:= {}
+
+laATI := {}
+laATIV:= {}
+
+laINA := {}
+laINAV:= {}
+
+laPUT := {}
+laPUTV:= {}
+
+laFIELD := structtable(WSet("DB_ACTIVE"),'moeda',1,'A')
+liPOS   := ascan(laFIELD,'FL_ATIVO')
+
+if liPOS<>0
+   laFIELD:={'CD_MOEDA','NM_MOEDA','FL_ATIVO'}
+  else
+   laFIELD:={'CD_MOEDA','NM_MOEDA'}
+ endif
+
+if db_select(laFIELD,'moeda',,,{'CD_MOEDA'}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+for jj := 2 to len(laRES)
+    if liPOS<>0
+       if laRES[jj,3] == 'D'
+          aadd(laDEF,laRES[jj,2])
+          aadd(laDEFV,laRES[jj,1])
+
+        elseif laRES[jj,3] == 'I'
+          aadd(laINA,laRES[jj,2])
+          aadd(laINAV,laRES[jj,1])
+
+        else
+          aadd(laATI,laRES[jj,2])
+          aadd(laATIV,laRES[jj,1])
+       endif
+    else
+       aadd(laATI,laRES[jj,2])
+       aadd(laATIV,laRES[jj,1])
+    endif
+next jj
+
+if len(laDEF) == 0
+   aadd(laDEF,'') // Adiciona uma linha vazia no inicio do combo, caso seja solicitado
+   aadd(laDEFV,'')
+endif
+
+for jj=1 to len(laDEF)
+    aadd(laPUT,laDEF[jj])
+    aadd(laPUTV,laDEFV[jj])
+next jj
+
+for jj=1 to len(laATI)
+    aadd(laPUT,laATI[jj])
+    aadd(laPUTV,laATIV[jj])
+next jj
+
+for jj=1 to len(laINA)
+    aadd(laPUT,'INATIVO - '+laINA[jj])
+    aadd(laPUTV,laINAV[jj])
+next jj
+
+
+WPut('NM_MOEDA.option',laPUT)
+WPut('NM_MOEDA.optionvalue',laPUTV)
+
+return(nil)
+
+*************************************
+static function carregaseg()
+*************************************
+local lcTABLEDET := '' ,;
+      lcWHEREDET := '' ,;
+      lcOBJ      := '' as string
+
+local laRESULT := {} as array
+
+local ii := 0 as int
+
+lcTABLEDET      := 'pasta_seguro'
+lcWHEREDET      := 'NR_PASTA = '+DLAP+WGet('NR_PASTA','C')+DLAP
+
+if db_select({'NR_SINISTRO','NR_CONTROLE'},;
+              lcTABLEDET,,;
+              {lcWHEREDET},{'NR_CONTROLE'}) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchall()
+
+lcOBJ:=''
+for ii := 2 to len(laRESULT)
+    if lcOBJ==''
+       lcOBJ:=laRESULT[ii,1]+','+alltrim(str(laRESULT[ii,2]))
+      else
+       lcOBJ:=lcOBJ+'|'+laRESULT[ii,1]+','+alltrim(str(laRESULT[ii,2]))
+    endif
+next ii
+WPut('LISTA_SEG',lcOBJ)
+
+return(nil)
+***************************************************
+Static function xcont(faSAVE,fcNR_PASTA,fcTP_PASTA)
+***************************************************
+   local lcNR_CONTROLE     := '' ,;
+         lcPEDIDO_PROCESSO := '' ,;
+         lcAUX             := '' ,;
+         lcHISTORICO       := '' ,;
+         lcCT_CREDITO      := '' ,;
+         lcCT_DEBITO       := '' ,;
+         lcCD_TRCT         := '' ,;
+         lcFL_OPERADOR     := '' as string
+
+   local ii           := 0 ,;
+         lnPOS        := 0 ,;
+         lnLINHA      := 0 ,;
+         lnPOS2       := 0 as int
+
+   local lnDIFF     := 0 as numeric
+
+   local laPEDIDOS     := {} ,;
+         laOBJETO      := {} ,;
+         laTRCT        := {} ,;
+         laEXCONT      := {} ,;
+         laPARSER      := {} ,;
+         laSAVE        := {} ,;
+         la2SAVE_AUX   := {} ,;
+         laCONT        := {} as array
+
+   //Montando where de objetos
+
+   for ii := 2 to len(faSAVE)
+
+     *** Rufino esse trecho força o pedido_processo sempre ser o pai
+     if ii == 2
+        lcPEDIDO_PROCESSO := faSAVE[ii,db_fetchncol(faSAVE,'PEDIDO_PROCESSO')]
+     endif
+     ****
+
+
+      if ii > 2
+         lcAUX += ','
+      endif
+
+      lcAUX += DLAP
+      lcAUX += faSAVE[ii,db_fetchncol(faSAVE,'PEDIDO_PROCESSO')]
+      lcAUX += DLAP
+   next ii
+
+
+
+   if db_select({'OBJETO',;
+                 'CD_TRCT',;
+                 'CD_TRCT_ESTORNO',;
+                 'CD_TRCT_CORRECAO',;
+                 'CD_TRCT_CORRECAO_ESTORNO',;
+                 'CD_TRCT_JURO',;
+                 'CD_TRCT_JURO_ESTORNO'},;
+                 'pasta_objeto',,;
+                 {'TP_PASTA='+DLAP+fcTP_PASTA+DLAP,'OBJETO in('+lcAUX+')'}) == -1
+      error_sys(db_error())
+   endif
+   laOBJETO := db_fetchall()
+
+
+   *debug2(lcAUX,,300)
+   *debug2(laOBJETO)
+
+   *** lcAUX = 'FGTS,POSSIVEL,PROVAVEL,REMOTO,acordo,POSSIVEL,PROVAVEL,REMOTO,ASA,POSSIVEL,PROVAVEL,REMOTO,...'
+   *** acima so vai achar o objeto igual ao pai porque os detalhes nao tem cadastro
+
+   laSAVE      := {{'CD_PLCT_CREDITO',;
+                    'CD_PLCT_DEBITO',;
+                    'VL_LANCAMENTO',;
+                    'HISTORICO',;
+                    'DT_LANCAMENTO',;
+                    'HR_LANCAMENTO',;
+                    'LOGIN',;
+                    'WTABLE',;
+                    'WTABLE2',;
+                    'WPKEY_NUM',;
+                    'WPKEY_NUM2',;
+                    'FL_CONTABILIZADO'}}
+
+   *** pula segundo lançamento porque e do pai
+   for ii := 3 to len(faSAVE)
+      lcNR_CONTROLE     := alltrim(faSAVE[ii,db_fetchncol(faSAVE,'NR_CONTROLE')])
+      if db_select({'NR_CONTROLE',;
+                    'PEDIDO_PROCESSO',;
+                    'VL_RISCO_CALC',;
+                    'VL_CORRECAO',;
+                    'VL_JUROS',;
+                    'FL_CALCULO',;
+                    'DT_RISCO',;
+                    'PC_RISCO',;
+                    'FLAG'},;
+                    'pasta_pedidos',,;
+                    {'pasta_pedidos.NR_PASTA='+fcNR_PASTA+' and pasta_pedidos.NR_CONTROLE = '+lcNR_CONTROLE}) == -1
+         error_sys(db_error())
+      endif
+      laPEDIDOS := db_fetchall()
+
+      lnPOS             := ascan(laPEDIDOS,{ | y | alltrim(str(y[1]))==lcNR_CONTROLE }) //Posição do pedido nos pedidos ja gravados
+      laPARSER          := {}
+
+      *** rufino comentado abaixo para sempre pegar o que esta no cadastro do pai variavel fixado acima
+      *** lcPEDIDO_PROCESSO := faSAVE[ii,db_fetchncol(faSAVE,'PEDIDO_PROCESSO')]
+      ***
+      lcOCORPEDIDO      := faSAVE[ii,db_fetchncol(faSAVE,'OCOR_PEDIDO')]
+      laCONT            := {{'VL_RISCO_CALC','CD_TRCT'},;
+                            {'VL_CORRECAO','CD_TRCT_CORRECAO'},;
+                            {'VL_JUROS','CD_TRCT_JURO'}}
+
+      aadd(laPARSER,faSAVE[1]) //fields
+      aadd(laPARSER,faSAVE[ii])  //linha dados
+
+      for xx := 1 to len(laCONT)
+         la2SAVE_AUX := {}
+
+
+         *if lnPOS > 0 //Caso o Pedido ja exista, faz o calculo de diferença.
+         *   lnDIFF     := round(laPEDIDOS[lnPOS,db_fetchncol(laPEDIDOS,laCONT[xx,1])],2) + round(faSAVE[ii,db_fetchncol(faSAVE,laCONT[xx,1])],2)
+         *
+         *   *** não a diferença contabiliza o pedido
+         ***   if lnDIFF == 0
+         *      lnDIFF  :=round(faSAVE[ii,db_fetchncol(faSAVE,laCONT[xx,1])],2)
+         *   endif
+         ***
+         **else
+         *   lnDIFF     := round(faSAVE[ii,db_fetchncol(faSAVE,laCONT[xx,1])],2)
+         *endif
+
+         lnDIFF     := round(faSAVE[ii,db_fetchncol(faSAVE,laCONT[xx,1])],2)
+
+
+         if  lnDIFF <> 0.00
+            /* Localizando as Contas Débito, Crédito e Histórico */
+
+            lnPOS2 := ascan(laOBJETO,{ | x | x[1] == lcPEDIDO_PROCESSO})
+
+            if lnPOS2 > 0
+               if lnDIFF > 0 //Se for Positivo
+                  lcAUX  := alltrim(str(laOBJETO[lnPOS2,db_fetchncol(laOBJETO,laCONT[xx,2])]))  //15
+                  lcESTORNO:='N'
+               else          //Se for Estorno
+                  lcAUX  := alltrim(str(laOBJETO[lnPOS2,db_fetchncol(laOBJETO,laCONT[xx,2]+'_ESTORNO')]))
+                  lcESTORNO:='S'
+               endif
+               
+               if db_select({'CD_TRCT',;
+                             'CD_PLCT_DEBITO',;
+                             'CD_PLCT_CREDITO',;
+                             'FL_OPERADOR',;
+                             'HISTORICO'},;
+                             'transacao_contabil',,;
+                             {'CD_TRCT='+DLAP+lcAUX+DLAP}) == -1
+
+                  error_sys(db_error())
+               endif
+               laTRCT := db_fetchall()                
+               
+               lnPOS2 := ascan(laTRCT,{ | z | alltrim(str(z[1]))==lcAUX })
+         
+               
+               laEXCE := busca_excessao(fcTP_PASTA,lcPEDIDO_PROCESSO,lcOCORPEDIDO,xx,lcESTORNO)
+               
+               if len(laEXCE) == 0 // SE NÃO ENCOTRAR NAS EXCEÇÔES PEGA DA TRANSAÇÃO CONTABIL 
+               
+                  lnPOS2 := ascan(laTRCT,{ | z | alltrim(str(z[1]))==lcAUX })
+                  
+                  if lnPOS2 > 0
+                     lcHISTORICO   := laTRCT[lnPOS2,db_fetchncol(laTRCT,'HISTORICO')]
+                     lcCT_DEBITO   := laTRCT[lnPOS2,db_fetchncol(laTRCT,'CD_PLCT_DEBITO')]
+                     lcCT_CREDITO  := laTRCT[lnPOS2,db_fetchncol(laTRCT,'CD_PLCT_CREDITO')]
+                     lcFL_OPERADOR := laTRCT[lnPOS2,db_fetchncol(laTRCT,'FL_OPERADOR')]
+                  else
+                     lcHISTORICO   := ''
+                     lcCT_DEBITO   := ''
+                     lcCT_CREDITO  := ''
+                     lcFL_OPERADOR := ''
+                  endif               
+               
+               else
+                            
+                  lcHISTORICO   := laEXCE[2,4]
+                  lcCT_DEBITO   := laEXCE[2,2]
+                  lcCT_CREDITO  := laEXCE[2,3]
+                     
+                  if lcESTORNO =='N'
+                      lcFL_OPERADOR := '+'
+                  else
+                      lcFL_OPERADOR := '-'
+                  endif                  
+
+               endif 
+
+
+               aadd(la2SAVE_AUX,lcCT_CREDITO)     //Conta Crédito
+               aadd(la2SAVE_AUX,lcCT_DEBITO)      //Conta Débito
+
+               if lnDIFF > 0                     //Valor do Lançamento
+                  aadd(la2SAVE_AUX,lnDIFF)
+               else
+                  if lcFL_OPERADOR == '+'
+                     aadd(la2SAVE_AUX,lnDIFF * (-1)) //Inversão de sinal
+                  else
+                     aadd(la2SAVE_AUX,lnDIFF)
+                  endif
+               endif
+
+               lcHISTORICO := strparser(lcHISTORICO,'[]',laPARSER)
+
+               aadd(la2SAVE_AUX,lcHISTORICO)                                          // Histórico
+               aadd(la2SAVE_AUX,date())                                               // Data
+               aadd(la2SAVE_AUX,time())                                               // Hora
+               aadd(la2SAVE_AUX,WSet('LOGIN'))                                        // Login
+               aadd(la2SAVE_AUX,'pasta')                                              // Tabela Pasta
+               aadd(la2SAVE_AUX,'pasta_seguro')                                       // Tabela Seguro
+               aadd(la2SAVE_AUX,val(fcNR_PASTA))                                      // Chave Pasta
+               aadd(la2SAVE_AUX,val(faSAVE[ii,db_fetchncol(faSAVE,'NR_CONTROLE_SEGURO')])) // Chave Seguro
+               aadd(la2SAVE_AUX,'N')                                                  // Contabilizado
+            endif
+
+            if len(la2SAVE_AUX) > 0
+               aadd(laSAVE,la2SAVE_AUX)
+            endif
+
+         endif
+
+      next xx
+   next ii
+
+   ***debug2(laSAVE,,30)
+
+   if len(laSAVE) > 1
+      if db_insert(laSAVE,'mvt_contabil') == -1
+         error_sys(db_error())
+      endif
+   endif
+return (nil)
+******************************************************************************************
+static function busca_excessao(fcTP_PASTA,fcPEDIDO_PROCESSO,fcOCORPEDIDO,fnTIPO,fcESTORNO)
+******************************************************************************************
+local laFIELDS:={}
+local laEXCONT:={}
+local laRETORNO:={}
+
+
+
+
+ laFIELDS := {'CD_EXCT',;               
+              'TP_PASTA',;             
+              'PEDIDO_PROCESSO',;
+              'NM_TRCT',;              
+              'CD_PLCT_DEBITO',;       
+              'CD_PLCT_CREDITO',;      
+              'HISTORICO',;            
+              'EST1',;                 
+              'CD_PLCT_1DEBITO',;      
+              'CD_PLCT_1CREDITO',;     
+              'HIST1',;                
+              'CORR',;            
+              'CHISTORICO',;      
+              'CD_PLCT_CDEBITO',; 
+              'CD_PLCT_CCREDITO',;
+              'EST2',;  
+              'CD_PLCT_2DEBITO',; 
+              'CD_PLCT_2CREDITO',;
+              'HIST2',;  
+              'JUR',;             
+              'JHISTORICO',;      
+              'CD_PLCT_JDEBITO',; 
+              'CD_PLCT_JCREDITO',;
+              'EST3',;  
+              'CD_PLCT_3DEBITO',; 
+              'CD_PLCT_3CREDITO',;         
+              'HIST3'}  
+
+
+if db_select(laFIELDS,'excontped',,{'TP_PASTA = '+DLAP+fcTP_PASTA+DLAP +' and PEDIDO_PROCESSO = '+DLAP+alltrim(fcPEDIDO_PROCESSO)+DLAP +' and NM_TRCT='+DLAP+alltrim(fcOCORPEDIDO)+DLAP}) == -1
+
+   error_sys(db_error())
+endif
+laEXCONT := db_fetchall() 
+
+laRETORNO:={}
+
+if len(laEXCONT) == 1
+   return(laRETORNO)
+endif
+
+if fnTIPO == 1                
+   if fcESTORNO == 'N' 
+      
+      laaux:={}
+      aadd(laaux,'NM_TRCT')
+      aadd(laaux,'CD_PLCT_DEBITO')
+      aadd(laaux,'CD_PLCT_CREDITO')
+      aadd(laaux,'HISTORICO')
+
+      aadd(laRETORNO,laaux) 
+
+      laaux:={}
+      aadd(laaux,laEXCONT[2,ascan(laFIELDS,'NM_TRCT')])
+      aadd(laaux,laEXCONT[2,ascan(laFIELDS,'CD_PLCT_DEBITO')])
+      aadd(laaux,laEXCONT[2,ascan(laFIELDS,'CD_PLCT_CREDITO')])
+      aadd(laaux,laEXCONT[2,ascan(laFIELDS,'HISTORICO')])
+      
+      aadd(laRETORNO,laaux)
+         
+
+   else  
+
+      laaux:={}
+      aadd(laaux,'EST1')
+      aadd(laaux,'CD_PLCT_1DEBITO')
+      aadd(laaux,'CD_PLCT_1CREDITO')
+      aadd(laaux,'HIST1')
+
+      aadd(laRETORNO,laaux) 
+
+      laaux:={}
+      aadd(laaux,laEXCONT[2,ascan(laFIELDS,'EST1')])
+      aadd(laaux,laEXCONT[2,ascan(laFIELDS,'CD_PLCT_1DEBITO')])
+      aadd(laaux,laEXCONT[2,ascan(laFIELDS,'CD_PLCT_1CREDITO')])
+      aadd(laaux,laEXCONT[2,ascan(laFIELDS,'HIST1')])
+      
+      aadd(laRETORNO,laaux)
+
+   endif    
+
+elseif fnTIPO == 2  
+   if fcESTORNO == 'N'           
+
+      laaux:={}
+      aadd(laaux,'CORR')
+      aadd(laaux,'CD_PLCT_CDEBITO')
+      aadd(laaux,'CD_PLCT_CCREDITO')
+      aadd(laaux,'CHISTORICO')
+
+      aadd(laRETORNO,laaux) 
+
+      laaux:={}
+      aadd(laaux,laEXCONT[2,ascan(laFIELDS,'CORR')])
+      aadd(laaux,laEXCONT[2,ascan(laFIELDS,'CD_PLCT_CDEBITO')])
+      aadd(laaux,laEXCONT[2,ascan(laFIELDS,'CD_PLCT_CCREDITO')])
+      aadd(laaux,laEXCONT[2,ascan(laFIELDS,'CHISTORICO')])
+      
+      aadd(laRETORNO,laaux)      
+      
+   else
+
+      laaux:={}
+      aadd(laaux,'EST2')
+      aadd(laaux,'CD_PLCT_2DEBITO')
+      aadd(laaux,'CD_PLCT_2CREDITO')
+      aadd(laaux,'HIST2')
+
+      aadd(laRETORNO,laaux) 
+
+      laaux:={}
+      aadd(laaux,laEXCONT[2,ascan(laFIELDS,'EST2')])
+      aadd(laaux,laEXCONT[2,ascan(laFIELDS,'CD_PLCT_2DEBITO')])
+      aadd(laaux,laEXCONT[2,ascan(laFIELDS,'CD_PLCT_2CREDITO')])
+      aadd(laaux,laEXCONT[2,ascan(laFIELDS,'HIST2')])
+      
+      aadd(laRETORNO,laaux) 
+     
+   endif
+
+elseif fnTIPO == 3  
+   if fcESTORNO == 'N'           
+      laaux:={}
+      aadd(laaux,'JUR')
+      aadd(laaux,'CD_PLCT_JDEBITO')
+      aadd(laaux,'CD_PLCT_JCREDITO')
+      aadd(laaux,'JHISTORICO')
+
+      aadd(laRETORNO,laaux) 
+
+      laaux:={}
+      aadd(laaux,laEXCONT[2,ascan(laFIELDS,'JUR')])
+      aadd(laaux,laEXCONT[2,ascan(laFIELDS,'CD_PLCT_JDEBITO')])
+      aadd(laaux,laEXCONT[2,ascan(laFIELDS,'CD_PLCT_JCREDITO')])
+      aadd(laaux,laEXCONT[2,ascan(laFIELDS,'JHISTORICO')])
+      
+      aadd(laRETORNO,laaux)
+
+   else
+
+      laaux:={}
+      aadd(laaux,'EST3')
+      aadd(laaux,'CD_PLCT_3DEBITO')
+      aadd(laaux,'CD_PLCT_3CREDITO')
+      aadd(laaux,'HIST3')
+
+      aadd(laRETORNO,laaux) 
+
+      laaux:={}
+      aadd(laaux,laEXCONT[2,ascan(laFIELDS,'EST3')])
+      aadd(laaux,laEXCONT[2,ascan(laFIELDS,'CD_PLCT_3DEBITO')])
+      aadd(laaux,laEXCONT[2,ascan(laFIELDS,'CD_PLCT_3CREDITO')])
+      aadd(laaux,laEXCONT[2,ascan(laFIELDS,'HIST3')]) 
+      
+      aadd(laRETORNO,laaux)     
+
+   endif      
+endif  
+
+return(laRETORNO)

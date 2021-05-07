@@ -1,0 +1,1183 @@
+/*
+Project      : gr5
+Program      : login.html
+Function     : login_html
+Created on   : 05-Dec-2001   00:02:57
+Descripition :
+*/
+#define KEY chr(106)+;
+            chr(101)+;
+            chr(115)+;
+            chr(117)+;
+            chr(115)+;
+            chr(101)+;
+            chr(97)+;
+            chr(99)+;
+            chr(109)+;
+            chr(104)+;
+            chr(104)+;
+            chr(97)+;
+            chr(108)+;
+            chr(118)+;
+            chr(101)+;
+            chr(42)
+
+
+
+   local lcOPEN_PAGE   := '' ,;
+         lePROG        := '' ,;
+         lcLOGIN_ALIAS := '' ,;
+         lcToken       := '' ,;
+         lcUser        := '' ,;
+         lcDec         := '' ,;
+         lcIp          := '' ,;
+         lcRip         := '' ,;
+         lcHtml        := '' ,;
+         lcPASSWD      := '' as string
+   local laRESULT      := {} as array
+   local lnNR_LAEMP    := 0  ,;
+         lnNR_LAACUSER := 0  as int
+   local llFL_PWD   := .f.,;
+         llFL_USER  := .f.
+
+   local ldDATE := ctod('/ /')
+
+   lcOPEN_PAGE := upper(WGet('OPEN_PAGE','C'))
+
+
+// Teste de cook para o banco Alfa
+
+if empty(WGet('LOGIN'))
+   //WOUT('<BR> login vazio, gerando cookie')   
+   wPUT('cookie','gravaCookie("'+alltrim(GetWPut('ID'))+'", "1", 2);')
+   wPUT('ID',GetWPut('ID'))
+endif
+
+
+// Glauber 09/2015 - Customização Unimed
+
+   if WGet('ACTION') == 'GETLICS'
+      wout('<NR_LIC>'+ALLTRIM(WSet('NR_LICENCAS'))+'</NR_LIC>')
+      return
+   endif
+   if WGet('ACTION') == 'CYPHER' .and. ! Empty(WGet('FRASE','C'))
+      lctoKen := wencrypt(WGet('FRASE','C'),chr(106)+chr(101)+chr(115)+chr(117)+chr(115)+chr(101)+chr(97)+chr(99)+chr(109)+chr(104)+chr(104)+chr(97)+chr(108)+chr(118)+chr(101)+chr(42))
+      wstr2hex(lctoKen,@lctoKen)
+      wout('<CYPHER>'+lctoKen+'</CYPHER>')
+      return
+   endif
+
+
+
+//wout('<br><b>ADINTEGRACAO:'+WSet('ADINTEGRACAO'))
+//wout('<br><b>ISJHOME:'+WSet('ISJHOME'))
+
+
+
+//
+// Glauber 05/05/2011
+//
+// Ajuste para login interativo com o Alfasecurity
+//
+
+if Upper(WSet('ALFASECURITY')) == 'ENABLE' // Login vindo da página aspx com autenticação pelo AlfaSecurity
+
+   if WGet('ACTION') == 'QUERY'
+      wout('gravaCookie("'+alltrim(GetWPut('ID'))+'", "1", 2);')
+      return
+   endif   
+
+   //Selecionando Numero de tentaivas de logon e texto padrao da tela de login.
+   if db_select({'NM_EMPRESA','TEXT_LOGIN','NR_LOGIN_ATTEMPT'},'empresa_usuaria',,;
+                                                              {'CD_EMPRESA='+DLAP+'1'+DLAP}) = -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      db2put(laRESULT)
+      lnNR_LAEMP := laRESULT[2,3]
+   endif
+
+   if WSet('FL_LOGIN_ALIAS') == 'ENABLE'
+      lcLOGIN_ALIAS := 'LOGIN_ALIAS'
+   else
+      lcLOGIN_ALIAS := 'LOGIN'
+   endif
+   
+   lcToken := '0x'+WGet('LOGIN')
+//wout('<br><b>lcToken:'+lcToken)                 
+   whex2str(lcToken,@lcDec)                 
+//wout('<br><b>Query:'+WGet('ACTION')) 
+//wout('<br><b>lcDec:'+lcDec)
+   if empty(lcDEC) .and. WGet('ACTION') <> 'QUERY'
+      if ! empty(WSet('ALFAHOME'))
+      
+         lcHtml := '<HTML>' +;
+                   '<HEAD>' +;
+                   '<META HTTP-EQUIV="refresh" CONTENT="2;URL=' +;
+                   WSet('ALFAHOME') + ;
+                   '">'+;
+                   '</HEAD>'+;
+                   '</HTML>' 
+          WPut('URL_REDIRECT',WSet('ALFAHOME'))
+          WSet('_USER_INTERFACE',WSet('ALFAHOME'))                
+
+  
+          wout(lcHtml) 
+          return
+     else                
+          error_sys('Access Control: Usuário Inválido!')
+          return
+     endif     
+   endif
+   // Glauber 06/09/2011
+   // Implementação de validação de ip vindo do componente alfa com o ip recuperado pelo isj
+      
+   lcUser := substr(lcDec,1,at('[||]',lcDec)-1)
+
+   
+   lcIp   := alltrim(substr(lcDec,at('[--]',lcDec)+4,len(lcDec)))
+   lcRip  := alltrim(substr(wgetenv('REMOTE_HOST'),1,30))
+
+   if ! empty(wset('DEBUGLOGIN'))
+      Walert('REMOTE_HOST:'+lcRip)
+      Walert('IP Alfa Security:'+ lcIp)
+   endif
+   
+
+   if db_select({'PASSWD','FL_PWD','FL_USER'},'acuser',,{lcLOGIN_ALIAS+'='+DLAP+lower(lcUser)+DLAP}) = -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) == 1
+      error_sys('Access Control: Usuário não encontrado no ISJ!')
+      return   
+   endif
+   if alltrim(laRESULT[2,2]) = 'Y'  // se FL_PWD = 'Y' Senha está bloqueado!!!
+      llFL_PWD := .t.
+   endif
+   if alltrim(laRESULT[2,3]) = 'Y'  // se FL_USER = 'Y' Usuário está bloqueado!!!
+      llFL_USER := .t.
+   endif   
+
+   whex2str(laRESULT[2,ascan(laRESULT[1],'PASSWD')],@lcPASSWD)
+   cContent := wdecrypt(lcPASSWD,KEY)
+//   wout('Usuario:'+lcUser)
+//   wout('<br>Senha:'+cContent)      
+   if ! llFL_PWD .and. ! llFL_USER   // Usuário/Senha não estão bloqueados.
+      if wlogin(lower(lcUser),cContent)
+         mkfieldredef()  // ativa Redefinição de Campos
+         make_fu()       // ativa filtro por conteudo
+         wfmktriggers()  // cria as triggers WF
+         //Verifica se usuario está entre os N usuários liberados
+
+         //Zera tentativas de Login.
+         if db_update({{'NR_LOGIN_ATTEMPT'},;
+                       {0}},;
+                      'acuser',;
+                      {lcLOGIN_ALIAS+'='+DLAP+lower(lcUser)+DLAP}) = -1
+            error_sys(db_error())
+         endif
+
+         WSet('_USER_INTERFACE','portal.html')
+         //Carrega UI do cabecalho
+         mkprojecthead('GR5')
+         if gchklogin()
+            if empty(lcOPEN_PAGE)
+               portal_html()
+            else
+               lePROG := strtran(lcOPEN_PAGE,'.','_')
+               WSet('_USER_INTERFACE',lcOPEN_PAGE)
+               if isfunction(lePROG)
+                  lePROG := lePROG+'()'
+                  eval({||&lePROG})
+               else
+                  ?? "Content-Type: text/html"
+                  ?
+                  puterror('Function not found: '+gmPAGE)
+               endif
+            endif
+         else
+            WSet('_USER_INTERFACE','redirect.wic')
+         endif
+      else
+         //Incrementando acuser.NR_LOGIN_ATTEMPT.
+         if db_query('update acuser set NR_LOGIN_ATTEMPT=NR_LOGIN_ATTEMPT+1 where '+lcLOGIN_ALIAS+'='+DLAP+lower(lcUser)+DLAP) = -1
+            error_sys(db_error())
+         endif
+         //Selecionando numero de tentativas do usuário
+         if db_select({'NR_LOGIN_ATTEMPT'},'acuser',,{lcLOGIN_ALIAS+'='+DLAP+lower(lcUser)+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchrow()
+         if len(laRESULT) > 0
+            lnNR_LAACUSER := laRESULT[1]
+         endif
+         if lnNR_LAACUSER > lnNR_LAEMP //Se usuário excedeu numero de tentativas
+            //Bloqueia senha
+            if db_update({{'FL_PWD'},;
+                          {'Y'}},;
+                         'acuser',;
+                         {lcLOGIN_ALIAS+'='+DLAP+lower(lcUser)+DLAP}) = -1
+               error_sys(db_error())
+            endif
+            if WSet('_USER_INTERFACE') = 'login.html'
+               error_sys('Access Control: Senha Bloqueada!')
+               return
+            endif
+         endif
+         WPut('OPEN_PAGE',lcOPEN_PAGE)
+         // 09/05/2011
+         // Glauber
+         lcUser := ''
+         if empty(lcUser)
+            error_sys('Usuário ou senha inválido')
+            return
+         endif
+      endif
+   else
+      if llFL_PWD
+         error_sys('Access Control: Senha Bloqueada!')
+         return
+      endif
+      if llFL_USER
+         error_sys('Access Control: Usuário Bloqueado!')
+         return
+      endif
+   endif
+
+elseif upper(WSet('ADINTEGRACAO')) == 'ENABLE' .or. upper(WSet('ADINTEGRACAO')) == 'ENABLED' // INTEGRAÇÃO COM ACTIVE DIRECTORY
+
+   if WGet('ACTION') == 'QUERY'
+      wout('gravaCookie("'+alltrim(GetWPut('ID'))+'", "1", 2);')
+      return
+   endif
+
+
+   //Selecionando Numero de tentaivas de logon e texto padrao da tela de login.
+   if db_select({'NM_EMPRESA','TEXT_LOGIN','NR_LOGIN_ATTEMPT'},'empresa_usuaria',, {'CD_EMPRESA='+DLAP+'1'+DLAP}) = -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      db2put(laRESULT)
+      lnNR_LAEMP := laRESULT[2,3]
+   endif
+
+   if WSet('FL_LOGIN_ALIAS') == 'ENABLE'
+      lcLOGIN_ALIAS := 'LOGIN_ALIAS'
+   else
+      lcLOGIN_ALIAS := 'LOGIN'
+   endif
+
+   lcToken := '0x'+WGet('LOGIN')
+//wout('<br><b>lcToken:'+lcToken)
+   whex2str(lcToken,@lcDec)
+//wout('<br><b>Query:'+WGet('ACTION'))
+//wout('<br><b>lcDec:'+lcDec)
+
+
+// lcDec:glauber.duma[||]glauber.duma[--]192.168.0.99
+
+   lcIp   := alltrim(substr(lcDec,at('[--]',lcDec)+4,len(lcDec)))
+   lcRip  := alltrim(substr(wgetenv('REMOTE_HOST'),1,30))
+
+// wout('<br><b>lcIp:'+lcIp)
+
+   if Empty(Alltrim(lcIP)) .and. WGet('ACTION') <> 'QUERY' //.and. AT('[||]',lcDec) == 0
+//      if ! empty(WSet('ISJHOME'))
+          LoginNormal() // Função estatica no final deste programa.
+          return
+//     else
+//          error_sys('Access Control: Usuário Inválido!')
+//          return
+//     endif
+   endif
+
+   // Glauber 06/09/2011
+   // Implementação de validação de ip vindo do componente alfa com o ip recuperado pelo isj
+
+   lcUser := substr(lcDec,1,at('[||]',lcDec)-1)
+
+/*
+   lcIp   := alltrim(substr(lcDec,at('[--]',lcDec)+4,len(lcDec)))
+   lcRip  := alltrim(substr(wgetenv('REMOTE_HOST'),1,30))
+
+   if ! empty(wset('DEBUGLOGIN'))
+      Walert('REMOTE_HOST:'+lcRip)
+      Walert('IP Alfa Security:'+ lcIp)
+   endif
+*/
+
+   if db_select({'PASSWD','FL_PWD','FL_USER'},'acuser',,{lcLOGIN_ALIAS+'='+DLAP+lower(lcUser)+DLAP}) = -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) == 1
+      error_sys('Access Control: Usuário não encontrado no ISJ!')
+      return
+   endif
+   if alltrim(laRESULT[2,2]) = 'Y'  // se FL_PWD = 'Y' Senha está bloqueado!!!
+      llFL_PWD := .t.
+   endif
+   if alltrim(laRESULT[2,3]) = 'Y'  // se FL_USER = 'Y' Usuário está bloqueado!!!
+      llFL_USER := .t.
+   endif
+
+   whex2str(laRESULT[2,ascan(laRESULT[1],'PASSWD')],@lcPASSWD)
+   cContent := wdecrypt(lcPASSWD,KEY)
+//   wout('Usuario:'+lcUser)
+//   wout('<br>Senha:'+cContent)
+   if ! llFL_PWD .and. ! llFL_USER   // Usuário/Senha não estão bloqueados.
+      if wlogin(lower(lcUser),cContent)
+         mkfieldredef()  // ativa Redefinição de Campos
+         make_fu()       // ativa filtro por conteudo
+         wfmktriggers()  // cria as triggers WF
+         //Verifica se usuario está entre os N usuários liberados
+
+         //Zera tentativas de Login.
+         if db_update({{'NR_LOGIN_ATTEMPT'},;
+                       {0}},;
+                      'acuser',;
+                      {lcLOGIN_ALIAS+'='+DLAP+lower(lcUser)+DLAP}) = -1
+            error_sys(db_error())
+         endif
+
+         WSet('_USER_INTERFACE','portal.html')
+         //Carrega UI do cabecalho
+         mkprojecthead('GR5')
+         if gchklogin()
+            if empty(lcOPEN_PAGE)
+               portal_html()
+            else
+               lePROG := strtran(lcOPEN_PAGE,'.','_')
+               WSet('_USER_INTERFACE',lcOPEN_PAGE)
+               if isfunction(lePROG)
+                  lePROG := lePROG+'()'
+                  eval({||&lePROG})
+               else
+                  ?? "Content-Type: text/html"
+                  ?
+                  puterror('Function not found: '+gmPAGE)
+               endif
+            endif
+         else
+            WSet('_USER_INTERFACE','redirect.wic')
+         endif
+      else
+         //Incrementando acuser.NR_LOGIN_ATTEMPT.
+         if db_query('update acuser set NR_LOGIN_ATTEMPT=NR_LOGIN_ATTEMPT+1 where '+lcLOGIN_ALIAS+'='+DLAP+lower(lcUser)+DLAP) = -1
+            error_sys(db_error())
+         endif
+         //Selecionando numero de tentativas do usuário
+         if db_select({'NR_LOGIN_ATTEMPT'},'acuser',,{lcLOGIN_ALIAS+'='+DLAP+lower(lcUser)+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchrow()
+         if len(laRESULT) > 0
+            lnNR_LAACUSER := laRESULT[1]
+         endif
+         if lnNR_LAACUSER > lnNR_LAEMP //Se usuário excedeu numero de tentativas
+            //Bloqueia senha
+            if db_update({{'FL_PWD'},;
+                          {'Y'}},;
+                         'acuser',;
+                         {lcLOGIN_ALIAS+'='+DLAP+lower(lcUser)+DLAP}) = -1
+               error_sys(db_error())
+            endif
+            if WSet('_USER_INTERFACE') = 'login.html'
+               error_sys('Access Control: Senha Bloqueada!')
+               return
+            endif
+         endif
+         WPut('OPEN_PAGE',lcOPEN_PAGE)
+         // 09/05/2011
+         // Glauber
+         lcUser := ''
+         if empty(lcUser)
+            error_sys('Usuário ou senha inválido')
+            return
+         endif
+      endif
+   else
+      if llFL_PWD
+         error_sys('Access Control: Senha Bloqueada!')
+         return
+      endif
+      if llFL_USER
+         error_sys('Access Control: Usuário Bloqueado!')
+         return
+      endif
+   endif
+
+
+
+else // Login normal do ISJ
+
+   if (WSet('KEYBOARDVIRTUAL') == 'ENABLE')
+      WPut('ifTECLADO',.t.)
+         else
+      WPut('ifLOGO',.t.)
+   endif
+
+   WPut('_PROJECT_VERSION',WSet('_PROJECT_VERSION'))
+   if ! empty(WSet('URL_LOGO'))
+      WPut('URL_LOGO',WSet('URL_LOGO')+'/logo_login.gif')
+   else
+      WPut('URL_LOGO',WSet('URL_COMPONENTS')+'/logo/logo_login.gif')
+   endif
+
+   if WSet('FL_LOGIN_ALIAS') == 'ENABLE'
+      lcLOGIN_ALIAS := 'LOGIN_ALIAS'
+   else
+      lcLOGIN_ALIAS := 'LOGIN'
+   endif
+
+   //Selecionando Numero de tentaivas de logon e texto padrao da tela de login.
+   if db_select({'NM_EMPRESA','TEXT_LOGIN','NR_LOGIN_ATTEMPT'},'empresa_usuaria',,;
+                                                              {'CD_EMPRESA='+DLAP+'1'+DLAP}) = -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      db2put(laRESULT)
+      lnNR_LAEMP := laRESULT[2,3]
+   endif
+   
+       /* Glauber 06/07/2010 - Bloco de validação sqlinjection */
+     lares1 := {}
+     if db_select({'WREMOTE_HOST','WREMOTE_ADDR','WHTTP_USER_AGENT','WHTTP_ACCEPT_LANGUAGE','WDATEFIRST','WTIMEFIRST'},'waccess',,{'WN_ACCESS = '+str(gnWN_ACS)}) == -1
+        error_sys('WLogin: '+db_error())
+        return(.f.)
+      endif
+    
+      lares1 := db_fetchrow()
+      if len(lares1) > 0
+         lcWREMOTE_HOST          := lares1[1]
+         lcWREMOTE_ADDR          := lares1[2]
+         lcWHTTP_USER_AGENT      := lares1[3]
+         lcWHTTP_ACCEPT_LANGUAGE := lares1[4]
+         lcWDATEFIRST            := lares1[5]
+         lcWTIMEFIRST            := lares1[6]
+      endif   
+
+
+    if !Empty(WGet('LOGIN')) .or. !Empty(WGet('PASSWD'))
+      if (is_sqlinjection(WGet('LOGIN'))) .or. (is_sqlinjection(WGet('PASSWD')))
+         // Envia um email para inso avisando da tentativa de sqlinjection
+         lcMENSAGEM:= "Atenção suporte. Houve uma tentativa de login com caracteristicas de sqlinjection." + CRLF +;
+                      "Cliente:"+laRESULT[2,1] + CRLF +;
+                      "Conteúdo do Login:" + WGet('LOGIN') + CRLF +;
+                      "Conteúdo da Senha:" + WGet('PASSWD') + CRLF+;
+                      "Conteúdo do Host :" + alltrim(lcWREMOTE_HOST) + CRLF+;
+                      "Conteúdo do Addr :" + alltrim(lcWREMOTE_ADDR) + CRLF+;
+                      "Conteúdo do Agent:" + alltrim(lcWHTTP_USER_AGENT) + CRLF+;
+                      "Conteúdo do Langu:" + alltrim(lcWHTTP_ACCEPT_LANGUAGE) + CRLF+;
+                      "Conteúdo do Date :" + DTOC(lcWDATEFIRST) + CRLF+;
+                      "Conteúdo do Time :" + alltrim(lcWTIMEFIRST) + CRLF                      
+
+          wsendmail('suporte@inso.com.br',;        //Endereço origem de envio
+                    'suporte@inso.com.br',;        //Endereço do destinatario
+                    'glauber@inso.com.br',;        //Cópia para
+                    ,;                             //Cópia Oculta para
+                    'ISJ - Mecanismo de Alerta',;  //Assunto
+                    lcMENSAGEM,;                   //Mensagem
+                    'ISJ')                         //Nome do remetente                 
+                    
+         walert('Usuário ou senha inválido')
+         return
+      endif
+   endif  
+// // bloco esqueci minha senha
+   if WSet('REMEMBER_PASS') == 'ENABLE'
+      WPut('ifREMEMBER_PASS',.t.)
+      if upper(WGet('ACTION','C')) == 'REMEMBER'
+         /* Glauber 30/06/2010: habilitar novamente a funcionalidade lebrar minha senha, pois como esta funcionalidade foi feita utilizando tquery,
+                                no windows dava problema, pois não temos a classe tquery nele.
+                                Converti tudo para o padrão db_select. */
+         if db_select({'acuser.PASSWD','pfpj.EMAIL','pfpj.PFPJ'},'acuser',{{2,'pfpj','pfpj.CIP=acuser.CIP'}},;
+                                                             {'acuser.LOGIN ='+DLAP+WGet('LOGIN')+DLAP}) = -1
+              error_sys(db_error())
+         endif
+         laRESULT := db_fetchall()
+         if len(laRESULT) > 1
+             if ! empty(laRESULT[2,ascan(laRESULT[1],'EMAIL')])
+                // jesuseacmhhalve
+                 whex2str(laRESULT[2,ascan(laRESULT[1],'PASSWD')],@lcPASSWD)
+                 //wout('Senha cripto:'+laRESULT[2,ascan(laRESULT[1],'PASSWD')]+' - lcPASSWD:' + lcPASSWD + ' - Key: '+ KEY)
+                 cContent := wdecrypt(lcPASSWD,KEY)
+                 lcMENSAGEM:= 'Caro(a) '+ laRESULT[2,ascan(laRESULT[1],'PFPJ')]+CRLF+;
+                              ''+CRLF+;
+                              'Atendendo a sua solicitação, aqui estão seu usuário e senha.'+CRLF+;
+                              ''+CRLF+;
+                              'Seu Login de Usuário é: '+ WGet('LOGIN')+CRLF+;
+                              ''+CRLF+;
+                              ''+CRLF+;
+                              'Sua senha é: '+ cContent+CRLF+;
+                              ''+CRLF+;
+                              'Obrigado.'
+                 wsendmail('suporte@inso.com.br',;         //Endereço origem de envio
+                           laRESULT[2,ascan(laRESULT[1],'EMAIL')],;  //Endereço do destinatario
+                           ,;                             //Cópia para
+                           ,;                             //Cópia Oculta para
+                           'ISJ - Lembrete de Senha',;     //Assunto
+                           lcMENSAGEM,;                    //Mensagem
+                           'ISJ')                        //Nome do remetente                 /*
+                 walert('Sua Senha foi enviada para o email '+laRESULT[2,ascan(laRESULT[1],'EMAIL')])
+             else
+               walert('Seu usuário não possui um e-mail cadastrado, não foi possível enviar o lembrete de senha!')
+               return
+             endif
+         else
+          walert('Usuário não Existe!')
+          return
+         endif
+         return
+
+      endif
+   endif
+
+   /* Dados do controle de Licença */
+   WPut('NM_EMPRESA',WSet('NM_EMPRESA'))
+   WPut('CNPJ',WSet('CNPJ'))
+
+   ldDATE := date()+30
+   if empty(alltrim(Wget('LOGIN'))) .and. ! empty(WSet('DT_VENCTO'))
+      if ctod(WSet('DT_VENCTO')) > date()
+         if ctod(WSet('DT_VENCTO')) <= ldDATE
+            walert('Licença expira em '+WSet('DT_VENCTO'))
+         endif
+      endif
+   endif
+
+   // verifica se usuário não está bloqueado
+   if !Empty(WGet('LOGIN')) .and. !Empty(WGet('PASSWD'))
+
+      if db_select({'FL_PWD','FL_USER'},'acuser',,{lcLOGIN_ALIAS+'='+DLAP+lower(WGet('LOGIN'))+DLAP}) = -1
+         error_sys(db_error())
+      endif
+
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if alltrim(laRESULT[1]) = 'Y'  // se FL_PWD = 'Y' Senha está bloqueado!!!
+            llFL_PWD := .t.
+         endif
+
+         if alltrim(laRESULT[2]) = 'Y'  // se FL_USER = 'Y' Usuário está bloqueado!!!
+            llFL_USER := .t.
+         endif
+      endif
+   endif
+
+   if ! llFL_PWD .and. ! llFL_USER   // Usuário/Senha não estão bloqueados.
+      if wlogin(lower(WGet('LOGIN')),WGet('PASSWD'))
+         mkfieldredef()  // ativa Redefinição de Campos
+         make_fu()       // ativa filtro por conteudo
+         wfmktriggers()  // cria as triggers WF
+         //Verifica se usuario está entre os N usuários liberados
+         if db_select({lcLOGIN_ALIAS},'acuser',,{'FL_USER<>'+DLAP+'Y'+DLAP+;
+                                           ' or FL_USER is null'+;
+                                           ' or FL_USER='+DLAP+'N'+DLAP},{'WUID'},,,{val(WSet('NR_LICENCAS'))}) == -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchall()
+         if len(laRESULT) > 1
+/* bloqueio da qtde de licenças para teste de 3 camadas 
+   29/05/2012 14:31:04 - Solicitante : Glauber          
+            adel(laRESULT,1)
+            asize(laRESULT,len(laRESULT)-1)
+            if ascan(laRESULT,{| x | X[1] == lower(WGet('LOGIN'))}) == 0
+               walert('Acesso negado: Número máximo de usuários permitidos excedeu!')
+               wlogout()
+               return .f.
+            endif
+*/
+
+         endif
+         //Zera tentativas de Login.
+         if db_update({{'NR_LOGIN_ATTEMPT'},;
+                       {0}},;
+                      'acuser',;
+                      {lcLOGIN_ALIAS+'='+DLAP+lower(WGet('LOGIN'))+DLAP}) = -1
+            error_sys(db_error())
+         endif
+
+         WSet('_USER_INTERFACE','portal.html')
+         //Carrega UI do cabecalho
+         mkprojecthead('GR5')
+         if gchklogin()
+            if empty(lcOPEN_PAGE)
+               portal_html()
+            else
+               lePROG := strtran(lcOPEN_PAGE,'.','_')
+               WSet('_USER_INTERFACE',lcOPEN_PAGE)
+               if isfunction(lePROG)
+                  lePROG := lePROG+'()'
+                  eval({||&lePROG})
+               else
+                  ?? "Content-Type: text/html"
+                  ?
+                  puterror('Function not found: '+gmPAGE)
+               endif
+            endif
+         else
+            WSet('_USER_INTERFACE','redirect.wic')
+         endif
+      else
+         //Incrementando acuser.NR_LOGIN_ATTEMPT.
+         if db_query('update acuser set NR_LOGIN_ATTEMPT=NR_LOGIN_ATTEMPT+1 where '+lcLOGIN_ALIAS+'='+DLAP+lower(WGet('LOGIN'))+DLAP) = -1
+            error_sys(db_error())
+         endif
+         //Selecionando numero de tentativas do usuário
+         if db_select({'NR_LOGIN_ATTEMPT'},'acuser',,{lcLOGIN_ALIAS+'='+DLAP+lower(WGet('LOGIN'))+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchrow()
+         if len(laRESULT) > 0
+            lnNR_LAACUSER := laRESULT[1]
+         endif
+         if lnNR_LAACUSER > lnNR_LAEMP //Se usuário excedeu numero de tentativas
+            //Bloqueia senha
+            if db_update({{'FL_PWD'},;
+                          {'Y'}},;
+                         'acuser',;
+                         {lcLOGIN_ALIAS+'='+DLAP+lower(WGet('LOGIN'))+DLAP}) = -1
+               error_sys(db_error())
+            endif
+            if WSet('_USER_INTERFACE') = 'login.html'
+               walert('Access Control: Senha Bloqueada!')
+               return(.f.)
+            endif
+         endif
+         WPut('OPEN_PAGE',lcOPEN_PAGE)
+         if ! empty(WGet('LOGIN'))
+            walert('Usuário ou senha inválido')
+         endif
+      endif
+   else
+      if llFL_PWD
+         walert('Access Control: Senha Bloqueada!')
+         return(.f.)
+      endif
+      if llFL_USER
+         walert('Access Control: Usuário Bloqueado!')
+         return(.f.)
+      endif
+   endif
+endif
+return
+
+
+/*
+*
+* Glauber 04/01/2010
+* Esta funcao esta aqui como estatica porque a funcao presente na lib foi alterada pelo mahler para experirar
+*
+*/
+
+Static function wlogin(fcLOGIN,fcPASSWD)
+   local laRES    := {} ,;
+         laFIELDS := {} ,;
+         laRESULT := {} as array
+
+   if empty(fcLOGIN) .or. empty(fcPASSWD)
+      return(.f.)
+   endif
+
+   // Validação de login por apelido
+   if WSet('FL_LOGIN_ALIAS') == 'ENABLE'
+      if db_select({'WUID','WGID'},'acuser',,{"LOGIN_ALIAS='"+esc2db(fcLOGIN)+"'","PASSWD='"+encryptpass(fcPASSWD)+"'"}) < 0
+         error_sys('WLogin: '+db_error())
+      endif
+   else
+      if db_select({'WUID','WGID'},'acuser',,{"LOGIN='"+esc2db(fcLOGIN)+"'","PASSWD='"+encryptpass(fcPASSWD)+"'"}) < 0
+         error_sys('WLogin: '+db_error())
+      endif
+   endif
+   laRES := db_fetchrow()
+// Glauber 04/01/2010 - Mais uma arapuca do Mahler, a sorte eh que eu tinha este trecho da funcao wlogin
+//   if dtos(date()) >= '201'+chr(48)+'010'+chr(49)
+//      walert('Verificar biblioteca wictrix até 01/03/2010')
+//   endif
+//   if dtos(date()) >= '201'+chr(48)+'030'+chr(49)
+//      walert('Biblioteca wictrix expirou')
+//      return(.f.)
+//   endif
+
+   if len(laRES) > 0
+      if laRES[1] = 0 .or. laRES[2] = 0
+         return(.f.)
+      endif
+      if db_update({{'WUID','WGID'},{laRES[1],laRES[2]}},'waccess',{'WN_ACCESS = '+str(gnWN_ACS)}) < 0
+         error_sys('WLogin: '+db_error())
+      endif
+
+      // Transferencia registros da waccess para waccess_out. Transfere todos os registros de sessões anteriores a atual
+      laFIELDS := {'WN_ACCESS',;
+                   'WKEY_ACCESS',;
+                   'WDATEFIRST',;
+                   'WTIMEFIRST',;
+                   'WDATELAST',;
+                   'WTIMELAST',;
+                   'WUID',;
+                   'WGID',;
+                   'WLANGUAGE',;
+                   'WREMOTE_HOST',;
+                   'WREMOTE_ADDR',;
+                   'WHTTP_USER_AGENT',;
+                   'WHTTP_ACCEPT_LANGUAGE',;
+                   'WHTTP_X_FORWARDED_FOR',;
+                   'WHTTP_VIA',;
+                   'TSTP_CACHE',;
+                   'PROGRAM',;
+                   'WDATAGLOBAL',;
+                   'WPUT',;
+                   'WLOG'}
+      if db_select(laFIELDS,'waccess',,{'WUID='+str(laRES[1])+' and WN_ACCESS <> '+str(gnWN_ACS)}) == -1
+         error_sys('WLogin: '+db_error())
+         return(.f.)
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 0
+         if db_insert(laRESULT,'waccess_out') == -1
+            error_sys('WLogin: '+db_error())
+            return(.f.)
+         endif
+
+         if db_delete('waccess','WUID='+str(laRES[1])+' and WN_ACCESS <> '+str(gnWN_ACS)) == -1
+            error_sys('WLogin: '+db_error())
+            return(.f.)
+         endif
+      endif
+      laRESULT := {}
+
+      // Atualiza Data e Hora de acesso na tabela acuser
+      if db_update({{'DT_ULTIMO_ACESSO','HR_ULTIMO_ACESSO'},;
+      				  {date()            ,time()            }},'acuser',{'LOGIN='+DLAP+fcLOGIN+DLAP}) == -1
+			error_sys('WLogin: '+db_error())
+      endif
+      wAccess_control()
+
+      // 28/08/2007 - Marcos: Dataglobal é gravada em banco de dados ao invés de arquivos
+      // limpa cache
+      gaWDATAGLOBAL := {}
+      WriteDataGlobal()
+      //SaveWCache()
+      return(.t.)
+   else
+      putError('Login not found: '+transform(fcLOGIN))
+   endif
+return(.f.)
+
+/*
+* Data Criação: 05.07.2010 - Glauber
+* Function.....: is_sqlinjection(fcCONTEUDO)
+* Objetivo.....: retorna .t. caso fcCONTEUDO contenha algum caracter sqlinjection
+* Parâmetros:
+*    fcCONTEUDO.: Conteúdo a ser analisado
+*
+* Retorno: retorna .t. caso fcCONTEUDO contenha algum caracter sqlinjection, caso contrario retorna .f.
+*/
+
+
+Static Function is_sqlinjection(fcCONTEUDO)
+
+    local llReturn := .f.
+    local laPESQ   := {'from',;
+                       'alter',;
+                       'table',;
+                       'select',;
+                       'insert',;
+                       'delete',;
+                       'update',;
+                       'create',;
+                       'drop',;
+                       'where',;
+                       'show',;
+                       'tables',;
+                       'union',;
+                       'all',;
+                       'version',;
+                       'using',;
+                       'latin',;
+                       'converte',;
+                       'replace',;
+                       'count',;
+                       'like',;
+                       'recover',;
+                       'database',;
+                       'automatic',;
+                       'standby',;
+                       'cascade',;
+                       'modify',;
+                       'analyse',;
+                       'call',;
+                       'grant',;
+                       'look',;
+                       'exec',;
+                       '@@',;
+                       '#',;
+                       '\',;
+                       '*',;
+                       '--',;
+                       '\',;
+                       "'"}
+     for ii := 1 to len(laPESQ)
+         if at(laPESQ[ii],lower(fcCONTEUDO)) > 0
+            llReturn := .t.
+            exit
+         endif
+     next ii
+
+     return(llReturn)
+
+
+
+
+/*
+* Data Criação: 10.2015 - Glauber
+* Function.....: LoginNormal()
+* Objetivo.....: Montagem do login para integração com AD.
+* Parâmetros:
+*
+*
+* Retorno:
+*/
+
+Static Function LoginNormal()
+
+   local lcOPEN_PAGE   := '' ,;
+         lePROG        := '' ,;
+         lcLOGIN_ALIAS := '' ,;
+         lcToken       := '' ,;
+         lcUser        := '' ,;
+         lcDec         := '' ,;
+         lcIp          := '' ,;
+         lcRip         := '' ,;
+         lcHtml        := '' ,;
+         lcPASSWD      := '' as string
+   local laRESULT      := {} as array
+   local lnNR_LAEMP    := 0  ,;
+         lnNR_LAACUSER := 0  as int
+   local llFL_PWD   := .f.,;
+         llFL_USER  := .f.,;
+         VALIDOUSESSAO := .f.
+
+   local ldDATE := ctod('/ /')
+
+   local llFALHA_AD := .F.
+   local lcRet := '' as String
+   local lcExec := '' as String
+
+
+   lcOPEN_PAGE := upper(WGet('OPEN_PAGE','C'))
+
+   if (WSet('KEYBOARDVIRTUAL') == 'ENABLE')
+      WPut('ifTECLADO',.t.)
+         else
+      WPut('ifLOGO',.t.)
+   endif
+
+   WPut('_PROJECT_VERSION',WSet('_PROJECT_VERSION'))
+   if ! empty(WSet('URL_LOGO'))
+      WPut('URL_LOGO',WSet('URL_LOGO')+'/logo_login.gif')
+   else
+      WPut('URL_LOGO',WSet('URL_COMPONENTS')+'/logo/logo_login.gif')
+   endif
+
+   if WSet('FL_LOGIN_ALIAS') == 'ENABLE'
+      lcLOGIN_ALIAS := 'LOGIN_ALIAS'
+   else
+      lcLOGIN_ALIAS := 'LOGIN'
+   endif
+
+   //Selecionando Numero de tentaivas de logon e texto padrao da tela de login.
+   if db_select({'NM_EMPRESA','TEXT_LOGIN','NR_LOGIN_ATTEMPT'},'empresa_usuaria',,;
+                                                              {'CD_EMPRESA='+DLAP+'1'+DLAP}) = -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      db2put(laRESULT)
+      lnNR_LAEMP := laRESULT[2,3]
+   endif
+
+       /* Glauber 06/07/2010 - Bloco de validação sqlinjection */
+     lares1 := {}
+     if db_select({'WREMOTE_HOST','WREMOTE_ADDR','WHTTP_USER_AGENT','WHTTP_ACCEPT_LANGUAGE','WDATEFIRST','WTIMEFIRST'},'waccess',,{'WN_ACCESS = '+str(gnWN_ACS)}) == -1
+        error_sys('WLogin: '+db_error())
+        return(.f.)
+      endif
+
+      lares1 := db_fetchrow()
+      if len(lares1) > 0
+         lcWREMOTE_HOST          := lares1[1]
+         lcWREMOTE_ADDR          := lares1[2]
+         lcWHTTP_USER_AGENT      := lares1[3]
+         lcWHTTP_ACCEPT_LANGUAGE := lares1[4]
+         lcWDATEFIRST            := lares1[5]
+         lcWTIMEFIRST            := lares1[6]
+      endif
+
+
+// // bloco esqueci minha senha
+   if WSet('REMEMBER_PASS') == 'ENABLE'
+      WPut('ifREMEMBER_PASS',.t.)
+      if upper(WGet('ACTION','C')) == 'REMEMBER'
+         /* Glauber 30/06/2010: habilitar novamente a funcionalidade lebrar minha senha, pois como esta funcionalidade foi feita utilizando tquery,
+                                no windows dava problema, pois não temos a classe tquery nele.
+                                Converti tudo para o padrão db_select. */
+         if db_select({'acuser.PASSWD','pfpj.EMAIL','pfpj.PFPJ'},'acuser',{{2,'pfpj','pfpj.CIP=acuser.CIP'}},;
+                                                             {'acuser.LOGIN ='+DLAP+WGet('LOGIN')+DLAP}) = -1
+              error_sys(db_error())
+         endif
+         laRESULT := db_fetchall()
+         if len(laRESULT) > 1
+             if ! empty(laRESULT[2,ascan(laRESULT[1],'EMAIL')])
+                // jesuseacmhhalve
+                 whex2str(laRESULT[2,ascan(laRESULT[1],'PASSWD')],@lcPASSWD)
+                 //wout('Senha cripto:'+laRESULT[2,ascan(laRESULT[1],'PASSWD')]+' - lcPASSWD:' + lcPASSWD + ' - Key: '+ KEY)
+                 cContent := wdecrypt(lcPASSWD,KEY)
+                 lcMENSAGEM:= 'Caro(a) '+ laRESULT[2,ascan(laRESULT[1],'PFPJ')]+CRLF+;
+                              ''+CRLF+;
+                              'Atendendo a sua solicitação, aqui estão seu usuário e senha.'+CRLF+;
+                              ''+CRLF+;
+                              'Seu Login de Usuário é: '+ WGet('LOGIN')+CRLF+;
+                              ''+CRLF+;
+                              ''+CRLF+;
+                              'Sua senha é: '+ cContent+CRLF+;
+                              ''+CRLF+;
+                              'Obrigado.'
+                 wsendmail('suporte@inso.com.br',;         //Endereço origem de envio
+                           laRESULT[2,ascan(laRESULT[1],'EMAIL')],;  //Endereço do destinatario
+                           ,;                             //Cópia para
+                           ,;                             //Cópia Oculta para
+                           'ISJ - Lembrete de Senha',;     //Assunto
+                           lcMENSAGEM,;                    //Mensagem
+                           'ISJ')                        //Nome do remetente                 /*
+                 walert('Sua Senha foi enviada para o email '+laRESULT[2,ascan(laRESULT[1],'EMAIL')])
+             else
+               walert('Seu usuário não possui um e-mail cadastrado, não foi possível enviar o lembrete de senha!')
+               return
+             endif
+         else
+          walert('Usuário não Existe!')
+          return
+         endif
+         return
+
+      endif
+   endif
+
+   /* Dados do controle de Licença */
+   WPut('NM_EMPRESA',WSet('NM_EMPRESA'))
+   WPut('CNPJ',WSet('CNPJ'))
+
+   ldDATE := date()+30
+   if empty(alltrim(Wget('LOGIN'))) .and. ! empty(WSet('DT_VENCTO'))
+      if ctod(WSet('DT_VENCTO')) > date()
+         if ctod(WSet('DT_VENCTO')) <= ldDATE
+            walert('Licença expira em '+WSet('DT_VENCTO'))
+         endif
+      endif
+   endif
+
+   // verifica se usuário não está bloqueado
+   if !Empty(WGet('LOGIN')) .and. !Empty(WGet('PASSWD'))
+
+      if db_select({'FL_PWD','FL_USER','FL_AD_INTEGRA'},'acuser',,{lcLOGIN_ALIAS+'='+DLAP+lower(WGet('LOGIN'))+DLAP}) = -1
+         error_sys(db_error())
+      endif
+
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if alltrim(laRESULT[1]) == 'Y'  // se FL_PWD = 'Y' Senha está bloqueado!!!
+            llFL_PWD := .t.
+         endif
+
+         if alltrim(laRESULT[2]) == 'Y'  // se FL_USER = 'Y' Usuário está bloqueado!!!
+            llFL_USER := .t.
+         endif
+
+         // Integração com AD
+
+         if alltrim(laRESULT[3]) == 'Y'  // se FL_AD_INTEGRA = 'Y' A autenticação no AD é obrigatória.
+            if (! Empty(WSET('ISJADVALIDATOR')))
+               lcRet  := 'ADRET' + getTimeStamp() + '.XML'
+               lcExec := WSET('ISJADVALIDATOR') + ' ' + WGet('LOGIN') + ' ' + WGet('PASSWD') + ' ' + lcRet
+
+               ! (lcExec)
+               if ( ! file(lcRet))
+                  llFALHA_AD := .t.
+               else
+                  lcCont := GetFileContent(lcRet)
+                  if At('False', lcCont) > 0
+                     llFALHA_AD := .t.
+                  else
+                       VALIDOUSESSAO := .T.
+                       // Validação de login por apelido
+                       if WSet('FL_LOGIN_ALIAS') == 'ENABLE'
+                          if db_select({'WUID','WGID'},'acuser',,{"LOGIN_ALIAS='"+esc2db(WGet('LOGIN'))+"'"}) < 0
+                             error_sys('wlogin: '+db_error())
+                          endif
+                       else
+                          if db_select({'WUID','WGID'},'acuser',,{"LOGIN='"+esc2db(WGet('LOGIN'))+"'"}) < 0
+                             error_sys('wlogin: '+db_error())
+                          endif
+                       endif
+                       laRES := db_fetchrow()
+
+                       if len(laRES) > 0
+//                          if laRES[1] = 0 .or. laRES[2] = 0
+//                             return(.f.)
+//                          endif
+                          if db_update({{'WUID','WGID'},{laRES[1],laRES[2]}},'waccess',{'WN_ACCESS = '+str(gnWN_ACS)}) < 0
+                             error_sys('wlogin: '+db_error())
+                          endif
+
+                          if db_update({{'FL_EXPIRED','WDATAGLOBAL'},{'Y',''}},;
+                                       'waccess',;
+                                       {'WUID='+str(laRES[1])+' and WN_ACCESS <> '+str(gnWN_ACS)}) = -1
+                             puterror('wlogin: '+db_error())
+                          endif
+
+                          // Atualiza Data e Hora de acesso na tabela acuser
+                          if db_update({{'DT_ULTIMO_ACESSO','HR_ULTIMO_ACESSO'},{date(),time()}},'acuser',{'LOGIN='+DLAP+WGet('LOGIN')+DLAP}) == -1
+                    			error_sys('wlogin: '+db_error())
+                          endif
+
+                          // Atualiza Data e Hora de acesso na tabela acuser
+                          if db_update({{'DT_ULTIMO_ACESSO','HR_ULTIMO_ACESSO'},;
+                          				  {date()            ,time()            }},'acuser',{'LOGIN='+DLAP+WGet('LOGIN')+DLAP}) == -1
+                    			error_sys('wlogin: '+db_error())
+                          endif
+
+                          wAccess_control()
+
+                          // limpa cache
+                          gaWDATAGLOBAL := {}
+                          WriteDataGlobal()
+
+                       endif
+                  endif
+               endif
+
+               if Empty(WSET('ADDEBUG'))
+                  Ferase(lcRet)
+               endif
+
+            endif
+         endif
+
+
+      endif
+
+      // Glauber 10/2015 - Verificar a obrigatoriedade de autenticação no servidor AD
+
+   endif
+
+   if ! llFL_PWD .and. ! llFL_USER .and. ! llFALHA_AD  // Usuário/Senha não estão bloqueados.
+      if (VALIDOUSESSAO == .T.) .or. wlogin(lower(WGet('LOGIN')),WGet('PASSWD'))
+         mkfieldredef()  // ativa Redefinição de Campos
+         make_fu()       // ativa filtro por conteudo
+         wfmktriggers()  // cria as triggers WF
+         //Verifica se usuario está entre os N usuários liberados
+         if db_select({lcLOGIN_ALIAS},'acuser',,{'FL_USER<>'+DLAP+'Y'+DLAP+;
+                                           ' or FL_USER is null'+;
+                                           ' or FL_USER='+DLAP+'N'+DLAP},{'WUID'},,,{val(WSet('NR_LICENCAS'))}) == -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchall()
+         if len(laRESULT) > 1
+/* bloqueio da qtde de licenças para teste de 3 camadas
+   29/05/2012 14:31:04 - Solicitante : Glauber
+            adel(laRESULT,1)
+            asize(laRESULT,len(laRESULT)-1)
+            if ascan(laRESULT,{| x | X[1] == lower(WGet('LOGIN'))}) == 0
+               walert('Acesso negado: Número máximo de usuários permitidos excedeu!')
+               wlogout()
+               return .f.
+            endif
+*/
+
+         endif
+         //Zera tentativas de Login.
+         if db_update({{'NR_LOGIN_ATTEMPT'},;
+                       {0}},;
+                      'acuser',;
+                      {lcLOGIN_ALIAS+'='+DLAP+lower(WGet('LOGIN'))+DLAP}) = -1
+            error_sys(db_error())
+         endif
+
+         WSet('_USER_INTERFACE','portal.html')
+         //Carrega UI do cabecalho
+         mkprojecthead('GR5')
+         if gchklogin()
+            if empty(lcOPEN_PAGE)
+               portal_html()
+            else
+               lePROG := strtran(lcOPEN_PAGE,'.','_')
+               WSet('_USER_INTERFACE',lcOPEN_PAGE)
+               if isfunction(lePROG)
+                  lePROG := lePROG+'()'
+                  eval({||&lePROG})
+               else
+                  ?? "Content-Type: text/html"
+                  ?
+                  puterror('Function not found: '+gmPAGE)
+               endif
+            endif
+         else
+            WSet('_USER_INTERFACE','redirect.wic')
+         endif
+      else
+         //Incrementando acuser.NR_LOGIN_ATTEMPT.
+         if db_query('update acuser set NR_LOGIN_ATTEMPT=NR_LOGIN_ATTEMPT+1 where '+lcLOGIN_ALIAS+'='+DLAP+lower(WGet('LOGIN'))+DLAP) = -1
+            error_sys(db_error())
+         endif
+         //Selecionando numero de tentativas do usuário
+         if db_select({'NR_LOGIN_ATTEMPT'},'acuser',,{lcLOGIN_ALIAS+'='+DLAP+lower(WGet('LOGIN'))+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchrow()
+         if len(laRESULT) > 0
+            lnNR_LAACUSER := laRESULT[1]
+         endif
+         if lnNR_LAACUSER > lnNR_LAEMP //Se usuário excedeu numero de tentativas
+            //Bloqueia senha
+            if db_update({{'FL_PWD'},;
+                          {'Y'}},;
+                         'acuser',;
+                         {lcLOGIN_ALIAS+'='+DLAP+lower(WGet('LOGIN'))+DLAP}) = -1
+               error_sys(db_error())
+            endif
+            if WSet('_USER_INTERFACE') = 'login.html'
+               walert('Access Control: Senha Bloqueada!')
+               return(.f.)
+            endif
+         endif
+         WPut('OPEN_PAGE',lcOPEN_PAGE)
+         if ! empty(WGet('LOGIN'))
+            walert('Usuário ou senha inválido')
+         endif
+      endif
+   else
+      if llFL_PWD
+         walert('Access Control: Senha Bloqueada!')
+         return(.f.)
+      endif
+      if llFL_USER
+         walert('Access Control: Usuário Bloqueado!')
+         return(.f.)
+      endif
+
+      if llFALHA_AD
+         walert('Access Control: Usuário inválido no AD.!')
+         return(.f.)
+      endif
+
+   endif
+
+Static Function getTimeStamp()
+
+    return (alltrim(DTOS(DATE())) + strtran(TIME(),':','') + alltrim(wic_random()))

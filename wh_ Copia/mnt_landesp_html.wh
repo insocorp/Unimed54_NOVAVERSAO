@@ -1,0 +1,388 @@
+/*
+
+Project      : isj_45
+Program      : mnt.landesp.html
+Function     : mnt_landesp_html
+Created on   : 14/05/2015 08:36:34
+Descripition :
+
+*/
+
+private lcACTION   := ''
+
+local laRESULT     := {} ,;
+      laVALIDA     := {} ,;
+      laRES1       := {} ,;
+      laRES2       := {} ,;
+      laJOIN       := {} ,;
+      laRES0       := {} ,;
+      laRES3       := {} ,;
+      laSAVE       := {}  as array
+
+local ii              := 0 ,;
+      li              := 2 ,;
+      lnQTDTAB        := 0 as int
+
+local lcPLATAFORMAS   :='' ,;
+      lcTP_PASTA      :='' ,;
+      lcQUERY         :='' ,;
+      lcCIP_ESCRITORIO:='' ,;
+      lcCCUSTO        :='' ,;
+      lcDESPESA       :='' ,;
+      lcWHERE         :='' ,;
+      lcHTML          :='' ,;
+      lcLINHA         :='' ,;
+      lcTABELA        :='' ,;
+      lcEMPRESA       :='' ,;
+      lcFL_PASTA      :='' as string
+
+local ldDTINIC as date
+local ldDTFIM  as date
+
+
+lcACTION          := upper(Wget('ACTION'))
+
+
+WPut('TITLE','Geração automática de Despesas')
+
+*** marca em vermelho campos obrigatorios
+laVALIDA:={'TP_PASTA','FL_PASTA','CIP_ESCRITORIO','NM_CCUSTO','NM_DESPESA'}
+init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+WPut('MFILTRO', .T.)
+WPut('DGRID', .F.)
+
+if lcACTION == 'LOCALIZA'
+
+   laRES1 := str2array(WGet('LOCALIZA','C'),'|')
+   laRES2 := str2array(laRES1[1],',')
+
+   lcTP_PASTA      :=laRES2[1]
+   lcFL_PASTA      :=laRES2[2]
+   lcCIP_ESCRITORIO:=laRES2[3]
+   lcCCUSTO        :=laRES2[4]
+   lcDESPESA       :=laRES2[5]
+   ldDTINIC        :=ctod(laRES2[6])
+   ldDTFIM         :=ctod(laRES2[7])
+   lcPLATAFORMAS   :=laRES1[2]
+
+   lcQUERY  ='select'
+   lcQUERY +=' pasta.TP_PASTA,'
+   lcQUERY +=' pasta.FL_PASTA,'
+   lcQUERY +=' pasta.NR_PASTA,'
+   lcQUERY +=' pasta.ID_PLATAFORMA,'
+   lcQUERY +=' pasta.CD_CCUSTO,'
+   lcQUERY +=' pasta.DT_ENCERRAMENTO,'
+   lcQUERY +=' empre.CIP as CIP_EMPRESA,'
+   lcQUERY +=' empre.PFPJ as CIP_EMPRESA_PFPJ,'
+   lcQUERY +=' escri.CIP as CIP_ESCRITORIO,'
+   lcQUERY +=' escri.PFPJ as CIP_ESCRITORIO_PFPJ,'
+   lcQUERY +=' pasta_alocada.VL_ESCRITORIO'
+
+   lcQUERY +=' from pasta'
+   lcQUERY +=' left join pasta_alocada on pasta_alocada.NR_PASTA = pasta.NR_PASTA'
+   lcQUERY +=" left join pasta_cip empresa on empresa.NR_PASTA = pasta.NR_PASTA and empresa.WFIELD='CIP_EMPRESA'"
+   lcQUERY +=' left join pfpj empre          on empre.CIP = empresa.CIP'
+
+   lcQUERY +=" left join pasta_cip escritorio on escritorio.NR_PASTA = pasta.NR_PASTA and escritorio.WFIELD='CIP_ESCRITORIO'"
+   lcQUERY +=' left join pfpj escri           on escri.CIP = escritorio.CIP'
+
+   lcQUERY += ' where pasta.TP_PASTA='+DLAP+lcTP_PASTA+DLAP
+   lcQUERY += ' and pasta.FL_PASTA='+DLAP+lcFL_PASTA+DLAP
+   lcQUERY += ' and pasta_alocada.CIP_ESCRITORIO='+lcCIP_ESCRITORIO
+   lcQUERY += ' and pasta_alocada.VL_ESCRITORIO > 0'
+
+   lcQUERY += ' and pasta.CD_CCUSTO='+lcCCUSTO
+
+   if len(lcPLATAFORMAS)>0
+      lcQUERY += ' and pasta.ID_PLATAFORMA in ('+lcPLATAFORMAS+')'
+   endif
+
+   if dtoc(ldDTINIC) <> '  /  /    '
+      lcQUERY += " and pasta.DT_ENCERRAMENTO between " + DLAP+dtos(ldDTINIC)+DLAP + " and " + DLAP+dtos(ldDTFIM)+DLAP
+   endif
+
+   lcQUERY +=' order by empre.PFPJ,pasta.NR_PASTA'
+
+   if db_query(lcQUERY) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   *** procura despesa em aberto com o mesmo numero que esta querendo criar
+   aadd(laRES3,laRESULT[1])
+
+   for ii=2 to len(laRESULT)
+      laJOIN   := {{2,'mvt_despesa_pagamento','mvt_despesa.NR_DESPESA = mvt_despesa_pagamento.NR_DESPESA and mvt_despesa_pagamento.nr_pasta = mvt_despesa.NR_PASTA'}}
+
+      lcWHERE  := " mvt_despesa_pagamento.NR_CONTROLE is null and mvt_despesa.nr_pasta="+str(laRESULT[ii,3])
+      lcWHERE  += " and mvt_despesa.cd_despesa="+DLAP+lcDESPESA+DLAP
+
+      if db_select({'mvt_despesa.nr_pasta'},'mvt_despesa',laJOIN,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRES0:= db_fetchall()
+
+      *** se não encontrar grava
+      if len(laRES0)==1
+         aadd(laRES3,laRESULT[ii])
+      endif
+   next ii
+
+   if len(laRES3)==1
+
+      walert('Não localizei pasta com esse filtro!')
+      lcACTION := 'CANCELA'
+      WPut('GRID','')
+      WPut('DGRID', .F.)
+      WPut('MFILTRO', .T.)
+
+   else
+
+   for ii=2 to len(laRES3)
+
+   if lcEMPRESA!=laRES3[ii,8]
+
+   lnQTDTAB := lnQTDTAB + 1
+
+   lcTABELA := 'TAB_'+alltrim(str(lnQTDTAB))
+
+   lcHTML+='<table border="0" cellpadding="1" cellspacing="1" align="center" id="'+'T'+lcTABELA+'">'
+
+   lcHTML+='   <tr class="wgridheader">'
+
+   lcHTML+='      <td></td>'
+   lcHTML+='      <td>Todas</td>'
+   lcHTML+='      <td align="left" style="width:400px">wiclabel.EMPRESA'+'/'+'wiclabel.NR_PASTA</td>'
+   lcHTML+='      <td style="display: none">wiclabel.VL_ESCRITORIO</td>'
+   lcHTML+='   </tr>'
+
+   lcHTML+='   <tr class="wgridrow">'
+
+   lcHTML+='       <td>'
+   lcHTML+='          <input type="text" class="winput" style="color:blue;font-size:15px;font-weight:bold;cursor:pointer" readonly id="'+'RECOLHE_'+lcTABELA+'" size="1" wicinput value="  +" onclick="recolhe(this,'+lcTABELA+')">'
+   lcHTML+='       </td>'
+
+   lcHTML+='       <td align="center">'
+   lcHTML+='           <input type="checkbox" id="'+lcTABELA+'" class="winput" style="cursor:pointer" wicinput onclick="mtodos(this)">'
+   lcHTML+='       </td>'
+   lcHTML+='       <td>'
+   lcHTML+='            <label>'+laRES3[ii,8]+'</label>'
+   lcHTML+='       </td>'
+   lcHTML+='       <td style="display: none">'
+   lcHTML+='       </td>'
+   lcHTML+='   </tr>'
+
+   lcEMPRESA:=laRES3[ii,8]
+   endif
+
+   li:=li+1
+   lcLINHA  := alltrim(str(li))
+
+   lcHTML+='   <tr class="wgridrow" id="'+lcTABELA+'_'+lcLINHA+'">'
+   lcHTML+='       <td align="right" colspan="2">'
+   lcHTML+='          <input type="checkbox" id="'+'K'+lcTABELA+'_'+lcLINHA+'" class="winput" style="cursor:pointer" wicinput>'
+   lcHTML+='       </td>'
+   lcHTML+='       <td>'
+   lcHTML+='          <input type="text" id="'+lcTABELA+'_VAR_NR_PASTA_'+lcLINHA+'" class="winput" wicinput readonly size="10" value="'+alltrim(str(laRES3[ii,3]))+'">'
+   lcHTML+='       </td>'
+   lcHTML+='       <td style="display: none">'
+   lcHTML+='          <input type="text" id="'+lcTABELA+'_VAR_VL_ESCRITORIO_'+lcLINHA+'" class="winput" wicinput readonly size="10" value="'+alltrim(str(laRES3[ii,11]))+'">'
+   lcHTML+='       </td>'
+   lcHTML+='   </tr>'
+
+   if len(laRES3) == ii
+      lcHTML+='   <tr>'
+      lcHTML+='       <td colspan="6" align="center">'
+      lcHTML+='           <input type="button" class="wbutton" value="Gravar" onclick="salvar()">'
+      lcHTML+='           <input type="button" class="wbutton" value="Cancelar" onclick="cancela()">'
+      lcHTML+='       </td>'+CRLF
+      lcHTML+='   </tr>'+CRLF
+      lcHTML+='</table>'+CRLF
+     else
+       if lcEMPRESA!=laRES3[ii+1,8]
+          lcHTML+='</table>'+CRLF
+          li:=2
+       endif
+   endif
+
+
+
+   next ii
+
+   WPut('DESPESA',WGet('NM_DESPESA','C'))
+   WPut('FAVORECIDO',WGet('CIP_ESCRITORIO','C'))
+   WPut('CD_CCUSTO',WGet('NM_CCUSTO','C'))
+
+   WPut('NTABELAS',lnQTDTAB)
+
+   WPut('MFILTRO', .F.)
+   WPut('DGRID', .T.)
+   WPut('GRID',lcHTML)
+
+   endif
+
+elseif lcACTION == 'CANCELA'
+   WPut('GRID','')
+   WPut('DGRID', .F.)
+   WPut('MFILTRO', .T.)
+
+elseif lcACTION == 'SAVE'
+
+   if db_select({'LOTE_DESP'},'disponibilidade_juridico') == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchrow()
+
+   lnULTLOT:=laRES[1]
+
+   laSAVE  := {'NR_PASTA',;
+               'CD_DESPESA',;
+               'QUANTIDADE',;
+               'VL_UNIT',;
+               'LOGIN',;
+               'VL_TOTAL',;
+               'CIP_FAVORECIDO',;
+               'CD_CCUSTO',;
+               'CD_BANCO',;
+               'FL_APROVACAO',;
+               'FL_REVISAO'}
+
+   laRESULT := str2array(WGet('GRAVAR','C'),'|')
+
+   laLINHA_ATUAL:={}
+   aadd(laLINHA_ATUAL,laSAVE)
+
+   for ii := 1 to len(laRESULT)
+
+       laTMP        :={}
+
+       aadd(laTMP,str2array(laRESULT[ii],','))
+
+       laSAVE  := {laTMP[1,1],;
+                   laTMP[1,2],;
+                   1,;
+                   strtran(laTMP[1,4],"'",""),;
+                   gcLOGIN,;
+                   strtran(laTMP[1,4],"'",""),;
+                   laTMP[1,3],;
+                   laTMP[1,5],;
+                   lnULTLOT+1,;
+                   'P',;
+                   'P'}
+
+        aadd(laLINHA_ATUAL,laSAVE)
+
+   next ii
+
+   if db_insert(laLINHA_ATUAL,'mvt_despesa')= -1
+      error_sys(db_error())
+   endif
+
+   if db_update({{'LOTE_DESP'},{lnULTLOT+1}},'disponibilidade_juridico') == -1
+      error_sys(db_error())
+   endif
+
+   walert('Atenção anote ! \nNúmero do Lote = '+alltrim(str(lnULTLOT+1)))
+
+endif
+
+if lcACTION != 'LOCALIZA'
+
+   *** pega so tipo de pasta que tenha plataforma cadastrada
+   NovoCbox('TP_PASTA','DISTINCT TP_PASTA','plataforma',,'TP_PASTA',{'',''})
+
+   cbox_carga('centrocusto',{'CD_CCUSTO','NM_CCUSTO','FL_ATIVO'}  ,{'NM_CCUSTO'} ,'NM_CCUSTO')
+   cbox_carga('despesa'    ,{'CD_DESPESA','NM_DESPESA','FL_ATIVO'},{'NM_DESPESA'},'NM_DESPESA')
+   cbox_carga('plataforma' ,{'ID_PLATAFORMA','DESC_PLATAFORMA','FL_ATIVO'},{'DESC_PLATAFORMA'},'ALL_FILIAL')
+endif
+
+
+WPut('ACTION','')
+lcACTION:=''
+
+return
+
+
+***************************************************************
+static function cbox_carga(fcTABELA,faFIELDS,faORDER,fcCOMBOBOX)
+***************************************************************
+local laRES:={}
+
+local  laOPT    := {} ,;
+       laOPTV   := {} ,;
+       laPUT    := {} ,;
+       laDEF    := {} ,;
+       laDEFV   := {} ,;
+       laATI    := {} ,;
+       laATIV   := {} ,;
+       laINA    := {} ,;
+       laINAV   := {} ,;
+       laPUTV   := {} as array
+
+local  jj    := 1  as int
+
+
+laDEF := {}
+laDEFV:= {}
+
+laATI := {}
+laATIV:= {}
+
+laINA := {}
+laINAV:= {}
+
+laPUT := {}
+laPUTV:= {}
+
+if db_select(faFIELDS,fcTABELA,,,faORDER) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+for jj := 2 to len(laRES)
+    if laRES[jj,3] == 'D'
+       aadd(laDEF,laRES[jj,2])
+       aadd(laDEFV,laRES[jj,1])
+
+     elseif laRES[jj,3] == 'I'
+       aadd(laINA,laRES[jj,2])
+       aadd(laINAV,laRES[jj,1])
+
+     else
+       aadd(laATI,laRES[jj,2])
+       aadd(laATIV,laRES[jj,1])
+    endif
+next jj
+
+if len(laDEF) == 0
+   aadd(laDEF,'') // Adiciona uma linha vazia no inicio do combo, caso seja solicitado
+   aadd(laDEFV,'0')
+endif
+
+for jj=1 to len(laDEF)
+    aadd(laPUT,laDEF[jj])
+    aadd(laPUTV,laDEFV[jj])
+next jj
+
+for jj=1 to len(laATI)
+    aadd(laPUT,laATI[jj])
+    aadd(laPUTV,laATIV[jj])
+next jj
+
+for jj=1 to len(laINA)
+    aadd(laPUT,'INATIVO - '+laINA[jj])
+    aadd(laPUTV,laINAV[jj])
+next jj
+
+
+WPut(fcCOMBOBOX+'.option',laPUT)
+WPut(fcCOMBOBOX+'.optionvalue',laPUTV)
+
+return(nil)
+
+
+
+
+
+

@@ -1,0 +1,165 @@
+/*
+
+Project      : gr5
+Program      : desp.cfg.etapas.html
+Function     : desp_cfg_etapas_html
+Created on   : 21-Mar-2005   10:06:37
+Descripition : Despesa - Configuração de Etapas Revisão e Aprovação
+Alteração    : 20/7/2011 16:03:15
+               Incluida as fases 3 para aprovacao e Impostos
+*/
+
+   local lcNR_CONTROLE  := '' ,;
+         lcACTION       := '' ,;
+         lcTABLE        := '' ,;
+         lcAUTO         := '' ,;
+         lcWHERE        := '' as string
+   local ii           := 0 ,;
+         liPOS_COD    := 0 as int
+   local laRES      := {} ,;
+         laFIELDS   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laDC       := {} ,;
+         laDN       := {} ,;
+         laAUTO     := {} ,;
+         laFOREIGN  := {} as array
+   local llERRO := .F. as logical
+
+   lcACTION       := upper(WGet('ACTION','C'))
+   lcNR_CONTROLE  := WGet('NR_CONTROLE','C')
+   if lower(lcNR_CONTROLE) == 'new'
+      lcNR_CONTROLE := '0'
+   endif
+   lcTABLE    := 'despesa_cfg_etapas'
+   lcWHERE    := 'NR_CONTROLE='+lcNR_CONTROLE
+   laFIELDS   := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+
+   laVALIDA := {{'FL_DESP_ETAPA',lblfscreen('FL_DESP_ETAPA')}}
+
+   WPut('FL_DESP_ETAPA.option',{'','Revisão','Aprovação','Impostos'})
+   WPut('FL_DESP_ETAPA.optionvalue',{'','1','2','3'})
+   WPut('TITLE','Despesa - Configuração Etapas')
+
+   if empty(lcACTION)
+      lcACTION := 'NEW'
+   endif
+   if lcACTION = 'NEW' .and. gbWAC_CREATE
+      wPut('NR_CONTROLE','New')
+   elseif lcACTION = 'ALTER' .and. gbWAC_READ
+      mkgedico(lcTABLE,lcNR_CONTROLE)
+      if db_select(laFIELDS ,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+
+      if len(laRESULT)>1
+         if laRESULT[2,db_fetchncol(laRESULT,'DESP_AUT')]!=''
+
+            laFIELDS:= {'CD_DESPESA',;
+                        'NM_DESPESA'}
+
+            laAUTO := str2array(laRESULT[2,db_fetchncol(laRESULT,'DESP_AUT')],',')
+
+            for ii := 1 to len(laAUTO)
+
+                if lcAUTO = ''
+                   lcAUTO := lcAUTO + "'" + laAUTO[ii] + "'"
+                else
+                   lcAUTO := lcAUTO + ",'" + laAUTO[ii] + "'"
+                endif
+
+            next ii
+
+            lcWHERE:="CD_DESPESA IN (" + lcAUTO + ")"
+
+            if db_select(laFIELDS,'despesa',,{lcWHERE},{'NM_DESPESA'}) == -1
+               error_sys(db_error())
+            endif
+            laRES := db_fetchall()
+
+            for ii := 2 to len(laRes)
+                aadd(laDC,laRES[ii,1])
+                aadd(laDN,laRES[ii,2])
+            next ii
+
+            Wput('VAR_DESP_AUT.option',laDN)
+            Wput('VAR_DESP_AUT.optionvalue',laDC)
+
+         endif
+
+         db2put(laRESULT)
+      endif
+
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+      for ii := 1 to len(laVALIDA)
+          lcVALIDA := alltrim(WGet(laVALIDA[ii,1],'C'))
+          if len(lcVALIDA) = 0
+             walert(laVALIDA[ii,2]+' é um campo obrigatório!')
+             get2Put()
+             llERRO := .T.
+             exit
+          endif
+      next ii
+      if !llERRO
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+
+            if laFIELDS[ii] = 'DESP_AUT'
+               WGet('DESP_AUTORIZADAS','C')
+               aadd(laSAVE_AUX,WGet('DESP_AUTORIZADAS','C'))
+            else
+              aadd(laSAVE_AUX,WGet (laFIELDS[ii]))
+            endif
+
+         next ii
+
+
+         aadd(laSAVE,laSAVE_AUX)
+         if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+            error_sys(db_error())
+         endif
+         wPut('NR_CONTROLE','New')
+      endif
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+      wPut('NR_CONTROLE','New')
+   endif
+   if db_select({'NR_CONTROLE',;
+                 'FL_DESP_ETAPA',;
+                 'VL_DESPESA_RANGE1',;
+                 'VL_DESPESA_RANGE2',;
+                 'LOGINS',;
+                 'DESP_AUT'},;
+                 lcTABLE) = -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 0
+      aadd(laRES[1],'(row)')
+      for ii := 2 to len(laRES)
+         if laRES[ii,db_fetchncol(laRES,'FL_DESP_ETAPA')] == '1'
+            laRES[ii,db_fetchncol(laRES,'FL_DESP_ETAPA')] = 'Revisão'
+         elseif laRES[ii,db_fetchncol(laRES,'FL_DESP_ETAPA')] == '2'
+            laRES[ii,db_fetchncol(laRES,'FL_DESP_ETAPA')] = 'Aprovação'
+         elseif laRES[ii,db_fetchncol(laRES,'FL_DESP_ETAPA')] == '3'
+            laRES[ii,db_fetchncol(laRES,'FL_DESP_ETAPA')] = 'Impostos'
+         endif
+         aadd(laRES[ii],'(row)'+wic_action('wicaction/desp.cfg.etapas.html?ACTION=ALTER'+;
+                                                                         '&NR_CONTROLE='+str(laRES[ii,db_fetchncol(laRES,'NR_CONTROLE')])))
+      next ii
+      WPut('GRID_CFG_ETAPAS',grid_create(laRES))
+   endif
+return
+
+
+
+
+
+
+
+
+
+

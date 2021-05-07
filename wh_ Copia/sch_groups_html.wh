@@ -1,0 +1,79 @@
+/*
+Project      : gr5
+Program      : sch.groups.html
+Function     : sch_groups_html
+Created on   : 24-May-2002   13:34:05
+Descripition : Pesquisa de Grupos de usuários
+*/
+
+   local lcACTION       := '' ,;
+         lcTABLE        := '' ,;
+         lcQUICK_SEARCH := '' ,;
+         lcWSCRIPT      := '' ,;
+         lcNM_FIELD     := '' as string
+   local laRES      := {} ,;
+         laCHECKLST := {} ,;
+         laFIELDLST := {} ,;
+         laLABELLST := {} ,;
+         laWHERE    := {} as array
+   local ii := 0 as int
+
+   lcACTION       := upper(WGet('ACTION','C'))
+   lcQUICK_SEARCH := WGet('QUICK_SEARCH','C')
+   lcNM_FIELD     := WGet('NM_FIELD','C')
+   lcTABLE        := 'acgroup'
+   laFIELDLST     := structtable(WSet('DB_ACTIVE'),lcTABLE,1,'A')
+   laLABELLST     := structtable(WSet('DB_ACTIVE'),lcTABLE,11,'A')
+
+   WPut('TITLE','Localizar Grupos')
+   get2put({'NM_FIELD','QUICK_SEARCH'})
+
+   if empty(lcACTION)
+      lcACTION := 'EXECSEL'
+   endif
+   if lcACTION == 'EXECSEL'
+      if ! empty(lcQUICK_SEARCH)
+         aadd(laWHERE,'WGROUP like'+DLAP+'%'+lcQUICK_SEARCH+'%'+DLAP)
+      endif
+      if db_select(laFIELDLST,lcTABLE,,laWHERE,{'WGID','WGROUP'}) = -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      if len(laRES) > 0
+         aadd(laRES[1],'VAR_NR_ROW')  // Campo para controle
+         aadd(laRES[1],'VAR_WGID')
+         for ii:= 2 to len(laRES)
+            lcITEM := alltrim(str(ii-1))
+            aadd(laRES[ii],'VAR_NR_ROW_'+lcITEM)
+            aadd(laRES[ii],'VAR_WGID_'+lcITEM)
+
+            WPut('VAR_NR_ROW_'+lcITEM,lcITEM)
+            WPut('VAR_WGID_'+lcITEM+'_OPT',laRES[ii,db_fetchncol(laRES,'WGID')])
+         next ii
+         WPut('lstACGROUP',laRES)
+      endif
+   elseif lcACTION = 'EXECSEND'
+      ii     := 1
+      lcITEM := '_'+alltrim(str(ii))
+      do while WGet('VAR_NR_ROW'+lcITEM,'B')
+         if ! empty(alltrim(WGet('VAR_WGID'+lcITEM,'C')))
+            aadd(laCHECKLST,WGet('VAR_WGID'+lcITEM,'C'))
+         endif
+         ii ++
+         lcITEM := '_'+alltrim(str(ii))
+      enddo
+      if len(laCHECKLST) > 0
+         lcWSCRIPT += 'if (typeof(opener.document.mntform.'+lcNM_FIELD+')=="object") {'+CRLF
+         lcWSCRIPT += '   if (opener.document.mntform.'+lcNM_FIELD+'.value.length > 0) {'+CRLF
+         lcWSCRIPT += '      opener.document.mntform.'+lcNM_FIELD+'.value+='+DLAP+','+array2str(laCHECKLST,',')+DLAP+';'+CRLF
+         lcWSCRIPT += '   } else {'
+         lcWSCRIPT += '      opener.document.mntform.'+lcNM_FIELD+'.value='+DLAP+array2str(laCHECKLST,',')+DLAP+';'+CRLF
+         lcWSCRIPT += '   }'
+         lcWSCRIPT += '}'+CRLF
+         WPut('WSCRIPT',lcWSCRIPT)
+         WSet('_USER_INTERFACE','close.wic')
+      else
+         WSet('_USER_INTERFACE','close.wic')
+      endif
+   endif
+return

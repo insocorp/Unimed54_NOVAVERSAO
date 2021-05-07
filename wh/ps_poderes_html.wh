@@ -1,0 +1,109 @@
+/*
+
+Project      : gr5
+Program      : ps.poderes.html
+Function     : ps_poderes_html
+Created on   : 29-Jan-2004   14:09:51
+Descripition : Poderes
+
+*/
+
+   local lcACTION   := '' ,;
+         lcTP_PASTA  := '' ,;
+         lcTABLE    := '' ,;
+         lcFIELDS   := '' ,;
+         lcNR_PASTA := '' as string
+   local laRESULT   := {} ,;
+         laRES      := {} ,;
+         laPUT      := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laWHERE    := {} ,;
+         laFIELDS   := {} ,;
+         laLABELS   := {} ,;
+         laVALIDA   := {} as array
+   local ii := 0 as int
+   local llERRO := .F. as logical
+
+   lcACTION   := upper(alltrim(WGet('ACTION','C')))
+   lcTP_PASTA := WGet('TP_PASTA','C')
+   lcNR_PASTA := WGet('NR_PASTA','C')
+   lcTABLE    := 'pasta_prc_poder'
+   laWHERE    := {'NR_PASTA='+lcNR_PASTA+' and PROCURACAO_PODER='+DLAP+wGet('PROCURACAO_PODER','C')+DLAP}
+   laFIELDS   := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS   := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   laVALIDA   := {'PROCURACAO_PODER'}
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   make_psthead(lcNR_PASTA,lcTP_PASTA) //Cabeçalho
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+   if empty(lcACTION)
+      lcACTION = 'NEW'
+   endif
+
+   wPut('TP_PASTA',lcTP_PASTA)
+
+   // Combo Poder
+   if db_select({'PROCURACAO_PODER'},'procuracao_poder') = -1
+       error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   laPUT := {}
+   aadd(laPUT,{''})
+   for ii := 2 to len(laRES)
+      aadd(laPUT,laRES[ii,1])
+   next ii
+   wPut('PROCURACAO_PODER_OPT',laPUT)
+
+   if lcACTION == 'NEW' .and. gbWAC_CREATE
+      wPut('TITLE','Inclusão de novo Poder')
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,laWHERE) = -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      db2put(laRESULT)
+      wPut('TITLE','Alteração do Poder '+getWPut('OUTORGADO'))
+   elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+      for ii := 1 to len(laVALIDA)
+          if empty(alltrim(WGet(laVALIDA[ii],'C')))
+             wPut('ERROR_MENS',laLABELS[ascan(laFIELDS,laVALIDA[ii])]+' é um campo obrigatório!')
+             get2Put()
+             llERRO := .T.
+             exit
+          endif
+      next ii
+      if ! llERRO
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+         if db_replace(laSAVE,lcTABLE,laWHERE) = -1
+            error_sys(db_error())
+         endif
+         wPut('TITLE','Inclusão de novo Poder')
+      endif
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      if db_delete(lcTABLE,laWHERE[1]) = -1
+         error_sys(db_error())
+      endif
+      wPut('TITLE','Inclusão de novo Poder')
+   endif
+
+   if db_select(laFIELDS,lcTABLE,,{'NR_PASTA='+lcNR_PASTA}) = -1
+      error_sys(db_error())
+   endif
+   wPut('lstPROCURACAO_PODER',db_fetchall())
+   pasta_abas(lcTP_PASTA)
+return
+
+
+
+
+

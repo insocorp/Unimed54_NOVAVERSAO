@@ -1,0 +1,482 @@
+/*
+Project      : gr5
+Program      : pst.interno.html
+Function     : pst_interno_html
+Created on   :
+Descripition : Aba de
+
+*/
+   local lcNR_PASTA := '' ,;
+         lcTP_PASTA := '' ,;
+         lcACTION   := '' ,;
+         lcWHERE    := '' as string
+   local laFIELDS   := {} ,;
+         laFIELD    := {} ,;
+         laSAVE_AUX := {} ,;
+         laRESULT   := {} ,;
+         laSAVE     := {},;
+         laCIP      := {},;
+         laASSUNTO  := {} as array
+
+   local laAUX      := {} as array
+   local ii := 0 as int
+   local pcUSER_INTERFACE := WSet('_USER_INTERFACE') as String
+
+
+   lcNR_PASTA := WGet('NR_PASTA','C')
+   lcTP_PASTA := wdgtp_pasta(lcNR_PASTA)
+   lcACTION   := alltrim(upper(WGet('ACTION','C')))
+   lcWHERE    := 'NR_PASTA='+lcNR_PASTA
+   laFIELDS   := {'AREA_SOLICITADA',;
+                   'AREA_SOLICITANTE',;
+                   'CD_CCUSTO',;
+                   'CD_LEGADO',;
+                   'COMPLEXIDADE',;
+                   'CONSULTA',;
+                   'DT_CADASTRO',;
+                   'DT_CONSULTA',;
+                   'DT_ENCERRAMENTO',;
+                   'DT_PARECER_CONSULTOR_EXT',;
+                   'DT_PREVISAO_RESPOSTA',;
+                   'DT_RESPOSTA',;
+                   'DT_RESPOSTA_CONSULTA',;
+                   'DT_SOLICITACAO',;
+                   'EMENTA_CONSULTA',;
+                   'EMENTA_RESPOSTA',;
+                   'FL_CONSULTA',;
+                   'FL_DOCS',;
+                   'FL_PASTA',;
+                   'FORMA_CONTATO_PERGUNTA',;
+                   'FORMA_CONTATO_RESPOSTA',;
+                   'FUNDAMENTOS_LEGAIS',;
+                   'HR_PARECER_CONSULTOR_EXT',;
+                   'HR_PREVISAO',;
+                   'LOGIN_CADASTRO',;
+                   'NR_APOLICE',;
+                   'NR_CONTRATO',;
+                   'NR_DIAS',;
+                   'NR_DIAS_RESPOSTA',;
+                   'NR_PASTA_ARQUIVO',;
+                   'NR_PASTA_JURISPRUDENCIA',;
+                   'NR_SINISTRO',;
+                   'PALAVRAS_CHAVE',;
+                   'PARECER_CONSULTOR_EXT',;
+                   'PC_RISCO',;
+                   'PRIORIDADE',;
+                   'RESPOSTA',;
+                   'SANSOES',;
+                   'SEGUROPRODUTO',;
+                   'SEGUROPROFIT',;
+                   'SUGEST_PROV_AREA_SOLICITANTE',;
+                   'TP_CONSULTA',;
+                   'TP_PASTA',;
+                   'RESPOSTA_ABRANGENCIA',;
+                   'ASSUNTO',;
+                   'CD_PRODUTO',;
+                   'HR_CADASTRO',;
+                   'DOCUMENTOS_NECESSARIOS',;
+                   'PRIORIDADE_DESCRICAO',;
+                   'ENVIO',;
+                   'CONSULTA_CONSULTOR_EXTERNO',;
+                   'DT_DESEJADA_ATEND',;
+                   'PARECER',;
+                   'PALAVRAS_CHAVE_PESQUISA',;
+                   'DT_APROVACAO',;
+                   'LOGIN_APROVACAO'}
+                   
+
+   wPut('TP_PASTA',lcTP_PASTA)
+   wput('LOGIN_CADASTRO',Wset('LOGIN_ALIAS')) 
+/*   wput('LOGIN_CADASTRO',Wset('WUSER')) */ 
+   wput('DT_CADASTRO',date())   
+   wput('HR_CADASTRO',time())
+   wput('TP_PASTA')
+/*   WPut('ifedit',.T.)
+   WPut('PARECER_CONSULTOR_EXT.class','winputreadonly')
+   Wput('PALAVRAS_CHAVE.readonly',.T.)
+   WPut('PALAVRAS_CHAVE.class','winput')
+   Wput('DT_PARECER_CONSULTOR_EXT.readonly',.F.)
+   WPut('DT_PARECER_CONSULTOR_EXT.class','winputreadonly')
+   Wput('ifreadonly','')
+   WPut('PALAVRAS_CHAVE.class','winput')
+   WPut('HR_PARECER_CONSULTOR_EXT.class','winput')
+   Wput('NR_PASTA_JURISPRUDENCIA.readonly',.T.)
+   WPut('NR_PASTA_JURISPRUDENCIA.class','winput')
+   Wput('ifreadonlyclass','winput')
+   Wput('ifedit',.T.)            
+*/
+   WPut('ifedit',.T.)
+   WPut('PARECER_CONSULTOR_EXT.class','winput')
+   Wput('PALAVRAS_CHAVE.readonly',.T.)
+   WPut('PALAVRAS_CHAVE.class','winput')
+   Wput('DT_PARECER_CONSULTOR_EXT.readonly',.T.)
+   WPut('DT_PARECER_CONSULTOR_EXT.class','winput')
+   Wput('ifreadonly','')
+   WPut('PALAVRAS_CHAVE.class','winput')
+   WPut('HR_PARECER_CONSULTOR_EXT.class','winput')
+   Wput('NR_PASTA_JURISPRUDENCIA.readonly',.T.)
+   WPut('NR_PASTA_JURISPRUDENCIA.class','winput')
+   Wput('ifreadonlyclass','winput')
+   Wput('ifedit',.T.)            
+   
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   make_psthead(lcNR_PASTA,wdgtp_pasta(lcNR_PASTA)) //Cabeçalho
+   WPut('TP_PASTA',lcTP_PASTA)
+   WPut('LOGIN',gcLOGIN)
+
+  // Seleciona a pasta corrente e apresenta as informações
+
+   pasta_abas(lcTP_PASTA)
+   layout_pasta(lcTP_PASTA,'pasta',.F.,'interno')
+   init_reqfield(WSet('_USER_INTERFACE'))
+   MontaCombos(lcTP_PASTA) // Função no final do arquivo
+   if db_select(laFIELDS,'pasta',,{lcWHERE}) = -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      db2Put(laRESULT)
+          
+         // Mostra na tela os cips da aba assim como o nome dos cips 
+         // Alteracao Sonia Perdigao - 12/11/2012 11:50:04
+         if db_select({'CIP','WFIELD'},'pasta_cip',,{'NR_PASTA='+lcNR_PASTA+' and '+;
+                                                     '(WFIELD='+DLAP+'CIP_SOLICITANTE'+DLAP+;
+                                                     ' or WFIELD='+DLAP+'CIP_SUPAREASOLICITANTE'+DLAP+;
+                                                     ' or WFIELD='+DLAP+'CIP_ADVOGADO_INTERNO'+DLAP+;
+                                                     ' or WFIELD='+DLAP+'CIP_ADVOGADO_EXTERNO'+DLAP+;
+                                                     ' or WFIELD='+DLAP+'CIP_ESCRITORIO'+DLAP+;
+                                                     ' or WFIELD='+DLAP+'CIP_ADVOGADO_RESPONSAVEL'+DLAP+')'}) == -1
+//                                                     ' or WFIELD='+DLAP+'CIP_ATENDENTE'+DLAP+;
+//                                                     ' or WFIELD='+DLAP+'CIP_FILIAL'+DLAP+;
+//                                                     ' or WFIELD='+DLAP+'CIP_EMPRESA'+DLAP+;
+//                                                     ' or WFIELD='+DLAP+'CIP_SEGURADO'+DLAP+;
+//                                                     ' or WFIELD='+DLAP+'CIP_ESTIPULANTE'+DLAP+')'}) == -1
+            error_sys(db_error())
+         endif
+         laPUT := db_fetchall()
+         if len(laPUT) > 1
+            for ii := 2 to len(laPUT)
+               if db_select({'CIP as '+laPUT[ii,2],'PFPJ as '+laPUT[ii,2]+'_PFPJ'},'pfpj',,{'CIP='+DLAP+laPUT[ii,1]+DLAP}) == -1
+                  error_sys(db_error())
+               endif
+               db2put(db_fetchall())
+            next ii
+         endif
+         
+         // Mostra o nome do centro de custo na tela
+         
+         if db_select({'NM_CCUSTO'},'centrocusto',,{'CD_CCUSTO='+DLAP + laRESULT[2,ascan(laRESULT[1],'CD_CCUSTO')]+DLAP}) == -1
+            error_sys(db_error())
+         endif
+         laRES := db_fetchall()
+         if len(laRES) > 1
+            Wput('NM_CCUSTO',laRES[2,1])
+         endif
+
+      ENDIF
+
+
+   if lcACTION = 'SAVE' .and. gbWAC_WRITE
+   
+      // Glauber - Customização Unimed
+//      if pcUSER_INTERFACE == 'mnt.pasta.civel_consultivo2.html'
+         llAltera := PodeAlterarPasta(val(lcNR_PASTA))
+         if ! llAltera
+            WAlert('Atenção: Seu login não tem permissão para efetuar alterações nesta pasta.')
+            get2Put()
+            return(.f.)
+         endif
+//      endif
+
+
+      if verif_reqfield(WSet('_USER_INTERFACE'))
+         aadd(laSAVE, laFIELDS)
+         laSAVE_AUX := {}
+         for x := 1 to len(laFIELDS)
+             aadd(laSAVE_AUX,Wget(laFIELDS[x]))
+         next x
+         aadd(laSAVE,laSAVE_AUX)
+         psab_logs(laSAVE,'pasta',lcWHERE, Wget('NR_PASTA','C'),'Consultor Interno')
+         if db_update(laSAVE,'pasta',{'NR_PASTA = ' + Wget('NR_PASTA','C')}) = -1
+            error_sys(db_error())
+         endif
+         
+         //Gravando os CIPs
+         
+         laCIP := {'CIP_SOLICITANTE',;
+                   'CIP_SUPAREASOLICITANTE',;
+                   'CIP_ADVOGADO_INTERNO',;
+                   'CIP_ADVOGADO_EXTERNO',;
+                   'CIP_FILIAL',;
+                   'CIP_ATENDENTE',;
+                   'CIP_EMPRESA',;
+                   'CIP_SEGURADO',;
+                   'CIP_ESTIPULANTE',;
+                   'CIP_ESCRITORIO'}
+            
+                   
+         for ii := 1 to len(laCIP)
+            laSAVE := {{'NR_PASTA','WFIELD','CIP'}}
+            aadd(laSAVE,{val(lcNR_PASTA),laCIP[ii],WGet(laCIP[ii])})
+            lcWHERE := 'NR_PASTA='+lcNR_PASTA+' and WFIELD='+DLAP+laCIP[ii]+DLAP
+            psab_logs(laSAVE,'pasta_cip',lcWHERE,Wget('NR_PASTA','C'),'Consultor Interno')
+            if db_replace(laSAVE,'pasta_cip',{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+         next ii
+         // Glauber 21/12/2012 - Conforme solicitado pela Unimed sempre o advogado interno é o advogado responsável
+        laSAVE := {{'NR_PASTA','WFIELD','CIP'}}
+        aadd(laSAVE,{val(lcNR_PASTA),'CIP_ADVOGADO_RESPONSAVEL',WGet('CIP_ADVOGADO_INTERNO')})
+        lcWHERE := 'NR_PASTA='+lcNR_PASTA+' and WFIELD='+DLAP+'CIP_ADVOGADO_RESPONSAVEL'+DLAP
+        psab_logs(laSAVE,'pasta_cip',lcWHERE,Wget('NR_PASTA','C'),'Consultor Interno')
+        if db_replace(laSAVE,'pasta_cip',{lcWHERE}) == -1
+           error_sys(db_error())
+        endif
+
+
+         get2put()
+     endif
+   ENDIF
+
+return
+
+/*
+* Data.Criação: 
+* Function....: MontaCombos()
+* Objetivo....: Carregar todos os combos na tela.
+* Parâmetros..:
+*    fcTP_PASTA..: Tipo de Pasta
+*    
+*
+* Retorno.....: Nenhum
+*/
+
+
+Static Function MontaCombos(fcTP_PASTA)
+
+   local laRESULT := {},;
+         laPUT    := {},;
+         laDEF    := {},;
+         laDEFV   := {},;
+         laATI    := {},;
+         laATIV   := {},;
+         laINA    := {},;
+         laINAV   := {},;
+         laPUTV   := {},;
+         laFIELD  := {},;
+         laRES    := {} as array
+
+   local ii       := 0 ,;
+         liPOS    := 0 as int
+
+
+   carrega_cbox({{'complexidade','COMPLEXIDADE','Y'}})
+   carrega_cbox({{'envio','ENVIO','Y'}})
+   carrega_cbox({{'parecer','PARECER','Y'}})
+
+// Glauber 03/06/2014 - Conforme solicitado pela Monica o combo prioridade não esta sendo montado, igual ocorre na aba informações principais
+
+   carrega_cbox({{'prioridade','PRIORIDADE','Y','TP_PASTA='+DLAP+fcTP_PASTA+DLAP}})
+//   carrega_cbox({{'prioridade','PRIORIDADE','Y'}})
+   carrega_cbox({{'tipo_consulta','TP_CONSULTA','Y','TP_PASTA='+DLAP+fcTP_PASTA+DLAP}})
+   carrega_cbox({{'situacao_consulta','FL_CONSULTA','Y'}})
+   carrega_cbox({{'ramosrsn','SEGUROPRODUTO','Y'}})
+   carrega_cbox({{'ramosrsn','SEGUROPROFIT','Y'}})
+
+   // Alimenta combo de produto
+
+   laDEF := {}
+   laDEFV:= {}
+
+   laATI := {}
+   laATIV:= {}
+
+   laINA := {}
+   laINAV:= {}
+
+   laPUT := {}
+   laPUTV:= {}
+
+   laFIELD := structtable(WSet("DB_ACTIVE"),'produto',1,'A')
+   liPOS   := ascan(laFIELD,'FL_ATIVO')
+
+   if liPOS<>0
+      laFIELD:={'CD_PRODUTO','NM_PRODUTO','FL_ATIVO'}
+     else
+      laFIELD:={'CD_PRODUTO','NM_PRODUTO'}
+    endif
+
+   if db_select(laFIELD,'produto',,,{'NM_PRODUTO'}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+
+   for jj := 2 to len(laRES)
+       if liPOS<>0
+          if laRES[jj,3] == 'D'
+             aadd(laDEF,laRES[jj,2])
+             aadd(laDEFV,laRES[jj,1])
+
+           elseif laRES[jj,3] == 'I'
+             aadd(laINA,laRES[jj,2])
+             aadd(laINAV,laRES[jj,1])
+
+           else
+             aadd(laATI,laRES[jj,2])
+             aadd(laATIV,laRES[jj,1])
+          endif
+       else
+          aadd(laATI,laRES[jj,2])
+          aadd(laATIV,laRES[jj,1])
+       endif
+   next jj
+
+   if len(laDEF) == 0
+      aadd(laDEF,'') // Adiciona uma linha vazia no inicio do combo, caso seja solicitado
+      aadd(laDEFV,'0')
+   endif
+
+   for jj=1 to len(laDEF)
+       aadd(laPUT,laDEF[jj])
+       aadd(laPUTV,laDEFV[jj])
+   next jj
+
+   for jj=1 to len(laATI)
+       aadd(laPUT,laATI[jj])
+       aadd(laPUTV,laATIV[jj])
+   next jj
+
+   for jj=1 to len(laINA)
+       aadd(laPUT,'INATIVO - '+laINA[jj])
+       aadd(laPUTV,laINAV[jj])
+   next jj
+
+
+   WPut('CD_PRODUTO.option',laPUT)
+   WPut('CD_PRODUTO.optionvalue',laPUTV)
+
+   // Alimenta combo da forma de contato da pergunta
+   // Alimenta combo da forma de contato da resposta
+   laDEF := {}
+   laDEFV:= {}
+
+   laATI := {}
+   laATIV:= {}
+
+   laINA := {}
+   laINAV:= {}
+
+   laPUT := {}
+   laPUTV:= {}
+
+   laFIELD := structtable(WSet("DB_ACTIVE"),'forma_contato',1,'A')
+   liPOS   := ascan(laFIELD,'FL_ATIVO')
+
+   if liPOS<>0
+      laFIELD:={'FORMA_CONTATO','FL_ATIVO'}
+     else
+      laFIELD:={'FORMA_CONTATO'}
+    endif
+
+   if db_select(laFIELD,'forma_contato',,{'TP_PASTA='+DLAP+fcTP_PASTA+DLAP},{'FORMA_CONTATO'}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+
+   for jj := 2 to len(laRES)
+       if liPOS<>0
+          if laRES[jj,2] == 'D'
+             aadd(laDEF,laRES[jj,1])
+             aadd(laDEFV,laRES[jj,1])
+
+           elseif laRES[jj,2] == 'I'
+             aadd(laINA,laRES[jj,1])
+             aadd(laINAV,laRES[jj,1])
+
+           else
+             aadd(laATI,laRES[jj,1])
+             aadd(laATIV,laRES[jj,1])
+          endif
+       else
+          aadd(laATI,laRES[jj,1])
+          aadd(laATIV,laRES[jj,1])
+       endif
+   next jj
+
+   if len(laDEF) == 0
+      aadd(laDEF,'') // Adiciona uma linha vazia no inicio do combo, caso seja solicitado
+      aadd(laDEFV,'0')
+   endif
+
+   for jj=1 to len(laDEF)
+       aadd(laPUT,laDEF[jj])
+       aadd(laPUTV,laDEFV[jj])
+   next jj
+
+   for jj=1 to len(laATI)
+       aadd(laPUT,laATI[jj])
+       aadd(laPUTV,laATIV[jj])
+   next jj
+
+   for jj=1 to len(laINA)
+       aadd(laPUT,'INATIVO - '+laINA[jj])
+       aadd(laPUTV,laINAV[jj])
+   next jj
+
+
+   WPut('FORMA_CONTATO_PERGUNTA.option',laPUT)
+   WPut('FORMA_CONTATO_PERGUNTA.optionvalue',laPUTV)
+
+   WPut('FORMA_CONTATO_RESPOSTA.option',laPUT)
+   WPut('FORMA_CONTATO_RESPOSTA.optionvalue',laPUTV)
+
+
+
+   // Alimenta combo da área solicitada
+   carrega_cbox({{'empresa_area_solicitada','AREA_SOLICITADA','Y','TP_PASTA='+DLAP+fcTP_PASTA+DLAP}})
+
+   // Alimenta combo da área solicitante
+   carrega_cbox({{'empresa_area_solicitante','AREA_SOLICITANTE','Y','TP_PASTA='+DLAP+fcTP_PASTA+DLAP}})
+
+   // Alimenta combo assunto
+   carrega_cbox({{'pasta_tb_assunto','ASSUNTO','Y','TP_PASTA='+DLAP+fcTP_PASTA+DLAP}})
+
+   // Alimenta combo tipo de consulta
+   carrega_cbox({{'situacao_consulta','FL_CONSULTA','Y'}})
+
+
+
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

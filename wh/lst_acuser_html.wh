@@ -1,0 +1,103 @@
+/*
+Project      : gr5
+Program      : lst.acuser.html
+Function     : lst_acuser_html
+Created on   : 04-Jun-2003   13:58:55
+Descripition : Controle de Acesso - Listagem de Usuários
+*/
+
+   local lcWGID  := alltrim(wGet('WGID','C')) as string
+   local laPARAM := {{'WUID',''},;
+                     {'WGID',''},;
+                     {'ACTION'  ,'ALTER'}} as array
+   local laWHERE        := {} ,;
+         laINPUT_HIDDEN := {} ,;
+         laQUICK_SEARCH := {} ,;
+         laJOIN         := {} as array
+
+   laINPUT_HIDDEN := {{'WGID',lcWGID}}
+   laSELECT       := {'acuser.WUID',;
+                      'acuser.LOGIN',;
+                      'acuser.CIP',;
+                      'pfpj.PFPJ',;
+                      'acuser.CIP_EMPRESA',;
+                      'acuser.WGID',;
+                      'acgroup.WGROUP'}
+   laJOIN         := {{2,'acgroup','acgroup.WGID=acuser.WGID'},;
+                      {2,'pfpj','pfpj.CIP=acuser.CIP'}}
+   laBTN_LST      := {{'Perfil'  ,'Perfil' ,'Perfil'  ,wic_action('wicaction_gr5/lst.acgroup.html')},;
+                      {'Novo Usuário'  ,'Novo Usuário' ,'Novo Usuário'  ,wic_action('wicaction_gr5/mnt.acuser.html?ACTION=NEW&WGID='+lcWGID)}}
+
+   if ! empty(lcWGID) .and. lcWGID != '0'
+      aadd(laWHERE,'acuser.WGID='+lcWGID)
+   endif
+
+   // Verifica quais perfis podem ser visualizados de acordo com as regras de Gerenciamento de perfis
+
+   if ! empty(grpman_where('acuser'))
+      aadd(laWHERE,grpman_where('acuser'))
+   endif
+
+   laQUICK_SEARCH := {'acuser.WUID','acuser.LOGIN','pfpj.PFPJ'}
+   laORDERBY      := {'pfpj.PFPJ'}
+
+   xbp('acuser',;                                                          //Tabela alvo
+       laJOIN,;                                                            //Joins
+       laWHERE,;                                                           //Where
+       laORDERBY,;                                                         //Order by
+       ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+       ,;                                                                  //Group by
+       ,;                                                                  //Limit
+       ,;                                                                  //Banco de Dados
+       4,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search, 4-Listagem
+       'gr5',;                                                             //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;                                           //Programa chamador
+       laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+       ,;                                                                  //Parâmetros para os botões das linhas do grid
+       'mnt.acuser.html',;                                                 //Programa que os links/botoes do grid deverao chamar
+       'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+       ,;                                                                  //Retorno java (nil) - usado apenas para Search
+       laQUICK_SEARCH,;                                                    //Campos usados na pesquisa rápida
+       laINPUT_HIDDEN,;                                                    //Campos Ocultos
+       ,;                                                                  //Campos da área de manutenção/entrada de dados
+       laSELECT,;                                                          //Campos exibidos no grid
+       laSELECT,;                                                          //Campos usados no select
+       laBTN_LST)                                                          //Botões a serem criados no form de listagem
+
+   WPut('TITLE','Perfil de Acesso - Usuários')
+return
+
+
+/*
+Static Function grpman_where(pcTABLE)
+
+   local lcRETORNO := '',;
+         lcWHERE   := '' as string
+   local lnXX      := 0  as numeric
+
+
+   lcWHERE := 'WGID = ' + str(Wset('WGID'))
+   if db_select({'WGID_ALLOW'},'acgroup_manage',,{lcWHERE},{'WGID','WGID_ALLOW'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      if ! empty(pcTABLE)
+         lcRETORNO := alltrim(pcTABLE) + '.WGID in ('
+      else
+         lcRETORNO := 'acgroup.WGID in ('
+      endif
+      for lnXX := 2 to len(laRESULT)
+          lcRETORNO += alltrim(str(laRESULT[lnXX,1]))
+          if lnXX < len(laRESULT)
+             lcRETORNO += ','
+          endif
+      next lnXX
+      lcRETORNO += ')'
+   endif
+   return(lcRETORNO)
+
+*/
+
+
+

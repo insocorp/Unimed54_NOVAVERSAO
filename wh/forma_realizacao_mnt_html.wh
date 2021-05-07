@@ -1,0 +1,52 @@
+/*
+
+Project      : gr5
+Program      : forma_realizacao.mnt.html
+Function     : forma_realizacao_mnt_html
+Created on   : 09-May-2006   13:34:34
+Descripition : Cadastro de Formas de realizações
+
+*/
+
+local laPARAM        := {} ,;
+      laINPUT_OBJ    := {} ,;
+      laSELECT       := {} as array
+
+laPARAM := {{'FORMA_REALIZACAO' ,''     ,'*'},;
+            {'ACTION'         ,'ALTER',   },;
+            {'FL_ATIVO','',},;
+            {'ACTION'       ,'ALTER',   }}
+
+laINPUT_OBJ := {{'FORMA_REALIZACAO'   ,0,   ,'Y' , } ,;
+                { , , , , },;
+                {'FL_ATIVO',1,,'Y','{"S","I","D"}' }}
+
+laSELECT := {'FORMA_REALIZACAO','FL_ATIVO'}
+
+if upper(alltrim(WGet('ACTIONBP'))) == 'ALTER'
+   mkgedico('delegacia',WGet('FORMA_REALIZACAO','C'))
+endif
+
+xbp('forma_realizacao',;                                                //Tabela alvo
+    ,;                                                                  //Joins
+    ,;                                                                  //Where
+    {'FORMA_REALIZACAO'},;                                              //Order by
+    ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+    ,;                                                                  //Group by
+    ,;                                                                  //Limit
+    ,;                                                                  //Banco de Dados
+    2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+    'gr5',;                                                             //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                                           //Programa chamador
+    laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+    ,;                                                                  //Parâmetros para os botões das linhas do grid
+    'forma_realizacao.mnt.html',;                                       //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+    ,;                                                                  //Retorno java (nil) - usado apenas para Search
+    ,;                                                                  //Campos usados na pesquisa rápida
+    ,;                                                                  //Campos Ocultos
+    laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+    laSELECT,;                                                          //Campos exibidos no grid
+    laSELECT)                                                           //Campos usados no select
+return
+

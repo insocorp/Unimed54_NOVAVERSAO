@@ -1,0 +1,324 @@
+/*
+
+Project      : gr5
+Program      : psab.relacionamento.html
+Function     : psab_relacionamento_html
+Created on   : 29-Mar-2005   14:49:23
+Descripition : Aba Relacionamento entre Pastas
+
+*/
+
+   local lcACTION                 := upper(WGet('ACTION','C')) ,;
+         lcTP_PASTA               := WGet('TP_PASTA','C')      ,;
+         lcNR_PASTA               := WGet('NR_PASTA','C')      ,;
+         lcNR_PST_REL             := WGet('NR_PASTA_RELACIONADA','C'),;
+         lcTP_RELACIONAMENTO      := alltrim(WGet('TP_RELACIONAMENTO','C')),;
+         lcProgram                := 'psab_relacionamento_html' ,;
+         WTP_PASTA_RELACIONAMENTO := '' ,;
+         lcRelac                  := '' ,;
+         lcLits_master            := '' ,;
+         lcLits_Posicao_parte     := '' ,;
+         lcTABLE                  := 'pasta_relacionamento' as string
+
+   local ii := 0 as int
+ 
+   local laSAVE      := {} ,;
+         laSAVE_AUX  := {} ,;
+         laRES_PAI   := {} ,;
+         laRES_FILHO := {} ,;
+         laWHERE     := {} as array
+   
+   local llReturn := .t. as logical
+      
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   get2put({'NR_PASTA','TP_PASTA'})
+
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+
+   WPut('TP_RELACIONAMENTO.option',{'Principal','Derivada'})
+   WPut('TP_RELACIONAMENTO.optionvalue',{'P','F'})
+
+   carrega_cbox({{'pasta_tipo_relacionamento','TP_PASTA_RELACIONAMENTO','Y'}})
+
+   WPut('ifNEW',.t.)
+   WPut('ifALTER',.f.)
+   // Glauber 06/01/2011
+   AbasPerfil(lcTP_PASTA,{'NR_PASTA','TP_PASTA','LITS_POSICAO_PARTE','TP_RELACIONAMENTO','TP_PASTA_RELACIONAMENTO','NR_PASTA_FILHO',;
+                          'NR_PASTA_RELACIONADA'})
+   
+   if db_select({'pasta_config.LITS_POSICAO_PARTE','pasta_config.LITS_POSICAO_MASTER'},'pasta_config',,{'TP_PASTA='+DLAP+lcTP_PASTA+DLAP}) == -1 // pasta_config verifica LITS    
+      error_sys(db_error())
+      return(llRETURN)
+   endif
+   laPASTACONFIG:= db_fetchrow()
+   
+   if len(laPASTACONFIG) > 0 
+      lcLITS_POSICAO_PARTE := laPASTACONFIG[1]
+      lcLITS_MASTER := laPASTACONFIG[2]
+   else
+      lcLITS_POSICAO_PARTE := ''
+      lcLITS_MASTER := ''
+   endif   
+   
+  
+//------------  Verificando relacionamento    -----------------------------------------
+
+   lcRelac:=verifica_relacionamento(lcNR_PASTA,lcTP_PASTA)
+
+//------------ Verificando se Aba pode ser alterada  ------------------------
+   if lcRelac = 'F' .or. lcRelac = 'P'
+      llReturn:=Ver_ABA(lcTP_PASTA, lcProgram)
+   endif         
+   
+   if lcRelac = 'F'  .and. llReturn .and. lcACTION == ''
+      walert('Somente Para Consulta - Pasta Pertence a Litsconsorte')
+   endif
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      if lcRelac = 'F'  .and. llReturn
+         walert('Somente Para Consulta - Pasta Pertence a Litsconsorte')
+      else
+         if val(lcNR_PST_REL) > 0
+            aadd(laSAVE,{'NR_PASTA',;
+                         'NR_PASTA_FILHO',;
+                         'TP_PASTA_RELACIONAMENTO'})
+     
+            if WGet('TP_RELACIONAMENTO','C') == 'P'             //Caso a pasta relacionada seja PAI
+               aadd(laSAVE_AUX,WGet('NR_PASTA_RELACIONADA'))      //Pasta Relacionada se torna PAI
+               aadd(laSAVE_AUX,lcNR_PASTA)                        //Pasta Ativa se torna a filha
+               aadd(laSAVE_AUX,WGet('TP_PASTA_RELACIONAMENTO'))   //Tipo da Relação
+               laWHERE := {'NR_PASTA='+lcNR_PST_REL+' and NR_PASTA_FILHO='+lcNR_PASTA}
+
+            else                                                //Caso a pasta relacionada seja FILHA
+               aadd(laSAVE_AUX,lcNR_PASTA)                        //Pasta Ativa se torna PAI
+               aadd(laSAVE_AUX,WGet('NR_PASTA_RELACIONADA'))      //Pasta Relacionada se torna FILHA
+               aadd(laSAVE_AUX,WGet('TP_PASTA_RELACIONAMENTO'))   //Tipo da Relação
+               laWHERE := {'NR_PASTA='+lcNR_PASTA+' and NR_PASTA_FILHO='+lcNR_PST_REL}
+
+            endif
+
+            WTP_PASTA_RELACIONAMENTO:=ler_pasta(lcTable, laWhere)
+            if WTP_PASTA_RELACIONAMENTO <> '' 
+               if WTP_PASTA_RELACIONAMENTO = '' .and. WGet('TP_PASTA_RELACIONAMENTO') = lcLITS_MASTER
+                  walert('Relacionamento Pertence a Litsconsorte')
+               elseif WTP_PASTA_RELACIONAMENTO =  lcLITS_MASTER
+                  walert('Somente Para Consulta - Pasta Pertence a Litsconsorte')
+               elseif WGet('TP_PASTA_RELACIONAMENTO') = lcLITS_MASTER
+                  walert('Relacionamento Pertence a Litsconsorte')
+               elseif WTP_PASTA_RELACIONAMENTO = '' .and. WGet('TP_PASTA_RELACIONAMENTO') = lcLITS_POSICAO_PARTE
+                  walert('Relacionamento Pertence a Litsconsorte')
+               elseif WTP_PASTA_RELACIONAMENTO =  lcLITS_POSICAO_PARTE
+                  walert('Somente Para Consulta - Pasta Pertence a Litsconsorte')
+               elseif WGet('TP_PASTA_RELACIONAMENTO') = lcLITS_POSICAO_PARTE     
+                  walert('Relacionamento Pertence a Litsconsorte')
+               else
+                  aadd(laSAVE,laSAVE_AUX)
+                  if db_replace(laSAVE,lcTABLE,laWHERE) == -1
+                     error_sys(db_error())
+                  endif
+               endif
+            else
+               if (lcLITS_POSICAO_PARTE == '' .OR. lcLITS_MASTER == '') .AND. WTP_PASTA_RELACIONAMENTO == ''
+                  aadd(laSAVE,laSAVE_AUX)
+                  if db_replace(laSAVE,lcTABLE,laWHERE) == -1
+                     error_sys(db_error())
+                  endif
+               else               
+                  if WGet('TP_PASTA_RELACIONAMENTO') == lcLITS_POSICAO_PARTE     
+                     walert('Relacionamento Pertence a Litsconsorte')
+                  else
+                     if WGet('TP_PASTA_RELACIONAMENTO') == lcLITS_MASTER
+                        walert('Relacionamento Pertence a Litsconsorte')
+                     else
+                        aadd(laSAVE,laSAVE_AUX)
+                        if db_replace(laSAVE,lcTABLE,laWHERE) == -1
+                           error_sys(db_error())
+                        endif
+                     endif   
+                  endif   
+               endif            
+            endif
+         else
+            walert('Pasta Relacionada é um campo obrigatório!')
+            get2put()
+         endif
+      endif   
+
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+      if lcLITS_POSICAO_PARTE <> '' .or. lcLITS_MASTER <> ''      
+         if db_select({'NR_PASTA'},lcTABLE,,{'NR_PASTA_FILHO='+lcNR_PASTA}) == -1
+            error_sys(db_error())
+         endif
+         laRES := db_fetchrow()
+         if len(laRES) > 0
+            if lcTP_RELACIONAMENTO == 'P'
+               laWHERE := {'NR_PASTA='+lcNR_PST_REL+' and NR_PASTA_FILHO='+lcNR_PASTA}
+               WPut('TP_RELACIONAMENTO_LABEL','Principal')
+            else
+               if db_select({'NR_PASTA'},lcTABLE,,{'NR_PASTA='+lcNR_PASTA+' and NR_PASTA_FILHO='+lcNR_PST_REL}) == -1
+                 error_sys(db_error())
+               endif
+               laRES_FILHO := db_fetchrow()
+               if len(laRES_FILHO) > 0
+                  laWHERE := {'NR_PASTA='+lcNR_PASTA+' and NR_PASTA_FILHO='+lcNR_PST_REL}
+               else     
+                  laWHERE := {'NR_PASTA='+str(laRES[1])+' and NR_PASTA_FILHO='+lcNR_PST_REL}
+               endif
+               WPut('TP_RELACIONAMENTO_LABEL','Derivada')
+            endif   
+         else
+            laWHERE := {'NR_PASTA='+lcNR_PASTA+' and NR_PASTA_FILHO='+lcNR_PST_REL}
+            WPut('TP_RELACIONAMENTO_LABEL','Derivada')
+         endif   
+      else
+         if lcTP_RELACIONAMENTO == 'P'
+            laWHERE := {'NR_PASTA='+lcNR_PST_REL+' and NR_PASTA_FILHO='+lcNR_PASTA}
+            WPut('TP_RELACIONAMENTO_LABEL','Pai')
+         else
+            laWHERE := {'NR_PASTA='+lcNR_PASTA+' and NR_PASTA_FILHO='+lcNR_PST_REL}
+            WPut('TP_RELACIONAMENTO_LABEL','Filho')
+         endif
+      endif
+      if db_select({'NR_PASTA','NR_PASTA_FILHO','TP_PASTA_RELACIONAMENTO'},lcTABLE,,laWHERE) == -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      if lcLITS_POSICAO_PARTE <> '' .or. lcLITS_MASTER <> ''
+         if len(laRES) > 1
+            if lcTP_RELACIONAMENTO == 'P'
+               WPut('NR_PASTA_RELACIONADA',laRES[2,1])
+               if laRes[2,3] = lcLits_Master .or. laRes[2,3] = lcLits_Posicao_parte
+                  WPut('TP_PASTA_RELACIONAMENTO',lcLits_Posicao_parte)
+               else   
+                  WPut('TP_PASTA_RELACIONAMENTO',laRES[2,3])
+               endif   
+            else
+               WPut('NR_PASTA_RELACIONADA',laRES[2,2])
+               if laRes[2,3] = lcLits_Master .or. laRes[2,3] = lcLits_Posicao_parte
+                  WPut('TP_PASTA_RELACIONAMENTO',lcLits_Posicao_parte)
+               else  
+                  WPut('TP_PASTA_RELACIONAMENTO',laRES[2,3])
+               endif  
+            endif
+            WPut('TP_RELACIONAMENTO',lcTP_RELACIONAMENTO)
+         endif
+      else
+         if len(laRES) > 1
+            if lcTP_RELACIONAMENTO == 'P'
+               WPut('NR_PASTA_RELACIONADA',laRES[2,1])
+               WPut('TP_PASTA_RELACIONAMENTO',laRES[2,3])
+            else
+               WPut('NR_PASTA_RELACIONADA',laRES[2,2])
+               WPut('TP_PASTA_RELACIONAMENTO',laRES[2,3])
+            endif
+            WPut('TP_RELACIONAMENTO',lcTP_RELACIONAMENTO)
+         endif
+      endif   
+      WPut('ifNEW',.f.)
+      WPut('ifALTER',.t.)
+      
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      if lcTP_RELACIONAMENTO == 'P'
+         lcWHERE := 'NR_PASTA='+lcNR_PST_REL+' and NR_PASTA_FILHO='+lcNR_PASTA
+      else
+         if db_select({'NR_PASTA'},lcTABLE,,{'NR_PASTA_FILHO='+lcNR_PASTA}) == -1
+            error_sys(db_error())
+         endif
+         laRES := db_fetchrow()
+         if len(laRES) > 0 
+            lcWHERE := 'NR_PASTA='+str(laRES[1])+' and NR_PASTA_FILHO='+lcNR_PST_REL
+         else
+            lcWHERE='NR_PASTA_FILHO ='+lcNR_PST_REL
+         endif
+      endif
+      WTP_PASTA_RELACIONAMENTO:=ler_pasta(lcTable, {lcWhere})
+      if (lcLITS_POSICAO_PARTE == '' .OR. lcLITS_MASTER == '') .AND. WTP_PASTA_RELACIONAMENTO == ''
+         psab_logdel(lcNR_PASTA,'NR_PASTA_RELACIONADA',lcNR_PST_REL,,'Relacionamento entre Pastas')
+         if db_delete(lcTABLE,lcWHERE) == -1
+            error_sys(db_error())
+         endif
+      else   
+         if WTP_PASTA_RELACIONAMENTO = '' .and. WGet('TP_PASTA_RELACIONAMENTO') = lcLITS_MASTER 
+            walert('Relacionamento Pertence a Litsconsorte')
+         elseif WTP_PASTA_RELACIONAMENTO = '' .and. WGet('TP_PASTA_RELACIONAMENTO') = lcLITS_POSICAO_PARTE 
+            walert('Relacionamento Pertence a Litsconsorte')
+         elseif (WTP_PASTA_RELACIONAMENTO = lcLITS_POSICAO_PARTE .or. WTP_PASTA_RELACIONAMENTO = lcLITS_MASTER)  
+            walert('Somente Para Consulta - Pasta Pertence a Litsconsorte')  
+         else
+            psab_logdel(lcNR_PASTA,'NR_PASTA_RELACIONADA',lcNR_PST_REL,,'Relacionamento entre Pastas')
+            if db_delete(lcTABLE,lcWHERE) == -1
+               error_sys(db_error())
+            endif
+         endif   
+      endif
+   endif
+   if db_select({'NR_PASTA as NR_PASTA_RELACIONADA','TP_PASTA_RELACIONAMENTO'},lcTABLE,,{'NR_PASTA_FILHO='+lcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+   
+ if lcLITS_POSICAO_PARTE <> '' .or. lcLITS_MASTER <> ''
+   laRES_PAI := db_fetchall()
+   if len(laRES_PAI) > 1
+      WPut('lstPASTA_PAI',laRES_PAI)
+   else   
+      WPut('lstPASTA_PAI','')
+   endif
+
+   if db_select({'NR_PASTA_FILHO as NR_PASTA_RELACIONADA','TP_PASTA_RELACIONAMENTO'},lcTABLE,,{'NR_PASTA= '+lcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+   laRES_FILHO:= db_fetchall()
+      if len(laRES_FILHO) > 1
+         WPut('lstPASTA_FILHO',laRES_FILHO)
+      else
+         if len(laRES_PAI) > 1
+            if db_select({'NR_PASTA_FILHO as NR_PASTA_RELACIONADA','TP_PASTA_RELACIONAMENTO'},lcTABLE,,{'NR_PASTA='+str(laRES_PAI[2,1])+' and NR_PASTA_FILHO <> '+lcNR_PASTA}) == -1
+               error_sys(db_error())
+            endif
+            laRES_FILHO := db_fetchall()
+         endif   
+
+         if len(laRES_FILHO) > 1
+            WPut('lstPASTA_FILHO',laRES_FILHO)
+         else   
+            WPut('lstPASTA_FILHO','')
+         endif
+       endif
+   else    
+      laRES := db_fetchall()
+      WPut('lstPASTA_PAI',laRES)
+      if db_select({'NR_PASTA_FILHO as NR_PASTA_RELACIONADA','TP_PASTA_RELACIONAMENTO'},lcTABLE,,{'NR_PASTA='+lcNR_PASTA}) == -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      WPut('lstPASTA_FILHO',laRES)
+   endif
+   pasta_abas(lcTP_PASTA)
+return
+
+/*
+ Função: Ler_pasta
+ Seleciona a pasta para verificar se é um Lits
+*/
+
+static function ler_pasta(fcTABLE, faWhere)
+ 
+ local lcTP_PASTA := '' as string
+ 
+      if db_select({'NR_PASTA','NR_PASTA_FILHO','TP_PASTA_RELACIONAMENTO'},fcTABLE,,faWHERE) == -1
+            error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      if Len(laRes) > 1
+         lcTP_PASTA:= laRes[2,3]
+      endif
+return(lcTP_PASTA)
+
+
+
+
+
+
+
+
+

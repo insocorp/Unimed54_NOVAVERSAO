@@ -1,0 +1,444 @@
+/*
+
+Project      : gr5
+Program      : pfpj.lst.html
+Function     : pfpj_lst_html
+Created on   : 22-Jan-2004   14:29:22
+Descripition : Listagem de Pessoas Fisicas / Juridicas
+
+*/
+
+   local lcACTION        := '' ,;
+         lcTABLE         := '' ,;
+         lcPFPJ_NATUREZA := '' ,;
+         lcQUICKSEARCH   := '' ,;
+         lcFL_APROVADO   := '' ,;
+         lcFILTER_FIELD  := '' ,;
+         lcFILTER_VALUE  := '' ,;
+         lcFLT_FIELD2    := '' ,;
+         lcFLT_VALUE2    := '' ,;
+         lcORDER_FIELD   := '' ,;
+         lcFL_EXECSEL    := '' ,;
+         lcAUX           := '' as string
+   local laFIELDLST := {} ,;
+         laLABELLST := {} ,;
+         laFIELDS   := {} ,;
+         laLABELS   := {} ,;
+         laWHERE    := {} ,;
+         laORDERBY  := {} ,;
+         laLIMIT    := {} ,;
+         laCOUNT    := {} ,;
+         laPAGES    := {} as array
+   local ii           := 0 ,;
+         lnMAX_PAGES  := 0 ,;
+         lnROWS_PAGE  := 0 ,;
+         lnNR_PAGES   := 0 ,;
+         lnPAGE_INI   := 0 ,;
+         lnPAGE_FIN   := 0 ,;
+         lnGOTO_PAGE  := 0 ,;
+         lnLIMIT1     := 0 ,;
+         lnLIMIT2     := 0 as int
+
+   lcACTION     := upper(WGet('ACTION','C'))
+   lcFL_EXECSEL := alltrim(WGet('FL_EXECSEL','C'))
+   lcTABLE      := 'pfpj'
+   laFIELDLST   := structtable(WSet('DB_ACTIVE'),lcTABLE,1,'A')
+   laLABELLST   := structtable(WSet('DB_ACTIVE'),lcTABLE,11,'A')
+   laFIELDS     := {'pfpj.CIP',;
+                    'pfpj.PFPJ',;
+                    'pfpj.NM_FANTASIA',;
+                    'pfpj.PFPJ_NATUREZA',;
+                    'pfpj.CNPJ_CPF',;
+                    'pfpj.OAB',;
+                    'pfpj.UF'}
+
+   for ii := 1 to len(laFIELDS)
+      aadd(laLABELS,lblfscreen(substr(laFIELDS[ii],at('.',laFIELDS[ii])+1)))
+   next ii
+
+   WPut('PFPJ_NATUREZA.option',{'','Fisica','Juridica'})
+   WPut('FL_APROVADO.option',{'','Sim','Não'})
+   WPut('FL_APROVADO.optionvalue',{'','S','N'})
+   WPut('FILTER_FIELD.option',laLABELLST)
+   WPut('FILTER_FIELD_2.option',laLABELLST)
+   WPut('ORDER_FIELD.option',laLABELLST)
+
+   /* Carrega Pesquisa do perfil do usuário (profilewenv) */
+   //if (lcACTION <> 'EXECSEL' .and. lcACTION <> 'EXECPFPJ_NATUREZA') .and. readWEnv(WSet('_USER_INTERFACE'))
+   if (lcACTION <> 'EXECSEL') .and. readWEnv(WSet('_USER_INTERFACE'))
+      lcFILTER_FIELD  := getWPut('FILTER_FIELD','C')
+      lcFLT_FIELD2    := getWPut('FILTER_FIELD_2','C')
+      lcFILTER_VALUE  := getWPut('FILTER_CONTENT','C')
+      lcFLT_VALUE2    := getWPut('FILTER_CONTENT_2','C')
+      lcORDER_FIELD   := getWPut('ORDER_FIELD','C')
+      lcPFPJ_NATUREZA := getWPut('PFPJ_NATUREZA','C')
+      lcQUICKSEARCH   := getWPut('QUICKSEARCH','C')
+      lcFL_APROVADO   := getWPut('FL_APROVADO','C')
+
+      if lcFL_EXECSEL == 'Y'
+         lcACTION := 'EXECSEL'
+      endif
+
+   else
+      lcFILTER_FIELD  := WGet('FILTER_FIELD','C')
+      lcFLT_FIELD2    := WGet('FILTER_FIELD_2','C')
+      lcFILTER_VALUE  := WGet('FILTER_CONTENT','C')
+      lcFLT_VALUE2    := WGet('FILTER_CONTENT_2','C')
+      lcORDER_FIELD   := WGet('ORDER_FIELD','C')
+      lcPFPJ_NATUREZA := WGet('PFPJ_NATUREZA','C')
+      lcQUICKSEARCH   := WGet('QUICKSEARCH','C')
+      lcFL_APROVADO   := WGet('FL_APROVADO','C')
+
+   endif
+
+   lnGOTO_PAGE    := WGet('GOTO_PAGE','N')
+   if lnGOTO_PAGE = 0
+      lnGOTO_PAGE := 1
+   endif
+
+   if lcACTION == 'EXECSEL'
+      if ! empty(WGet('PESSOA','C')) //Se vindo da quicksearch_pessoa
+         if ! empty(alltrim(WSet('QUICKSEARCH_PESSOA')))
+            aadd(laWHERE,strtran(WSet('QUICKSEARCH_PESSOA'),'[PESSOA]',WGet('PESSOA','C')))
+         else
+            aadd(laWHERE,'pfpj.CIP like '+DLAP+'%'+WGet('PESSOA','C')+'%'+DLAP+' or '+;
+                         'pfpj.PFPJ_CHAR like '+DLAP+'%'+lower(lat2char(WGet('PESSOA','C')))+'%'+DLAP)
+         endif
+      else
+         /* Natureza */
+         if ! empty(lcPFPJ_NATUREZA)
+            aadd(laWHERE,'pfpj.PFPJ_NATUREZA='+DLAP+lcPFPJ_NATUREZA+DLAP)
+         endif
+
+         /* Pesquisa rápida */
+         if ! empty(lcQUICKSEARCH)
+
+            /* Tabela Principal */
+            lcAUX := '(pfpj.CIP        like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.PFPJ_CHAR   like '+DLAP+'%'+lower(lat2char(lcQUICKSEARCH))+'%'+DLAP+' or '
+            lcAUX += 'pfpj.NM_FANTASIA like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.CD_LEGADO   like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.CNPJ_CPF    like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.PFPJ_SIGLA  like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+') or '
+
+            /* Socios */
+            lcAUX += 'pfpj.NR_CONTROLE in ('
+            lcAUX += 'select distinct pfpj_socios.NR_CONTROLE from pfpj_socios '
+            lcAUX += 'left join pfpj on pfpj.CIP=pfpj_socios.CIP_SOCIO_ACIONISTA where '
+            lcAUX += 'pfpj.CIP         like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.PFPJ_CHAR   like '+DLAP+'%'+lower(lat2char(lcQUICKSEARCH))+'%'+DLAP+' or '
+            lcAUX += 'pfpj.NM_FANTASIA like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.CD_LEGADO   like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.CNPJ_CPF    like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.PFPJ_SIGLA  like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+') or '
+
+            /* Administrador */
+            lcAUX += 'pfpj.NR_CONTROLE in ('
+            lcAUX += 'select distinct pfpj_administracao.NR_CONTROLE from pfpj_administracao '
+            lcAUX += 'left join pfpj on pfpj.CIP=pfpj_administracao.CIP_ADMINISTRADOR where '
+            lcAUX += 'pfpj.CIP         like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.PFPJ_CHAR   like '+DLAP+'%'+lower(lat2char(lcQUICKSEARCH))+'%'+DLAP+' or '
+            lcAUX += 'pfpj.NM_FANTASIA like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.CD_LEGADO   like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.CNPJ_CPF    like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.PFPJ_SIGLA  like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+') or '
+
+            /* Gerente */
+            lcAUX += 'pfpj.NR_CONTROLE in ('
+            lcAUX += 'select distinct pfpj_conta.NR_CONTROLE from pfpj_conta '
+            lcAUX += 'left join pfpj on pfpj.CIP=pfpj_conta.CIP_GERENTE where '
+            lcAUX += 'pfpj.CIP         like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.PFPJ_CHAR   like '+DLAP+'%'+lower(lat2char(lcQUICKSEARCH))+'%'+DLAP+' or '
+            lcAUX += 'pfpj.NM_FANTASIA like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.CD_LEGADO   like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.CNPJ_CPF    like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.PFPJ_SIGLA  like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+') or '
+
+            /* Procurador */
+            lcAUX += 'pfpj.NR_CONTROLE in ('
+            lcAUX += 'select distinct pfpj_conta.NR_CONTROLE from pfpj_conta '
+            lcAUX += 'left join pfpj on pfpj.CIP=pfpj_conta.CIP_PROCURADOR where '
+            lcAUX += 'pfpj.CIP         like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.PFPJ_CHAR   like '+DLAP+'%'+lower(lat2char(lcQUICKSEARCH))+'%'+DLAP+' or '
+            lcAUX += 'pfpj.NM_FANTASIA like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.CD_LEGADO   like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.CNPJ_CPF    like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.PFPJ_SIGLA  like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+') or '
+
+            /* Co-Titular */
+            lcAUX += 'pfpj.NR_CONTROLE in ('
+            lcAUX += 'select distinct pfpj_conta.NR_CONTROLE from pfpj_conta '
+            lcAUX += 'left join pfpj on pfpj.CIP=pfpj_conta.CIP_COTITULAR where '
+            lcAUX += 'pfpj.CIP         like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.PFPJ_CHAR   like '+DLAP+'%'+lower(lat2char(lcQUICKSEARCH))+'%'+DLAP+' or '
+            lcAUX += 'pfpj.NM_FANTASIA like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.CD_LEGADO   like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.CNPJ_CPF    like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.PFPJ_SIGLA  like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+') or '
+
+            /* Contato */
+            lcAUX += 'pfpj.NR_CONTROLE in ('
+            lcAUX += 'select distinct pfpj_contato.NR_CONTROLE from pfpj_contato '
+            lcAUX += 'left join pfpj on pfpj.CIP=pfpj_contato.CIP_CONTATO where '
+            lcAUX += 'pfpj.CIP         like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.PFPJ_CHAR   like '+DLAP+'%'+lower(lat2char(lcQUICKSEARCH))+'%'+DLAP+' or '
+            lcAUX += 'pfpj.NM_FANTASIA like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.CD_LEGADO   like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.CNPJ_CPF    like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.PFPJ_SIGLA  like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+') or '
+
+            /* Gerente Contato */
+            lcAUX += 'pfpj.NR_CONTROLE in ('
+            lcAUX += 'select distinct pfpj_contato.NR_CONTROLE from pfpj_contato '
+            lcAUX += 'left join pfpj on pfpj.CIP=pfpj_contato.CIP_RESPONSAVEL_CONTATO where '
+            lcAUX += 'pfpj.CIP         like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.PFPJ_CHAR   like '+DLAP+'%'+lower(lat2char(lcQUICKSEARCH))+'%'+DLAP+' or '
+            lcAUX += 'pfpj.NM_FANTASIA like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.CD_LEGADO   like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.CNPJ_CPF    like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+' or '
+            lcAUX += 'pfpj.PFPJ_SIGLA  like '+DLAP+'%'+lcQUICKSEARCH+'%'+DLAP+')'
+
+            aadd(laWHERE,lcAUX)
+         endif
+
+         /* Aprovado */
+         if ! empty(lcFL_APROVADO)
+            aadd(laWHERE,'pfpj.FL_APROVADO ='+DLAP+lcFL_APROVADO+DLAP)
+         endif
+
+         if ! empty(lcFILTER_VALUE)
+            if ascan(laLABELLST, lcFILTER_FIELD) > 0
+               aadd(laWHERE,mkwherelst({{laFIELDLST[ascan(laLABELLST, lcFILTER_FIELD)],lcFILTER_VALUE}}))
+               // Adiciona campo da Pesquisa na Grid, caso ele ainda não exista no array laFIELDS
+               if ascan(laFIELDS,laFIELDLST[ascan(laLABELLST, lcFILTER_FIELD)]) = 0
+                  aadd(laFIELDS, laFIELDLST[ascan(laLABELLST, lcFILTER_FIELD)])
+                  aadd(laLABELS, laLABELLST[ascan(laLABELLST, lcFILTER_FIELD)])
+               endif
+            endif
+         endif
+         if ! empty(lcFLT_VALUE2)
+            if ascan(laLABELLST, lcFLT_FIELD2) > 0
+               //aadd(laWHERE,laFIELDLST[ascan(laLABELLST, lcFLT_FIELD2)]+' like '+DLAP+'%'+lcFLT_VALUE2+'%'+DLAP)
+               aadd(laWHERE,mkwherelst({{laFIELDLST[ascan(laLABELLST, lcFLT_FIELD2)],lcFLT_VALUE2}}))
+               // Adiciona campo da Pesquisa na GRid, caso ele ainda não exista no array laFIELDS
+               if ascan(laFIELDS,laFIELDLST[ascan(laLABELLST, lcFLT_FIELD2)]) = 0
+                  aadd(laFIELDS, laFIELDLST[ascan(laLABELLST, lcFLT_FIELD2)])
+                  aadd(laLABELS, laLABELLST[ascan(laLABELLST, lcFLT_FIELD2)])
+               endif
+            endif
+         endif
+      endif
+
+      if ascan(laLABELS, lcORDER_FIELD) > 0 // Insere o Campo no array somente se ele foi definido
+         aadd(laORDERBY,laFIELDS[ascan(laLABELS, lcORDER_FIELD)])
+      endif
+
+      //Contagem de registros e paginação
+      if len(laWHERE) == 0
+         if db_select({'count(*)'},lcTABLE) == -1
+            error_sys(db_error())
+         endif
+      else
+         if db_select({'count(distinct pfpj.NR_CONTROLE)'},lcTABLE,,laWHERE) == -1
+            error_sys(db_error())
+         endif
+      endif
+
+      laCOUNT := db_fetchrow()
+      if laCOUNT[1] > 0 //.and. valtype(laLIMIT) == 'U'
+
+         lnMAX_PAGES := iif(val(WSet('MAX_PAGES'))==0,10,val(WSet('MAX_PAGES')))
+         lnROWS_PAGE := iif(val(WSet('ROWS_PAGE'))==0,10,val(WSet('ROWS_PAGE')))
+         if lnROWS_PAGE > laCOUNT[1]
+            lnROWS_PAGE := laCOUNT[1]
+         endif
+         lnNR_PAGES := laCOUNT[1]/lnROWS_PAGE
+
+         if (laCOUNT[1] % lnROWS_PAGE) > 0
+            lnNR_PAGES += 1
+         endif
+
+         lnMAX_PAGES := iif(lnNR_PAGES < lnMAX_PAGES,lnNR_PAGES,lnMAX_PAGES)
+         if lnGOTO_PAGE == 1
+            lnPAGE_INI := 1                              // Página inicial
+            lnPAGE_FIN := lnMAX_PAGES                    // Página final
+         else
+            if alltrim(WGet('MORE')) == 'Y'              // Visualizar as próximas 10 páginas, se possível
+               lnPAGE_INI := lnGOTO_PAGE
+               lnPAGE_FIN := lnMAX_PAGES+(lnGOTO_PAGE-1)
+               if lnPAGE_FIN > lnNR_PAGES
+                  lnPAGE_FIN := lnNR_PAGES
+               endif
+            elseif alltrim(WGet('LESS')) == 'Y'          // Visualizar as 10 páginas anteriores, se possível
+               lnPAGE_INI := lnGOTO_PAGE-lnMAX_PAGES+1
+               lnPAGE_FIN := lnGOTO_PAGE
+            else
+               lnPAGE_INI := WGet('FIRST_PAGE','N')
+               lnPAGE_FIN := WGet('LAST_PAGE','N')
+            endif
+         endif
+
+         aadd(laPAGES,{'PROGRAM_CALL','NR_PAGE'})
+         for ii := lnPAGE_INI to lnPAGE_FIN
+             lcPUT := wic_action('wicaction/pfpj.lst.html?ACTION=EXECSEL&GOTO_PAGE='+alltrim(str(ii)))
+             lcPUT += '&FIRST_PAGE='+alltrim(str(lnPAGE_INI))+'&LAST_PAGE='+alltrim(str(lnPAGE_FIN))
+             if ii == lnPAGE_INI
+                lcPUT += '&LESS=Y'
+             endif
+             if ii == lnPAGE_FIN .and. lnPAGE_FIN < lnNR_PAGES
+                lcPUT += '&MORE=Y'
+             endif
+
+             //Adiciona à paginação, os filtros digitados e os campos selecionados para busca e ordernação
+             if !empty(lcFILTER_FIELD)
+                lcPUT += '&FILTER_FIELD='+lcFILTER_FIELD
+             endif
+             if !empty(lcFLT_FIELD2)
+                lcPUT += '&FILTER_FIELD_2='+lcFLT_FIELD2
+             endif
+             if !empty(lcFILTER_VALUE)
+                lcPUT += '&FILTER_CONTENT='+lcFILTER_VALUE
+             endif
+             if !empty(lcFLT_VALUE2)
+                lcPUT += '&FILTER_CONTENT_2='+lcFLT_VALUE2
+             endif
+             if !empty(lcORDER_FIELD)
+                lcPUT += '&ORDER_FIELD='+lcORDER_FIELD
+             endif
+             if !empty(lcPFPJ_NATUREZA)
+                lcPUT += '&PFPJ_NATUREZA='+lcPFPJ_NATUREZA
+             endif
+             if !empty(lcQUICKSEARCH)
+                lcPUT += '&QUICKSEARCH='+lcQUICKSEARCH
+             endif
+             if !empty(lcFL_APROVADO)
+                lcPUT += '&FL_APROVADO='+lcFL_APROVADO
+             endif
+
+             aadd(laPAGES,{lcPUT,alltrim(str(ii))})
+         next ii
+         WPut('ifRESULT',.T.)
+         WPut('PAGES',laPAGES)
+
+         lnLIMIT1 := iif(lnGOTO_PAGE == 1,0,((lnGOTO_PAGE*lnROWS_PAGE)-1)-(lnROWS_PAGE-1))
+         lnLIMIT2 := lnROWS_PAGE
+         laLIMIT  := {lnLIMIT1,lnLIMIT2}
+
+      elseif laCOUNT[1] == 0// .and. valtype(laLIMIT) == 'U'
+         WPut('ifEMPTY_RESULTSET',.T.)
+      endif
+
+      asize(laFIELDS,len(laFIELDS)+1)
+      ains(laFIELDS,1)      //Inclue Numero de Controle
+      laFIELDS[1] := 'distinct pfpj.NR_CONTROLE'
+
+      if db_select(laFIELDS,lcTABLE,,laWHERE,laORDERBY,,,laLIMIT) = -1
+         error_sys(db_error())
+      endif
+
+      laRES := db_fetchall()
+      if len(laRES) == 2 .and. WGet('GOTO_PAGE','N') == 0
+         //Carrega automaticamente
+         if empty(WGet('PESSOA','C'))
+            if lcFL_EXECSEL <> 'Y'
+               saveWenv(WSet('_USER_INTERFACE'),;
+                        {'FILTER_FIELD',;
+                         'FILTER_FIELD_2',;
+                         'FILTER_CONTENT',;
+                         'FILTER_CONTENT_2',;
+                         'ORDER_FIELD',;
+                         'PFPJ_NATUREZA',;
+                         'QUICKSEARCH',;
+                         'FL_APROVADO'})
+            endif
+         endif
+
+         WSet('_USER_INTERFACE','pfpj.mnt.html')
+         pfpj_mnt_html(str(laRES[2, db_fetchncol(laRES,'NR_CONTROLE')]),'ALTER')
+         return (.f.)
+      endif
+
+      if len(laRES) > 1
+         // Exibe resumo da quantidade de registros.
+
+         lcPUT := alltrim(str(lnLIMIT1+1))+'-'
+         if ((len(laRES)-1) < (lnLIMIT2-lnLIMIT1))
+            lcPUT += alltrim(str(len(laRES)-1))
+         elseif lnGOTO_PAGE == lnNR_PAGES
+            lcPUT += alltrim(str(laCOUNT[1]))
+         else
+            lcPUT += alltrim(str(lnLIMIT1+lnROWS_PAGE))
+         endif
+         lcPUT += ' de '+alltrim(str(laCOUNT[1]))
+         if laCOUNT[1] > 1
+            lcPUT := ' Resultados '+lcPUT+' registros'
+         else
+            lcPUT := ' Resultado '+lcPUT+' registro'
+         endif
+         WPut('RESUME_RESULTSET',lcPUT)
+
+         aadd(laRES[1],'(row)')
+         for ii := 2 to len(laRES)
+            aadd(laRES[ii],'(row)'+wic_action('wicaction_gr5/pfpj.mnt.html'+;
+                                              '?PFPJ_NATUREZA='+laRES[ii, db_fetchncol(laRES,'PFPJ_NATUREZA')]+;
+                                              '&NR_CONTROLE='+str(laRES[ii, db_fetchncol(laRES,'NR_CONTROLE')])+;
+                                              '&ACTION=ALTER'))
+
+         next ii
+
+         /* Exclue Coluna Numero de Controle (NR_CONTROLE) */
+         for ii := 1 to len(laRES)
+            adel(laRES[ii],1)
+            asize(laRES[ii],len(laRES[ii])-1)
+         next ii
+
+         WPut('PFPJ_GRID',grid_create(laRES)) // Gera a Grid Dinâmica.
+      endif
+      if lcFL_EXECSEL <> 'Y'
+         saveWenv(WSet('_USER_INTERFACE'),;
+                  {'FILTER_FIELD',;
+                   'FILTER_FIELD_2',;
+                   'FILTER_CONTENT',;
+                   'FILTER_CONTENT_2',;
+                   'ORDER_FIELD',;
+                   'PFPJ_NATUREZA',;
+                   'QUICKSEARCH',;
+                   'FL_APROVADO'})
+      endif
+   endif
+   WPut('FILTER_FIELD.option',laLABELLST)
+   WPut('FILTER_FIELD_2.option',laLABELLST)
+   WPut('ORDER_FIELD.option',laLABELS)
+   WPut('TITLE','Pesquisa de Pessoas')
+
+   WPut('FILTER_FIELD',lcFILTER_FIELD)
+   WPut('FILTER_FIELD_2',lcFLT_FIELD2)
+   WPut('FILTER_CONTENT',lcFILTER_VALUE)
+   WPut('FILTER_CONTENT_2',lcFLT_VALUE2)
+   WPut('ORDER_FIELD',lcORDER_FIELD)
+   WPut('PFPJ_NATUREZA',lcPFPJ_NATUREZA)
+   WPut('QUICKSEARCH',lcQUICKSEARCH)
+   WPut('FL_APROVADO',lcFL_APROVADO)
+
+   /*
+   if lcACTION == 'EXECPFPJ_NATUREZA'
+      WPut('FILTER_FIELD','')
+      WPut('FILTER_FIELD_2','')
+      WPut('FILTER_CONTENT','')
+      WPut('FILTER_CONTENT_2','')
+      WPut('DOCUMENTO','')
+      WPut('PESSOAS','')
+      WPut('FL_PASTA','')
+      WPut('ORDER_FIELD','')
+      WPut('QUICKSEARCH','')
+      WPut('FL_APROVADO','')
+
+   endif
+   */
+return
+
+
+
+
+
+

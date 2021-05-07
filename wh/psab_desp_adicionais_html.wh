@@ -1,0 +1,104 @@
+/*
+
+Project      : gr5
+Program      : psab.desp.adicionais.html
+Function     : psab_desp_adicionais_html
+Created on   : 13-Jul-2006   15:29:19
+Descripition : Despesas Adicionais
+
+*/
+
+   local lcACTION   	:= upper(WGet('ACTION','U')),;
+         lcNR_CONTROLE := WGet('NR_CONTROLE','C'),;
+         lcNR_PASTA  := wGet('NR_PASTA','C'),;
+         lcTP_PASTA  := wGet('TP_PASTA','C'),;
+         lcTABLE    	:= '',;
+         lcWHERE    := '' as string
+   local laFIELDS   := {},;
+         laRESULT   := {},;
+         laJOIN     := {},;
+         laSAVE     := {},;
+         laSAVE_AUX := {} as array
+   local ii := 0 as int
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   Wput('NR_CONTROLE','New')
+
+   get2Put({'NR_PASTA','TP_PASTA'})
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   pasta_abas(lcTP_PASTA)
+   init_reqfield(WSet('_USER_INTERFACE'))
+
+   lcTABLE  := 'pasta_despesas_adicionais'
+   laFIELDS := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   lcWHERE  := 'NR_PASTA='+lcNR_PASTA + ' and NR_CONTROLE='+lcNR_CONTROLE
+   laJOIN   := {{2,'centrocusto','pasta_despesas_adicionais.CD_CCUSTO=centrocusto.CD_CCUSTO'}}
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+   if lcACTION == 'NEW'.and. gbWAC_CREATE
+      WPut('NR_CONTROLE','New')
+   endif
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      if verif_reqfield(WSet('_USER_INTERFACE'))
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+
+         psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_CONTROLE,'Despesas Adicionais') //Gravar log de alterações da pasta
+
+         if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+            error_sys(db_error())
+         endif
+         pasta_abas(lcTP_PASTA)
+      endif
+
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select({'pasta_despesas_adicionais.NR_PASTA',;
+                    'pasta_despesas_adicionais.NR_CONTROLE',;
+                    'pasta_despesas_adicionais.VL_PAGO',;
+                    'pasta_despesas_adicionais.CD_CCUSTO',;
+                    'centrocusto.NM_CCUSTO'},lcTABLE,laJOIN,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      db2Put(db_fetchall())
+
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+      pasta_abas(lcTP_PASTA)
+   endif
+
+   if db_select({'pasta_despesas_adicionais.NR_CONTROLE',;
+                 'pasta_despesas_adicionais.VL_PAGO',;
+                 'pasta_despesas_adicionais.CD_CCUSTO',;
+                 'centrocusto.NM_CCUSTO'},lcTABLE,laJOIN,{'pasta_despesas_adicionais.NR_PASTA='+lcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+
+   laRESULT := db_fetchall()
+
+   if len(laRESULT) > 1
+      aadd(laRESULT[1],'(row)')
+      for ii := 2 to len(laRESULT)
+         aadd(laRESULT[ii],'(row)'+wic_action('wicaction/psab.desp.adicionais.html'+;
+                                              '?ACTION=ALTER'+;
+                                              '&NR_PASTA='+lcNR_PASTA+;
+                                              '&TP_PASTA='+lcTP_PASTA+;
+                                              '&NR_CONTROLE='+str(laRESULT[ii,1])))
+      next ii
+      WPut('GRID_DESPESAS',grid_create(laRESULT))
+
+   endif
+return
+
+
+
+
+
+
+
+

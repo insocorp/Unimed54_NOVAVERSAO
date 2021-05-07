@@ -1,0 +1,352 @@
+/*
+
+Project      : gr5
+Program      : mnt.aprova.con.html
+Function     : mnt_aprova_con_html
+Created on   : 05/12/2014 17:45
+Descripition : Aprovação de Contrato
+
+*/
+
+local lcACTION      := '' ,;
+      lcTABLE       := '' ,;
+      lcWHERE       := '' ,;
+      lcANDA        := '' ,;
+      lcQUERY       := '' as string
+
+
+local laRES        := {} as array
+
+WPut('TITLE','Aprovação Contrato')
+
+lcNR_PASTA:= wget('NR_PASTA','C')
+lcACTION  := upper(Wget('ACTION'))
+
+init_reqfield(WSet('_USER_INTERFACE'))
+
+if lcACTION == 'SAVE' .and. gbWAC_CREATE
+   laRESULT     :={}
+   laLINHA_ATUAL:={}
+   laAUX        :={}
+   laTMP        :={}
+
+   aadd(laTMP,str2array(WGet('APROVAR','C'),','))
+
+   db_begin() //Iniciando Transação
+
+   laSAVE  := {'NR_PASTA',;
+              'DT_ANDAMENTO',;
+              'ANDAMENTO',;
+              'FL_ANDAMENTO_CANCELADO',;
+              'NR_PASTA_RECURSO',;
+              'DT_CADASTRO',;
+              'LOGIN_RESP',;
+              'NR_AUTOPROC',;
+              'TP_ANDAMENTO',;
+              'FL_ANDAMENTO_EXTERNO',;
+              'NR_ANDAMENTO_RELACAO',;
+              'NR_ANDAMENTO_VINCULADO',;
+              'FL_CRITICO',;
+              'HR_CADASTRO'}
+
+   aadd(laLINHA_ATUAL,laSAVE)
+
+   lcANDA := strtran(laTMP[1,3],"'","")
+
+   laSAVE  := {laTMP[1,1],;
+              date(),;
+              lcANDA,;
+              'N',;
+               0,;
+              date(),;
+              gcLOGIN,;
+              0,;
+              laTMP[1,4],;
+              'N',;
+              0,;
+              0,;
+              'N',;
+              time()}
+
+   aadd(laLINHA_ATUAL,laSAVE)
+
+   if db_insert(laLINHA_ATUAL,'pasta_andamento') == -1
+       db_rollback()
+       error_sys(db_error())
+   endif
+
+
+   laSAVE := {'FL_APROVADO','DT_APROVACAO','LOGIN_APROVACAO'}
+
+   aadd(laAUX,laSAVE)
+
+   if val(laTMP[1,2])==1  //ID 1 do tp_andamento indica aprovação
+      laSAVE := {'S',date(),WSet('LOGIN')}
+     else
+      laSAVE := {'N',date(),WSet('LOGIN')}
+   endif
+
+   aadd(laAUX,laSAVE)
+
+   lcWHERE:= 'NR_PASTA='+laTMP[1,1]
+   if psab_logs(laAUX,'pasta',lcWHERE,laTMP[1,1],'Aprovação Diretor') == .f.
+      db_rollback()
+   endif
+
+   lcWHERE:= 'NR_PASTA='+laTMP[1,1]
+   if db_update(laAUX,'pasta',{lcWHERE}) == -1
+      db_rollback()
+      error_sys(db_error())
+   endif
+
+   if val(laTMP[1,2])!=1  //ID 1 do tp_andamento indica aprovação
+      laLINHA_ATUAL:={}
+
+      laSAVE := {'ID_MARGEM'}
+      aadd(laLINHA_ATUAL,laSAVE)
+
+      laSAVE := {2}
+      aadd(laLINHA_ATUAL,laSAVE)
+
+
+      lcWHERE:= 'NR_PASTA='+laTMP[1,1]
+      if db_update(laLINHA_ATUAL,'sla_analitico',{lcWHERE}) == -1
+         db_rollback()
+         error_sys(db_error())
+      endif
+
+      // Glauber 22/12/2014 - Quando for rejeitado, atualizar também a tabela pasta_alocada
+      
+      if db_update(laLINHA_ATUAL,'pasta_alocada',{lcWHERE}) == -1
+         db_rollback()
+         error_sys(db_error())
+      endif
+
+
+
+   endif
+
+   db_commit()     //Efetivando alterações no Banco de Dados
+endif
+
+
+con_pend()
+
+
+
+WPut('lcACTION','')
+
+return(nil)
+********************************************
+static function con_pend()
+********************************************
+local lcQUERY    := '',;
+      lcCIPLOGIN := '' as string
+
+local laRESULT   := {},;
+      laRES_EXP  := {},;
+      laRES_EXP2 := {} as array
+
+local ii         := 0,;
+      liLIMITE   := 0,;
+      liDISP     := 0 as int
+
+local lcWHERE    := '' as string
+
+
+if db_select({'CIP'},'acuser',,{'LOGIN = '+DLAP+gcLOGIN+DLAP}) == -1
+   error_sys(db_error())
+endif
+laRES_EXP := db_fetchrow()
+
+lcCIPLOGIN:=laRES_EXP[1]
+
+if db_select({'QTDE'},'diretoria_aprovacao',,{'CIP_DIRETORIA = '+lcCIPLOGIN}) == -1
+   error_sys(db_error())
+endif
+laRES_EXP := db_fetchrow()
+if len(laRES_EXP)>0
+   liLIMITE:=laRES_EXP[1]
+endif
+
+lcWHERE :='FL_PASTA = '+DLAP+'Ativa'+DLAP
+lcWHERE +=' and FL_APROVADO = '+DLAP+'S'+DLAP
+lcWHERE +=' and TP_PASTA in (select TP_PASTA from pasta_config where LAYOUT_PASTA="Contrato3")'
+lcWHERE +=' and NR_PASTA in (select NR_PASTA from pasta_cip where WFIELD="CIP_DIRETORIA" and CIP='+lcCIPLOGIN+')'
+
+if db_select({'count(*)'},'pasta',,{lcWHERE}) == -1
+   error_sys(db_error())
+endif
+laRES_EXP := db_fetchrow()
+
+liDISP:=liLIMITE - laRES_EXP[1]
+
+WPut('NR_LIM',str(liLIMITE))
+WPut('NR_ABR',laRES_EXP[1])
+WPut('NR_DISP',str(liDISP))
+
+lcQUERY := 'SELECT '
+lcQUERY += 'pasta.NR_PASTA,'
+lcQUERY += 'pasta_pfpj_empresa.CIP as CIP_EMPRESA,'
+lcQUERY += 'pasta_pfpj_empresa.PFPJ as EMPRESA,'
+lcQUERY += 'sla_analitico.ID_PLATAFORMA,'
+lcQUERY += 'pasta_pfpj_contratante.CIP as CIP_CONTRATANTE,'
+lcQUERY += 'pasta_pfpj_contratante.PFPJ as CONTRATANTE,'
+lcQUERY += 'pasta_pfpj_contratado.CIP as CIP_CONTRATADO,'
+lcQUERY += 'pasta_pfpj_contratado.PFPJ as CONTRATADO,'
+lcQUERY += 'plataforma.DESC_PLATAFORMA,'
+lcQUERY += 'contrato_label.TP_CONTRATO_LABEL,'
+
+lcQUERY += 'pasta_pfpj_filial.CIP as CIP_FILIAL,'
+lcQUERY += 'pasta_pfpj_filial.PFPJ as FILIAL,'
+lcQUERY += 'pasta_pfpj_solicitante.CIP as CIP_SOLICITANTE,'
+lcQUERY += 'pasta_pfpj_solicitante.PFPJ as SOLICITANTE,'
+lcQUERY += 'pasta.DT_SOLICITACAO,'
+lcQUERY += 'pasta_pfpj_gestor_interno.CIP as CIP_GESTOR_INTERNO,'
+lcQUERY += 'pasta_pfpj_gestor_interno.PFPJ as GESTOR_INTERNO,'
+lcQUERY += 'pasta.VL_CONTRATO,'
+lcQUERY += 'sla_analitico.ID_MARGEM,'
+lcQUERY += 'margem.FL_APROVACAO'
+
+
+lcQUERY += ' FROM pasta'
+lcQUERY += ' left join pasta_pfpj_empresa on pasta_pfpj_empresa.NR_PASTA=pasta.NR_PASTA'
+lcQUERY += ' left join pasta_pfpj_solicitante on pasta_pfpj_solicitante.NR_PASTA=pasta.NR_PASTA'
+lcQUERY += ' left join pasta_pfpj_gestor_interno on pasta_pfpj_gestor_interno.NR_PASTA=pasta.NR_PASTA'
+lcQUERY += ' left join pasta_pfpj_contratante on pasta_pfpj_contratante.NR_PASTA=pasta.NR_PASTA'
+lcQUERY += ' left join pasta_pfpj_contratado on pasta_pfpj_contratado.NR_PASTA=pasta.NR_PASTA'
+lcQUERY += ' left join pasta_pfpj_filial on pasta_pfpj_filial.NR_PASTA=pasta.NR_PASTA'
+
+lcQUERY += ' left join sla_analitico on sla_analitico.NR_PASTA=pasta.NR_PASTA'
+
+lcQUERY += ' left join margem on margem.ID_MARGEM=sla_analitico.ID_MARGEM and margem.TP_PASTA=pasta.TP_PASTA'
+
+lcQUERY += ' left join contrato_label on contrato_label.ID_PLATAFORMA=sla_analitico.ID_PLATAFORMA and  contrato_label.ID_CONTRATO=sla_analitico.ID_CONTRATO'
+
+lcQUERY += ' left join plataforma on plataforma.ID_PLATAFORMA=sla_analitico.ID_PLATAFORMA and plataforma.TP_PASTA=pasta.TP_PASTA'
+
+lcQUERY += ' where pasta.TP_PASTA in (select tp_pasta from pasta_config where layout_pasta="Contrato3")'
+lcQUERY += ' and pasta.FL_PASTA='+DLAP+'Ativa'+DLAP
+
+lcQUERY += ' and (pasta.FL_APROVADO = "" OR pasta.FL_APROVADO is null)'
+lcQUERY += ' and pasta.NR_PASTA in (select NR_PASTA from pasta_cip where WFIELD="CIP_DIRETORIA" and CIP='+lcCIPLOGIN+')'
+lcQUERY += ' and margem.FL_APROVACAO="S"'
+
+lcQUERY += ' order by pasta.NR_PASTA'
+
+if db_query(lcQUERY) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchall()
+
+if len(laRESULT)==1
+   walert('Não encontrei lançamento pendente !')
+endif
+
+if len(laRESULT)>1
+
+   aadd(laRESULT[1],'VAR_NR_PASTA')
+   aadd(laRESULT[1],'VAR_EMPRESA')
+   aadd(laRESULT[1],'VAR_CONTRATANTE')
+   aadd(laRESULT[1],'VAR_CONTRATADO')
+   aadd(laRESULT[1],'VAR_DESC_PLATAFORMA')
+   aadd(laRESULT[1],'VAR_TP_CONTRATO_LABEL')
+
+   aadd(laRESULT[1],'VAR_FILIAL')
+   aadd(laRESULT[1],'VAR_SOLICITANTE')
+   aadd(laRESULT[1],'VAR_DT_SOLICITACAO')
+   aadd(laRESULT[1],'VAR_GESTOR_INTERNO')
+   aadd(laRESULT[1],'VAR_VL_CONTRATO')
+
+   aadd(laRESULT[1],'VAR_TP_ANDAMENTO')
+   aadd(laRESULT[1],'VAR_AUX_ANDAMENTO')
+   aadd(laRESULT[1],'VAR_ANDAMENTO')
+
+   aadd(laRESULT[1],'VAR_BT_SAL')
+   aadd(laRESULT[1],'VAR_BT_CAN')
+
+
+   for ii := 2 to len(laRESULT)
+
+       lcNR_ROW := alltrim(str(ii-1))
+       aadd(laRESULT[ii],'VAR_NR_PASTA'+lcNR_ROW)
+       aadd(laRESULT[ii],'VAR_EMPRESA'+lcNR_ROW)
+       aadd(laRESULT[ii],'VAR_CONTRATANTE'+lcNR_ROW)
+       aadd(laRESULT[ii],'VAR_CONTRATADO'+lcNR_ROW)
+       aadd(laRESULT[ii],'VAR_DESC_PLATAFORMA'+lcNR_ROW)
+       aadd(laRESULT[ii],'VAR_TP_CONTRATO_LABEL'+lcNR_ROW)
+
+       aadd(laRESULT[ii],'VAR_FILIAL'+lcNR_ROW)
+       aadd(laRESULT[ii],'VAR_SOLICITANTE'+lcNR_ROW)
+       aadd(laRESULT[ii],'VAR_DT_SOLICITACAO'+lcNR_ROW)
+       aadd(laRESULT[ii],'VAR_GESTOR_INTERNO'+lcNR_ROW)
+       aadd(laRESULT[ii],'VAR_VL_CONTRATO'+lcNR_ROW)
+
+       aadd(laRESULT[ii],'VAR_TP_ANDAMENTO'+lcNR_ROW)
+       aadd(laRESULT[ii],'VAR_AUX_ANDAMENTO'+lcNR_ROW)
+       aadd(laRESULT[ii],'VAR_ANDAMENTO'+lcNR_ROW)
+
+
+       aadd(laRESULT[ii],'VAR_BT_SAL'+lcNR_ROW)
+       aadd(laRESULT[ii],'VAR_BT_CAN'+lcNR_ROW)
+
+
+       WPut('VAR_NR_PASTA'+lcNR_ROW,  laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')])
+       WPut('VAR_EMPRESA'+lcNR_ROW,  laRESULT[ii,db_fetchncol(laRESULT,'EMPRESA')])
+       WPut('VAR_CONTRATANTE'+lcNR_ROW,  laRESULT[ii,db_fetchncol(laRESULT,'CONTRATANTE')])
+       WPut('VAR_CONTRATADO'+lcNR_ROW,  laRESULT[ii,db_fetchncol(laRESULT,'CONTRATADO')])
+       WPut('VAR_DESC_PLATAFORMA'+lcNR_ROW,  laRESULT[ii,db_fetchncol(laRESULT,'DESC_PLATAFORMA')])
+       WPut('VAR_TP_CONTRATO_LABEL'+lcNR_ROW,  laRESULT[ii,db_fetchncol(laRESULT,'TP_CONTRATO_LABEL')])
+
+       WPut('VAR_FILIAL'+lcNR_ROW,  laRESULT[ii,db_fetchncol(laRESULT,'FILIAL')])
+       WPut('VAR_SOLICITANTE'+lcNR_ROW,  laRESULT[ii,db_fetchncol(laRESULT,'SOLICITANTE')])
+       WPut('VAR_DT_SOLICITACAO'+lcNR_ROW,  laRESULT[ii,db_fetchncol(laRESULT,'DT_SOLICITACAO')])
+       WPut('VAR_GESTOR_INTERNO'+lcNR_ROW,  laRESULT[ii,db_fetchncol(laRESULT,'GESTOR_INTERNO')])
+       WPut('VAR_VL_CONTRATO'+lcNR_ROW,  wpictrans('VL_CONTRATO',laRESULT[ii,db_fetchncol(laRESULT,'VL_CONTRATO')]))
+
+
+       if db_select({'TP_AND_APROV','TP_AND_REJ','AND_APROV','AND_REJ'},'disponibilidade_juridico') == -1
+          error_sys(db_error())
+       endif
+       laRES_EXP := db_fetchrow()
+
+       if len(laRES_EXP) > 1
+
+          if liDISP=0
+             WPut('VAR_TP_ANDAMENTO'+lcNR_ROW+'.option',{'',laRES_EXP[2]})
+             WPut('VAR_TP_ANDAMENTO'+lcNR_ROW+'.optionvalue',{'','2'})
+
+             WPut('VAR_AUX_ANDAMENTO'+lcNR_ROW+'.option',{'',laRES_EXP[4]})
+             WPut('VAR_AUX_ANDAMENTO'+lcNR_ROW+'.optionvalue',{'','2'})
+          else
+             WPut('VAR_TP_ANDAMENTO'+lcNR_ROW+'.option',{'',laRES_EXP[1],laRES_EXP[2]})
+             WPut('VAR_TP_ANDAMENTO'+lcNR_ROW+'.optionvalue',{'','1','2'})
+
+             WPut('VAR_AUX_ANDAMENTO'+lcNR_ROW+'.option',{'',laRES_EXP[3],laRES_EXP[4]})
+             WPut('VAR_AUX_ANDAMENTO'+lcNR_ROW+'.optionvalue',{'','1','2'})
+          endif
+
+       endif
+
+   next ii
+
+   WPut('lstAPROVAR',laRESULT)
+
+
+endif
+   
+return(nil)
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,182 @@
+
+
+//
+// Glauber - 10/2017
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Classe...........: I4proSinJudCob
+*
+* Objetivo.........: Classe que espelha uma cobertura de um sinistro judicial.
+*
+* Atributos........:
+*
+*    EXPORT IdProdutoCobertura
+*    EXPORT NmCobertura
+*    EXPORT NrGrupoRamo
+*    EXPORT NrRamo
+*    EXPORT VlAviso
+*    EXPORT VlIs
+*    EXPORT VlReserva
+*    EXPORT VlPagamento
+*    EXPORT NmObs
+*    EXPORT NmLinhaDigitavel
+*    EXPORT DtCancelamento    
+*    EXPORT IdTpMotivoCancelamento
+*    EXPORT MotivoCancelamento
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD toString()
+*
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS SinJudCobI4p
+
+    // Atributos publico
+
+    EXPORT IdProdutoCobertura
+    EXPORT NmCobertura
+    EXPORT NrGrupoRamo
+    EXPORT NrRamo
+    EXPORT VlAviso
+    EXPORT VlIs
+    EXPORT VlReserva
+    EXPORT VlPagamento
+    EXPORT NmObs
+    EXPORT NmLinhaDigitavel
+    EXPORT DtCancelamento    
+    EXPORT IdTpMotivoCancelamento
+    EXPORT MotivoCancelamento
+
+
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()                          CLASS SinJudCobI4p
+    PROTOTYPE METHOD Destroy()                       CLASS SinJudCobI4p
+    PROTOTYPE METHOD toString()                      CLASS SinJudCobI4p
+
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS SinJudCobI4p
+
+    self:IdProdutoCobertura     := 0
+    self:NmCobertura            := ''
+    self:NrGrupoRamo            := ''
+    self:NrRamo                 := ''
+    self:VlAviso                := 0.00
+    self:VlIs                   := 0.00
+    self:VlReserva              := 0.00
+    self:VlPagamento            := 0.00
+    self:NmObs                  := ''
+    self:NmLinhaDigitavel       := ''
+    self:DtCancelamento         := ''
+    self:IdTpMotivoCancelamento := ''
+    self:MotivoCancelamento     := ''
+    
+
+return(self)
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS SinJudCobI4p
+
+    self:IdProdutoCobertura     := nil
+    self:NmCobertura            := nil
+    self:NrGrupoRamo            := nil
+    self:NrRamo                 := nil
+    self:VlAviso                := nil
+    self:VlIs                   := nil
+    self:VlReserva              := nil
+    self:VlPagamento            := nil
+    self:NmObs                  := nil
+    self:NmLinhaDigitavel       := nil
+    self:DtCancelamento         := nil
+    self:IdTpMotivoCancelamento := nil
+    self:MotivoCancelamento     := nil
+
+
+return(nil)
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: toString()
+* Objetivo..: Retornar uma String com a representação do Objeto.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             String
+*
+*/
+
+METHOD toString() CLASS SinJudCobI4p
+
+return    'SinJudCobI4p [IdProdutoCobertura=' +  Transform(self:IdProdutoCobertura) +;
+          ', NmCobertura=' + Transform(self:NmCobertura) +;
+          ', NrGrupoRamo=' + Transform(self:NrGrupoRamo) +;
+          ', NrRamo=' + Transform(self:NrRamo) +;
+          ', VlAviso=' + Transform(self:VlAviso) +;
+          ', VlIs=' + Transform(self:VlIs) +;
+          ', VlReserva=' + Transform(self:VlReserva) +;
+          ', VlPagamento=' + Transform(self:VlPagamento) +;
+          ', NmObs=' + Transform(self:NmObs) +;
+          ', NmLinhaDigitavel=' + Transform(self:NmLinhaDigitavel) +;
+          ', DtCancelamento=' + Transform(self:DtCancelamento) +;
+          ', IdTpMotivoCancelamento=' + Transform(self:IdTpMotivoCancelamento) +; 
+          ', MotivoCancelamento=' + Transform(self:MotivoCancelamento) +;
+          ']'
+
+    

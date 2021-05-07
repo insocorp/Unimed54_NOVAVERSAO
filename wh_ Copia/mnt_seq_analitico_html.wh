@@ -1,0 +1,123 @@
+/*
+
+Project      : gr5
+Program      : mnt.seq.analitico.html
+Function     : mnt_seq_analitico_html
+Created on   : 31/03/2016 14:55:54
+Descripition : Seq Interfaces Analitico (Processos Batch)
+
+       Autor : Sonia
+       Demonstra analitico das interfaces processadas
+*/
+
+
+   local lcACTION   := '' ,;
+         lcTABLE    := 'seq_interfaces_analitico' ,;
+         lcProgram  := 'mnt_seq_analitico_html' ,;
+         lcWHERE    := '' ,;
+         lcWHERE1    := '' as string
+
+   local laRESULT   := {} ,;
+         laFIELDS   := {} ,;
+         laWHERE    := {} ,;
+         laWHERE1   := {} ,;
+         laORDER_BY := {'NR_CONTROLE'} as array
+
+   local lcDT_INICIO := '' ,;
+         lcDT_TERMINO := '' as string
+
+   local ii := 0 as int
+    
+   lcACTION := upper(WGet('ACTION','C'))
+ 
+   laFIELDS  := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   lcINICIO  := (WGet('DT_INICIO','C'))
+   lcTERMINO := (WGet('DT_TERMINO','C'))
+   lcPROGRAM := (WGet('PROGRAM','C'))
+   carrega_cbox({{'seq_interfaces','PROGRAM','Y'}})
+  
+   lcWHERE  := 'NR_CONTROLE = ' + str(WGet('NR_CONTROLE','N')) 
+   
+   if lcPROGRAM <> ''
+       lcWHERE1 := 'PROGRAM = '+DLAP+(WGET('PROGRAM','C'))+DLAP + 'AND DT_INICIO >= '+DLAP+SUBSTR(lcINICIO,7,4)+'-'+SUBSTR(lcINICIO,4,2)+'-'+SUBSTR(lcINICIO,1,2)+DLAP+' AND DT_TERMINO <= '+DLAP+SUBSTR(lcTERMINO,7,4)+'-'+SUBSTR(lcTERMINO,4,2)+'-'+SUBSTR(lcTERMINO,1,2)+DLAP
+   else
+       lcWHERE1 := 'DT_INICIO >= '+DLAP+SUBSTR(lcINICIO,7,4)+'-'+SUBSTR(lcINICIO,4,2)+'-'+SUBSTR(lcINICIO,1,2)+DLAP+' AND DT_TERMINO <= '+DLAP+SUBSTR(lcTERMINO,7,4)+'-'+SUBSTR(lcTERMINO,4,2)+'-'+SUBSTR(lcTERMINO,1,2)+DLAP
+   endif
+   
+   lawhere := lawhere1 := {}
+
+   Wput('ifSEQ',.t.)
+   Wput('ifBUSCA',.t.)
+      WPut('NR_CONTROLE'  ,'')
+      WPut('PROGRAM'  ,'')
+      WPut('HR_INICIO','')
+      WPut('DT_INICIO','')
+      WPut('HR_TERMINO','')
+      WPut('DT_TERMINO','')
+       WPut('RESULTADO','')
+      WPut('DESCRITIVO_ERRO','')
+  
+   if lcACTION == 'ALTER'
+
+     if db_select(laFIELDS,lcTABLE,,{lCWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+     
+         Wput('ifSEQ',.t.)
+         Wput('ifBUSCA',.f.)
+
+         db2put(laRESULT)
+
+      endif
+      return(nil)
+ 
+   
+   elseif lcACTION == 'EXCLUIR'
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+      db_commit()  
+ 
+//      Wput('ifseq',.f.)    
+//      Wput('ifBUSCA',.t.)
+    
+      WPut('NR_CONTROLE'  ,'')
+      WPut('PROGRAM'  ,'')
+      WPut('HR_INICIO','')
+      WPut('DT_INICIO','')
+      WPut('HR_TERMINO','')
+      WPut('DT_TERMINO','')
+
+
+  elseif lcACTION == 'FILTRAR' 
+      lawhere1 :={}
+      
+//      Wput('ifseq',.f.)
+//      Wput('ifBUSCA',.t.)
+
+       aadd(lawhere1,lcwhere1)
+      if db_select(laFIELDS,lcTABLE,,laWHERE1,laORDER_BY,"D",,,) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2Put(laRESULT)
+      endif
+      WPut('NR_CONTROLE'  ,'')
+      WPut('PROGRAM'  ,'')
+      WPut('HR_INICIO','')
+      WPut('DT_INICIO','')
+      WPut('HR_TERMINO','')
+      WPut('DT_TERMINO','')
+   
+      WPut('lstOCORRENCIAS',laRESULT)
+   
+
+   endif
+   
+return(nil)
+
+
+

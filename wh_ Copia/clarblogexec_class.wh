@@ -1,0 +1,424 @@
+/*
+
+Project      : isj_45
+Program      : clarblogexec.class
+Function     : clarblogexec_class
+Created on   : 23-Feb-2017   15:32:09
+Descripition : 
+
+*/
+
+
+
+
+/*
+
+Project      : isj_45
+Program      : rblogexec.class
+Function     : rblogexec_class
+Created on   : 23-Feb-2017   15:20:08
+Descripition : 
+
+*/
+
+
+
+
+//
+// Glauber - Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+*
+* Glauber - 02/2017
+*
+* Classe...........: RblogExec
+*
+* Objetivo.........: Classe que realiza a presistência da tabela RblogExec.
+*
+* Atributos........:
+*
+*    EXPORT PkRblogExec
+*    EXPORT NomeAgendamento
+*    EXPORT Descricao
+*    EXPORT DiaExecucao
+*    EXPORT HoraExecucao
+*    EXPORT Report
+*
+*
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD Salvar()
+*    METHOD Valida()
+*    METHOD Apagar()
+*    METHOD FindByPk()
+*    METHOD Filtrar()
+*    METHOD ToList()
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS RblogExec
+
+    // Atributos publico
+
+    EXPORT PkRblogExec
+    EXPORT RbSchedule
+    EXPORT Data
+    EXPORT Hora
+    EXPORT Report
+    EXPORT Status
+
+
+    // Atributos privado
+
+    INSTANCE Filter
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()      CLASS RblogExec
+    PROTOTYPE METHOD Destroy()   CLASS RblogExec
+    PROTOTYPE METHOD Salvar()    CLASS RblogExec
+    PROTOTYPE METHOD Valida()    CLASS RblogExec
+    PROTOTYPE METHOD Apagar()    CLASS RblogExec
+    PROTOTYPE METHOD FindByPk()  CLASS RblogExec
+    PROTOTYPE METHOD Filtrar()   CLASS RblogExec
+    PROTOTYPE METHOD ToList()    CLASS RblogExec
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS RblogExec
+
+
+    self:PkRblogExec := 0
+    self:RbSchedule  := 0
+    self:Data        := Date()
+    self:Hora        := Time()
+    self:Report      := ''
+    self:Status      := ''
+    self:Filter      := {}
+
+return(self)
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS RblogExec
+
+    self:PkRblogExec := nil
+    self:RbSchedule  := nil
+    self:Data        := nil
+    self:Hora        := nil
+    self:Report      := nil
+    self:Status      := nil
+    self:Filter      := nil
+
+
+return(nil)
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Salvar()
+* Objetivo..: Salva um registro.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD Salvar() CLASS RblogExec
+
+
+   local laSAVE     := {} as Array
+
+   local lcWhere    := '' as String
+
+
+
+
+
+   if self:Valida() == .F.
+      return(self)
+   endif
+
+
+   laSAVE := {{'PK_RBLOGEXEC',;
+               'RBSCHEDULE',;
+               'DATA',;
+               'HORA',;
+               'REPORT',;
+               'STATUS'}}
+
+
+
+   aadd(laSAVE, { self:PkRblogExec,;
+                  self:RbSchedule,;
+                  self:Data,;
+                  self:Hora,;
+                  self:Report,;
+                  self:Status })
+
+    lcWhere := 'PK_RBLOGEXEC = ' + alltrim(self:PkRblogExec)
+
+    if db_replace(laSAVE, 'rblogexec', {lcWhere}) == -1
+       error_sys(db_error())
+    endif
+
+return self
+
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Apagar()
+* Objetivo..: Apaga um registro.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD Apagar() CLASS RblogExec
+
+
+
+   local lcWhere    := '' as String
+
+
+    lcWhere := 'PK_RBLOGEXEC = ' + alltrim(self:PkRblogExec)
+
+    if self:PkRblogExec > 0
+       if db_delete('rblogexec', lcWHERE) == -1
+          error_sys(db_error())
+       endif
+    endif
+
+return self
+
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: FindByPk()
+* Objetivo..: Pesquisa um registro pela chave primaria retornando um objeto.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD FindByPk() CLASS RblogExec
+
+
+   local laRES      := {} as Array
+
+   local lcWhere    := '' as String
+
+
+    lcWhere := 'PK_RBLOGEXEC= ' + alltrim(self:PkRblogExec)
+
+
+    if db_select({'RBSCHEDULE','DATA','HORA','REPORT','STATUS'}, 'rblogexec',,{lcWhere}) == -1
+       error_sys(db_error())
+    endif
+    laRES := db_fetchall()
+
+    if len(laRES) > 1
+
+       self:RbSchedule   := laRES[2,1]
+       self:Data         := laRES[2,2]
+       self:Hora         := laRES[2,3]
+       self:Report       := laRES[2,4]
+       self:Status       := laRES[2,5]
+    endif
+
+
+return self
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Filtrar()
+* Objetivo..: Pesquisa registros com base nos campos preenchido do objeto corrente.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD Filtrar() CLASS RblogExec
+
+
+   local laWHERE    := {} as Array
+
+    if (self:RbSchedule > 0)
+       aadd(laWHERE, 'RBSCHEDULE=' + Alltrim(self:RbSchedule))
+    endif
+
+    if (! empty(Dtos(self:Data)))
+       aadd(laWHERE, 'DATA=' + DLAP + DTOS(self:Data) + DLAP)
+    endif
+
+    if (! empty(self:Hora))
+       aadd(laWHERE, 'HORA=' + DLAP + self:Hora + DLAP)
+    endif
+
+    if (! empty(self:Report))
+       aadd(laWHERE, 'REPORT=' + DLAP + self:Report + DLAP)
+    endif
+
+    if (! empty(self:Status))
+       aadd(laWHERE, 'STATUS=' + DLAP + self:Status + DLAP)
+    endif
+
+    if db_select({'RBSCHEDULE','RBMODULE','RBFILTER','RBFTVALUE1','RBFTVALUE2'},'RblogExec',,laWHERE) == -1
+       error_sys(db_error())
+    endif
+
+    self:Filter := db_fetchall()
+
+return self
+
+
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: ToList()
+* Objetivo..: Retorna um array FlagShip / Wictrix resultado do processamento do metodo Filter.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD ToList() CLASS RblogExec
+
+
+return  self:Filter
+
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Valida()
+* Objetivo..: Faz a validação e crítica do campos necessário.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD Valida() CLASS RblogExec
+
+
+
+    if (self:RbSchedule == 0)
+       Alert('O campo ' + lblfscreen('RBSCHEDULE') + ' é obrigatório.')
+       return .F.
+    endif
+
+    if (empty(DTOS(self:Data)))
+       Alert('O campo ' + lblfscreen('DATA') + ' é obrigatório.')
+       return .F.
+    endif
+
+    if (! empty(self:Hora))
+       Alert('O campo ' + lblfscreen('HORA') + ' é obrigatório.')
+       return .F.
+    endif
+
+
+return  .T.
+
+
+
+
+
+

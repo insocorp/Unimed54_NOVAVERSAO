@@ -1,0 +1,122 @@
+/*
+
+Project      : gr5
+Program      : mnt.pagnet_ocorrencias.html
+Function     : mnt_pagnet_ocorrencias_html
+Created on   : 25/08/2011
+Descripition : Pendencias Pagnet - Estrutura HTML
+
+       Autor : Rufino 
+       Demonstra pendencias na geração do Pagnet
+*/
+
+   local lcACTION   := '' ,;
+         lcTABLE    := 'ocorrencia_pagnet' ,;
+         lcProgram  := 'mnt_pagnet_ocorrencias_html' ,;
+         lcWHERE    := '' ,;
+         lcWHERE1    := '' as string
+
+   local laRESULT   := {} ,;
+         laFIELDS   := {} ,;
+         laWHERE    := {} ,;
+         laORDER_BY := {'NR_SEQUENCIA'} as array
+
+   local lcDT_INICIO := '' ,;
+         lcDT_TERMINO := '' as string
+
+   local ii := 0 as int
+    
+   lcACTION := upper(WGet('ACTION','C'))
+ 
+   laFIELDS := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   lcINICIO := (WGet('DT_INICIO','C'))
+   lcTERMINO:= (WGet('DT_TERMINO','C'))
+   
+   lcWHERE  := 'NR_SEQUENCIA = ' + str(WGet('NR_SEQUENCIA','N')) 
+//   lcWHERE := 'DT_OCORRENCIA >= '+DLAP+dtos(ctod(lcINICIO))+DLAP+' AND DT_OCORRENCIA <= '+DLAP+dtos(ctod(lcTERMINO))+DLAP 
+   lcWHERE1 := 'DT_OCORRENCIA >= '+DLAP+SUBSTR(lcINICIO,7,4)+'-'+SUBSTR(lcINICIO,4,2)+'-'+SUBSTR(lcINICIO,1,2)+DLAP+' AND DT_OCORRENCIA <= '+DLAP+SUBSTR(lcTERMINO,7,4)+'-'+SUBSTR(lcTERMINO,4,2)+'-'+SUBSTR(lcTERMINO,1,2)+DLAP
+   aadd(laWHERE,lcWHERE1)
+
+/*
+   if lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,laWHERE) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2put(laRESULT)
+      endif
+*/
+   if lcACTION == 'EXCLUIR'
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+      db_commit()  
+      
+      WPut('NR_SEQUENCIA'  ,'')
+      WPut('TIPO'  ,'')
+      WPut('DESCRICAO_OCOR','')
+      WPut('DT_OCORRENCIA','')
+      WPut('HO_OCORRENCIA' ,'')
+
+  elseif lcACTION == 'FILTRAR' 
+
+//   if empty(lcACTION)
+//      if db_select(laFIELDS,lcTABLE,,,laORDER_BY,"D",,,) == -1
+      if db_select(laFIELDS,lcTABLE,,laWHERE,laORDER_BY,"D",,,) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2Put(laRESULT)
+      endif
+      WPut('NR_SEQUENCIA'  ,'')
+      WPut('TIPO'  ,'')
+      WPut('DESCRICAO_OCOR','')
+      WPut('DT_OCORRENCIA','')
+      WPut('HO_OCORRENCIA' ,'')
+   
+      WPut('lstOCORRENCIAS_PAGNET',laRESULT)
+   
+      lista_ocorrencias_pagnet(laFIELDS,lcTABLE,laWHERE,laORDER_BY)
+
+   endif
+
+//   WPut('lstOCORRENCIAS_PAGNET',laRESULT)
+   
+//   lista_ocorrencias_pagnet(laFIELDS,lcTABLE,laORDER_BY)
+      
+return(nil)
+*******************************************************************************
+static function lista_ocorrencias_pagnet(faFIELDS,fcTABLE,faWHERE,faORDER_BY)
+*******************************************************************************
+   local lcCOR_LINK := '' as string
+
+   local laRESULT := {} as array
+
+   local ii := 0 as int
+
+   for ii := 1 to len(faFIELDS)
+       faFIELDS[ii] := fcTABLE+'.'+faFIELDS[ii]
+   next ii
+
+   if db_select(faFIELDS,fcTABLE,,faWHERE,faORDER_BY,"D") == -1
+      error_sys('lista_ocorrencias_pagnet: '+db_error())
+   endif
+
+   laRESULT := db_fetchall()
+
+   if len(laRESULT) > 0
+      aadd(laRESULT[1],'COR_LINK')
+      for ii := 2 to len(laRESULT)
+         lcCOR_LINK := '#006A00'   // verde escuro
+         aadd(laRESULT[ii],lcCOR_LINK)
+      next ii
+   endif
+   
+   WPut('lstOCORRENCIAS_PAGNET',laRESULT)
+return(nil)
+
+
+
+

@@ -1,0 +1,173 @@
+
+   local lcWUID    := WGet('WUID','C') ,;
+         lcETAPA   := WGet('ETAPA','C') ,;
+         lcFILTRO  := WGet('FILTRO','C') ,;
+         lcACTION  := WGet('ACTION','C') ,;
+         lcWHERE   := '' as String  
+   
+   local laFields      := {'WUID','ETAPA','FILTRO'},;
+         laSAVE        := {},;
+         laSAVE_AUX    := {},;
+         laLABEL_ETAPA := {},;
+         laVALUE_ETAPA := {},;
+         laWHERE       := {},;
+         laJOIN        := {},;
+         laRESULT      := {} as Array
+   
+   local lnII      := 0 as int
+
+   ***Alimentar os combos    
+   laLABEL_ETAPA := {'Aprovação','Revisão'}
+   laVALUE_ETAPA := {'Aprovação','Revisão'}
+   WPut('ETAPA.option',laLABEL_ETAPA)
+   WPut('ETAPA.optionvalue',laVALUE_ETAPA)
+
+   if (lcACTION == 'SAVE' .and. gbWAC_WRITE)
+
+      if (Wget('WUID','N') == 0) .or. empty(Wget('ETAPA','C')) .or. empty(Wget('FILTRO','C'))
+         WAlert('Os campos User Id, Etapa e Filtro são de preenchimento obrigatório.')
+         get2put()
+      else
+         aadd(laSAVE,laFIELDS)
+      
+         for lnII := 1 to len(laFIELDS)
+             aadd(laSAVE_AUX,Wget(laFIELDS[lnII],'C'))
+         next lnII
+      
+         aadd(laSAVE,laSAVE_AUX)
+
+         laWHERE := {'WUID =' + Wget('WUID','C') + ' and ETAPA =' + DLAP + Wget('ETAPA','C')+DLAP} 
+         if db_replace(laSAVE,'filtro_aux_despesas',laWHERE) == -1
+            error_sys(db_error())
+         endif   
+      endif
+           
+   elseif (lcACTION == 'ALTER' .and. gbWAC_WRITE)
+
+         laFIELDS := {"filtro_aux_despesas.WUID",;
+                      "acuser.LOGIN",;
+                      "filtro_aux_despesas.ETAPA",;
+                      "filtro_aux_despesas.FILTRO"}
+                     
+         laWHERE := {'filtro_aux_despesas.WUID =' + Wget('WUID','C') + ' and filtro_aux_despesas.ETAPA =' + DLAP + Wget('ETAPA','C')+DLAP}
+                    
+         laJOIN   := {{2,'acuser','(acuser.WUID = filtro_aux_despesas.WUID)'}}
+
+         if db_select(laFIELDS,'filtro_aux_despesas',laJOIN,laWHERE) == -1
+            error_sys(db_error())
+         endif
+
+         laRESULT:= db_fetchall()
+         db2put(laRESULT)
+         lcWHERE:=''
+
+
+
+          
+          *laWHERE := {'WUID =' + Wget('WUID','C') + ' and ETAPA =' + DLAP + Wget('ETAPA','C')+DLAP}
+          *if db_select(laFIELDS,'filtro_aux_despesas',,laWHERE) == -1
+          *   error_sys(db_error())
+          *endif
+          *laRESULT:= db_fetchall()
+          *db2put(laRESULT)
+          *lcWHERE:=''
+   
+   elseif (lcACTION == 'DELETE' .and. gbWAC_DELETE)
+
+          lcWHERE := 'WUID =' + Wget('WUID','C') + ' and ETAPA =' + DLAP + Wget('ETAPA','C')+DLAP          
+          db_query('BEBGIN TRAN')
+          if db_delete('filtro_aux_despesas',lcWHERE) == -1
+             db_query('ROLLBACK')
+             error_sys(db_error())
+          endif
+          db_query('COMMIT')  
+          lcWHERE:='' 
+          
+   elseif (lcACTION == 'SEARCH' .and. gbWAC_READ)
+          if ! empty(WGet('WUID'))
+             lcWHERE := 'WUID = ' + WGet('WUID','C')
+          endif
+          if ! empty(WGet('ETAPA'))
+             if ! empty(lcWHERE)
+                lcWHERE += ' and '                
+             endif
+             lcWHERE += 'ETAPA= ' + DLAP +WGet('ETAPA') + DLAP             
+          endif
+          if ! empty(WGet('FILTRO'))
+             if ! empty(lcWHERE)
+                lcWHERE += ' and '                
+             endif
+             lcWHERE += 'FILTRO= ' + DLAP +WGet('FILTRO') + DLAP             
+          endif           
+   endif
+
+   // Montagem da Grid
+   if (gbWAC_READ == .t.)
+      laFields := {"filtro_aux_despesas.WUID",;
+                   "acuser.LOGIN",;
+                   "filtro_aux_despesas.ETAPA",;
+                   "filtro_aux_despesas.FILTRO"}
+      laJOIN   := {{2,'acuser','(acuser.WUID = filtro_aux_despesas.WUID)'}}
+      if ! empty(lcWHERE)
+         if db_select(laFIELDS,'filtro_aux_despesas',laJOIN,{lcWHERE}) == -1
+            error_sys(db_error())
+         endif
+      else
+         if db_select(laFIELDS,'filtro_aux_despesas',laJOIN) == -1
+            error_sys(db_error())
+         endif
+      endif   
+      laRESULT:= db_fetchall() 
+      MontaGrid(laRESULT)
+   endif   
+return
+
+/*
+* Data da Criação: 26/09/2011 - Glauber Vicente Duma
+* Function.......: MontaGrid()
+* Objetivo.......: Montar a Grade de Filtro de Revisão / Aprovação.
+* Parâmetros.....:
+*                  <paRESULT>       Array com o Resultado do Select
+*
+* Retorno........: Nenhum
+* 
+* Observação.....: Como neste primeiro instante a quantidade de registros vai ser
+*                  pequena, não estou preocupado com paginação, mas mesmo assim
+*                  estou utilizando uma função estatica para deixar o ambiente
+*                  preparado para possível paginação futura.
+*/
+
+Static Function MontaGrid(paRESULT) 
+
+local ii := 0 as int
+   if len(paRESULT) > 0
+      aadd(paRESULT[1],'(row)')
+      for ii := 2 to len(paRESULT)
+         aadd(paRESULT[ii],'(row)'+wic_action('wicaction/mnt.filtro_aux_desp.html?ACTION=ALTER'+;
+                              '&WUID='+str(paRESULT[ii,db_fetchncol(paRESULT,'WUID')]) +;
+                              '&LOGIN='+paRESULT[ii,db_fetchncol(paRESULT,'LOGIN')] +;
+                              '&ETAPA='+paRESULT[ii,db_fetchncol(paRESULT,'ETAPA')] +;
+                              '&FILTRO='+paRESULT[ii,db_fetchncol(paRESULT,'FILTRO')]))
+      next ii
+   endif
+
+wPut('GRID_FILTRO',grid_create(paRESULT))
+
+return                                 
+                 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

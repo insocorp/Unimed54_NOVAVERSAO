@@ -1,0 +1,388 @@
+/*
+Project      : isj_60
+Program      : psab.suprimentos.html
+Function     : psab_suprimentos_html
+Created on   : 23/02/2018 09:11:02
+Descripition :
+*/
+private lcACTION   := '' 
+local   lcAUX      := '' as string
+local   lcWHERE    := '' as string
+local   lcNR_PASTA := '' as string
+local   lcTP_PASTA := '' as string  
+local   laRESULT      := {} as array
+local   laRES1        := {} as array
+local   laRES2        := {} as array
+local   laTMP         := {} as array
+local   laLINHA_ATUAL := {} as array          
+local   laWHERE       := {} as array
+local   laWAUX        := {} as array
+local   laSAVE        := {} as array
+local   laSAVE_AUX    := {} as array
+local   laFIELDS      := {} as array
+local ii := 0 as int
+local zz := 0 as int
+
+lcACTION          := upper(Wget('ACTION'))
+lcNR_PASTA        := wGet('NR_PASTA','C')
+lcTP_PASTA        := wGet('TP_PASTA','C')
+
+wput('NR_PASTA',lcNR_PASTA)
+wput('TP_PASTA',lcTP_PASTA)   
+
+WPut('TITLE','Suprimentos')
+
+WPut('INTERACAO_PUBLICO.option',{'','Sim','Não'})
+WPut('INTERACAO_PUBLICO.optionvalue',{'','S', 'N'})
+
+WPut('NEGOCIADO_FEE.option',{'','Sim','Não'})
+WPut('NEGOCIADO_FEE.optionvalue',{'','S', 'N'})
+
+WPut('GARANTIAS.option',{'','Sim','Não'})
+WPut('GARANTIAS.optionvalue',{'','S', 'N'})
+
+WPut('CRITERIO_REAJUSTE.option',{'','Sim','Não'})
+WPut('CRITERIO_REAJUSTE.optionvalue',{'','S', 'N'})
+
+WPut('NEGOCIADO_OPCAO.option',{'','Sim','Não'})
+WPut('NEGOCIADO_OPCAO.optionvalue',{'','S', 'N'})
+
+WPut('RESPONSAVEL_MANUT.option',{'','Locador','Locatário'})
+WPut('RESPONSAVEL_MANUT.optionvalue',{'','Locador', 'Locatário'})
+
+WPut('PAGAMENTO_IPTU.option',{'','Locador','Locatário'})
+WPut('PAGAMENTO_IPTU.optionvalue',{'','Locador', 'Locatário'})
+
+
+lcWHERE := 'TP_PASTA = '+DLAP+ wGet('TP_PASTA','C')+DLAP
+
+cargacbox2('periodo_apuracao',{'PERIODO_APURACAO'},{'PERIODO_APURACAO'},'PERIODO_APURACAO',lcWHERE)
+cargacbox2('categoria',{'CATEGORIA'},{'CATEGORIA'},'CATEGORIA',lcWHERE)
+
+lcWHERE := 'pfpj_tipos like '+ DLAP + '%NEG%' + DLAP
+cargacbox2('pfpj',{'CIP','PFPJ'},{'PFPJ'},'PFPJ_NEGOCIADO_POR',lcWHERE)
+
+busca_tipos()
+
+if lcACTION == 'SAVE' .and. gbWAC_WRITE
+   
+   laFIELDS := structtable(WSet("DB_ACTIVE"),'pasta_suprimentos',1,'N')
+
+   aadd(laSAVE,laFIELDS) 
+   
+   for ii := 1 to len(laFIELDS)        
+       if laFIELDS[ii] == 'DT_ALTERACAO' 
+           aadd(laSAVE_AUX,DATE()) 
+       elseif laFIELDS[ii] == 'LOGIN_ALTERACAO' 
+           aadd(laSAVE_AUX,WSet('LOGIN')) 
+           
+       elseif laFIELDS[ii] == 'DT_CADASTRO'    
+           if WGet('DT_CADASTRO') == ctod('  /  /    ')
+              aadd(laSAVE_AUX,DATE())
+           else
+              aadd(laSAVE_AUX,WGet('DT_CADASTRO')) 
+           endif 
+       elseif laFIELDS[ii] == 'LOGIN_CADASTRO'    
+           if WGet('LOGIN_CADASTRO') == ''
+              aadd(laSAVE_AUX,WSet('LOGIN'))
+           else
+              aadd(laSAVE_AUX,WGet('LOGIN_CADASTRO')) 
+           endif           
+
+       else    
+          aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+       endif   
+   next ii
+   aadd(laSAVE,laSAVE_AUX)
+
+   lcWHERE := 'NR_PASTA = ' + wGet('NR_PASTA','C') 
+   
+  
+   psab_logs(laSAVE,'pasta_suprimentos',lcWHERE, wGet('NR_PASTA','C'),'Suprimentos')     
+  
+   if db_replace(laSAVE,'pasta_suprimentos',{lcWHERE}) == -1
+      error_sys(db_error())
+   endif   
+
+endif
+
+busca_dados()
+
+return(nil)
+
+********************************
+static function busca_tipos()
+********************************
+local lcWHERE := '' as string
+local lcLISTA := '' as string
+local laRES   := {} as array
+local laFIELD := {} as array
+local  jj     :=  0 as int
+
+
+*select 
+*pasta.id_contrato 
+*,pasta.nr_pasta
+*,contrato_label.tipo_suprimento 
+*from pasta
+*left join contrato_label on contrato_label.id_contrato=pasta.id_contrato 
+*where pasta.nr_pasta=10727
+
+laJOIN   :={{2,'contrato_label','contrato_label.id_contrato=pasta.id_contrato'}}
+
+lcWHERE := 'NR_PASTA = '+DLAP+ wGet('NR_PASTA','C') +DLAP 
+
+if db_select({'contrato_label.TIPO_SUPRIMENTO'},'pasta',laJOIN,{lcWHERE}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+if laRES[2,1] == ''
+   walert('Não encontrei tipo de contrato na pasta !')
+
+else
+
+   lcLISTA:=laRES[2,1] 
+   
+   *laFIELD := structtable(WSet("DB_ACTIVE"),'contrato_sup_tipo',1,'N')
+   *
+   *lcWHERE := 'TP_PASTA = '+DLAP+ wGet('TP_PASTA','C') +DLAP 
+   *lcWHERE += ' and TP_CONTRATO = '+DLAP+ lcTPCONTRATO +DLAP
+   *lcWHERE += ' and FL_ATIVO = '+DLAP+'S'+DLAP
+   *
+   *if db_select(laFIELD,'contrato_sup_tipo',,{lcWHERE},{'TIPO_SUPRIMENTO'}) == -1
+   *   error_sys(db_error())
+   *endif
+   *laRES := db_fetchall()
+   *if len(laRES)>1
+   *   for jj := 2 to len(laRES)
+   *       if lcLISTA == ''
+   *          lcLISTA:=laRES[jj,db_fetchncol(laRES,'TIPO_SUPRIMENTO')]
+   *       else
+   *          lcLISTA:=lcLISTA+','+laRES[jj,db_fetchncol(laRES,'TIPO_SUPRIMENTO')]
+   *       endif   
+   *   next jj
+   * else  
+   *   walert('Não encontrei tipo de contrato cadastrado !')
+   *endif
+   
+endif
+
+
+WPut('LISTA',lcLISTA)
+
+*** para abrir todos os tipos
+***WPut('LISTA','Compra/Venda,Fornecimento,Empreitada,Locação,Loc/Imóveis')
+
+
+return(nil)
+
+********************************
+static function busca_dados()
+********************************
+local lcWHERE := '' as string
+local lcLISTA := '' as string
+local lcFIELD := '' as string 
+local laRES   := {} as array
+local laFIELD := {} as array
+local  jj     :=  0 as int
+local  ii     :=  0 as int
+
+
+laFIELD := structtable(WSet("DB_ACTIVE"),'pasta_suprimentos',1,'N')
+//laJOIN   :={{2,'moeda','moeda.CD_MOEDA=pasta_suprimentos.CD_MOEDA'}}
+
+lcWHERE := 'NR_PASTA = ' + wGet('NR_PASTA','C')  
+
+     if db_select(laFIELD,'pasta_suprimentos',,{lcWHERE}) == -1
+        error_sys(db_error())
+     endif
+     laRES := db_fetchall()
+     if len(laRES)>1
+        for jj := 1 to len(laRES[1])
+            lcFIELD:=laRES[1,jj]
+            WPUT(lcFIELD,laRES[2,db_fetchncol(laRES,lcFIELD)])
+        next jj 
+     endif  
+     if len(laRES)>1
+        laFOREIGN := {{'moeda','CD_MOEDA','CD_MOEDA',{'NM_MOEDA'}}}
+
+        for ii := 1 to len(laFOREIGN)
+            if laRES[2,db_fetchncol(laRES,laFOREIGN[ii,3])] > 0
+               if db_select(laFOREIGN[ii,4],;
+                            laFOREIGN[ii,1],,;
+                           {laFOREIGN[ii,2]+'='+str(laRES[2,db_fetchncol(laRES,laFOREIGN[ii,3])])}) == -1
+                  error_sys(db_error())
+               endif
+               db2Put(db_fetchall())
+            endif
+        next ii
+      endif
+
+return(nil)
+
+**************************************************************
+function cargacbox2(fcTABLE,faFIELDS,faORDER,fcDESTINO,fcWHERE)
+**************************************************************
+*** rufino 28/02/2018 09:58:01
+*** cargacbox('indice_reajuste',{'CD_INDICE','NM_INDICE'},{'CD_INDICE'},'NM_INDICE',{'fcWHERE'})
+
+
+local lcWHERE:='' as string
+local laRES:={} as array
+local laLST_NOVA:={}  as array
+local laVINCULADO:={} as array
+
+local paAUTO     :={} as array
+
+
+
+local  laOPT    := {} ,;
+       laOPTV   := {} ,;
+       laPUT    := {} ,;
+       laDEF    := {} ,;
+       laDEFV   := {} ,;
+       laATI    := {} ,;
+       laATIV   := {} ,;
+       laINA    := {} ,;
+       laINAV   := {} ,;
+       laPUTV   := {} ,;
+       laFIELD  := {} as array
+
+
+local  jj    := 1  ,;
+       liPOS := 0  as int
+
+
+laDEF := {}
+laDEFV:= {}
+
+laATI := {}
+laATIV:= {}
+
+laINA := {}
+laINAV:= {}
+
+laPUT := {}
+laPUTV:= {}
+
+laFIELD := structtable(WSet("DB_ACTIVE"),fcTABLE,1,'N')   
+liPOS   := ascan(laFIELD,'FL_ATIVO')
+
+if liPOS<>0
+   aadd(faFIELDS,'FL_ATIVO')
+endif
+
+laFIELD:=faFIELDS
+
+if db_select(laFIELD,fcTABLE,,{fcWHERE},faORDER) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+if liPOS<>0 .and. len(laFIELD)==3
+*** codigo,descrição,ativo
+
+for jj := 2 to len(laRES)
+    if liPOS<>0
+       if laRES[jj,3] == 'D'
+          aadd(laDEF,laRES[jj,2])
+          aadd(laDEFV,laRES[jj,1])
+
+        elseif laRES[jj,3] == 'I'
+          aadd(laINA,laRES[jj,2])
+          aadd(laINAV,laRES[jj,1])
+
+        else
+          aadd(laATI,laRES[jj,2])
+          aadd(laATIV,laRES[jj,1])
+       endif
+    else
+       aadd(laATI,laRES[jj,2])
+       aadd(laATIV,laRES[jj,1])
+    endif
+next jj
+
+endif
+
+if liPOS<>0 .and. len(laFIELD)==2
+***descricao,ativo
+
+for jj := 2 to len(laRES)
+    if liPOS<>0
+       if laRES[jj,2] == 'D'
+          aadd(laDEF,laRES[jj,1])
+          aadd(laDEFV,laRES[jj,1])
+
+        elseif laRES[jj,2] == 'I'
+          aadd(laINA,laRES[jj,1])
+          aadd(laINAV,laRES[jj,1])
+
+        else
+          aadd(laATI,laRES[jj,1])
+          aadd(laATIV,laRES[jj,1])
+       endif
+    else
+       aadd(laATI,laRES[jj,1])
+       aadd(laATIV,laRES[jj,1])
+    endif
+next jj
+
+endif
+
+
+if liPOS==0 .and. len(laFIELD)==2
+*** codigo,descrição
+
+for jj := 2 to len(laRES)
+    aadd(laATI,laRES[jj,2])
+    aadd(laATIV,laRES[jj,1])
+next jj
+
+endif
+
+if liPOS==0 .and. len(laFIELD)==1
+***descricao
+
+for jj := 2 to len(laRES)
+    if liPOS<>0
+       aadd(laATI,laRES[jj,1])
+       aadd(laATIV,laRES[jj,1])
+    endif
+next jj
+
+endif
+
+if len(laDEF) == 0
+   aadd(laDEF,'') // Adiciona uma linha vazia no inicio do combo, caso seja solicitado
+   aadd(laDEFV,'')
+endif
+
+for jj=1 to len(laDEF)
+    aadd(laPUT,laDEF[jj])
+    aadd(laPUTV,laDEFV[jj])
+next jj
+
+for jj=1 to len(laATI)
+    aadd(laPUT,laATI[jj])
+    aadd(laPUTV,laATIV[jj])
+next jj
+
+for jj=1 to len(laINA)
+    aadd(laPUT,'INATIVO - '+laINA[jj])
+    aadd(laPUTV,laINAV[jj])
+next jj
+
+WPut(fcDESTINO+'.option',laPUT)
+WPut(fcDESTINO+'.optionvalue',laPUTV)
+
+return(nil)
+
+
+
+
+
+**select pfpj,cip,PFPJ_TIPOS from pfpj where pfpj.PFPJ_TIPOS like '%NEG%'
+
+
+

@@ -1,0 +1,1489 @@
+/*
+
+Project      : isj_45
+Program      : psab.designar.escritorio.html
+Function     : psab_designar_escritorio_html
+Created on   : 11-Dec-2014   19:28:36
+Descripition :
+
+*/
+
+    local lcACTION    := '' ,;
+          lcNR_PASTA  := '' ,;
+          lcTABLE     := '' ,;
+          lcWHERE     := '' ,;
+          lcWHERE2    := '' ,;
+          lcCIPS      := '' ,;
+          lcQUERY     := '' ,;
+          lcTP_PASTA  := '' as string
+
+    local laRESULTPAS := {} ,;
+          laFIELDS    := {} ,;
+          laFIELDS_AUX:= {} ,;
+          laSAVE      := {} ,;
+          laJOIN      := {} ,;
+          laGRID      := {} ,;
+          laDIFFROW   := {} ,;
+          laRESULTCON := {} as array
+
+    local llERROR     := .f. as logical
+
+    local ii          := 0 as int
+
+
+    lcACTION   := upper(Wget('ACTION'))
+    lcNR_PASTA := Wget('NR_PASTA','C')
+    lcTP_PASTA := Wget('TP_PASTA','C')
+    lcTABLE    := 'pasta_cip'
+
+
+    lcWHERE    := "NR_PASTA = "+lcNR_PASTA
+
+    laJOIN       := {{2,'pfpj','pfpj.CIP = pasta_cip.CIP'}}
+
+
+    wput('NR_PASTA',lcNR_PASTA)
+    wput('TP_PASTA',lcTP_PASTA)
+
+
+    init_reqfield(WSet('_USER_INTERFACE'))
+
+
+    pasta_abas(lcTP_PASTA)
+
+    // Alimentar o header com os dados da pasta
+
+    if db_select({'FL_PASTA','LOGIN_CADASTRO','DT_CADASTRO','HR_CADASTRO'},'pasta',,{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+    laRESULTPAS := db_fetchall()
+
+    if len(laRESULTPAS) > 1
+       for ii := 1 to len(laRESULTPAS[1])
+           wput(laRESULTPAS[1,ii],laRESULTPAS[2,ii])
+       next ii
+    endif
+
+    if  gbWAC_CREATE
+        wput('ifWAC_WRITE' ,.t.)
+    endif
+    
+    
+    // Glauber 14/01/2015 - Verificar se o contrato é fast pass
+    // Se não for, não pode ser designado um escritório.
+
+    if ! podeDesignar(lcNR_PASTA)
+        wput('ifWAC_WRITE' ,.f.)
+        wput('ifWAC_DELETE',.f.)
+        lcACTION := 'New'
+    endif
+
+
+    if lcACTION = 'DELETE' .and. gbWAC_DELETE
+/*
+        psab_logdel(lcNR_PASTA,'NR_PASTA',lcNR_PASTA,,'Consultor Interno')
+        if db_delete(lcTABLE,lcWHERE) == -1
+           error_sys(db_error())
+        endif
+*/
+    elseif lcACTION == 'SAVE'
+
+        wput('ifWAC_WRITE' ,.t.)
+        wput('ifWAC_DELETE',.t.)
+
+        llERRO := .f.
+
+        *** verifica se campos obrigatorios estão com dados
+        if ! verif_reqfield(WSet('_USER_INTERFACE'))
+           llERRO := .t.
+        endif
+
+         llERRO := (ValidaSaldoEsc(WGet('NR_PASTA'), WGet('CIP_ESCRITORIO')) == .F.)
+
+         if ! llERRO
+             if db_select({'COUNT(*) AS QTDE'},'pasta_cip',,{'NR_PASTA='+lcNR_PASTA+' and WFIELD=' +DLAP +'CIP_ESCRITORIO' +DLAP}) == -1
+                error_sys(db_error())
+             endif
+             laRESULTPAS := db_fetchall()
+
+             if laRESULTPAS[2,1] == 0
+                llERRO := (gravarMovimento('I') == .F.)
+             else
+                llERRO := (gravarMovimento('A') == .F.)
+             endif
+        endif
+
+        if ! llERRO
+
+           // Salvar os cips
+
+           laFIELDS := {'CIP_ESCRITORIO','CIP_ADVOGADO_EXTERNO'}
+           lcCIPS := ''
+           for ii := 1 to len(laFIELDS)
+               laSAVE := {}
+               aadd(laSAVE,{'NR_PASTA','WFIELD','CIP'})
+               aadd(laSAVE, {val(lcNR_PASTA),laFIELDS[ii],Wget(laFIELDS[ii])})
+
+               lcWHERE := "NR_PASTA = "+lcNR_PASTA +' and WFIELD='+DLAP+laFIELDS[ii]+DLAP
+
+               if laFIELDS[ii]=='CIP_ESCRITORIO' .and. ! empty(Wget(laFIELDS[ii]))
+                  // Atualizar o escritorio na tabela pasta_alocada
+                  if db_replace({{'CIP_ESCRITORIO'},{WGET('CIP_ESCRITORIO')}},'pasta_alocada',{"NR_PASTA = "+lcNR_PASTA}) == -1
+                     error_sys(db_error())
+                  endif
+               endif
+
+               // Gravar o log da alteração dos CIPS
+               psab_logs(laSAVE,'pasta_cip',lcWHERE,lcNR_PASTA,'Designar Escritório')
+
+               if db_replace(laSAVE,'pasta_cip',{lcWHERE}) == -1
+                  error_sys(db_error())
+               endif
+
+           next ii
+
+           // Atualizar os CIPS na tabela pasta
+
+           lcWHERE    := "NR_PASTA = "+lcNR_PASTA
+
+           if db_select({'CIP'},'pasta_cip',,{lcWHERE}) == -1
+               error_sys(db_error())
+           endif
+
+           laRESULTCON := db_fetchall()
+
+           for ii := 2 to len(laRESULTCON)
+               lcCIPS += '#' + laRESULTCON[ii,1]
+           next ii
+
+           if db_update({{'CIPS'},{lcCIPS}},'pasta',{lcWHERE}) == -1
+              error_sys(db_error())
+           endif
+
+           Get2Put()
+           lcACTION := ''
+
+        endif
+
+
+
+    endif
+
+
+    // Recuperando o escritorio
+
+    laFIELDS   :=  {'pasta_cip.CIP AS CIP_ESCRITORIO',;
+                    'pfpj.PFPJ AS CIP_ESCRITORIO_PFPJ'}
+
+    lcWHERE    := "NR_PASTA = "+lcNR_PASTA + " and pasta_cip.WFIELD = 'CIP_ESCRITORIO'"
+
+    if db_select(laFIELDS,lcTABLE,laJOIN,{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+    laRESULTPAS := db_fetchall()
+
+    if len(laRESULTPAS) > 1
+       if gbWAC_DELETE == .T.
+          wput('ifWAC_DELETE',.t.)
+       endif
+
+       for ii := 1 to len(laRESULTPAS[1])
+           wput(laRESULTPAS[1,ii],laRESULTPAS[2,ii])
+       next ii
+    endif
+
+
+    // Recuperando o advogado externo
+
+    laFIELDS   :=  {'pasta_cip.CIP AS CIP_ADVOGADO_EXTERNO',;
+                    'pfpj.PFPJ AS CIP_ADVOGADO_EXTERNO_PFPJ'}
+
+
+    lcWHERE    := "NR_PASTA = "+lcNR_PASTA + " and pasta_cip.WFIELD = 'CIP_ADVOGADO_EXTERNO'"
+
+    if db_select(laFIELDS,lcTABLE,laJOIN,{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+    laRESULTPAS := db_fetchall()
+
+    if len(laRESULTPAS) > 1
+       if gbWAC_DELETE == .T.
+          wput('ifWAC_DELETE',.t.)
+       endif
+       for ii := 1 to len(laRESULTPAS[1])
+           wput(laRESULTPAS[1,ii],laRESULTPAS[2,ii])
+       next ii
+    endif
+
+    // Montar Grid de Resumo
+
+    if db_select({'CIP'},'pasta_cip',,{'NR_PASTA='+ Wget('NR_PASTA','C') + ' and WFIELD='+DLAP + 'CIP_CONTRATANTE'+DLAP}) == -1
+       error_sys(db_error())
+    endif
+    laGRID := db_fetchall()
+
+
+//    laGRID := {{'CIP_ESCRITORIO','PFPJ','CAPACIDADE_HORAS','QTDE DIV/LABEL/CONTRATO', 'QTD DIV/LABEL','QTD CONTRATO'}}
+
+//    aadd(laGRID,{'11','Inso 2',15,153,160,313})
+//    aadd(laGRID,{'12','Inso 1',30,15,10,25})
+
+    if len(laGRID) > 1
+    
+/*
+select pfpj_capacidade_escritorio.CIP_ESCRITORIO,
+pfpjESC.PFPJ as PFPJ_ESCRITORIO,
+pfpj_capacidade_escritorio.CAPACIDADE_HORAS,
+(select sum(QTDE) from escritorio_plat_contratado where CIP_ESCRITORIO = pfpj_capacidade_escritorio.CIP_ESCRITORIO) AS QTDE_1,
+(select sum(QTDE) from escritorio_plataforma where CIP_ESCRITORIO = pfpj_capacidade_escritorio.CIP_ESCRITORIO) AS QTDE_2,
+(select sum(QTDE) from escritorio_contratado where CIP_ESCRITORIO = pfpj_capacidade_escritorio.CIP_ESCRITORIO and escritorio_contratado.CIP_CONTRATADO = '1801') AS QTDE_3
+from pfpj_capacidade_escritorio
+left join pfpj pfpjESC on (pfpjESC.CIP = pfpj_capacidade_escritorio.CIP_ESCRITORIO)
+where pfpj_capacidade_escritorio.TP_PASTA = 'Contrato LDC'
+
+*/
+        lcQUERY := 'select ' +;
+                   'pfpj_capacidade_escritorio.CIP_ESCRITORIO,' +;
+                   'pfpjESC.PFPJ as PFPJ_ESCRITORIO,' +;
+                   'pfpj_capacidade_escritorio.CAPACIDADE_HORAS,' +;
+                   '(select sum(QTDE) from escritorio_plat_contratado where CIP_ESCRITORIO = pfpj_capacidade_escritorio.CIP_ESCRITORIO) AS QTDE_1,' +;
+                   '(select sum(QTDE) from escritorio_plataforma where CIP_ESCRITORIO = pfpj_capacidade_escritorio.CIP_ESCRITORIO) AS QTDE_2,' +;
+                   '(select sum(QTDE) from escritorio_contratado where CIP_ESCRITORIO = pfpj_capacidade_escritorio.CIP_ESCRITORIO and escritorio_contratado.CIP_CONTRATADO = ' + DLAP + laGRID[2,1] + DLAP +') AS QTDE_3' +;
+                   ' from pfpj_capacidade_escritorio' +;
+                   ' left join pfpj pfpjESC on (pfpjESC.CIP = pfpj_capacidade_escritorio.CIP_ESCRITORIO)' +;
+                   ' where pfpj_capacidade_escritorio.TP_PASTA =  ' + DLAP + lcTP_PASTA + DLAP 
+
+         if db_query(lcQUERY) == -1
+            error_sys(db_error())
+         endif
+         laGRID := db_fetchall()
+
+         if len(laGRID) > 1
+            GridResumo(laGRID)
+         endif
+    endif
+
+
+return
+
+
+
+
+
+
+
+
+/*
+* Glauber - 01/2015
+*
+* Function..: GridResumo(paRS)
+* Objetivo..: Montar a grid de resumo.
+* Parâmetros:
+*
+*  paRS     : Array com o resultset
+*
+* Retorno...:
+*
+*
+*
+*/
+
+Static Function GridResumo(paRS)
+
+   local lcHTML := '' as String
+   local ii     := 0 as int
+
+   lcHTML := '<tbody>'
+   for ii := 2 to len(paRS)
+        lcHTML += '<tr class="wgridrowzebra"><td nowrap="" onclick="atribuirEscritorio('+DLAP + alltrim(paRS[ii,1])+ DLAP + ',' + DLAP + alltrim(paRS[ii,2])+DLAP +')"'+ alltrim(paRS[ii,2]) + '>' + alltrim(paRS[ii,1])
+        lcHTML += '</td><td nowrap="" onclick="atribuirEscritorio('+DLAP + alltrim(paRS[ii,1])+ DLAP + ',' + DLAP + alltrim(paRS[ii,2])+DLAP +')"'+ alltrim(paRS[ii,2]) + '>' + alltrim(paRS[ii,2])
+        lcHTML += '</td><td nowrap="" align="center" onclick="atribuirEscritorio('+DLAP + alltrim(paRS[ii,1])+ DLAP + ',' + DLAP + alltrim(paRS[ii,2])+DLAP +')"'+ alltrim(paRS[ii,2]) + '>' + alltrim(paRS[ii,3])
+        lcHTML += '</td><td nowrap="" align="center" onclick="atribuirEscritorio('+DLAP + alltrim(paRS[ii,1])+ DLAP + ',' + DLAP + alltrim(paRS[ii,2])+DLAP +')"'+ alltrim(paRS[ii,2]) + '>' + alltrim(paRS[ii,4])
+        lcHTML += '</td><td nowrap="" align="center" onclick="atribuirEscritorio('+DLAP + alltrim(paRS[ii,1])+ DLAP + ',' + DLAP + alltrim(paRS[ii,2])+DLAP +')"'+ alltrim(paRS[ii,2]) + '>' + alltrim(paRS[ii,5])
+        lcHTML += '<td nowrap="" align="center" onclick="atribuirEscritorio('+DLAP + alltrim(paRS[ii,1])+ DLAP + ',' + DLAP + alltrim(paRS[ii,2])+DLAP +')"'+ alltrim(paRS[ii,2]) + '>' + alltrim(paRS[ii,6])
+        lcHTML += '</td></tr>'
+  next ii
+  lcHTML += '</tbody>'
+
+  WPUT('GRID_RESUMO',lcHTML)
+
+
+return
+
+
+
+/*
+* Glauber - 01/2015
+*
+* Function..: ValidaSaldoEsc(pnNR_PASTA, pcCIP_ESRITORIO)
+* Objetivo..: Montar a grid de resumo.
+* Parâmetros:
+*
+* pnNR_PASTA      : Número da pasta.
+* pcCIP_ESRITORIO : CIP do Escritório.
+*
+* Retorno...: .T. Se o escrito tem saldo e a pasta pode ser alocada para ele.
+*
+*
+*
+*/
+
+Static Function ValidaSaldoEsc(pnNR_PASTA, pcCIP_ESRITORIO)
+
+    local laRES   := {}
+    local lcQUERY := '' as String
+    local llRET   := .f.
+    local lnDISP  := 0 as int
+
+    lcQUERY := 'select sla_analitico.NR_PASTA,' +;
+               'sla_analitico.TP_PASTA,' +;
+               'sla_analitico.ID_PLATAFORMA,' +;
+               'sla_analitico.ID_CONTRATO,' +;
+               'sla_analitico.ID_MARGEM,' +;
+               '(SELECT previsao.HORAS_PREVISTAS from sla_analitico previsao where previsao.NR_PASTA = 0 and previsao.ID_PLATAFORMA = sla_analitico.ID_PLATAFORMA and previsao.ID_CONTRATO = sla_analitico.ID_CONTRATO and previsao.ID_MARGEM = sla_analitico.ID_MARGEM ) AS HORAS_PREVISTAS '+;
+               ' from sla_analitico where nr_pasta = ' + alltrim(pnNR_PASTA)
+    if db_query(lcQUERY) == -1
+       error_sys(db_error())
+    endif
+
+    laRES := db_fetchall()
+
+    if len(laRES) > 1
+       lnDISP := laRES[2,ascan(laRES[1],'HORAS_PREVISTAS')]
+       if db_select({'CAPACIDADE_HORAS'},'pfpj_capacidade_escritorio',,{'TP_PASTA='+DLAP + Wget('TP_PASTA')+DLAP + ' and CIP_ESCRITORIO='+DLAP + pcCIP_ESRITORIO +DLAP}) == -1
+          error_sys(db_error())
+       endif
+       laRES := db_fetchall()
+       if len(laRES) > 1
+          if laRES[2,1] > lnDISP
+             llRET := .t.
+          endif
+       endif
+    endif
+
+    if llRET == .F.
+       WAlert('O escritório selecionado não tem capacidade para atender este contrato.')
+    endif
+
+
+return llRET
+
+
+
+
+/*
+* Glauber - 01/2015
+*
+* Function..: getSaldoDivisao(pnID_PLATAFORMA)
+* Objetivo..: Retorna o valor do saldo da divisão.
+* Parâmetros:
+*
+*
+* Retorno...: Valor do saldo da divisão.
+*
+*
+*
+*/
+
+Static Function getSaldoDivisao(pnID_PLATAFORMA)
+
+   local laRET := {} as array
+
+   local lcQUERY := 'select saldo from saldocontratos where tp_pasta = ' + DLAP + Wget('TP_PASTA') + DLAP + ' and ID_PLATAFORMA = ' + alltrim(pnID_PLATAFORMA)
+
+   if db_query(lcQUERY) == -1
+      error_sys(db_error())
+   endif
+
+   laRET := db_fetchall()
+
+   if len(laRET) > 1
+      return (laRET[2,1])
+   else
+      return 0
+   endif
+
+
+
+
+
+/*
+* Glauber - 01/2015
+*
+* Function..: getMaiorSaldoDivisao()
+* Objetivo..: Retorna um vetor com plataforma, centro de custo e valor do maior saldo da divisão, do tipo de pasta corrente.
+* Parâmetros:
+*
+*
+* Retorno...: Vetor vazio, caso não seja encontrato.
+*
+*
+*
+*/
+
+Static Function getMaiorSaldoDivisao()
+
+   local laRET := {} as array
+
+   local lcQUERY := 'select id_plataforma, cd_ccusto, saldo from saldocontratos where tp_pasta = ' + DLAP + Wget('TP_PASTA') + DLAP + ' and saldo > 0 order by saldo desc limit 1 '
+
+   if db_query(lcQUERY) == -1
+      error_sys(db_error())
+   endif
+
+   laRET := db_fetchrow()
+
+   if len(laRET)>0
+      *** segue
+   else
+      laRET:={0,'',0}
+   endif
+
+return laRET
+
+
+/*
+* Glauber - 01/2015
+*
+* Function..: gravarMovimento(pcINDICADOR, pcOPERACAO)
+* Objetivo..: Retorna .t. se consegui fazer a inserção do lançamento do movimento, atualização do saldo e validações necessária.
+* Parâmetros:
+*
+* pcOPERACAO  : I para indicar nova inclusão de escritório, A para indicar alteração do escritório
+*
+* Retorno...: .t. caso ocorreu a inserção da movimentação com sucesso
+*
+*
+*
+*/
+
+static Function gravarMovimento(pcOPERACAO)
+
+
+
+    local laSLA    := {},;
+          laRES    := {},;
+          laRES1   := {},;
+          laRES2   := {},;
+          laSAVE   := {},;
+          laSALDO  := {},;
+          laAUX    := {},;
+          laCIPS   := {} as Array
+
+    local lnSALDO := 0.00,;
+          lnVALOR := 0.00
+
+    local lcFAST      := '',;
+          lcQUERY     := '',;
+          lcINDICADOR := '',;
+          lcWHERE     := '',;
+          lcTMPWHERE  := '',;
+          lcTMP       := '',;
+          lcTMP1      := '' as String
+
+    local lnDESC      := 0 as Int
+    local lnTMP       := 0 as Int
+    local lnIDPLA     := 0 as Int
+
+    local laFIELDS        := {'TP_PASTA',;
+                              'ID_PLATAFORMA',;
+                              'NR_CONTROLE',;
+                              'DT_MOVIMENTACAO',;
+                              'VL_LANCAMENTO',;
+                              'LOGIN_CADASTRO',;
+                              'NR_PASTA',;
+                              'HR_LANCAMENTO'} as Array
+    local llRET   := .T.
+    local llMAIOR := .F.
+    local llSEMSAL:= .F.
+    local llFIMFIS:= .F.
+
+
+    // Resgatar as informações da SLA_ANALITICO
+
+    lcQUERY := 'select sla_analitico.NR_PASTA,'+;
+               ' sla_analitico.TP_PASTA,'+;
+               ' sla_analitico.ID_PLATAFORMA,'+;
+               ' sla_analitico.ID_CONTRATO,'+;
+               ' sla_analitico.ID_MARGEM,'+;
+               ' pasta_alocada.VL_ESCRITORIO,'+;
+               ' pasta_alocada.CIP_ESCRITORIO,'+;
+               ' (SELECT previsao.HORAS_PREVISTAS from sla_analitico previsao where previsao.NR_PASTA = 0 and previsao.ID_PLATAFORMA = sla_analitico.ID_PLATAFORMA and previsao.ID_CONTRATO = sla_analitico.ID_CONTRATO and previsao.ID_MARGEM = sla_analitico.ID_MARGEM ) AS HORAS_PREVISTAS,'+;
+               ' pasta.FAST_PASS'+;
+               ' from sla_analitico'+;
+               ' inner join pasta_alocada on (pasta_alocada.NR_PASTA = sla_analitico.NR_PASTA)'+;
+               ' inner join pasta on (pasta.NR_PASTA = sla_analitico.NR_PASTA)'+;
+               ' where pasta_alocada.nr_pasta = ' + Wget('NR_PASTA','C')
+
+
+     if db_query(lcQUERY) == -1
+        error_sys(db_error())
+     endif
+
+     laRES  := db_fetchall()
+
+     lcFAST  := laRES[2,ascan(laRES[1],'FAST_PASS')]
+     lnVALOR := laRES[2,ascan(laRES[1],'VL_ESCRITORIO')]
+     lnSALDO := getSaldoDivisao(laRES[2,ascan(laRES[1],'ID_PLATAFORMA')])
+
+     //wout('<br><b> upper(pcOPERACAO):'+ upper(pcOPERACAO))
+
+     if (upper(pcOPERACAO) == 'I')
+        //wout('<br><b> Operação é inclusão.')
+           if (upper(lcFAST) == 'S') // FastPass
+              // Primeira validação: Verificar se o cip do escritorio é o escritório definido na tabela disponibilidade_juridico
+              if isCipJuridico(Wget('CIP_ESCRITORIO')) == .T.
+                 lcINDICADOR := '1'
+                 lnDESC      := getTipoMovto(lcINDICADOR)
+                 if (lnDESC) == 0
+                    WAlert('Atenção:\n não foi encontrado configuração de lançamento para o indicador 1, o escritório não pode ser designado. ')
+                    return .f.
+                 endif
+                 lnSALDO := getSaldoComMovto(Wget('TP_PASTA'),;
+                                            laRES[2,ascan(laRES[1],'ID_PLATAFORMA')],;
+                                            lnDESC,;
+                                            lnVALOR,;
+                                            'U') // Função presente no programa mnt.movsaldoscontratos.html
+                 // Gerar o array de inclusão do lançamento
+
+                 aadd(laSAVE,laFIELDS)
+                 aadd(laSAVE,{Wget('TP_PASTA'), laRES[2,ascan(laRES[1],'ID_PLATAFORMA')],lnDESC,date(),lnVALOR,WSet('LOGIN'),WGet('NR_PASTA'),time()})
+
+
+              endif
+           else // Não é fastpass
+              // Primeira validação: Verificar se o cip do escritorio é o escritório definido na tabela  disponibilidade_juridico
+
+
+              if ! isCipJuridico(Wget('CIP_ESCRITORIO'))
+                 // Verificar se ha saldo disponível para operação
+
+                 //wout('<br><b> Não é escritório do juridico.')
+
+                 if (lnSALDO < lnVALOR) // Se o saldo for menor, resgatar a divisão com maior saldo e verificar se é suficiente
+
+                    //wout('<br><b> O saldo disponível é menor que o valor.'+ transform(lnSALDO)+'/'+transform(lnVALOR))
+
+                    // Saldo é insuficiente, procurar o maior saldo de acordo com o tipo de pasta.
+
+                    laSALDO := getMaiorSaldoDivisao()
+                    llMAIOR := .T.
+
+
+                    //wout('<br><b> Maior saldo deste tipo de pasta:'+ transform(laSALDO[3])+'/'+transform(lnVALOR))
+
+                    if len(laSALDO) > 0 .and. laSALDO[3] < lnVALOR
+                       *** se não existir saldo em nenhuma plataforma obriga o juridico a fazer
+                       *** desconta do saldo do juridico
+                       llSEMSAL:=.T.
+
+                       *** busca o cip do juridico
+                       if db_select({'CIP_JURIDICO'},'disponibilidade_juridico') == -1
+                          error_sys(db_error())
+                       endif
+                       laRES2  := db_fetchrow()
+
+                       lcTMP  := laRES2[1]
+
+                       *** pega o nome do juridico
+                       lcTMPWHERE:='CIP =' + DLAP + lcTMP + DLAP
+                       if db_select({'PFPJ'},'pfpj_escritorio',,{lcTMPWHERE}) == -1
+                          error_sys(db_error())
+                       endif
+                       laRES2 := db_fetchrow()
+
+                       lcTMP := laRES2[1]
+
+                       *** busca uma plataforma com nome de juridico que deve ser criada para controlar o saldo do juridico
+                       lcTMPWHERE:="DESC_PLATAFORMA=" + DLAP + lcTMP + DLAP +" and TP_PASTA="+ DLAP + Wget('TP_PASTA') + DLAP
+
+                       if db_select({'ID_PLATAFORMA'},'plataforma',,{lcTMPWHERE}) == -1
+                          error_sys(db_error())
+                       endif
+                       laRES2 := db_fetchall()
+                       if len(laRES2)==1
+                          WAlert('Atenção:\n não foi encontrado configuração de lançamento para plataforma Jurídico, não e possível localizar o saldo.')
+                          return .f.
+                       endif
+                       lnTMP:=laRES2[2,1]
+
+
+                       lcTMPWHERE:='tp_pasta = ' + DLAP + Wget('TP_PASTA') + DLAP +' and ID_PLATAFORMA = ' + str(lnTMP)
+                       if db_select({'ID_PLATAFORMA','CD_CCUSTO','SALDO'},'saldocontratos',,{lcTMPWHERE}) == -1
+                          error_sys(db_error())
+                       endif
+                       laSALDO := db_fetchrow()
+
+                       lcINDICADOR := '2'
+                       lnDESC      := getTipoMovto(lcINDICADOR)
+                       if (lnDESC) == 0
+                          WAlert('Atenção:\n não foi encontrado configuração de lançamento para o indicador 2, o escritório não pode ser designado.')
+                          return .f.
+                       endif
+                       lnSALDO := laSALDO[3] - lnVALOR
+                       // Gerar o array de inclusão do lançamento
+                       aadd(laSAVE,laFIELDS)
+                       aadd(laSAVE,{Wget('TP_PASTA'), laSALDO[1], lnDESC, date(), lnVALOR, WSet('LOGIN'), WGet('NR_PASTA'),time()})
+
+                    else
+                       lcINDICADOR := '2'
+                       lnDESC      := getTipoMovto(lcINDICADOR)
+                       if (lnDESC) == 0
+                          WAlert('Atenção:\n não foi encontrado configuração de lançamento para o indicador 2, o escritório não pode ser designado. ')
+                          return .f.
+                       endif
+                       lnSALDO := laSALDO[3] - lnVALOR
+                      // Gerar o array de inclusão do lançamento
+                      aadd(laSAVE,laFIELDS)
+                      aadd(laSAVE,{Wget('TP_PASTA'), laSALDO[1], lnDESC, date(), lnVALOR, WSet('LOGIN'), WGet('NR_PASTA'),time()})
+                    endif
+
+                 else // Tem saldo para realizar a inclusão do lançamento
+                      //wout('<br><b> O saldo disponível é suficiente:'+ transform(lnSALDO)+'/'+transform(lnVALOR))
+                      lcINDICADOR := '2'
+                      lnDESC      := getTipoMovto(lcINDICADOR)
+                      if (lnDESC) == 0
+                         WAlert('Atenção:\n não foi encontrado configuração de lançamento para o indicador 2, o escritório não pode ser designado. ')
+                         return .f.
+                      endif
+
+                      lnSALDO := getSaldoComMovto(Wget('TP_PASTA'),;
+                                                  laRES[2,ascan(laRES[1],'ID_PLATAFORMA')],;
+                                                  lnDESC,;
+                                                  lnVALOR,;
+                                                  'U') // Função presente no programa mnt.movsaldoscontratos.html
+
+                      // Gerar o array de inclusão do lançamento
+                      aadd(laSAVE,laFIELDS)
+                      aadd(laSAVE,{Wget('TP_PASTA'), laRES[2,ascan(laRES[1],'ID_PLATAFORMA')],lnDESC,date(),lnVALOR,WSet('LOGIN'),WGet('NR_PASTA'),time()})
+                      //debug2(laSAVE,,30)
+                 endif
+
+              endif
+           endif
+     else // Operação de troca de escritorio (alteração)
+          //wout('<br><b> Operação é alteração.')
+
+
+           if (upper(lcFAST) == 'S') // FastPass
+              // Primeira validação: Verificar se o cip do escritorio é em substituição do escritório definido na tabela disponibilidade_juridico
+              // Se for lançar movimento com indicador 3
+
+              *** se o cip digitado for um cip de escritorio
+              if ! isCipJuridico(Wget('CIP_ESCRITORIO'))
+                  *** verifica se o cip anterior tambem e cip de escritorio (esta trocando de escritorio para escritorio)
+                  if ! empty(laRES[2,ascan(laRES[1],'CIP_ESCRITORIO')])
+                     if ! isCipJuridico(laRES[2,ascan(laRES[1],'CIP_ESCRITORIO')])
+                          *** não faz nada conf.reunão 25/03/2015 as 11:00 Alexandre
+                          return .T.
+                     endif
+                  endif
+              endif
+
+
+              *** se o cip digitado for um cip de escritorio
+              if ! isCipJuridico(Wget('CIP_ESCRITORIO'))
+
+                 // Verificar se ha saldo disponível para operação
+
+                 //wout('<br><b> Não é escritório do juridico.')
+
+                 if (lnSALDO < lnVALOR) // Se o saldo for menor, resgatar a divisão com maior saldo e verificar se é suficiente
+
+                    //wout('<br><b> O saldo disponível é menor que o valor.'+ transform(lnSALDO)+'/'+transform(lnVALOR))
+
+                    // Saldo é insuficiente, procurar o maior saldo de acordo com o tipo de pasta.
+
+                    laSALDO := getMaiorSaldoDivisao()
+                    llMAIOR := .T.
+
+
+                    //wout('<br><b> Maior saldo deste tipo de pasta:'+ transform(laSALDO[3])+'/'+transform(lnVALOR))
+
+                    if len(laSALDO) > 0 .and. laSALDO[3] < lnVALOR
+                       *** se não existir saldo em nenhuma plataforma obriga o juridico a fazer
+                       *** desconta do saldo do juridico
+                       llSEMSAL:=.T.
+
+                       *** busca o cip do juridico
+                       if db_select({'CIP_JURIDICO'},'disponibilidade_juridico') == -1
+                          error_sys(db_error())
+                       endif
+                       laRES2  := db_fetchrow()
+
+                       lcTMP  := laRES2[1]
+
+                       *** pega o nome do juridico
+                       lcTMPWHERE:='CIP =' + DLAP + lcTMP + DLAP
+                       if db_select({'PFPJ'},'pfpj_escritorio',,{lcTMPWHERE}) == -1
+                          error_sys(db_error())
+                       endif
+                       laRES2 := db_fetchrow()
+
+                       lcTMP := laRES2[1]
+
+                       *** busca uma plataforma com nome de juridico que deve ser criada para controlar o saldo do juridico
+                       lcTMPWHERE:="DESC_PLATAFORMA=" + DLAP + lcTMP + DLAP +" and TP_PASTA="+ DLAP + Wget('TP_PASTA') + DLAP
+
+                       if db_select({'ID_PLATAFORMA'},'plataforma',,{lcTMPWHERE}) == -1
+                          error_sys(db_error())
+                       endif
+                       laRES2 := db_fetchall()
+                       if len(laRES2)==1
+                          WAlert('Atenção:\n não foi encontrado configuração de lançamento para plataforma Jurídico, não e possível localizar o saldo.')
+                          return .f.
+                       endif
+
+                       lnTMP:=laRES2[2,1]
+
+
+                       lcTMPWHERE:='tp_pasta = ' + DLAP + Wget('TP_PASTA') + DLAP +' and ID_PLATAFORMA = ' + str(lnTMP)
+                       if db_select({'ID_PLATAFORMA','CD_CCUSTO','SALDO'},'saldocontratos',,{lcTMPWHERE}) == -1
+                          error_sys(db_error())
+                       endif
+                       laSALDO := db_fetchrow()
+
+                       lcINDICADOR := '3' //estorno credito
+                       lnDESC      := getTipoMovto(lcINDICADOR)
+                       if (lnDESC) == 0
+                          WAlert('Atenção:\n não foi encontrado configuração de lançamento para o indicador 2, o escritório não pode ser designado.')
+                          return .f.
+                       endif
+                       lnSALDO := laSALDO[3] - lnVALOR
+                       // Gerar o array de inclusão do lançamento
+                       aadd(laSAVE,laFIELDS)
+                       aadd(laSAVE,{Wget('TP_PASTA'), laSALDO[1], lnDESC, date(), lnVALOR, WSet('LOGIN'), WGet('NR_PASTA'),time()})
+
+                    else
+                       lcINDICADOR := '3' //estorno credito
+                       lnDESC      := getTipoMovto(lcINDICADOR)
+                       if (lnDESC) == 0
+                          WAlert('Atenção:\n não foi encontrado configuração de lançamento para o indicador 2, o escritório não pode ser designado. ')
+                          return .f.
+                       endif
+                       lnSALDO := laSALDO[3] - lnVALOR
+
+                      // Gerar o array de inclusão do lançamento
+                      aadd(laSAVE,laFIELDS)
+                      aadd(laSAVE,{Wget('TP_PASTA'), laSALDO[1], lnDESC, date(), lnVALOR, WSet('LOGIN'), WGet('NR_PASTA'),time()})
+                    endif
+
+                 else // Tem saldo para realizar a inclusão do lançamento
+                      //wout('<br><b> O saldo disponível é suficiente:'+ transform(lnSALDO)+'/'+transform(lnVALOR))
+                      lcINDICADOR := '3' //estorno credito
+                      lnDESC      := getTipoMovto(lcINDICADOR)
+                      if (lnDESC) == 0
+                         WAlert('Atenção:\n não foi encontrado configuração de lançamento para o indicador 2, o escritório não pode ser designado. ')
+                         return .f.
+                      endif
+
+                      lnSALDO := getSaldoComMovto(Wget('TP_PASTA'),;
+                                                  laRES[2,ascan(laRES[1],'ID_PLATAFORMA')],;
+                                                  lnDESC,;
+                                                  lnVALOR,;
+                                                  'U') // Função presente no programa mnt.movsaldoscontratos.html
+
+                      // Gerar o array de inclusão do lançamento
+                      aadd(laSAVE,laFIELDS)
+                      aadd(laSAVE,{Wget('TP_PASTA'), laRES[2,ascan(laRES[1],'ID_PLATAFORMA')],lnDESC,date(),lnVALOR,WSet('LOGIN'),WGet('NR_PASTA'),time()})
+                      //debug2(laSAVE,,30)
+                 endif
+
+              else
+                 lcINDICADOR := '1' //credito
+                 lnDESC      := getTipoMovto(lcINDICADOR)
+                 if (lnDESC) == 0
+                    WAlert('Atenção:\n não foi encontrado configuração de lançamento para o indicador 1, o escritório não pode ser designado. ')
+                    return .f.
+                 endif
+
+                 lnIDPLA := buscadebito()
+                 if lnIDPLA>0
+                    laRES[2,ascan(laRES[1],'ID_PLATAFORMA')] := lnIDPLA
+                 endif
+
+                 lnSALDO := getSaldoComMovto(Wget('TP_PASTA'),;
+                                            laRES[2,ascan(laRES[1],'ID_PLATAFORMA')],;
+                                            lnDESC,;
+                                            lnVALOR,;
+                                            'U') // Função presente no programa mnt.movsaldoscontratos.html
+                 // Gerar o array de inclusão do lançamento
+
+                 aadd(laSAVE,laFIELDS)
+                 aadd(laSAVE,{Wget('TP_PASTA'), laRES[2,ascan(laRES[1],'ID_PLATAFORMA')],lnDESC,date(),lnVALOR,WSet('LOGIN'),WGet('NR_PASTA'),time()})
+
+              endif
+
+
+           else // Não é fastpass
+
+               //wout('<br><b> Não é fastpass')
+
+               // Se o contrato não for fastpass e o escritorio informado for o departamento juridico, incluir o lançamento com indicador 4
+
+
+              *** se o cip digitado for um cip de escritorio
+              if ! isCipJuridico(Wget('CIP_ESCRITORIO'))
+                  *** verifica se o cip anterior tambem e cip de escritorio (esta trocando de escritorio para escritorio)
+                  if ! isCipJuridico(laRES[2,ascan(laRES[1],'CIP_ESCRITORIO')])
+                       *** não faz nada conf.reunão 25/03/2015 as 11:00 Alexandre
+                       return .T.
+                  endif
+              endif
+
+              *** se o cip digitado for um cip de escritorio
+              if ! isCipJuridico(Wget('CIP_ESCRITORIO'))
+                 // Verificar se ha saldo disponível para operação
+
+                 //wout('<br><b> Não é escritório do juridico.')
+
+                 if (lnSALDO < lnVALOR) // Se o saldo for menor, resgatar a divisão com maior saldo e verificar se é suficiente
+
+                    //wout('<br><b> O saldo disponível é menor que o valor.'+ transform(lnSALDO)+'/'+transform(lnVALOR))
+
+                    // Saldo é insuficiente, procurar o maior saldo de acordo com o tipo de pasta.
+
+                    laSALDO := getMaiorSaldoDivisao()
+                    llMAIOR := .T.
+
+
+                    //wout('<br><b> Maior saldo deste tipo de pasta:'+ transform(laSALDO[3])+'/'+transform(lnVALOR))
+
+                    if len(laSALDO) > 0 .and. laSALDO[3] < lnVALOR
+
+                       *** se não existir saldo em nenhuma plataforma obriga o juridico a fazer
+                       *** desconta do saldo do juridico
+                       llSEMSAL:=.T.
+
+                       *** busca o cip do juridico
+                       if db_select({'CIP_JURIDICO'},'disponibilidade_juridico') == -1
+                          error_sys(db_error())
+                       endif
+                       laRES2  := db_fetchrow()
+
+                       lcTMP  := laRES2[1]
+
+                       *** pega o nome do juridico
+                       lcTMPWHERE:='CIP =' + DLAP + lcTMP + DLAP
+                       if db_select({'PFPJ'},'pfpj_escritorio',,{lcTMPWHERE}) == -1
+                          error_sys(db_error())
+                       endif
+                       laRES2 := db_fetchrow()
+
+                       lcTMP := laRES2[1]
+
+                       *** busca uma plataforma com nome de juridico que deve ser criada para controlar o saldo do juridico
+                       lcTMPWHERE:="DESC_PLATAFORMA=" + DLAP + lcTMP + DLAP +" and TP_PASTA="+ DLAP + Wget('TP_PASTA') + DLAP
+
+                       if db_select({'ID_PLATAFORMA'},'plataforma',,{lcTMPWHERE}) == -1
+                          error_sys(db_error())
+                       endif
+                       laRES2 := db_fetchall()
+                       if len(laRES2)==1
+                          WAlert('Atenção:\n não foi encontrado configuração de lançamento para plataforma Jurídico, não e possível localizar o saldo.')
+                          return .f.
+                       endif
+
+                       lnTMP:=laRES2[2,1]
+
+                       lcTMPWHERE:='tp_pasta = ' + DLAP + Wget('TP_PASTA') + DLAP +' and ID_PLATAFORMA = ' + str(lnTMP)
+                       if db_select({'ID_PLATAFORMA','CD_CCUSTO','SALDO'},'saldocontratos',,{lcTMPWHERE}) == -1
+                          error_sys(db_error())
+                       endif
+                       laSALDO := db_fetchrow()
+
+                       lcINDICADOR := '2' //debito
+                       lnDESC      := getTipoMovto(lcINDICADOR)
+                       if (lnDESC) == 0
+                          WAlert('Atenção:\n não foi encontrado configuração de lançamento para o indicador 2, o escritório não pode ser designado.')
+                          return .f.
+                       endif
+                       lnSALDO := laSALDO[3] - lnVALOR
+                       // Gerar o array de inclusão do lançamento
+                       aadd(laSAVE,laFIELDS)
+                       aadd(laSAVE,{Wget('TP_PASTA'), laSALDO[1], lnDESC, date(), lnVALOR, WSet('LOGIN'), WGet('NR_PASTA'),time()})
+
+                    else
+
+                       lcINDICADOR := '2' //debito
+                       lnDESC      := getTipoMovto(lcINDICADOR)
+                       if (lnDESC) == 0
+                          WAlert('Atenção:\n não foi encontrado configuração de lançamento para o indicador 2, o escritório não pode ser designado. ')
+                          return .f.
+                       endif
+                       lnSALDO := laSALDO[3] - lnVALOR
+                      // Gerar o array de inclusão do lançamento
+                      aadd(laSAVE,laFIELDS)
+                      aadd(laSAVE,{Wget('TP_PASTA'), laSALDO[1], lnDESC, date(), lnVALOR, WSet('LOGIN'), WGet('NR_PASTA'),time()})
+                    endif
+
+                 else // Tem saldo para realizar a inclusão do lançamento
+
+                      //wout('<br><b> O saldo disponível é suficiente:'+ transform(lnSALDO)+'/'+transform(lnVALOR))
+                      lcINDICADOR := '2'
+                      lnDESC      := getTipoMovto(lcINDICADOR)
+                      if (lnDESC) == 0
+                         WAlert('Atenção:\n não foi encontrado configuração de lançamento para o indicador 2, o escritório não pode ser designado. ')
+                         return .f.
+                      endif
+
+                      lnSALDO := getSaldoComMovto(Wget('TP_PASTA'),;
+                                                  laRES[2,ascan(laRES[1],'ID_PLATAFORMA')],;
+                                                  lnDESC,;
+                                                  lnVALOR,;
+                                                  'U') // Função presente no programa mnt.movsaldoscontratos.html
+
+                      // Gerar o array de inclusão do lançamento
+                      aadd(laSAVE,laFIELDS)
+                      aadd(laSAVE,{Wget('TP_PASTA'), laRES[2,ascan(laRES[1],'ID_PLATAFORMA')],lnDESC,date(),lnVALOR,WSet('LOGIN'),WGet('NR_PASTA'),time()})
+                      //debug2(laSAVE,,30)
+                 endif
+
+              else
+
+                  *** rufino 11/05/2015 14:13:42
+                  *** Quando ocorrer no início de novo Ano Fiscal uma situação em que no "Ano Anterior" uma Pasta "Não Fast Pass" ter sido "terceirizada" e
+                  *** no "Exercício Atual" ela sofrer ajuste para ser "Internalizada" ela "NÃO DEVERÁ RECEBER O LANÇAMENTO DE CRÉDITO".
+
+                  *** verifica data lançamento anterior se for maior que a data do início de novo Ano Fiscal retorna .T.
+
+                  llFIMFIS := buscaultlanc(WGet('NR_PASTA'))
+
+                  //wout('<br><b> É juridico:'+Wget('CIP_ESCRITORIO'))
+                  lcINDICADOR := '4' //estorno debito
+                  lnDESC      := getTipoMovto(lcINDICADOR)
+                  if (lnDESC) == 0
+                     WAlert('Atenção:\n não foi encontrado configuração de lançamento para o indicador 4, o escritório não pode ser designado. ')
+                     return .f.
+                  endif
+
+                  lnIDPLA := buscadebito()
+                  laRES[2,ascan(laRES[1],'ID_PLATAFORMA')] := lnIDPLA
+
+                  lnSALDO := getSaldoComMovto(Wget('TP_PASTA'),;
+                                              laRES[2,ascan(laRES[1],'ID_PLATAFORMA')],;
+                                              lnDESC,;
+                                              lnVALOR,;
+                                              'U') // Função presente no programa mnt.movsaldoscontratos.html
+
+                  aadd(laSAVE,laFIELDS)
+                  aadd(laSAVE,{Wget('TP_PASTA'), laRES[2,ascan(laRES[1],'ID_PLATAFORMA')], lnDESC,date(),lnVALOR,WSet('LOGIN'),WGet('NR_PASTA'),time()})
+
+              endif
+
+           endif
+
+     endif
+
+     // Gravar o lançamento e atualizar o Saldo
+
+     // debug2(laSAVE,,20)
+
+     if len(laSAVE) > 1
+
+           if llFIMFIS == .F.
+              ***** Gravação do lançamento do movimento
+
+              if db_insert(laSAVE,'movtosaldocontratos') == -1
+                  error_sys(db_error())
+              endif
+
+              ******************************************
+
+              ***** atualizar o saldo na tabela de saldos
+
+              *** Se for pego o maior saldo da plataforma, o saldo a ser atualizado deve ser o da maior plataforma e não da plataforma origem do contrato.
+              if llMAIOR ==.t.
+                 *** se não tinha saldo em nenhuma plataforma (llSEMSAL=.t.) que fez foi o juridico o id_plataforma abaixo e do juridico
+
+                 *** pegou plataforma com maior saldo , id plataforma abaixo e da plataforma que tinha saldo
+                 lcWHERE  := 'TP_PASTA = ' + DLAP + Wget('TP_PASTA') + DLAP + ' and ID_PLATAFORMA = ' + AllTrim(laSAVE[2,ascan(laSAVE[1],'ID_PLATAFORMA')])
+              else
+
+                 *** o id_plataforma abaixo e da plataforma de origem
+                 lcWHERE  := 'TP_PASTA = ' + DLAP + Wget('TP_PASTA') + DLAP + ' and ID_PLATAFORMA = ' + AllTrim(laRES[2,ascan(laRES[1],'ID_PLATAFORMA')])
+              endif
+
+              if db_update({{'SALDO'},{lnSALDO}},'SALDOCONTRATOS',{lcWHERE}) == -1
+                 error_sys(db_error())
+              endif
+
+              *******************************
+           endif
+
+
+
+           *** atualiza centro de custo da pasta
+
+           if (upper(pcOPERACAO) == 'I')
+              *** se for inclusão
+
+              if (upper(lcFAST) == 'N')
+                  *** se não for fastpass
+
+                  *** só muda o centro de custo se utilizou o saldo de outra planaforma (o maior)
+                  if llMAIOR ==.t.
+
+                     if llSEMSAL ==.t.
+                        *** se não tinha saldo em nenhuma plataforma que fez foi o juridico
+                        *** pega o ccusto juridico da plataforma e grava na pasta
+
+                        *** o id_plataforma tem que ser da plataforma de origem
+                        lcWHERE  := 'TP_PASTA = ' + DLAP + Wget('TP_PASTA') + DLAP + ' and ID_PLATAFORMA = ' + AllTrim(laRES[2,ascan(laRES[1],'ID_PLATAFORMA')])
+
+                        *** pega o centro de custo do juridico apontado na plataforma de origem
+                        if db_select({'CD_JURCC'},'saldocontratos',,{lcWHERE}) == -1
+                           error_sys(db_error())
+                        endif
+                        laRES2:= db_fetchrow()
+                        lcTMP:=laRES2[1]
+                      else
+                        *** pegou plataforma com maior saldo , id plataforma abaixo e da plataforma que tinha saldo
+                        lcWHERE  := 'TP_PASTA = ' + DLAP + Wget('TP_PASTA') + DLAP + ' and ID_PLATAFORMA = ' + AllTrim(laSAVE[2,ascan(laSAVE[1],'ID_PLATAFORMA')])
+
+                        *** peca o centro de custo da plataforma com maior saldo
+                        if db_select({'CD_CCUSTO'},'saldocontratos',,{lcWHERE}) == -1
+                           error_sys(db_error())
+                        endif
+                        laRES2:= db_fetchrow()
+                        lcTMP:=laRES2[1]
+                      endif
+
+
+                     laSAVE := {{'CD_CCUSTO'},{lcTMP}}
+
+                     psab_logs(laSAVE,'pasta','NR_PASTA = '+Wget('NR_PASTA','C'),Wget('NR_PASTA','C'),'Designar Escritório') //Gravar log de alterações da pasta
+
+                   if db_update(laSAVE,'pasta',{'NR_PASTA = '+Wget('NR_PASTA','C')}) == -1
+                        error_sys(db_error())
+                     endif
+                  endif
+              endif
+
+           else
+              *** se for alteração
+
+
+                  *** verifica se o cip que esta sendo digitado e um cip juridico
+                  if db_select({'CD_CCUSTO'},'disponibilidade_juridico',,{'CIP_JURIDICO='+DLAP +WGet('CIP_ESCRITORIO') +DLAP}) == -1
+                     error_sys(db_error())
+                  endif
+                  laRES2  := db_fetchall()
+
+                  if len(laRES2)>1
+                     *** se for cip juridico volta para o centro de custo anterior
+                     lcWHERE  := 'NR_PASTA = '+Wget('NR_PASTA','C')+' and WFIELD ='+DLAP+'CD_CCUSTO'+DLAP+' and LOCAL_ALTERACAO='+DLAP+'Designar Escritório'+DLAP
+
+                     if db_select({'CONTEUDO_ANTERIOR'},'pasta_log_altera',,{lcWHERE},{'NR_CONTROLE'},'D') == -1
+                        error_sys(db_error())
+                     endif
+                     laRES1 := db_fetchall()
+
+                     *** se não tiver centro de custo anterior não faz nada
+                     *** alexandre 03/03 17:50
+                     if len(laRES1)>1
+                        laSAVE := {{'CD_CCUSTO'},{laRES1[2,1]}}
+
+                        psab_logs(laSAVE,'pasta','NR_PASTA = '+Wget('NR_PASTA','C'),Wget('NR_PASTA','C'),'Designar Escritório') //Gravar log de alterações da pasta
+
+                        if db_update(laSAVE,'pasta',{'NR_PASTA = '+Wget('NR_PASTA','C')}) == -1
+                           error_sys(db_error())
+                        endif
+
+                     endif
+
+                  else
+
+                     *** só muda o centro de custo se utilizou o saldo de outra planaforma (o maior)
+                     if llMAIOR ==.t.
+
+                        if llSEMSAL ==.t.
+                           *** se não tinha saldo em nenhuma plataforma que fez foi o juridico
+                           *** pega o ccusto juridico da plataforma e grava na pasta
+
+                           *** o id_plataforma tem que ser da plataforma de origem
+                           lcWHERE  := 'TP_PASTA = ' + DLAP + Wget('TP_PASTA') + DLAP + ' and ID_PLATAFORMA = ' + AllTrim(laRES[2,ascan(laRES[1],'ID_PLATAFORMA')])
+
+                           *** pega o centro de custo do juridico apontado na plataforma de origem
+                           if db_select({'CD_JURCC'},'saldocontratos',,{lcWHERE}) == -1
+                              error_sys(db_error())
+                           endif
+                           laRES2:= db_fetchrow()
+                           lcTMP:=laRES2[1]
+                        else
+                           *** pegou plataforma com maior saldo , id plataforma abaixo e da plataforma que tinha saldo
+                           lcWHERE  := 'TP_PASTA = ' + DLAP + Wget('TP_PASTA') + DLAP + ' and ID_PLATAFORMA = ' + AllTrim(laSAVE[2,ascan(laSAVE[1],'ID_PLATAFORMA')])
+
+                           *** peca o centro de custo da plataforma com maior saldo
+                           if db_select({'CD_CCUSTO'},'saldocontratos',,{lcWHERE}) == -1
+                              error_sys(db_error())
+                           endif
+                           laRES2:= db_fetchrow()
+                           lcTMP:=laRES2[1]
+                        endif
+
+                        laSAVE := {{'CD_CCUSTO'},{lcTMP}}
+
+                        psab_logs(laSAVE,'pasta','NR_PASTA = '+Wget('NR_PASTA','C'),Wget('NR_PASTA','C'),'Designar Escritório') //Gravar log de alterações da pasta
+
+                        if db_update(laSAVE,'pasta',{'NR_PASTA = '+Wget('NR_PASTA','C')}) == -1
+                           error_sys(db_error())
+                        endif
+                     endif
+                  endif
+
+           endif
+
+     endif
+
+return llRET
+
+
+/*
+* Glauber - 01/2015
+*
+* Function..: isCipJuridico(pcCIP_ESCRITORIO)
+* Objetivo..: Retorna .t. caso o cip informado corresponde ao cip configurado como escritorio interno na tabela disponibilidade_juridico.
+* Parâmetros:
+*
+*
+* Retorno...: .t. Caso o CIP corresponde ao escritorio juridico.
+*
+*
+*
+*/
+
+Static Function isCipJuridico(pcCIP_ESCRITORIO)
+
+   local laRET := {} as array
+
+   local lcQUERY := 'select count(*) as QTDE from disponibilidade_juridico where cip_juridico = ' + DLAP +pcCIP_ESCRITORIO+DLAP
+
+   if db_query(lcQUERY) == -1
+      error_sys(db_error())
+   endif
+   laRET := db_fetchrow()
+
+return (laRET[1] > 0)
+
+
+/*
+* Glauber - 01/2015
+*
+* Function..: getTipoMovto(pcINDICADOR)
+* Objetivo..: Retorna o número de controle da tabela tp_mov_saldoscontratos de acordo com o tipo do indicador.
+* Parâmetros:
+*
+*
+* Retorno...: Numero de controle.
+*
+*
+*
+*/
+
+Static Function getTipoMovto(pcINDICADOR)
+
+   local laRET := {} as array
+
+   local lcQUERY := 'select NR_CONTROLE from tp_mov_saldoscontratos where indicador = ' + DLAP + pcINDICADOR + DLAP + ' limit 1 '
+
+   if db_query(lcQUERY) == -1
+      error_sys(db_error())
+   endif
+   laRET := db_fetchAll()
+   if len(laRET) > 1
+      return (laRET[2,1])
+   endif
+
+return (0)
+
+/*
+* Glauber - 12/2014
+*
+* Function..: getSaldoComMovto(pcTP_PASTA, pnID_PLATAFORMA, pnNR_CONTROLE, pnVL_LANCAMENTO, pcOPERACAO)
+* Objetivo..: Retorna o valor do saldo antes de efetuar a operação de gravação do movimento.
+* Parâmetros:
+*
+*     pcTP_PASTA       Tipo de pasta.
+*     pnID_PLATAFORMA  Plataforma.
+*     pnNR_CONTROLE    Operação que esta sendo realizada, de acordo com a tabela TP_MOV_SALDOSCONTRATOS.
+*     pnVL_LANCAMENTO  Valor do lançamento.
+*     pcOPERACAO       Operação que esta sendo realizada, sendo U => novo lançamento / atualização e E => para exclusão do lançamento.
+*
+* Retorno...: Valor do saldo atualizado.              1
+*
+*
+*
+*/
+
+
+static function getSaldoComMovto(pcTP_PASTA, pnID_PLATAFORMA, pnNR_CONTROLE, pnVL_LANCAMENTO, pcOPERACAO)
+
+
+    local lnSALDOATUAL := 0.00 as NUMERIC
+
+    local laFIELDS := {'TP_MOVTO'} as Array
+    local laRES    := {} as Array
+    local lcWHERE  := 'NR_CONTROLE = ' + alltrim(pnNR_CONTROLE)
+
+    local lcDC     := ''
+
+
+    // Resgatar o tipo de lançamento (+/-)
+
+    if db_select(laFIELDS,'TP_MOV_SALDOSCONTRATOS',,{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+
+    laRES := db_fetchall()
+
+    if len(laRES) > 1
+       lcDC := laRES[2,1]
+    endif
+
+    // Recuperar o saldo atual
+
+    laFIELDS := {'SALDO'}
+    lcWHERE  := 'TP_PASTA = ' + DLAP + pcTP_PASTA + DLAP + ' and ID_PLATAFORMA = ' + alltrim(pnID_PLATAFORMA)
+
+    if db_select(laFIELDS,'SALDOCONTRATOS',,{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+
+    laRES := db_fetchall()
+
+    if len(laRES) > 1
+       lnSALDOATUAL := laRES[2,1]
+    endif
+    // Caso a operação seja de atualização verificar se deve ser somado ou subtraido
+    if upper(pcOPERACAO) == 'U'
+       if (lcDC == '+')
+           lnSALDOATUAL += pnVL_LANCAMENTO
+       else
+           lnSALDOATUAL -= pnVL_LANCAMENTO
+       endif
+    elseif upper(pcOPERACAO) == 'E' // Caso a operação seja de exclusão verificar a configuração e fazer a reversão.
+       if (lcDC == '+')
+           lnSALDOATUAL -= pnVL_LANCAMENTO
+       else
+           lnSALDOATUAL += pnVL_LANCAMENTO
+       endif
+    endif
+//wout('<br><b>lnSALDOATUAL:'+transform(lnSALDOATUAL))
+
+return (lnSALDOATUAL)
+
+
+
+
+
+/*
+* Glauber - 01/2015
+*
+* Function..: podeDesignar(pcNR_PASTA)
+* Objetivo..: Verifica se a pasta pode ser designada para algum escritório.
+*             A condição consiste em verificar o campo FAST_PASS da tabela pasta. Este campo tem que ser diferente de vazio, ou seja, ter o conteúdo SIM ou NÃO.
+* Parâmetros:
+*
+*     pcNR_PASTA       Número da pasta.
+*     pcOPERACAO       Operação que esta sendo realizada, sendo U => novo lançamento / atualização e E => para exclusão do lançamento.
+*
+* Retorno...: .T. se pode ser alocado.
+*
+*
+*
+*/
+
+Static Function podeDesignar(pcNR_PASTA)
+
+
+
+    local laRES    := {} as Array
+
+    local llRET    := .F.
+
+
+    if ! empty(pcNR_PASTA)
+
+        if db_select({'FAST_PASS'},'pasta',,{'NR_PASTA = '+pcNR_PASTA}) == -1
+           error_sys(db_error())
+        endif
+
+        laRES := db_fetchall()
+
+        if len(laRES) > 1
+           llRET  := iif( ! empty(alltrim(laRES[2,1])),.T.,.F.)
+        endif
+    endif
+
+
+return llRET
+
+
+
+
+/*
+* Glauber - 01/2015
+*
+* Function..: Indi2()
+* Objetivo..: Retorna o número de controle da tabela tp_mov_saldoscontratos cujo indicador seja igual a 2.
+*
+* Parâmetros:
+*
+*
+* Retorno...: número de controle.
+*
+*
+*
+*/
+
+Static Function Indi2()
+
+
+
+    local laRES    := {} as Array
+
+    local lnRET    := 0 as Int
+
+
+    if ! empty(pcNR_PASTA)
+
+        if db_select({'NR_CONTROLE'},'tp_mov_saldoscontratos',,{'INDICADOR = '+DLAP + '2' + DLAP}) == -1
+           error_sys(db_error())
+        endif
+
+        laRES := db_fetchall()
+
+        if len(laRES) > 1
+           lnRET := laRES[2,1]
+        endif
+    endif
+
+
+return lnRET
+
+
+
+/*
+* Glauber - 01/2015
+*
+* Function..: QtdLanTipo2(pcNR_PASTA)
+* Objetivo..: Retorna a quantidade de registro do tipo 2 em uma determinada pasta.
+*
+* Parâmetros:
+*
+*     pcNR_PASTA       Número da pasta.
+*
+* Retorno...: quantidade.
+*
+*
+*
+*/
+
+Static Function QtdLanTipo2(pcNR_PASTA)
+
+    local laRES    := {} as Array
+
+    local lnRET    := 0 as Int
+
+
+    if ! empty(pcNR_PASTA)
+
+        if db_select({'count(*) as QTD'},'movtosaldocontratos ',,{'NR_PASTA = ' + alltrim(pcNR_PASTA) + ' and nr_controle = (select nr_controle from tp_mov_saldoscontratos where indicador = ' + DLAP +'2' +DLAP + ')'}) == -1
+           error_sys(db_error())
+        endif
+
+        laRES := db_fetchall()
+
+        if len(laRES) > 1
+           lnRET := laRES[2,1]
+        endif
+    endif
+
+
+return lnRET
+
+****************************************
+Static Function buscadebito()
+****************************************
+local lcQUERY  := '' as string
+local laRES    := {} as Array
+local lnRET    := 0  as int
+
+lcQUERY := 'select '
+lcQUERY += 'movtosaldocontratos.id_plataforma,'
+lcQUERY += 'COALESCE(sum('
+lcQUERY += 'CASE'
+lcQUERY += "    WHEN tp_mov_saldoscontratos.TP_MOVTO = '+' THEN movtosaldocontratos.vl_lancamento"
+lcQUERY += '    ELSE 0 '
+lcQUERY += 'END), 0) AS tot_cred, COALESCE(sum('
+lcQUERY += 'CASE'
+lcQUERY += "    WHEN tp_mov_saldoscontratos.TP_MOVTO = '-' THEN movtosaldocontratos.vl_lancamento"
+lcQUERY += '    ELSE 0 '
+lcQUERY += 'END), 0) AS tot_deb, COALESCE(sum(movtosaldocontratos.vl_lancamento * '
+lcQUERY += 'CASE'
+lcQUERY += "    WHEN tp_mov_saldoscontratos.TP_MOVTO = '-' THEN -1"
+lcQUERY += "    WHEN tp_mov_saldoscontratos.TP_MOVTO = '+' THEN 1"
+lcQUERY += '    ELSE 0 '
+lcQUERY += 'END), 0) AS saldo '
+lcQUERY += 'from movtosaldocontratos '
+lcQUERY += 'left join plataforma on movtosaldocontratos.TP_PASTA = plataforma.TP_PASTA and movtosaldocontratos.ID_PLATAFORMA = plataforma.ID_PLATAFORMA '
+lcQUERY += 'left join tp_mov_saldoscontratos on movtosaldocontratos.NR_CONTROLE= tp_mov_saldoscontratos.NR_CONTROLE '
+lcQUERY += 'where movtosaldocontratos.NR_PASTA=' + WGet('NR_PASTA','C')
+lcQUERY += ' group by '
+lcQUERY += 'movtosaldocontratos.id_plataforma'
+
+
+if db_query(lcQUERY) == -1
+   error_sys(db_error())
+endif
+
+laRES := db_fetchall()
+
+for ii := 2 to len(laRES)
+    if laRES[ii,4]<0
+       lnRET  := laRES[ii,1] //id plataforma com saldo negativo
+       exit
+    endif
+next ii
+
+return lnRET
+
+
+****************************************
+Static Function buscaultlanc(fnNR_PASTA)
+****************************************
+local lcQUERY  := '' as string
+local lcSEGUE  := .F. as logical
+local laRES    := {} as Array
+local lnRET    := 0  as int
+local ldANOFIX  as date
+
+if db_select({'fexercicio'},'disponibilidade_juridico') == -1
+   error_sys(db_error())
+endif
+
+laRES := db_fetchall()
+
+if len(laRES)>1
+
+   ldANOFIX:=ctod(laRES[2,1]+'/'+str(year()))
+
+   if db_select({'DT_MOVIMENTACAO'},'movtosaldocontratos ',,{'NR_PASTA = ' + str(fnNR_PASTA)},{'NR_SEQ'},'D') == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+
+   if len(laRES)>1
+      if laRES[2,1]<ldANOFIX
+         lcSEGUE:=.T.
+        else
+         lcSEGUE:=.F.
+      endif
+   else
+      lcSEGUE:=.T.
+   endif
+
+endif
+
+return(lcSEGUE)

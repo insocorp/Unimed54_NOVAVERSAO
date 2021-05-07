@@ -1,0 +1,57 @@
+/*
+
+Project      : gr5
+Program      : motivo_operacao.mnt.html
+Function     : motivo_operacao_mnt_html
+Created on   : 30/08/2012 17:02:12
+Descripition : Cadastro de Motivos da Operação
+
+*/
+
+local laPARAM        := {} ,;
+      laINPUT_OBJ    := {} ,;
+      laSELECT       := {} as array
+
+laPARAM := {{'MOT_OPER2',''     ,'*'},;
+            {'FL_ATIVO','',},;
+            {'ACTION'               ,'ALTER',   },;
+            {'NM_MOT_OPER',''     ,'*'}}
+laINPUT_OBJ := {{'MOT_OPER2',0,,'Y',},;
+                {'NM_MOT_OPER',0,,'Y',},;
+                {          , , ,   , },;
+                    {'FL_ATIVO',1,,'Y','{"S","I","D"}'}}
+                
+laSELECT := {'MOT_OPER2','NM_MOT_OPER','FL_ATIVO'}
+
+
+xbp('motivo_operacao',;                                             //Tabela alvo
+    ,;                                                                  //Joins
+    ,;                                                                  //Where
+    {'NM_MOT_OPER'},;                                           //Order by
+    ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+    ,;                                                                  //Group by
+    ,;                                                                  //Limit
+    ,;                                                                  //Banco de Dados
+    2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+    'gr5',;                                                            //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                                           //Programa chamador
+    laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+    ,;                                                                  //Parâmetros para os botões das linhas do grid
+    'motivo_operacao.mnt.html',;                                             //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                                            //Módulo do programa chamado pelos links/botoes do grid
+    ,;                                                                  //Retorno java (nil) - usado apenas para Search
+    ,;                                                                  //Campos usados na pesquisa rápida
+    ,;                                                                  //Campos Ocultos
+    laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+    laSELECT ,;                                                         //Campos exibidos no grid
+    laSELECT)                                                           //Campos usados no select
+return
+
+
+
+            
+
+
+
+
+

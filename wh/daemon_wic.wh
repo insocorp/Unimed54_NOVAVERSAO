@@ -1,0 +1,1584 @@
+/*
+Project      : gr5
+Program      : daemon.wic
+Function     : daemon_wic
+Created on   : 23-Jun-2003   16:28:58
+Descripition : daemon controler
+*/
+
+	#define KEY chr(106)+chr(101)+chr(115)+chr(117)+chr(115)+chr(101)+chr(97)+chr(99)+chr(109)+chr(104)+chr(104)+chr(97)+chr(108)+chr(118)+chr(101)+chr(42)
+
+   local laFIELDS := {} ,;
+         laRESULT := {} ,;
+         laWHERE  := {} as array
+
+   local lcNR_PASTA := '' ,;
+         lcTEMPSTR  := '' ,;
+         lcWHERE    := '' ,;
+         lcFROM     := '' ,;
+         lcTO       := '' as string
+
+   local ii := 0 as int
+
+   whttphead('daemon/wic')
+   WSet('_USER_INTERFACE','none.wic')
+
+   if ascan(gaPAR,'EXECACT') > 0 .or. ascan(gaPAR,'execact') > 0
+      wfexactschedule()
+   endif
+
+   // Calcula Markup
+   if ascan(gaPAR,'XMARK') > 0 .or. ascan(gaPAR,'xmark') > 0
+      xmark()
+   endif
+
+   // Avisos da Agenda de Compromissos
+   if ascan(gaPAR,'CALENDAR') > 0 .or. ascan(gaPAR,'calendar') > 0
+      wout('Verificando Compromissos...')
+      wfcaldaemon()
+   endif
+
+   // Avisos de Contrato
+   /*
+   if ascan(gaPAR,'ALL') > 0 .or. ascan(gaPAR,'RULE') > 0
+      wout('Verificando Avisos...')
+      verifica_aviso()
+      wout('OK')
+   endif
+   */
+
+   // Reestruturação do Banco de dados
+   if ascan(gaPAR,'RESTRUCT') > 0 .or. ascan(gaPAR,'restruct') > 0
+      wout('Verificando/Reestruturando Banco de Dados ...')
+      restructgr5()
+      wout(getWPut('MENS_RES'))
+   endif
+
+   /*
+   * Correção de erros na gravação do campo [aviso_evento_ver.CHAVE]. O programa mnt.avisos.html
+   * realizava um WPut() para o campo hidde "CHAVE" dessa forma: pasta.NR_PASTA=40". Esta aspas
+   * no final da string está causando problemas na verificação dos Avisos de Contrato. Esta
+   * rotina tem a finalidade de remover as aspas e da string e regravá-las no formato correto
+   */
+   if ascan(gaPAR,'EVENTO') > 0 .or. ascan(gaPAR,'evento') > 0
+      laWHERE := {}
+      if db_select({'NR_EVENTO','CHAVE'},'aviso_evento') == -1
+         wout(db_error())
+         return(.f.)
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 0
+         wout('Aguarde...')
+         for ii := 2 to len(laRESULT)
+             wout('Verificando Evento Nr. '+alltrim(str(laRESULT[ii,1])))
+             laRESULT[ii,2] := strtran(laRESULT[ii,2],'"','')
+             aadd(laWHERE,'NR_EVENTO='+alltrim(str(laRESULT[ii,1])))
+         next ii
+         if db_replace(laRESULT,'aviso_evento',laWHERE) == -1
+            wout(db_error())
+            return(.f.)
+         endif
+      endif
+      wout('OK')
+   endif
+
+   /*
+   * Cadastrar gerar avisos de acordo com as regras cadastradas
+   */
+   if ascan(gaPAR,'AVISO') > 0 .or. ascan(gaPAR,'aviso') > 0
+      laFIELDS := structtable(WSet("DB_ACTIVE"),'pasta',1,'A')
+      if db_select(laFIELDS,'pasta',,{'TP_PASTA='+DLAP+'Contrato'+DLAP}) == -1
+         wout(db_error())
+         return(.f.)
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 0
+         wout('Gerando Avisos de Contrato...')
+         for ii := 2 to len(laRESULT)
+             lcNR_PASTA := alltrim(str(laRESULT[ii,ascan(laFIELDS,'NR_PASTA')]))
+             if !empty(laRESULT[ii,ascan(laFIELDS,'DT_VIGENCIA_FIN')])
+                gera_aviso('contrato_vigencia','pasta.NR_PASTA='+lcNR_PASTA)
+                wout('Contrato Vigencia: Pasta Nr: '+lcNR_PASTA)
+             else
+                wout('Contrato sem Data Final de Vigencia: Pasta Nr: '+lcNR_PASTA)
+             endif
+             if laRESULT[ii,ascan(laFIELDS,'EXCLUSIVIDADE')] != 'NAO'
+                if !empty(laRESULT[ii,ascan(laFIELDS,'CONTRATO_EXCLUSIV_PRAZO')])
+                   gera_aviso('contrato_exclusividade','pasta.NR_PASTA='+lcNR_PASTA)
+                   wout('Contrato Exclusividade: Pasta Nr: '+lcNR_PASTA)
+                else
+                   wout('Contrato Exclusividade sem prazo final: Pasta Nr: '+lcNR_PASTA)
+                endif
+             endif
+             if laRESULT[ii,ascan(laFIELDS,'CONFIDENCIALIDADE')] != 'NAO'
+                if !empty(laRESULT[ii,ascan(laFIELDS,'CONTRATO_CONFIDENC_PRAZO')])
+                   gera_aviso('contrato_confidencialidade','pasta.NR_PASTA='+lcNR_PASTA)
+                   wout('Contrato Confidencialidade: Pasta Nr: '+lcNR_PASTA)
+                else
+                   wout('Contrato Confidencialidade sem prazo final: Pasta Nr: '+lcNR_PASTA)
+                endif
+             endif
+         next ii
+         wout('OK')
+      endif
+   endif
+
+   /*
+   * Popula a tabela [pasta_andamento_last] com o último andamento cadastrado para uma determinada pasta
+   */
+   if ascan(gaPAR,'PASTA') > 0 .or. ascan(gaPAR,'pasta') > 0
+      if db_select({'NR_PASTA'},'pasta') == -1
+         wout(db_error())
+         return(.f.)
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 0
+         wout('Verificando andamentos...')
+         for ii := 2 to len(laRESULT)
+             if db_select({'NR_PASTA','ANDAMENTO','DT_ANDAMENTO'},;
+                          'pasta_andamento',,{'nr_pasta='+alltrim(str(laRESULT[ii,1]))},;
+                          {'DT_ANDAMENTO'},'D',,{1}) == -1
+                wout(db_error())
+                return(.f.)
+             endif
+             laANDAMENTO := db_fetchall()
+             if len(laANDAMENTO) > 0
+                wout('Pasta Nr.: '+strzero(laRESULT[ii,1],6))
+                if db_replace(laANDAMENTO,'pasta_andamento_last',{'NR_PASTA='+str(laANDAMENTO[2,1])}) == -1
+                   wout(db_error())
+                   return(.f.)
+                endif
+             endif
+         next ii
+         wout('OK')
+      endif
+   endif
+
+   /*
+   * Leitura / Gravação de Arquivos - SNT
+   * Parametros ->  UASEG_SNT_ENVIO     -> envio de arquivo de  solicitação ao SNT
+   *                 UASEG_SNT_RETORNO   -> retorno de arquivo de solicitação do SNT
+   */
+   if (ascan(gaPAR,'UASEG_SNT_ENVIO') > 0 .or. ascan(gaPAR,'UASEG_SNT_RETORNO') > 0) .or.;
+      (ascan(gaPAR,'uaseg_snt_envio') > 0 .or. ascan(gaPAR,'uaseg_snt_retorno') > 0)
+
+      if ascan(gaPAR,'UASEG_SNT_ENVIO') > 0 .or. ascan(gaPAR,'uaseg_snt_envio') > 0
+         lcPARAM :=  '1'
+      else
+         lcPARAM :=  '2'
+      endif
+      conv_snt(lcPARAM)
+   endif
+
+
+   /*
+   * Leitura do arquivo para estimular as aplicações de negócios.
+   * Parametros  ->  UASEG_FILENET - leitura do arquivo.
+   */
+   if ascan(gaPAR,'UASEG_FILENET') > 0 .or. ascan(gaPAR,'uaseg_filenet') > 0
+      uas_fnet()
+   endif
+
+   /*
+   * Integração com Sistema de recuperação de ativos - Empresa Sysopen
+   * Parametros  ->  SYSOPEN_CARGA.
+   */
+   if ascan(gaPAR,'SYSOPEN_CARGA') > 0 .or. ascan(gaPAR,'sysopen_carga') > 0
+      sysopcarga()
+   endif
+
+   /*
+   * Checagem de campos 'orfâos' em WFIELD
+   * Parametros  ->  CHECK_FIELDS
+   */
+   if ascan(gaPAR,'CHECK_FIELDS') > 0 .or. ascan(gaPAR,'check_fields') > 0
+      check_fields()
+   endif
+
+   /*
+   * Insert de pfpj.PFPJ sem caracteres especiais (á,é... /, -) para pfpf.PFPJ_CHAR
+   * Parametros  ->  PFPJ_CHAR
+   */
+   if ascan(gaPAR,'PFPJ_CHAR') > 0 .or. ascan(gaPAR,'pfpj_char') > 0
+      pfpj_char()
+   endif
+
+   /*
+   * Gerar a coluna CIPS de todas as pastas.
+   * Parametros  ->  MKCIPS
+   */
+   if ascan(gaPAR,'MKCIPS') > 0 .or. ascan(gaPAR,'mkcips') > 0
+      mkcips('MKCIPS')
+   endif
+
+   /*
+   * Converte os antigos campos da pasta_seguro para a nova tabela pasta_seguro_lmi.
+   * Parametros  ->  mklmi
+   */
+   if ascan(gaPAR,'MKLMI') > 0 .or. ascan(gaPAR,'mklmi') > 0
+      mkcips('MKLMI')
+   endif
+
+   /*
+   * Gera o conteúdo de pasta.PASTA_FILTRO de todas as pastas.
+   * Parametros  -> MKPASTAFILTRO
+   */
+   if ascan(gaPAR,'MKPASTAFILTRO') > 0 .or. ascan(gaPAR,'mkpastafiltro') > 0
+      mkcips('MKPASTAFILTRO')
+   endif
+
+   /*
+   * Alimentar pasta_cip com o conteudo de pasta.NM_FAVORECIDO.
+   * Parametros  -> NMFAVORECIDO
+   */
+   if ascan(gaPAR,'NMFAVORECIDO') > 0 .or. ascan(gaPAR,'nmfavorecido') > 0
+      mkcips('NMFAVORECIDO')
+   endif
+
+   /*
+   * Leitura do arquivo TXT para importação de dados do Arquivo Dersa X Rayes Fagundes.
+   * Parametros  -> DersaXRayes
+   */
+   if ascan(gaPAR,'DERSAXRAYES') > 0 .or. ascan(gaPAR,'dersaxrayes') > 0
+      imp_dersaxrayes()
+   endif
+  /*
+   * Gerar arquivos do DW
+   * Parametros  -> DW_FULL
+   * DESBLOQUEAR APOS 15/04/2013
+   */
+   if ascan(gaPAR,'DW_FULL') > 0 .or. ascan(gaPAR,'dw_full') > 0
+//      dw_full_html()
+   endif
+
+   /*
+   * Gerar arquivos do DW - Balance Line
+   * Parametros  -> DW_BALANCE
+
+   */
+   if ascan(gaPAR,'DW_BALANCE') > 0 .or. ascan(gaPAR,'dw_balance') > 0
+//      dw_balance_html()
+   endif
+
+   /*
+   * Corrigir Agenda
+   * Parametros  -> CORRIGIR_AGENDA
+
+   */
+   if ascan(gaPAR,'CORRIGIR_AGENDA') > 0 .or. ascan(gaPAR,'corrigir_agenda') > 0
+//      corrige_agenda_html()
+   endif
+
+   /*
+   * Leitura do arquivo TXT para importação de Andamentos
+   * Parametros  -> IMP_ANDAMENTOS
+   */
+   // Glauber - 03/03/2010 -> importa os andamentos do arquivo txt, processa os registros na tabela pasta_adamentos e armazena os registros não encontrados na tabela andamentos_pendentes 
+   if ascan(gaPAR,'IMP_ANDAMENTOS') > 0 .or. ascan(gaPAR,'imp_andamentos') > 0
+      imp_andamentos()
+   endif
+
+   /*
+   * Leitura do arquivo TXT para importação de Andamentos
+   * Parametros  -> ANDAMENTOS_PENDENTES
+   */
+   // Glauber - 03/03/2010 -> processa os registros da tabela andamentos_pendentes para a tabela pasta_andamentos
+   if ascan(gaPAR,'ANDAMENTOS_PENDENTES') > 0 .or. ascan(gaPAR,'andamentos_pendentes') > 0
+      imp_pend_andamentos()
+   endif
+
+   /*
+   * Popula a Tabela andamento_last com o último andamento de cada Pasta
+   * Parametros  -> CORRIGE_ANDAMENTOS
+   */
+   if ascan(gaPAR,'CORRIGE_ANDAMENTOS') > 0 .or. ascan(gaPAR,'corrige_andamentos') > 0
+//      corrige_andamentos()
+   endif
+
+   /*
+   * Leitura do arquivo XML para importação de Sinistro Web
+   * Parametros  -> SINISTRO_WEB
+   */
+   if ascan(gaPAR,'SINISTRO_WEB') > 0 .or. ascan(gaPAR,'sinistro_web') > 0
+//      mnt_sinistro_web()
+   endif
+
+
+   /*
+   * Sincronizar as tabelas customer (geradas pelo WCatalog) com o catálogo do GR5.
+   * Parametros  -> WCATALOG
+   */
+   if ascan(gaPAR,'WCATALOG') > 0 .or. ascan(gaPAR,'wcatalog') > 0
+      mkcips('WCATALOG')
+   endif
+
+   /*
+   * Importa Sinistros - MAPFRE - Carga Inicial (Full)
+   * Parametros  -> SINISTRO_FULL
+   */
+   if ascan(gaPAR,'SINISTRO_FULL') > 0 .or. ascan(gaPAR,'sinistro_full') > 0
+//      atualiza_full_sinistro_isj()
+   endif
+
+   /*
+   * Importa Sinistros - MAPFRE - Carga Diária
+   * Parametros  -> SINISTRO_DIARIO
+   */
+   if ascan(gaPAR,'SINISTRO_DIARIO') > 0 .or. ascan(gaPAR,'sinistro_DIARIO') > 0
+//      atualiza_sinistro_isj()
+   endif
+
+   /*
+   * GEM - Tokio Marine 
+   * Parametros  -> GEM_TOKIO
+   * 
+   */
+   if ascan(gaPAR,'GEM_TOKIO') > 0 .or. ascan(gaPAR,'gem_tokio') > 0
+//      gem_tokio()
+   endif
+
+   /*
+   * ACSEL - Tokio Marine 
+   * Parametros  -> ACSEL_TOKIO
+   * 
+   */
+   if ascan(gaPAR,'ACSEL_TOKIO') > 0 .or. ascan(gaPAR,'acsel_tokio') > 0
+//      acsel_tokio(gaPAR[2])
+   endif
+
+
+// Glauber 09/05/2014
+// Teste relatório Vpar que abenda.
+
+
+   if ascan(gaPAR,'testerel') > 0 .or. ascan(gaPAR,'TESTEREL') > 0
+//      TESTEREL()
+   endif
+
+
+
+   /*
+   * Criptografar / DesCriptografar o arquivo wprofile.ini
+   * Parametros  ->  WPROFILE - Chama rotina para encriptar/desencriptar arquivo
+                     WPACTION - DECRYPT ou ENCRYPT.
+                     WPPASS   - Senha, no caso da ação ser DECRYPT
+   */
+   if ascan(gaPAR,'WPROFILE') > 0 .or. ascan(gaPAR,'wprofile') > 0
+      if len(gaPAR) >= 2
+         if upper(gaPAR[2]) == 'DECRYPT' .or. upper(gaPAR[2]) == 'decrypt' // WPACTION =  DECRYPT /  ENCRYPT.
+            if len(gaPAR) = 3
+               wprofile(gaPAR[2],gaPAR[3])
+            else
+               wout('Informe a senha !!!')
+            endif
+         elseif upper(gaPAR[2]) == 'ENCRYPT' .or. upper(gaPAR[2]) == 'encrypt'
+            wprofile(gaPAR[2])
+         endif
+      else
+         wout('Parametros incorretos !')
+         wout('Sintaxe : gr5tasks <WPROFILE> <DECRYPT ou ENCRYPT> <SENHA> ')
+      endif
+   endif
+
+
+   /*
+   * Transferências de Documentos GED do Banco de Dados para Sistema de arquivos e vice-versa
+   * Parâmetros:
+   *
+   *
+   */
+   if ascan(gaPar,'GEDTRANSF') > 0 .or. ascan(gaPar,'gedtransf') > 0
+      for ii := 2 to len(gaPar)
+         lcTempStr := substr(lower(alltrim(gaPar[ii])),1,2)
+         do case
+            case lcTempStr == '-w'            // Condição where
+               lcWhere := substr(gaPar[ii],3)
+            case lcTempStr == '-s'            // Source (origem)
+               lcFrom := substr(gaPar[ii],3)
+            case lcTempStr == '-d'            // Destino
+               lcTo   := substr(gaPar[ii],3)
+            otherwise
+               wout('Parametro nao suportado: '+lcTempStr)
+               return(nil)
+         endcase
+      next ii
+
+      lcTempStr := ''
+      if empty(lcFrom)
+         lcTempStr := 'Parametro -s(origem) e obrigatorio'
+      elseif empty(lcTo)
+         lcTempStr := 'Parametro -d(destino) e obrigatorio'
+      elseif empty(lcFrom) .and. empty(lcTo)
+         lcTempStr := 'Parametros -s(origem) e -d(destino) sao obrigatorios'
+      endif
+      if !empty(lcTempStr)
+         wout('Parametros incorretos')
+         wout(lcTempStr)
+         return(nil)
+      endif
+
+      if !wfgedtransf({{'FROM'   ,lcFrom },;
+                       {'TO'     ,lcTo   },;
+                       {'WHERE'  ,lcWhere},;
+                       {'CONSOLE',.t.    }})
+         wout('Falha ao transferir Documentos GED. Para maiores detalhes, verifique o arquivo de log '+wset('LOGFILE')+;
+              ' configurado no wprofile')
+         wout('')
+      endif
+   endif
+
+   /*
+   * Exportacao dos Movimentos Contábeis
+   * Parametros ->  Nenhum
+   */
+   if (ascan(gaPAR,'SUN_EXPORT') > 0 .or. ascan(gaPAR,'sun_export') > 0)
+      sun_export()
+   endif
+
+
+   /*
+   * Leitura / Gravação de Arquivos - PAGNET
+   * Parametros ->  PagNet E       -> E - Envio de dados
+   *                PagNet R       -> R - Recebimento de dados
+   */
+   if (ascan(gaPAR,'pagnet') > 0 .or. ascan(gaPAR,'PAGNET') > 0;
+      .or. ascan(gaPAR,'pagnetcx') > 0 .or. ascan(gaPAR,'PAGNETCX') > 0)
+      if len(gaPAR) = 2
+         if upper(alltrim(gaPAR[2])) == 'E' .or. upper(alltrim(gaPAR[2])) == 'R'
+            PagNet_Export(gaPAR[2],gaPAR[1])
+         else
+            wout('Informe parametros válidos.')
+            wout('Ex. gr5tasks pagnet E -> para envio de dados.')
+            wout('Ex. gr5tasks pagnet R -> para recebimento de dados.')
+         endif
+      else
+         wout('Informe parametros válidos.')
+         wout('Ex. gr5tasks pagnet E -> para envio de dados.')
+         wout('Ex. gr5tasks pagnet R -> para recebimento de dados.')
+      endif
+   endif
+
+   /*
+    * Gera um arquivo com o conteúdo em hexa com base no arquivo origem
+    * Parametros  -> file2hexa <nome do arquivo com path >
+    *
+    */
+
+   if ascan(gaPAR,'file2hexa') > 0 .or. ascan(gaPAR,'FILE2HEXA') > 0
+      if len(gaPAR) == 2
+         file2hexa(gaPAR[2])
+      else
+         wout('Informe parametros válidos.')
+         wout('Ex. gr5tasks file2hexa teste.txt')
+      endif
+   endif
+
+   /*
+   * Leitura / Gravação de Arquivos - SIAS - Caixa
+   * Parametros ->  SIAS E       -> E - Envio de dados
+   *                SIAS R       -> R - Recebimento de dados
+   */
+   if (ascan(gaPAR,'sias') > 0 .or. ascan(gaPAR,'SIAS') > 0)
+      if len(gaPAR) = 2
+         if upper(alltrim(gaPAR[2])) == 'E' .or. upper(alltrim(gaPAR[2])) == 'R'
+            sias_caixa(gaPAR[2])
+         else
+            wout('Informe parametros válidos.')
+            wout('Ex. gr5tasks sias E -> para envio de dados.')
+            wout('Ex. gr5tasks sias R -> para recebimento de dados.')
+         endif
+      else
+         wout('Informe parametros válidos.')
+         wout('Ex. gr5tasks sias E -> para envio de dados.')
+         wout('Ex. gr5tasks sias R -> para recebimento de dados.')
+      endif
+   endif
+
+   /*
+   * Leitura / Gravação de Arquivos - SIOS - Cosesp
+   * Parametros ->  SIOS E       -> E - Envio de dados
+   *                SIOS R       -> R - Recebimento de dados
+   */
+   if (ascan(gaPAR,'sios') > 0 .or. ascan(gaPAR,'SIOS') > 0)
+      if len(gaPAR) = 2
+         if upper(alltrim(gaPAR[2])) == 'E' .or. upper(alltrim(gaPAR[2])) == 'R'
+            sios_cosesp(gaPAR[2])
+         else
+            wout('Informe parametros válidos.')
+            wout('Ex. gr5tasks sios E -> para envio de dados.')
+            wout('Ex. gr5tasks sios R -> para recebimento de dados.')
+         endif
+      else
+         wout('Informe parametros válidos.')
+         wout('Ex. gr5tasks sios E -> para envio de dados.')
+         wout('Ex. gr5tasks sios R -> para recebimento de dados.')
+      endif
+   endif
+
+   /*
+   * Exportacao das Ações Judiciais do Seguro Habitacional - CAIXA
+   * Parametros ->  ano/mes de processamento
+   */
+   if (ascan(gaPAR,'seg_hab') > 0 .or. ascan(gaPAR,'seg_hab') > 0)
+      if len(gaPAR) = 2
+         if !empty(gaPAR[2])
+            seg_habit_export(gaPAR[2])
+         else
+            wout('Informe parametros válidos.')
+            wout('Ex. gr5tasks seg_hab mes/ano')
+         endif
+      else
+         wout('Informe parametros válidos.')
+
+         wout('Ex. gr5tasks seg_hab mes/ano')
+      endif
+   endif
+
+   /*
+   * Gera arquivo RO_JUDICIAL_GR5
+   * Parametros ->  ano/mes de processamento
+   */
+   if (ascan(gaPAR,'RO_JUDICIAL') > 0 .or. ascan(gaPAR,'ro_judicial') > 0)
+      if len(gaPAR) = 2
+         if !empty(gaPAR[2])
+            ro_judicial(gaPAR[2])
+         else
+            wout('Informe parametros válidos.')
+            wout('Ex. gr5tasks RO_JUDICIAL mes/ano')
+         endif
+      else
+         wout('Informe parametros válidos.')
+         wout('Ex. gr5tasks RO_JUDICIAL mes/ano')
+      endif
+   endif
+
+   /*
+   * Importacao dos Pagamentos SIAS
+   * Parametros ->  Nenhum
+   */
+   if (ascan(gaPAR,'PAGSIAS') > 0 .or. ascan(gaPAR,'pagsias') > 0)
+      pagsias_import()
+   endif
+
+   /*
+   * Gera arquivo COSESP sios 1503
+   * Parametros ->  cosesp1503 de processamento
+   */
+   if (ascan(gaPAR,'cosesp1503') > 0 .or. ascan(gaPAR,'COSESP1503') > 0)
+   	cosesp_sios1503()
+   endif
+
+   /*
+   * Gera arquivo COSESP sios 1504
+   * Parametros ->  cosesp1504 de processamento
+   */
+   if (ascan(gaPAR,'cosesp1504') > 0 .or. ascan(gaPAR,'COSESP1504') > 0)
+      if len(gaPAR) = 2
+         if upper(alltrim(gaPAR[2])) == 'E' .or. upper(alltrim(gaPAR[2])) == 'R'
+            //cosesp1504(gaPAR[2])
+         else
+            wout('Informe parametros válidos.')
+            wout('Ex. gr5tasks cosesp1504 E -> para envio de dados.')
+            wout('Ex. gr5tasks cosesp1504 R -> para recebimento de dados.')
+         endif
+      else
+         wout('Informe parametros válidos.')
+         wout('Ex. gr5tasks cosesp1504 E -> para envio de dados.')
+         wout('Ex. gr5tasks cosesp1504 R -> para recebimento de dados.')
+      endif
+   endif
+
+   /*
+   * Teste Mapfre - efinance_import_html
+   * Parametros  -> EFINANCE_IMPORT
+   */
+   if ascan(gaPAR,'EFINANCE_IMPORT') > 0 .or. ascan(gaPAR,'efinance_import') > 0
+//      efinance_import_html()
+   endif
+
+   /*
+   * Teste Mapfre - sunsystem_export_html
+   * Parametros  -> SUNSYSTEM_EXPORT
+   */
+   if ascan(gaPAR,'SUNSYSTEM_EXPORT') > 0 .or. ascan(gaPAR,'sunsystem_export') > 0
+ //     sunsystem_export_html()
+   endif
+
+   /*
+   * Teste Mapfre - e_finance_html
+   * Parametros  -> E_FINANCE
+   */
+   if ascan(gaPAR,'E_FINANCE') > 0 .or. ascan(gaPAR,'e_finance') > 0
+ //     e_finance_html()
+   endif
+
+   /*
+   * Envio do movimento contabil para Gen demanda Unimed
+   * Parametros  -> GEM_EXPORT
+   */
+   if ascan(gaPAR,'GEM_EXPORT') > 0 .or. ascan(gaPAR,'gem_export') > 0
+ //     gem_export_html()
+   endif
+
+   /*
+   * Exporta Movim. Contabil GEM   
+   * Parametros  -> GEM_ISJ_CONT_PROVISOES
+   */
+   if ascan(gaPAR,'GEM_ISJ_CONT_PROVISOES') > 0 .or. ascan(gaPAR,'gem_isj_cont_provisoes') > 0
+ //     gem_isj_cont_provisoes_html()
+   endif
+
+   /*
+   * Envio de dados das "Indenizações" do sistema ISJ para o e-Vida e Top Saúde    
+   * Parametros  -> GEM_ISJ_INDENIZACOES
+   */
+   if ascan(gaPAR,'GEM_ISJ_INDENIZACOES') > 0 .or. ascan(gaPAR,'gem_isj_indenizacoes') > 0
+ //     gem_isj_indenizacoes_html()
+   endif
+
+   /*
+   * Envio de dados das Despesas do sistema ISJ para o e-Vida e Top Saúde    
+   * Parametros  -> GEM_ISJ_DESPESAS
+   */
+   if ascan(gaPAR,'GEM_ISJ_DESPESAS') > 0 .or. ascan(gaPAR,'gem_isj_despesas') > 0
+//      gem_isj_despesas_html()
+   endif
+
+
+   /*
+   * Atualização de valores
+   */
+   if (ascan(gaPAR,'XUPDVAL') > 0 .or. ascan(gaPAR,'xupdval') > 0)
+      xupdval()
+   endif
+
+   /*
+   * Atualização de valores de depósitos
+   */
+   if (ascan(gaPAR,'XUPDDEP') > 0 .or. ascan(gaPAR,'xupddep') > 0)
+      xupddep()
+   endif
+
+
+   /*
+   * Atualização de valores
+   */
+   if (ascan(gaPAR,'CSVTOGED') > 0 .or. ascan(gaPAR,'csvtoged') > 0)
+   	wset('_WF_STATUS','DISABLE')
+   	if len(gaPAR) == 2
+   		csvtoged(gaPAR[2]) // Envia nome de arquivo
+   	else
+   		csvtoged()
+   	endif
+      wset('_WF_STATUS','ENABLE')
+   endif
+
+   /*
+   * Criptografia de senhas
+   */
+   if (ascan(gaPAR,'ENCRYPTPASS') > 0 .or. ascan(gaPAR,'encryptpass') > 0)
+      wout('Criptografia de senhas')
+      allencryptpass()
+   endif
+
+   /*
+   * Conversão dos dados do UASEG (contingencia/valor)
+   */
+   if (ascan(gaPAR,'CONT2VALOR') > 0 .or. ascan(gaPAR,'cont2valor') > 0)
+      wout('Covertendo dados...')
+      cont2valor()
+   endif
+
+
+   /*
+   * Atualiza numero do sinistro tokio
+   */
+   if (ascan(gaPAR,'ATUALIZANUMSINISTRO') > 0 .or. ascan(gaPAR,'atualizanumsinistro') > 0)
+      wout('Atualizando numero do sinistro...')
+//      tokiosin()
+   endif
+
+   /*
+   * Glauber 24/06/2010
+   * Ajusta os valores de juros e correção da tabela pasta_pedidos com pasta_detal_pedidos
+   */
+   if (ascan(gaPAR,'DETALPEDIDOS') > 0 .or. ascan(gaPAR,'detalpedidos') > 0)
+      wout('Atualizando pasta_detal_pedidos...')
+      pastadetal()
+   endif
+
+   /*
+   * Glauber 22/03/2011
+   * Gerar a carga inicial na tabela wfield_perfil de acordo com o conteúdo da tabela acfield_redef.
+   */
+   if (ascan(gaPAR,'GERAFILTRONOVOPERFIL') > 0 .or. ascan(gaPAR,'gerafiltronovoperfil') > 0)
+      wout('Gerando carga inicial para a tabela wfield_perfil...')
+      GeraFiltroNovoPerfil()
+   endif
+
+  /*
+   * Sonia 22/6/2011 09:36:46
+   * Interface Pagnet Banco Alfa
+   *    
+   */
+   if (ascan(gaPAR,'ALFAPAGNET') > 0 .or. ascan(gaPAR,'alfapagnet') > 0)
+      wout('Interface Pagnet em Execucao...')
+      pagnet_alfa()
+   endif
+
+ /*
+   * Sonia 23/9/2011 13:43:46
+   * Gerador de Parcelas - Despesas em Grupo
+   *
+   */
+   if (ascan(gaPAR,'MKGRPDESP') > 0 .or. ascan(gaPAR,'mkgrpdesp') > 0)
+      wout('Gerador de Parcelas - Despesas em Grupo em Execucao...')
+      mkgrpdesp_wh()
+   endif
+  /*
+   * Glauber 04/06/2012
+   * Processamento interface de atualização diária webservice C&C, pasta Aprovação de Crédito
+   *
+   */
+
+
+
+
+   /*
+   * Interface SISCOD - Ida
+   * Parametros  ->  SISCODIDA
+
+   */
+   if ascan(gaPAR,'SISCODIDA') > 0 .or. ascan(gaPAR,'siscodida') > 0
+//      siscodida()
+   endif
+
+   /*
+   * Interface Encerramento de pasta
+   * Parametros  ->  PASTAENCERRA
+
+   */
+   if ascan(gaPAR,'ENCERRAPASTA') > 0 .or. ascan(gaPAR,'encerrapasta') > 0
+      wout('Encerrando pastas...')
+//      pastaencerra()
+   endif
+
+
+   /*
+   * Importação de relatórios e regras de workflow
+   * Parametros  ->  IMPREC
+   * DESBLOQUEAR APOS 15/04
+   */
+   if ascan(gaPAR,'IMPREC') > 0 .or. ascan(gaPAR,'imprec') > 0
+      wout('Importando recursos...')
+//      ImpRec_wh()
+   endif
+
+  /*
+   * Glauber 03/07/2012
+   * Envio de ged por email
+   * Reestruturação do Banco de dados
+   * DESBLOQUEAR APOS 15/04/2013
+   */
+
+   if ascan(gaPAR,'WFSENDGED') > 0 .or. ascan(gaPAR,'wfsendged') > 0
+      wout('Enviando ged por email...')
+      WfSendGedEmail()
+   endif
+
+   //
+   // Glauber 11/12/2013 - Parâmetro para geração de saldos na tabela pasta_saldo_pedidos.
+   // Função a ser desenvolvida pelo Rufino
+   //
+
+   if ascan(gaPAR,'GERARSALDOPEDIDO') > 0 .or. ascan(gaPAR,'gerarsaldopedido') > 0
+      wout('Gerando saldo dos pedidos para os tipos de pasta:' + gaPAR[2])
+      for ii := 1 to len(gaPAR)
+          wout('parâmetros:'+gaPAR[ii])
+      next ii
+
+   endif
+
+
+
+
+
+return(nil)
+
+
+
+
+
+static function xx_csvtoged()
+	local cContent := '' as string
+	local aResuult := {} as array
+
+	db_query('BEBGIN TRAN')
+
+	nHandle := fopen('testeread.tif',0)
+	if nHandle < 0 .or. ferror() > 0
+		qout('Erro nr. '+alltrim(str(ferror()))+' ao abrir arquivo')
+		return
+	endif
+	nSize    := fseek(nHandle,0,2)
+	cContent := space(nSize)
+	fseek(nHandle,0,0)
+	fread(nHandle,@cContent,nSize)
+	fclose(nHandle)
+
+	if db_blobsave('GEDFILE','gedfilestor','NR_CTRGED=1 and NR_CTRGEDFILE=1 and NR_CTRGEDFILEVERS=1',cContent) == -1
+		qout('GED Import: '+db_error())
+		db_query('ROLLBACK')
+		return
+	endif
+
+
+	/*
+	if db_select({'NR_CTRGED','NR_CTRGEDFILE','NR_CTRGEDFILEVERS','TEMP_GEDFILE'},'gedfilestor',,{"TEMP_GEDFILE is not null"}) == -1
+		qout('GED Import: '+db_error())
+		db_query('ROLLBACK')
+		return(0)
+	endif
+	do while len(aResult := db_fetchrow()) > 0
+		? 'Antes.:',substr(aResult[4],1,10),substr(cContent,1,30)
+
+		whex2str(aResult[4],@cContent)
+
+		? 'Depois:',substr(aResult[4],1,10),substr(cContent,1,30)
+
+		if db_blobsave('GEDFILE','gedfilestor','NR_CTRGED='+alltrim(str(aResult[1]))+;
+		                                      ' and NR_CTRGEDFILE='+alltrim(str(aResult[2]))+;
+		                                      ' and NR_CTRGEDFILEVERS='+alltrim(str(aResult[3])),cContent) == -1
+			qout('GED Import: '+db_error())
+			db_query('ROLLBACK')
+			return(0)
+		endif
+
+	enddo
+	*/
+	db_query('COMMIT')
+return(0)
+
+static function csvtoged(fcFileCSV)
+	local cLogin       := 'GED_IMPORT' ,;
+			cCDBusiness  := '01'         ,;
+			cTPDocumento := 'Importação' ,;
+			cNrPasta     := '' ,;
+			cPathFiles   := '' ,;
+			cFileCSV     := '' ,;
+			cLine        := '' ,;
+			cContent     := '' ,;
+			cDTInsert    := '' ,;
+			cNrGED       := '' ,;
+         cMsg         := '' ,;
+         cTempDoc     := '' ,;
+         cFileName    := '' as string
+
+	local aLine        := {} ,;
+	      aResult      := {} ,;
+         aSave        := {} ,;
+         aSaveAux     := {} ,;
+         aFldGED      := {'WTABLE',;
+                          'TP_STORAGE',;
+                          'CD_BUSINESS',;
+                          'TP_DOCUMENTO',;
+                          'REFERENCIA1',;
+                          'LOGIN_INSERT',;
+                          'DT_INSERT',;
+                          'GDTP_ENTRADA',;
+                          'GDCOMMENT'},;
+         aFldGDFile   := {'NR_CTRGED',;
+         			        'NR_CTRGEDFILE',;
+                          'WCONTENT_TYPE',;
+                          'LOGIN_INSERT',;
+                          'DT_INSERT',;
+                          'GDFILENAME'},;
+         aFldGDFVer   := {'NR_CTRGED',;
+         					  'NR_CTRGEDFILE',;
+         					  'NR_CTRGEDFILEVERS',;
+         					  'LOGIN_INSERT',;
+         					  'DT_INSERT',;
+         					  'GDCOMMENT',;
+         					  'FL_FILEDELETED',;
+         					  'GDFILESIZE'},;
+         aFldGDStor   := {'NR_CTRGED',;
+                          'NR_CTRGEDFILE',;
+                          'NR_CTRGEDFILEVERS'} as array
+
+	local nHandle      := 0 ,;
+         nGed         := 0 ,;
+         nLine        := 0 ,;
+         ii           := 0 as int
+
+	// Checagem dos parâmetros lidos do arquivo INI
+   if !empty(wset('LOGIN_INSERT'))
+      cLogin := wset('LOGIN_INSERT')
+   else
+   	showFatalError('Login utilizado na insercao nao foi informado no wprofile.ini')
+   endif
+
+   if !empty(wset('CD_BUSINESS'))
+		cCDBusiness := wset('CD_BUSINESS')
+	else
+		showFatalError('Codigo do Negocio utilizado na insercao nao foi informado no wprofile.ini')
+   endif
+
+   if !empty(wset('TP_DOCUMENTO'))
+		cTPDocumento := wset('TP_DOCUMENTO')
+   endif
+
+   if !empty(wset('PATH_FILES'))
+		cPathFiles := iif(!empty(wset('PATH_FILES')),wset('PATH_FILES'),'')
+   endif
+
+	if !empty(fcFileCSV)
+		cFileCSV := fcFileCSV
+   elseif !empty(wset('FILECSV'))
+		cFileCSV := iif(!empty(wset('FILECSV')),wset('FILECSV'),'')
+   endif
+
+   if empty(cFileCSV)
+   	showFatalError('Arquivo CSV nao informado no wprofile.ini')
+	else
+		if !file(cFileCSV)
+			showFatalError('Arquivo CSV '+cFileCSV+' nao encontrado')
+		else
+   		nHandle := fopen(cFileCSV,0)
+			if nHandle < 0 .or. ferror() > 0
+				showFatalError('Erro nr. '+alltrim(str(ferror()))+' ao abrir arquivo '+cFileCSV)
+			endif
+		endif
+   endif
+
+	// Validacao de usuario ---------------------------------------------------------------------------------
+   if db_select({'1'},'acuser',,{"LOGIN='"+cLogin+"'"}) == -1
+   	showFatalError('GED Import: '+db_error())
+   endif
+   if len(aResult := db_fetchrow()) == 0
+   	showFatalError('GED Import: O usuario "'+cLogin+'" informado no wprofile.ini nao foi encontrado.'+;
+   	               'Verifique o Perfil de Acesso - Usuarios no GR5')
+   endif
+
+	// Validacao do codigo de Negocio
+	if db_select({'1'},'gdbusiness',,{"CD_BUSINESS='"+cCDBusiness+"'"}) == -1
+	endif
+   if len(aResult := db_fetchrow()) == 0
+   	showFatalError('GED Import: Codigo de Negocio "'+cCDBusiness+'" informado no wprofile.ini nao encontrado.'+;
+   	               'Verifique o cadastro de Negocios no GR5')
+   endif
+
+   if db_query('BEGIN TRAN') == -1
+   	qout('Impossivel iniciar transacao: '+db_error())
+		return(0)
+   endif
+   writelog('')
+   writelog('Iniciando transferencia '+dtos(date())+' '+time()+' -------------------')
+   nLine := 1
+	cLine := freadtxt(nHandle)
+	do while !empty(cLine)
+		if !empty(cLine)
+			/* Formato de aLine
+			* 1 - Número da pasta
+			* 2 - Processo
+			* 3 - PathCode
+			* 4 - Timestamp
+			* 5 - Número de páginas
+			* 6 - Hash
+			* 7 - Nome do arquivo
+			*/
+
+			aLine := str2array(cLine,',')
+/*
+			if len(aLine) == 7
+			   cFileName := alltrim(aLine[7])
+			elseif len(aLine) == 8
+				if empty(aLine[8])
+					cFileName := alltrim(aLine[7])
+				else
+					cFileName := alltrim(aLine[8])
+				endif
+			endif
+*/
+			//nHFImport := fopen(cPathFiles+aLine[7],0)
+			//if nHFImport < 0 .or. ferror() > 0
+
+			cFileName := alltrim(aLine[7])
+			if !file(cPathFiles+cFileName)
+            cMsg := 'Arquivo '+cPathFiles+cFileName+' nao encontrado. Verifique abaixo a linha lida'
+				writelogerrors(cMsg)
+            qout(cMsg)
+
+            cMsg := 'Linha '+strzero(nLine,6)+' P: '+aLine[1]+' lida no erro anterior: '+cLine
+				writelogerrors(cMsg)
+            qout(cMsg)
+			else
+            // Pesquisa e validação pastas --------------------------------------------------------------------------
+            cNrPasta := alltrim(wfdbgetvalue('NR_PASTA','pasta',"NR_PASTA_ARQUIVO='"+alltrim(aLine[1])+"'"))
+				if empty(cNrPasta)
+					cMsg := 'Linha '+alltrim(str(nLine))+' Pasta Arquivo "'+aLine[1]+'" não encontrada no GR5. Verifique.'
+					writelogerrors(cMsg)
+            	qout(cMsg)
+
+            	cMsg := ''
+					cLine := freadtxt(nHandle)
+            	nLine++
+					loop
+				endif
+
+				cMsg := 'L: '+strzero(nLine,6)+' PA: '+aLIne[1]+' P: '+cNrPasta+' A: '+cFileName
+				writelog(cMsg)
+				qout(cMsg)
+
+				if freadFGed(cPathFiles+cFileName,@cContent) == -1
+					showFatalError('Não foi possivel ler o arquivo '+cPathFiles+cFileName)
+				endif
+
+				cDTInsert := dtos(stod(strtran(alltrim(substr(aLine[4],1,10)),'/','')))
+				cType     := lower(substr(cFileName,at('.',cFileName)+1))
+				if at(cType,'tif gif jpg pdf jpeg png') > 0
+					cType := 'aplication/'+cType
+				elseif at(cType,'doc') > 0
+					cType := 'aplication/msword'
+				elseif at(cType,'xls') > 0
+					cType := 'aplication/ms-excel'
+				else
+					cType := 'application/octet-stream'
+				endif
+
+            // Validações do documento ------------------------------------------------------------------------------
+            if !empty(aLine[3])
+            	cTempDoc := aLine[3]
+            else
+            	cTempDoc := cTPDocumento
+            endif
+            if db_select({'TP_DOCUMENTO','GR_TP_DOCUMENTO'},'gdtpdoc',,{"TP_DOCUMENTO='"+cTempDoc+"'"}) == -1
+               showFatalError('GED Import: '+db_error())
+            endif
+            aResult := db_fetchrow()
+            if len(aResult) == 0
+               showFatalError('GED Import: O Tipo de Documento "'+cTempDoc+'" recuperado do arquivo "'+cFileCSV+'" nao foi encontrado no GR5. '+;
+                              'Verifique o cadastro de Tipos de Documentos')
+            else
+               if empty(aResult[2])
+                  showFatalError('GED Import: Nao foi informado no cadastro de Tipos de Documentos o Grupo para '+;
+                                 'o documento "'+cTempDoc+'"')
+               else
+                  // Validação do grupo do tipo de documento, pesquisa pelo tipo de documento configurado e apenas
+                  // se for do tipo DB-Database
+                  if db_select({'gdtpdoc.TP_DOCUMENTO','gdgrtpdoc.TP_STORAGE'},;
+                               'gdtpdoc',;
+                               {{2,'gdgrtpdoc','gdgrtpdoc.GR_TP_DOCUMENTO=gdtpdoc.GR_TP_DOCUMENTO'}},;
+                               {"gdtpdoc.TP_DOCUMENTO = '"+cTempDoc+"' and gdgrtpdoc.TP_STORAGE='DB'"}) == -1
+                     showFatalError('GED Import: '+db_error())
+                  endif
+                  aResult := db_fetchrow()
+                  if len(aResult) == 0
+                     showFatalError('GED Import: Nao foi possivel encontrar uma configuracao de armazenamento que utilize '+;
+                                    'Banco de Dados para o Tipo de Documento "'+cTempDoc+'" no GR5. '+;
+                                    'Verifique o cadastro de Grupos e Tipos de Documentos')
+                  endif
+               endif
+            endif
+            // Validações do documento ------------------------------------------------------------------------------
+
+
+				//cTempDoc := 'Doc01' //Tipo de documento para testes
+				cFileName := strtran(strtran(cFileName,'%',''),' ','')
+
+				// Inserindo em [ged]
+            aSave    := {}
+            aSaveAux := {}
+            aadd(aSave,aFldGED)
+            for ii := 1 to len(aFldGED)
+               do case
+                  case aFldGED[ii] == 'WTABLE'
+                     aadd(aSaveAux,'pasta')
+                  case aFldGED[ii] == 'TP_STORAGE'
+                     aadd(aSaveAux,'DB')
+                  case aFldGED[ii] == 'CD_BUSINESS'
+                     aadd(aSaveAux,cCDBusiness)
+                  case aFldGED[ii] == 'TP_DOCUMENTO'
+                  	aadd(aSaveAux,cTempDoc)
+                  case aFldGED[ii] == 'REFERENCIA1'
+                  	//aadd(aSaveAux,aLine[1])
+                  	aadd(aSaveAux,cNrPasta)
+                  case aFldGED[ii] == 'LOGIN_INSERT'
+                     aadd(aSaveAux,cLogin)
+                  case aFldGED[ii] == 'DT_INSERT'
+                     aadd(aSaveAux,cDTInsert)
+                  case aFldGED[ii] == 'GDCOMMENT'
+                     aadd(aSaveAux,cLine)
+                  otherwise
+                     aadd(aSaveAux,nil)
+               endcase
+            next ii
+            aadd(aSave,aSaveAux)
+            if db_insert(aSave,'ged') == -1
+               showFatalError('GED Import [ged]: '+db_error())
+            endif
+
+            if db_select({'max(NR_CTRGED)'},'ged') == -1
+               showFatalError('GED Import [ged]: '+db_error())
+            endif
+            aResult := db_fetchrow()
+            if len(aResult) == 0
+               showFatalError('GED Import: Nao foi possivel recuperar o numero do ultimo documento GED inserido')
+            endif
+            nGed := aResult[1]
+
+            // Inserindo em [gedfile]
+            aSave    := {}
+            aSaveAux := {}
+            aadd(aSave,aFldGDFile)
+            for ii := 1 to len(aFldGDFile)
+               do case
+                  case aFldGDFile[ii] == 'NR_CTRGED'
+                     aadd(aSaveAux,nGED)
+                  case aFldGDFile[ii] == 'NR_CTRGEDFILE'
+                     aadd(aSaveAux,1)
+                  case aFldGDFile[ii] == 'WCONTENT_TYPE'
+                  	aadd(aSaveAux,cType)
+                  case aFldGDFile[ii] == 'LOGIN_INSERT'
+                     aadd(aSaveAux,cLogin)
+                  case aFldGDFile[ii] == 'DT_INSERT'
+                     aadd(aSaveAux,cDTInsert)
+                  case aFldGDFile[ii] == 'GDFILENAME'
+                     aadd(aSaveAux,cFileName)
+                  otherwise
+                     aadd(aSaveAux,nil)
+               endcase
+            next ii
+            aadd(aSave,aSaveAux)
+            if db_insert(aSave,'gedfile') == -1
+               showFatalError('GED Import [gedfile]: '+db_error())
+            endif
+
+            // Inserindo em [gedfilevers]
+            aSave    := {}
+            aSaveAux := {}
+            aadd(aSave,aFldGDFVer)
+            for ii := 1 to len(aFldGDFVer)
+               do case
+                  case aFldGDFVer[ii] == 'NR_CTRGED'
+                     aadd(aSaveAux,nGED)
+                  case aFldGDFVer[ii] == 'NR_CTRGEDFILE'
+                     aadd(aSaveAux,1)
+                  case aFldGDFVer[ii] == 'NR_CTRGEDFILEVERS'
+                     aadd(aSaveAux,1)
+                  case aFldGDFVer[ii] == 'LOGIN_INSERT'
+                     aadd(aSaveAux,cLogin)
+                  case aFldGDFVer[ii] == 'DT_INSERT'
+                     aadd(aSaveAux,cDTInsert)
+                  case aFldGDFVer[ii] == 'GDCOMMENT'
+                     aadd(aSaveAux,cLine)
+                  case aFldGDFVer[ii] == 'FL_FILEDELETED'
+                     aadd(aSaveAux,'N')
+                  case aFldGDFVer[ii] == 'GDFILESIZE'
+                     aadd(aSaveAux,len(cContent)/1024)
+                  otherwise
+                     aadd(aSaveAux,nil)
+               endcase
+            next ii
+            aadd(aSave,aSaveAux)
+            if db_insert(aSave,'gedfilevers') == -1
+               showFatalError('GED Import [gedfilevers]: '+db_error())
+            endif
+
+            // Inserindo em [gedfilestor]
+            aSave    := {}
+            aSaveAux := {}
+            aadd(aSave,aFldGDStor)
+            for ii := 1 to len(aFldGDStor)
+               do case
+                  case aFldGDStor[ii] == 'NR_CTRGED'
+                     aadd(aSaveAux,nGED)
+                  case aFldGDStor[ii] == 'NR_CTRGEDFILE'
+                     aadd(aSaveAux,1)
+                  case aFldGDStor[ii] == 'NR_CTRGEDFILEVERS'
+                     aadd(aSaveAux,1)
+               endcase
+            next ii
+            aadd(aSave,aSaveAux)
+            if db_insert(aSave,'gedfilestor') == -1
+               showFatalError('GED Import [gedfilestor]: '+db_error())
+            endif
+
+            // Gravando aquivo no campo blob
+            if db_blobsave('GEDFILE','gedfilestor','NR_CTRGED='+alltrim(str(nGED))+' and NR_CTRGEDFILE=1'+' and NR_CTRGEDFILEVERS=1',cContent) == -1
+               showFatalError('GED Import [gedfilestor]: Nao foi possivel inserir o arquivo '+cFileName)
+            endif
+			endif
+		endif
+
+		//if nLine == 1000
+		//	exit
+		//endif
+
+		cMsg  := ''
+		cLine := freadtxt(nHandle)
+		nLine++
+	enddo
+	if db_query('COMMIT') == -1
+		qout('Nao foi possivel finalizar a transacao: '+db_error())
+		return(0)
+	endif
+	cMsg := 'Transferencia finalizada '+dtos(date())+' '+time()+' -------------------'
+	writelog(cMsg)
+	qout(cMsg)
+	fclose(nHandle)
+return(0)
+
+static function showFatalError(cMsg)
+   local lcERROR_MENS := '' ,;
+         lcCOMMAND    := '' as string
+   local ii := 0 as int
+
+   lcERROR_MENS += '# ---------------- ' + dtos(date()) + '  ' + time() +' ----------------' + CRLF
+   lcERROR_MENS += '# gmPAGE  : '+gmPAGE+CRLF
+   lcERROR_MENS += '# gcLOGIN : '+gcLOGIN+CRLF
+   lcERROR_MENS += '# gnUID   : '+str(gnUID)+CRLF
+   lcERROR_MENS += '# gmGID   : '+str(gnGID)+CRLF
+
+   lcERROR_MENS += '## Fatal error:'+CRLF
+   lcERROR_MENS += cMsg+CRLF+CRLF
+   lcERROR_MENS += procname(4)+'['+ ltrim(str(procline(4))) +']  '+ procname(3)+'['+ ltrim(str(procline(3))) +']  '+ procname(2)+'['+ ltrim(str(procline(2))) +']  '+ procname(1)+'['+ ltrim(str(procline(1))) +']'+CRLF
+   lcERROR_MENS += wSet('_lastsql')+CRLF
+   lcERROR_MENS += '# ---------------------------------------------'+CRLF
+
+   qout(lcERROR_MENS)
+   writelogerros(cMsg)
+	db_query('ROLLBACK')
+	quit
+return(nil)
+
+function freadFGed(fcFileName,@fcContent)
+	local cContent   := '' as string
+
+	local nHFImport := 0 ,;
+	      nSize     := 0 as int
+
+	nHFImport := fopen(fcFileName,0)
+	if nHFImport < 0 .or. ferror() > 0
+		qout('Erro nr. '+alltrim(str(ferror()))+' ao abrir arquivo '+fcFileName)
+		writelog('Erro nr. '+alltrim(str(ferror()))+' ao abrir arquivo '+fcFileName)
+		return(-1)
+	endif
+	nSize    := fseek(nHFImport,0,2)
+	cContent := space(nSize)
+	fseek(nHFImport,0,0)
+	fread(nHFImport,@cContent,nSize)
+	fclose(nHFImport)
+
+	fcContent := cContent
+	nHFImport := 0
+	nSize     := 0
+return(0)
+
+static function writelogerros(fcSTRLOG,fcLOGIN)
+  local lcFILE   := WSet('ERROR_LOGFILE') ,;
+        lcSTRLOG := '' as string
+
+  local lnHANDLE := 0 ,;
+        lnERROR  := 0
+
+  local ii := 0 as int
+
+  if !empty(lcFILE)
+     lcSTRLOG += dtoc(date())+' '+time()
+     if !empty(fcLOGIN)
+       lcSTRLOG += ' '+fcLOGIN+' '
+     else
+       lcSTRLOG += ' '+WSet('LOGIN')+' '
+     endif
+     for ii := 1 to 10
+         lcSTRLOG += ' '+procname(ii)+'['+alltrim(str(procline(ii)))+'] '
+     next ii
+     lcSTRLOG += fcSTRLOG+chr(13)+chr(10)
+
+     if file(lcFILE)
+        lnHANDLE := fopen(lcFILE,1)
+        fseek(lnHANDLE,0,2)
+     else
+        lnHANDLE := fcreate(lcFILE,0)
+     endif
+     lnERROR := ferror()
+
+     if lnERROR == 0
+        fwrite(lnHANDLE,lcSTRLOG)
+        fclose(lnHANDLE)
+     else
+        puterror('Erro ao gravar log: '+alltrim(str(lnERROR)))
+     endif
+  else
+     puterror(fcSTRLOG)
+  endif
+return(nil)
+
+
+static function allencryptpass()
+   local cContent := '' as string
+
+   local aResult  := {} ,;
+         aCond    := {} as array
+
+   local ii       := 0 as int
+
+   db_begin()
+   if db_select({'WUID','PASSWD','LOGIN'},'acuser') == -1
+		qout('encryptpass: '+db_error())
+      db_rollback()
+		return(0)
+   endif
+   aResult := db_fetchall()
+
+   if len(aResult) > 0
+      for ii := 2 to len(aResult)
+         qout('Convertendo senha do usuario '+aResult[ii,3]+'...')
+        	wstr2hex(wencrypt(aResult[ii,2],KEY),@cContent)
+         aResult[ii,2] := encryptpass(aResult[ii,2])
+         aadd(aCond,'WUID='+alltrim(str(aResult[ii,1])))
+      next ii
+      if db_update(aResult,'acuser',aCond) == -1
+         qout('encryptpass: '+db_error())
+         db_rollback()
+         return(0)
+      endif
+      db_commit()
+   endif
+return(nil)
+
+/*
+* Data......: 24/09/2010 - Glauber
+* Function..: file2hexa(pcFile)
+* Objetivo..: Gera um arquivo com o conteúdo convertido para hexa com base no arquivo origem
+* Parâmetros:
+*   pcFile  : Nome do arquivo origem
+* Retorno...: Nenhum
+*/
+
+Static Function file2hexa(pcFile)
+
+   local lnHandle := 0,;
+         lnTam    := 0,;
+         lnTmp    := 0 as int
+   local lcBuffer := '',;
+         lcHexa   := '',;
+         lcDir    := '',;
+         lcFile   := '' as String
+
+   if file(pcFile)
+      lnHandle := fopen(pcFile,0)
+      if lnHandle < 0 .or. ferror() > 0
+         Wout('Erro ao abrir o arquivo: ' + str(ferror()))
+         return
+      endif
+      lnTam     := fseek(lnHANDLE,0,2)
+      lcBuffer  := space(lnTAM)
+      fseek(lnHandle,0,0)
+      fread(lnHandle,@lcBuffer,lnTAM)
+      fclose(lnHandle)
+      WStr2Hex(@lcBuffer,@lcHexa)
+      lnTmp  := rat('/',pcFile)
+      lcFile := substr(pcFile,lnTmp+1,len(pcFile))
+      lcDir  := substr(pcFile,1,lnTmp)
+      lnTmp  := rat('.',lcFile)
+      lnTmp  := iif(lnTmp == 0, len(lcFile), lnTmp -1)
+      //lcFile := substr(lcFile,1,at('.',lcFile)-1)
+      lcFile := substr(lcFile,1,lnTmp)
+      /* glauber 15/10/2010
+         Conforme solicitação do milton, converter os '.' no meio do nome do arquivo para '_'
+      */
+      lcFile := strtran(lcFile,'.','_')
+      lcFile += '.hex'
+      lnHandle := fcreate(lcDir+lcFile,644)
+      if ferror() != 0
+         wout('Erro ao criar o arquivo: '+ lcDir+lcFile)
+         wout('Erro: ' + str(ferror()))
+         return
+      endif
+      fwrite(lnHANDLE,lcHexa)
+      if ferror() != 0
+         wout('Erro ao gravar o arquivo: '+ lcDir+lcFile)
+         wout('Erro: ' + str(ferror()))
+         return
+      else
+         fclose(lnHandle)
+      endif
+   endif
+return
+
+/*
+static function decryptpass()
+   local cContent := '' as string
+
+   local aResult  := {} ,;
+         aCond    := {} as array
+
+   local ii       := 0 as int
+
+   db_begin()
+   if db_select({'WUID','PASSWD','LOGIN'},'acuser') == -1
+		qout('decryptpass: '+db_error())
+      db_rollback()
+		return(0)
+   endif
+   aResult := db_fetchall()
+
+   if len(aResult) > 0
+      for ii := 2 to len(aResult)
+         qout('Convertendo senha do usuario '+aResult[ii,3]+'...')
+
+         #ifdef W32
+            whex2str(aResult[ii,2],@cContent)
+         #else
+       		whex2str(aResult[ii,2],@cContent)
+         	cContent := wdecrypt(cContent,KEY)
+         #endif
+
+         aResult[ii,2] := cContent
+         aadd(aCond,'WUID='+alltrim(str(aResult[ii,1])))
+      next ii
+      if db_update(aResult,'acuser',aCond) == -1
+         qout('decryptpass: '+db_error())
+         db_rollback()
+         return(0)
+      endif
+      db_commit()
+   endif
+return(nil)
+
+
+*/
+
+
+
+
+
+
+
+//
+// GLAUBER 09/05/2014
+//
+
+static function TESTEREL()
+
+local laRES := {} as array
+
+WOUT('Fazendo o primeiro select')
+
+      if db_query('select vw_pgp_vpar_sf.TP_PASTA from vw_pgp_vpar_sf group by vw_pgp_vpar_sf.TP_PASTA order by vw_pgp_vpar_sf.TP_PASTA') == -1
+         qout('erro na primeira query: '+db_error())
+         return(0)
+      endif
+
+WOUT('Obtendo o primeiro fetchall')
+
+      laRES := db_fetchall()
+
+wout('Tamanho do fetch:'+alltrim(len(laRES)))
+
+
+WOUT('Fazendo o seundo select')
+
+      if db_query('select vw_pgp_vpar_sf.PFPJ from vw_pgp_vpar_sf group by vw_pgp_vpar_sf.PFPJ order by vw_pgp_vpar_sf.PFPJ') == -1
+         qout('erro na segunda query: '+db_error())
+         return(0)
+      endif
+
+WOUT('Obtendo o segundo fetchall')
+
+      laRES := db_fetchall()
+wout('Tamanho do fetch:'+alltrim(len(laRES)))
+
+
+WOUT('Fazendo o terceiro select')
+
+      if db_query('select vw_pgp_vpar_sf.PFPJ_ATIVIDADE from vw_pgp_vpar_sf group by vw_pgp_vpar_sf.PFPJ_ATIVIDADE order by vw_pgp_vpar_sf.PFPJ_ATIVIDADE') == -1
+         qout('erro na terceiro query: '+db_error())
+         return(0)
+      endif
+
+WOUT('Obtendo o terceiro fetchall')
+
+      laRES := db_fetchall()
+wout('Tamanho do fetch:'+alltrim(len(laRES)))
+
+
+
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

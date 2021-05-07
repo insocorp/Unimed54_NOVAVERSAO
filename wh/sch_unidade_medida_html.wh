@@ -1,0 +1,46 @@
+/*
+
+Project      : isj_370rc4
+Program      : sch.unidade_medida.html
+Function     : sch_unidade_medida_html
+Created on   : 13-aug-2008   17:25:00 
+Descripition : 
+
+*/
+
+
+
+local laFIELDS       := {},;
+      laJAVA         := {},;
+      laQUICK_SEARCH := {} as array
+
+laFIELDS       := {'UNIDADE_MEDIDA'}
+laJAVA         := {'mntform',{{'UNIDADE_MEDIDA','UNIDADE_MEDIDA'}}}
+laQUICK_SEARCH := {'UNIDADE_MEDIDA'}
+laWHERE        := {'FL_ATIVO <> '+DLAP+'I'+DLAP}
+
+build_program('unidade_medida',;               //Tabela Alvo
+              ,;                        //Join
+              laWHERE,;                        //Where
+              ,;                        //Order by
+              ,;                        //Sort [A]-Ascendente [D]-Descentende
+              ,;                        //Group by
+              ,;                        //Limit
+              ,;                        //Banco de Dados
+              3,;                       //Modo de funcionamento [1]-Listagem/Form para manutenção [2]-Listagem e Manutenção [3]-Search
+              'gr5',;                  //Modulo do programa chamador
+              WSet('_USER_INTERFACE'),; //Programa chamador
+              ,;                        //Parametros para linhas clicáveis
+              ,;                        //Botoes (nil)
+              'mnt.unidade_medida.html',;      //Programa chamado pelos links (linhas clicáveis)
+              'gr5',;                  //Módulo do programa chamado pelos links
+              laJAVA,;                  //Retorno java (nil) - usado apenas no search
+              laQUICK_SEARCH,;          //Campos usados na pesquisa rápida
+              ,;                        //Campos ocultos. Usado apenas em manutenções    ***
+              ,;                        //Campos da área de manutenção/entrada de dados  ***
+              laFIELDS,;                //Campos mostratos no grid
+              laFIELDS)                 //Campos usados no select
+return
+
+
+

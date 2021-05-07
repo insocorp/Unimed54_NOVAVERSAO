@@ -1,0 +1,60 @@
+/*
+
+Project      : gr5
+Program      : fase_plano.mnt.html
+Function     : fase_plano_mnt_html
+Created on   : 13/07/2017 15:45:07
+Descripition : Fases dos Planos de Ações
+
+*/
+
+local laPARAM        := {},;
+      laINPUT_OBJ    := {},;
+      laSELECT       := {} as array
+
+laPARAM := {{'ID_PLANO_ACAO'   ,''     ,'*'},;
+            {'FL_ATIVO','',},;
+            {'ACTION'       ,'ALTER',   }}
+
+
+laINPUT_OBJ := {{'ID_PLANO_ACAO'         ,0,'Y','Y',"'New'"   },;
+                {                   , ,   ,   ,          },;
+                {'TP_PASTA',1, ,'Y',"loadcboxorder_build('pasta_config','TP_PASTA',.T.,{'TP_PASTA'})"},;
+                {               , , ,   ,   },;
+                {'FASE_PLANO_ACAO',0, ,'Y',   },;
+                {,,,,},;
+                {'FL_ATIVO',1,,'Y','{"S","I","D"}' }}
+
+laSELECT := {'ID_PLANO_ACAO',;
+             'TP_PASTA',;
+             'FASE_PLANO_ACAO',;
+             'FL_ATIVO'}
+             
+if upper(alltrim(WGet('ACTIONBP'))) == 'ALTER'
+   mkgedico('fase_plano_acao',WGet('ID_PLANO_ACAO','C'))
+endif
+
+
+xbp2('fase_plano_acao',;                                                           //Tabela alvo
+    ,;                                                                  //Joins
+    ,;                                                                  //Where
+    ,;                                                                  //Order by
+    ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+    ,;                                                                  //Group by
+    ,;                                                                  //Limit
+    ,;                                                                  //Banco de Dados
+    2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+    'gr5',;                                                            //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                                           //Programa chamador
+    laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+    ,;                                                                  //Parâmetros para os botões das linhas do grid
+    'fase_plano.mnt.html',;                                                  //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                                            //Módulo do programa chamado pelos links/botoes do grid
+    ,;                                                                  //Retorno java (nil) - usado apenas para Search
+    ,;                                                                  //Campos usados na pesquisa rápida
+    ,;                                                                  //Campos Ocultos
+    laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+    laSELECT ,;                                                         //Campos exibidos no grid
+    laSELECT)                                                           //Campos usados no select
+return
+

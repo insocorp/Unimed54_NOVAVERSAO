@@ -1,0 +1,835 @@
+/*
+
+Project      : gr5
+Program      : fat.gera.html
+Function     : fat_gera_html
+Created on   : 18-Oct-2002   09:33:18
+Descripition : Pré-Fatura
+
+*/
+
+   local lcTABLE        := '' ,;
+         lcFROM         := '' ,;
+         lcACTION       := '' ,;
+         lcFLD_VAR      := '' ,;
+         lcCIP          := '' ,;
+         lcDT_SERVICO   := '' ,;
+         lcDIA_COBRANCA := '' ,;
+         lcNRFAT        := '' as string
+   local x           := 0 ,;
+         ii          := 0 as int
+   local laRESULT   := {} ,;
+         laCOND     := {} ,;
+         laWHERE    := {} ,;
+         laORDER_BY := {} ,;
+         laGROUP_BY := {} ,;
+         laCLIENTE  := {} ,;
+         laTPFILTER := {} ,;
+         laFIELDLST := {} ,;
+         laLABELLST := {} ,;
+         laFLD_SEL  := {} as array
+   local lnIRRF := 0.00,;
+         lnPIS  := 0.00,;
+         lnCSLL := 0.00
+   local ldDT_VENCTO, ldDT_DESPESA
+   lcACTION     := upper(WGet('ACTION','C'))
+   lcTABLE      := 'pfpj'
+   laTPFILTER   := {'Contendo','Igual','Intervalo','Não contém'}
+   laFIELDLST   := structtable(WSet('DB_ACTIVE'),lcTABLE,1,'A')
+   laLABELLST   := structtable(WSet('DB_ACTIVE'),lcTABLE,11,'A')
+   laFLD_SEL    := {lcTABLE+'.CIP',;
+                    lcTABLE+'.PFPJ',;
+                    lcTABLE+'.CIDADE'}
+   for ii := 1 to len(laFIELDLST)
+       laFIELDLST[ii] := lcTABLE+'.'+laFIELDLST[ii]
+   next ii
+   for ii := 1 to 5
+      wPut('FDFILTER'+alltrim(str(ii))+'_OPT',laLABELLST)
+      wPut('TPFILTER'+alltrim(str(ii))+'_OPT',laTPFILTER)
+   next ii
+   for ii:= 1 to 3
+      WPut('FDORDER'+alltrim(str(ii))+'_OPT',laLABELLST)
+   next ii
+   WPut('TITLE','Seleção para Geração da Pré-Fatura')
+   if empty(lcACTION)
+      WPut('DT_SERVICO',date())
+      WPut('DT_VENCTO',date()+10)
+   elseif lcACTION == 'EXECSEL'
+      lcDT_SERVICO   := alltrim(WGet('DT_SERVICO','DS'))
+      ldDT_DESPESA   := WGet('DT_DESPESA','D')
+      lcDIA_COBRANCA := alltrim(WGet('DIA_COBRANCA','C'))
+      ldDT_VENCTO    := WGet('DT_VENCTO','D')
+      lcFROM += 'mvt_servico,pasta,'+lcTABLE
+
+      laGROUP_BY := aclone(laFLD_SEL)
+
+      aadd(laFLD_SEL,'count(*) as NR_TIMESHEET')
+      aadd(laWHERE,'pasta.NR_PASTA=mvt_servico.NR_PASTA and '+lcTABLE+'.CIP=pasta.CIP_EMPRESA and '+;
+                   'mvt_servico.FL_APROVADO in ('+DLAP+'1'+DLAP+','+DLAP+'2'+DLAP+') and mvt_servico.NR_FATURA=0')
+      if !empty(lcDT_SERVICO)
+         aadd(laWHERE,'mvt_servico.DT_REF<='+DLAP+lcDT_SERVICO+DLAP)
+      endif
+
+      /*
+      // Campo desabilitado.
+
+      if !empty(lcDIA_COBRANCA) .and. lcDIA_COBRANCA <> '0'
+         aadd(laWHERE,'pfpj.DIA_COBRANCA='+lcDIA_COBRANCA)
+      endif
+      */
+
+      ii := 1
+      do while .t.    // Filter
+         if WGet('FDFILTER'+alltrim(str(ii)),'B')
+            if ! empty(WGet('VLFILTER'+alltrim(str(ii)),'C')) .or. ! empty(WGet('VL2FILTER'+alltrim(str(ii)),'C'))
+               laCOND := {}
+               if WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Igual'
+                  aadd(laWHERE,mkwheresch({{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')}},1))
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Intervalo'
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laWHERE,mkwheresch(laCOND,2))
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Não contém'
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laWHERE,mkwheresch(laCOND,3))
+               else  // Contendo
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laWHERE,mkwheresch(laCOND,4))
+               endif
+            endif
+         else
+            exit
+         endif
+         ii ++
+      enddo
+      ii := 1
+
+      do while .t.     // Order
+         if WGet('FDORDER'+alltrim(str(ii)),'B')
+            if ! empty(WGet('FDORDER'+alltrim(str(ii)),'C'))
+               aadd(laORDER_BY,laFIELDLST[ascan(laLABELLST,WGet('FDORDER'+alltrim(str(ii)),'C'))])
+               if ascan(laGROUP_BY,laFIELDLST[ascan(laLABELLST,WGet('FDORDER'+alltrim(str(ii)),'C'))]) == 0
+                  aadd(laGROUP_BY,laFIELDLST[ascan(laLABELLST,WGet('FDORDER'+alltrim(str(ii)),'C'))])
+               endif
+            endif
+         else
+            exit
+         endif
+         ii ++
+     enddo
+
+     if db_select(laFLD_SEL,lcFROM,,laWHERE,laORDER_BY,,laGROUP_BY,{50}) == -1
+        error_sys(db_error())
+     endif
+     laRESULT := db_fetchall()
+     if len(laRESULT) > 0
+        aadd(laRESULT[1],'VAR_CIP')
+        for ii := 2 to len(laRESULT)
+            aadd(laRESULT[ii],'VAR_CIP_'+alltrim(str(ii-1)))
+        next ii
+        wPut('RECORD_COUNT',str(len(laRESULT)-1))
+        wPut('DT_SERV_CALC',lcDT_SERVICO)
+        wPut('DT_DESP_CALC',ldDT_DESPESA)
+        wPut('DIA_COBR_CALC',lcDIA_COBRANCA)
+        wPut('DT_VENCTO_CALC',ldDT_VENCTO)
+        wPut('lstTSHT_CLIENTE',laRESULT)
+     endif
+     get2Put()
+   elseif lcACTION == 'EXECCALC'
+     lcDT_SERVICO   := alltrim(WGet('DT_SERV_CALC','C'))
+     lcDIA_COBRANCA := alltrim(WGet('DIA_COBR_CALC','C'))
+     ldDT_VENCTO    := WGet('DT_VENCTO_CALC','D')
+     ii := WGet('RECORD_COUNT','N')
+     for x := 1 to ii
+        lcFLD_VAR    := 'VAR_CIP_'+alltrim(str(x))
+        lcCIP := alltrim(WGet(lcFLD_VAR,'C'))
+        if !empty(lcCIP)
+           aadd(laCLIENTE,lcCIP)
+        endif
+     next x
+
+     if len(laCLIENTE) > 0
+        if db_select({'PC_IRRF','PC_PIS','PC_CSLL'},'empresa_usuaria') == -1
+           error_sys(db_error())
+        endif
+        laRESULT := db_fetchrow()
+        lnIRRF   := laRESULT[1] //Imposto de Renda
+        lnPIS    := laRESULT[2] //PIS
+        lnCSLL   := laRESULT[3] //Contribuicao Social sobre Lucro Liquido
+        for x := 1 to len(laCLIENTE)
+            if db_insert({{'DT_FATURA','CIP_EMPRESA','FL_PRINT','DT_VENCTO','PC_IRRF','PC_PIS','PC_CSLL'},;
+                          {dtos(date()),laCLIENTE[x],'N',dtos(ldDT_VENCTO),lnIRRF,lnPIS,lnCSLL}},'fatura') == -1
+               error_sys(db_error())
+            endif
+            lcNRFAT := alltrim(str(db_insert_id()))
+            /* Gravar fatura na tabela de Timesheet (mvt_servico) --------------------------------------------------------*/
+            laFLD_SEL := {'mvt_servico.NR_PASTA','mvt_servico.NR_SERVICO'}
+            lcFROM    := 'mvt_servico,pasta'
+            laWHERE   := {'pasta.NR_PASTA=mvt_servico.NR_PASTA and pasta.CIP_EMPRESA='+laCLIENTE[x],;
+                          'mvt_servico.FL_APROVADO in ('+DLAP+'1'+DLAP+','+DLAP+'2'+DLAP+')',;
+                          'mvt_servico.NR_FATURA=0',;
+                          'mvt_servico.DT_REF <= '+DLAP+lcDT_SERVICO+DLAP}
+            if db_select(laFLD_SEL,lcFROM,,laWHERE) == -1
+               error_sys(db_error())
+            endif
+            laRESULT := db_fetchall()
+            lcWHERE  := ''
+            if len(laRESULT) > 1
+               lcWHERE += '(NR_PASTA='+str(laRESULT[2,1],6)+' and NR_SERVICO='+str(laRESULT[2,2],6)+')'
+            else
+               walert('Nao ha Timesheets para Fatura!')
+               loop
+            endif
+            for ii := 3 to len(laRESULT)
+                lcWHERE += ' or (NR_PASTA='+str(laRESULT[ii,1],6)+' and NR_SERVICO='+str(laRESULT[ii,2],6)+')'
+            next ii
+            if db_update({{'NR_FATURA'},{lcNRFAT}},'mvt_servico',{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+            atzTBPasta(lcNRFAT)
+            atzTBCobranca(lcNRFAT)
+            atzTBHonorario(lcNRFAT)
+            atzTBServico(lcNRFAT)
+            atzTimesheet(lcNRFAT)
+            atzMoeda_VLUnit(lcNRFAT)
+            atzTSTBHonorario(lcNRFAT)
+            atzFat_Moeda(lcNRFAT)
+            atzFat_Pacote(lcNRFAT)
+            atzFat_Servico(lcNRFAT)
+            atzFat_Honorario(lcNRFAT)
+            atzFat_Avulso(lcNRFAT)
+            atzTotalFat(lcNRFAT,lnIRRF,lnPIS,lnCSLL)
+        next x
+     endif
+   endif
+   //wPut('DT_SERVICO',date())
+   //wPut('DT_VENCTO',date()+10)
+return
+/*
+* Function..: atzTBPasta(<fcNR_FATURA>)
+* Objetivo..: Atualizar os códigos das Tabelas de Cobrança,Honorarios,Servicos na Pasta
+* Parâmetros:
+*    fcNR_FATURA: Código da Fatura
+* Retorno...: Nenhum
+*/
+function atzTBPasta(fcNR_FATURA)
+   local laRESULT := {} ,;
+         laFIELDS := {} ,;
+         laWHERE  := {} ,;
+         laUPDATE := {} as array
+   local lbADD     := .F. as logical
+   laFIELDS := {'mvt_servico.NR_PASTA',;
+                'mvt_servico.NR_SERVICO',;
+                'pasta.CD_COBRANCA',;
+                'pasta.CD_TB_HONORARIO',;
+                'pasta.CD_TB_SERVICO'}
+   laWHERE  := {'pasta.NR_PASTA=mvt_servico.NR_PASTA',;
+                'mvt_servico.NR_FATURA='+fcNR_FATURA,;
+                '(mvt_servico.FL_VL_PADRAO='+DLAP+'S'+DLAP+' or mvt_servico.FL_TP_TIMESHEET='+DLAP+' '+DLAP+')'}
+   if db_select(laFIELDS,'mvt_servico,pasta',,laWHERE) == -1
+      error_sys('atzTBPasta: ('+alltrim(str(procline()))+') - '+db_error())
+   endif
+   laRESULT := db_fetchall()
+   for ii := 2 to len(laRESULT)
+       lbADD    := .F.
+       laUPDATE := {}
+       if laRESULT[ii,3] > 0
+          aadd(laUPDATE,{'CD_COBRANCA'})
+          aadd(laUPDATE,{laRESULT[ii,3]})
+          lbADD := .T.
+       endif
+       if laRESULT[ii,4] > 0
+          if lbADD
+             aadd(laUPDATE[1],'CD_TB_HONORARIO')
+             aadd(laUPDATE[2],alltrim(str(laRESULT[ii,4])))
+          else
+             aadd(laUPDATE,{'CD_TB_HONORARIO'})
+             aadd(laUPDATE,{laRESULT[ii,4]})
+          endif
+          lbADD := .T.
+       endif
+       if laRESULT[ii,5] > 0
+          if lbADD
+             aadd(laUPDATE[1],'CD_TB_SERVICO')
+             aadd(laUPDATE[2],laRESULT[ii,5])
+          else
+             aadd(laUPDATE,{'CD_TB_SERVICO'})
+             aadd(laUPDATE,{laRESULT[ii,5]})
+          endif
+          lbADD := .T.
+       endif
+       if len(laUPDATE) > 0
+          if db_update(laUPDATE,'mvt_servico',;
+                                {'NR_PASTA='+str(laRESULT[ii,1])+' and NR_SERVICO='+str(laRESULT[ii,2])}) == -1
+             error_sys('atzTBPasta: ('+alltrim(str(procline()))+') - '+db_error())
+          endif
+       endif
+   next ii
+return(nil)
+/*
+* Function..: atzTBCobranca(<fcNR_FATURA>)
+* Objetivo..: Atualizar os Códigos da Tabelas de Cobrança
+* Parâmetros:
+*    fcNR_FATURA: Código da Fatura
+* Retorno...: Nenhum
+*/
+function atzTBCobranca(fcNR_FATURA)
+   local laRESULT := {} ,;
+         laFIELDS := {} ,;
+         laWHERE  := {} ,;
+         laUPDATE := {} as array
+   local ii := 0 as int
+   laFIELDS := {'mvt_servico.NR_PASTA',;
+                'mvt_servico.NR_SERVICO',;
+                'cobranca_cliente.CD_COBRANCA'}
+   laWHERE  := {'pasta.NR_PASTA=mvt_servico.NR_PASTA',;
+                'cobranca_cliente.CIP_EMPRESA=pasta.CIP_EMPRESA',;
+                'cobranca_cliente.TP_PASTA=pasta.TP_PASTA',;
+                'mvt_servico.NR_FATURA='+fcNR_FATURA,;
+                'mvt_servico.CD_COBRANCA=0',;
+                '(mvt_servico.FL_VL_PADRAO='+DLAP+'S'+DLAP+' or mvt_servico.FL_TP_TIMESHEET='+DLAP+' '+DLAP+')'}
+   if db_select(laFIELDS,'mvt_servico,pasta,cobranca_cliente',,laWHERE) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   for ii := 2 to len(laRESULT)
+       laUPDATE := {{'CD_COBRANCA'},{laRESULT[ii,3]}}
+       laWHERE  := {'NR_PASTA='+str(laRESULT[ii,1])+' and NR_SERVICO='+str(laRESULT[ii,2])}
+       if db_update(laUPDATE,'mvt_servico',laWHERE) == -1
+          error_sys('atzTBCobranca: ('+alltrim(str(procline()))+') - '+db_error())
+       endif
+   next ii
+return(nil)
+/*
+* Function..: atzTBHonorario(<fcNR_FATURA>)
+* Objetivo..: Atualizar os Códigos da Tabelas de Honorarios
+* Parâmetros:
+*    fcNR_FATURA: Código da Fatura
+* Retorno...: Nenhum
+*/
+function atzTBHonorario(fcNR_FATURA)
+   local laRESULT := {} ,;
+         laFIELDS := {} ,;
+         laWHERE  := {} ,;
+         laUPDATE := {} as array
+   local ii := 0 as int
+   laFIELDS := {'mvt_servico.NR_PASTA',;
+                'mvt_servico.NR_SERVICO',;
+                'cobranca_cliente.CD_TB_HONORARIO'}
+   laWHERE  := {'pasta.NR_PASTA=mvt_servico.NR_PASTA',;
+                'cobranca_cliente.CIP_EMPRESA=pasta.CIP_EMPRESA',;
+                'cobranca_cliente.TP_PASTA=pasta.TP_PASTA',;
+                'mvt_servico.NR_FATURA='+fcNR_FATURA,;
+                'mvt_servico.CD_TB_HONORARIO=0',;
+                '(mvt_servico.FL_VL_PADRAO='+DLAP+'S'+DLAP+' or mvt_servico.FL_TP_TIMESHEET='+DLAP+' '+DLAP+')'}
+   if db_select(laFIELDS,'mvt_servico,pasta,cobranca_cliente',,laWHERE) == -1
+      error_sys('atzTBHonorario: ('+alltrim(str(procline()))+') - '+db_error())
+   endif
+   laRESULT := db_fetchall()
+   for ii := 2 to len(laRESULT)
+       laUPDATE := {{'CD_TB_HONORARIO'},{laRESULT[ii,3]}}
+       laWHERE  := {'NR_PASTA='+str(laRESULT[ii,1])+' and NR_SERVICO='+str(laRESULT[ii,2])}
+       if db_update(laUPDATE,'mvt_servico',laWHERE) == -1
+          error_sys('atzTBHonorario: ('+alltrim(str(procline()))+') - '+db_error())
+       endif
+   next ii
+return(nil)
+/*
+* Function..: atzTBServico(<fcNR_FATURA>)
+* Objetivo..: Atualizar os Códigos da Tabelas de Serviço
+* Parâmetros:
+*    fcNR_FATURA: Código da Fatura
+* Retorno...: Nenhum
+*/
+function atzTBServico(fcNR_FATURA)
+   local laRESULT := {} ,;
+         laFIELDS := {} ,;
+         laWHERE  := {} ,;
+         laUPDATE := {} as array
+   local ii := 0 as int
+   laFIELDS := {'mvt_servico.NR_PASTA',;
+                'mvt_servico.NR_SERVICO',;
+                'cobranca_cliente.CD_TB_SERVICO'}
+   laWHERE  := {'pasta.NR_PASTA=mvt_servico.NR_PASTA',;
+                'cobranca_cliente.CIP_EMPRESA=pasta.CIP_EMPRESA',;
+                'cobranca_cliente.TP_PASTA=pasta.TP_PASTA',;
+                'mvt_servico.NR_FATURA='+fcNR_FATURA,;
+                'mvt_servico.CD_TB_SERVICO=1',;
+                '(mvt_servico.FL_VL_PADRAO='+DLAP+'S'+DLAP+' or mvt_servico.FL_TP_TIMESHEET='+DLAP+' '+DLAP+')'}
+   if db_select(laFIELDS,'mvt_servico,pasta,cobranca_cliente',,laWHERE) == -1
+      error_sys('atzTBServico: ('+alltrim(str(procline()))+') - '+db_error())
+   endif
+   laRESULT := db_fetchall()
+   for ii := 2 to len(laRESULT)
+       laUPDATE := {{'CD_TB_SERVICO'},{laRESULT[ii,3]}}
+       laWHERE  := {'NR_PASTA='+str(laRESULT[ii,1])+' and NR_SERVICO='+str(laRESULT[ii,2])}
+       if db_update(laUPDATE,'mvt_servico',laWHERE) == -1
+          error_sys('atzTBServico: ('+alltrim(str(procline()))+') - '+db_error())
+       endif
+   next ii
+return(nil)
+/*
+* Function..: atzTimesheet(<fcNR_FATURA>)
+* Objetivo..: Atualizar o tipo de Timesheet na tabela de Timesheets [mvt_servico] de acordo com a tabela de
+*             Cobranca [cobranca]
+* Parâmetros:
+*    fcNR_FATURA: Código da Fatura
+* Retorno...: Nenhum
+*/
+function atzTimesheet(fcNR_FATURA)
+   local laRESULT := {} ,;
+         laFIELDS := {} ,;
+         laWHERE  := {} ,;
+         laUPDATE := {} as array
+   local ii := 0 as int
+   laFIELDS := {'mvt_servico.NR_PASTA',;
+                'mvt_servico.NR_SERVICO',;
+                'cobranca.FL_TP_TIMESHEET'}
+   laWHERE  := {'cobranca.CD_COBRANCA=mvt_servico.CD_COBRANCA',;
+                'mvt_servico.NR_FATURA='+fcNR_FATURA,;
+                '(mvt_servico.FL_VL_PADRAO='+DLAP+'S'+DLAP+' or mvt_servico.FL_TP_TIMESHEET='+DLAP+' '+DLAP+')'}
+   if db_select(laFIELDS,'mvt_servico,cobranca',,laWHERE) == -1
+      error_sys('atzTimesheet: ('+alltrim(str(procline()))+') - '+db_error())
+   endif
+   laRESULT := db_fetchall()
+   for ii := 2 to len(laRESULT)
+       laUPDATE := {{'FL_TP_TIMESHEET'},{laRESULT[ii,3]}}
+       laWHERE  := {'NR_PASTA='+str(laRESULT[ii,1])+' and NR_SERVICO='+str(laRESULT[ii,2])}
+       if db_update(laUPDATE,'mvt_servico',laWHERE) == -1
+          error_sys('atzTTimesheet: ('+alltrim(str(procline()))+') - '+db_error())
+       endif
+   next ii
+return(nil)
+/*
+* Function..: atzMoeda_VLUnit(<fcNR_FATURA>)
+* Objetivo..: Atualizar Código de Moeda e Valor Unitário na tabela de Timesheets [mvt_servico] de acordo com a Tabela de
+*             Honorários [tabela_honorario] e a Tabela Preços de Honorarios [vl_tabela_honorario]
+* Parâmetros:
+*    fcNR_FATURA: Código da Fatura
+* Retorno...: Nenhum
+*/
+function atzMoeda_VLUnit(fcNR_FATURA)
+   /*
+   local laRESULT := {} ,;
+         laFIELDS := {} ,;
+         laWHERE  := {} ,;
+         laUPDATE := {} as array
+   local ii := 0 as int
+   laFIELDS := {'mvt_servico.NR_PASTA',;
+                'mvt_servico.NR_SERVICO',;
+                'tabela_honorario.CD_MOEDA',;
+                'vl_tabela_honorario.VL_UNIT'}
+   laWHERE  := {'tabela_honorario.CD_TB_HONORARIO=mvt_servico.CD_TB_HONORARIO',;
+                'vl_tabela_honorario.CD_TB_HONORARIO=mvt_servico.CD_TB_HONORARIO',;
+                'vl_tabela_honorario.CD_CARGO=acuser.CD_CARGO',;
+                'acuser.LOGIN='+DLAP+gcLOGIN+DLAP,;
+                'mvt_servico.NR_FATURA='+fcNR_FATURA,;
+                'mvt_servico.FL_TP_TIMESHEET='+DLAP+'2'+DLAP,;
+                '(mvt_servico.FL_VL_PADRAO='+DLAP+'S'+DLAP+' or mvt_servico.CD_MOEDA=0)'}
+   if db_select(laFIELDS,'mvt_servico,tabela_honorario,vl_tabela_honorario,acuser',,laWHERE) == -1
+      error_sys('atzMoeda_VLUnit: ('+alltrim(str(procline()))+') - '+db_error())
+   endif
+   laRESULT := db_fetchall()
+   for ii := 2 to len(laRESULT)
+       laUPDATE := {{'CD_MOEDA','VL_UNIT'},{laRESULT[ii,3],laRESULT[ii,4]}}
+       laWHERE  := {'NR_PASTA='+str(laRESULT[ii,1])+' and NR_SERVICO='+str(laRESULT[ii,2])}
+       if db_update(laUPDATE,'mvt_servico',laWHERE) == -1
+          error_sys('atzMoeda_VLUnit: ('+alltrim(str(procline()))+') - '+db_error())
+       endif
+   next ii
+   */
+return(nil)
+/*
+* Function..: atzTSTBHonorario(<fcNR_FATURA>)
+* Objetivo..: Atualizar Tipo de Timesheet e Valor Unitário na tabela de Timesheets [mvt_servico] de acordo com a Tabela de
+*             Serviços [tabela_servico] e a Tabela Preços de Serviços [vl_tabela_servico]
+* Parâmetros:
+*    fcNR_FATURA: Código da Fatura
+* Retorno...: Nenhum
+*/
+function atzTSTBHonorario(fcNR_FATURA)
+   local laRESULT := {} ,;
+         laFIELDS := {} ,;
+         laWHERE  := {} ,;
+         laUPDATE := {} as array
+   local ii := 0 as int
+   laFIELDS := {'mvt_servico.NR_PASTA',;
+                'mvt_servico.NR_SERVICO',;
+                'tabela_servico.CD_MOEDA',;
+                'vl_tabela_servico.VL_UNIT'}
+   laWHERE  := {'vl_tabela_servico.CD_TB_SERVICO=mvt_servico.CD_TB_SERVICO',;
+                'vl_tabela_servico.CD_SERVICO=mvt_servico.CD_SERVICO',;
+                'tabela_servico.CD_TB_SERVICO=mvt_servico.CD_TB_SERVICO',;
+                'mvt_servico.NR_FATURA='+fcNR_FATURA,;
+                '(mvt_servico.FL_VL_PADRAO='+DLAP+'S'+DLAP+' or mvt_servico.CD_MOEDA=0)'}
+   if db_select(laFIELDS,'mvt_servico,tabela_servico,vl_tabela_servico',,laWHERE) == -1
+      error_sys('atzTSTBHonorario: ('+alltrim(str(procline()))+') - '+db_error())
+   endif
+   laRESULT := db_fetchall()
+   for ii := 2 to len(laRESULT)
+       laUPDATE := {{'CD_MOEDA','VL_UNIT'},{laRESULT[ii,3],laRESULT[ii,4]}}
+       laWHERE  := {'NR_PASTA='+str(laRESULT[ii,1])+' and NR_SERVICO='+str(laRESULT[ii,2])}
+       if db_update(laUPDATE,'mvt_servico',laWHERE) == -1
+          error_sys('atzTSTBHonorario: ('+alltrim(str(procline()))+') - '+db_error())
+       endif
+   next ii
+return(nil)
+
+/*
+* Function..: atzFat_Moeda(<fcNR_FATURA>)
+* Objetivo..: Inserir/Atualizar na tabela detalhe da Fatura [fatura_moeda], as moedas dos servicos e despesas
+* Parâmetros:
+*    fcNR_FATURA: Código da Fatura
+* Retorno...: Nenhum
+*/
+function atzFat_Moeda(fcNR_FATURA)
+   local laFIELDS  := {} ,;
+         laWHERE   := {} ,;
+         laREPLACE := {} as array
+   local ii := 0 as int
+   /* Moedas dos Servicos ------------------------------------------------------------------------------------------------*/
+   laFIELDS := {'mvt_servico.NR_FATURA',;
+                'mvt_servico.CD_MOEDA',;
+                'mvt_moeda.VL_MOEDA'}
+   laWHERE  := {'mvt_moeda.CD_MOEDA=mvt_servico.CD_MOEDA',;
+                'mvt_moeda.DT_REF='+DLAP+dtos(date())+DLAP,;
+                'mvt_servico.NR_FATURA='+fcNR_FATURA}
+   //if db_select(laFIELDS,'mvt_servico,mvt_moeda',,laWHERE,,,{'mvt_moeda.CD_MOEDA'}) == -1
+   if db_select(laFIELDS,'mvt_servico,mvt_moeda',,laWHERE,,,{'mvt_servico.NR_FATURA','mvt_servico.CD_MOEDA','mvt_moeda.VL_MOEDA'}) == -1
+      error_sys('atzFat_Moeda: ('+alltrim(str(procline()))+') - '+db_error())
+   endif
+   laREPLACE := db_fetchall()
+   for ii := 2 to len(laREPLACE)
+       laWHERE := {'NR_FATURA='+fcNR_FATURA,'CD_MOEDA='+str(laREPLACE[ii,2])}
+       if db_replace(laREPLACE,'fatura_moeda',laWHERE) == -1
+          error_sys('atzFat_Moeda: ('+alltrim(str(procline()))+') - '+db_error())
+       endif
+   next ii
+   /* Moedas das Despesas ------------------------------------------------------------------------------------------------*/
+   laFIELDS := {'mvt_despesa.NR_FATURA','mvt_despesa.CD_MOEDA','mvt_moeda.VL_MOEDA'}
+   laWHERE  := {'mvt_moeda.CD_MOEDA=mvt_despesa.CD_MOEDA',;
+                'mvt_moeda.DT_REF='+DLAP+dtos(date())+DLAP,;
+                'mvt_despesa.NR_FATURA='+fcNR_FATURA}
+   if db_select(laFIELDS,'mvt_despesa,mvt_moeda',,laWHERE) == -1
+      error_sys('atzFat_Moeda: ('+alltrim(str(procline()))+') - '+db_error())
+   endif
+   laREPLACE := db_fetchall()
+   for ii := 2 to len(laREPLACE)
+       laWHERE := {'NR_FATURA='+fcNR_FATURA,'CD_MOEDA='+str(laREPLACE[ii,2])}
+       if db_replace(laREPLACE,'fatura_moeda',laWHERE) == -1
+          error_sys('atzFat_Moeda: ('+alltrim(str(procline()))+') - '+db_error())
+       endif
+   next ii
+return(nil)
+/*
+* Function..: atzFat_Pacote(<fcNR_FATURA>)
+* Objetivo..: Inserir/Atualizar na tabela detalhe Pacote [fatura_pacote], as Tabelas de Cobranca e seus totais
+* Parâmetros:
+*    fcNR_FATURA: Código da Fatura
+* Retorno...: Nenhum
+*/
+function atzFat_Pacote(fcNR_FATURA)
+   local laFIELDS  := {} ,;
+         laWHERE   := {} ,;
+         laREPLACE := {} as array
+   if db_delete('fatura_pacote','NR_FATURA='+fcNR_FATURA) == -1
+      error_sys('atzFat_Pacote: ('+alltrim(str(procline()))+') - '+db_error())
+   endif
+   laFIELDS := {'mvt_servico.NR_FATURA',;
+                'mvt_servico.CD_COBRANCA',;
+                'sum((mvt_servico.VL_UNIT*mvt_servico.QUANTIDADE)*fatura_moeda.VL_MOEDA) as VL_TOTAL',;
+                'cobranca.NM_NARRATIVA_FATURA'}
+   laWHERE  := {'cobranca.CD_COBRANCA=mvt_servico.CD_COBRANCA',;
+                'fatura_moeda.CD_MOEDA=mvt_servico.CD_MOEDA',;
+                'fatura_moeda.NR_FATURA=mvt_servico.NR_FATURA',;
+                'mvt_servico.NR_FATURA='+fcNR_FATURA,;
+                'mvt_servico.FL_APROVADO='+DLAP+'1'+DLAP,;
+                'mvt_servico.FL_TP_TIMESHEET='+DLAP+'0'+DLAP}
+   //if db_select(laFIELDS,'mvt_servico,fatura_moeda,cobranca',,laWHERE,,,{'mvt_servico.CD_COBRANCA'}) == -1
+   if db_select(laFIELDS,'mvt_servico,fatura_moeda,cobranca',,laWHERE,,,{'mvt_servico.CD_COBRANCA','mvt_servico.NR_FATURA','cobranca.NM_NARRATIVA_FATURA'}) == -1
+      error_sys('atzFat_Moeda: ('+alltrim(str(procline()))+') - '+db_error())
+   endif
+   laREPLACE := db_fetchall()
+   for ii := 2 to len(laREPLACE)
+       laWHERE := {'NR_FATURA='+fcNR_FATURA,'CD_COBRANCA='+str(laREPLACE[ii,2])}
+       if db_replace(laREPLACE,'fatura_pacote',laWHERE) == -1
+          error_sys('atzFat_Moeda: ('+alltrim(str(procline()))+') - '+db_error())
+       endif
+   next ii
+return(nil)
+/*
+* Function..: atzFat_Servico(<fcNR_FATURA>)
+* Objetivo..: Inserir/Atualizar na tabela detalhe Serviço [fatura_servico], os Serviços e seus totais
+* Parâmetros:
+*    fcNR_FATURA: Código da Fatura
+* Retorno...: Nenhum
+*/
+function atzFat_Servico(fcNR_FATURA)
+   local laFIELDS  := {} ,;
+         laWHERE   := {} ,;
+         laREPLACE := {} as array
+   if db_delete('fatura_servico','NR_FATURA='+fcNR_FATURA) == -1
+      error_sys('atzFat_Servico: ('+alltrim(str(procline()))+') - '+db_error())
+   endif
+   laFIELDS := {'mvt_servico.NR_FATURA',;
+                'mvt_servico.CD_TB_SERVICO',;
+                'sum((mvt_servico.VL_UNIT*mvt_servico.QUANTIDADE)*fatura_moeda.VL_MOEDA) as VL_TOTAL',;
+                'tabela_servico.NM_NARRATIVA_FATURA'}
+   laWHERE  := {'tabela_servico.CD_TB_SERVICO=mvt_servico.CD_TB_SERVICO',;
+                'fatura_moeda.CD_MOEDA=mvt_servico.CD_MOEDA',;
+                'fatura_moeda.NR_FATURA=mvt_servico.NR_FATURA',;
+                'mvt_servico.NR_FATURA='+fcNR_FATURA,;
+                'mvt_servico.FL_APROVADO='+DLAP+'1'+DLAP,;
+                'mvt_servico.FL_TP_TIMESHEET='+DLAP+'1'+DLAP}
+   if db_select(laFIELDS,'mvt_servico,fatura_moeda,tabela_servico',,laWHERE,,,{'mvt_servico.NR_FATURA','mvt_servico.CD_TB_SERVICO','tabela_servico.NM_NARRATIVA_FATURA'}) == -1
+      error_sys('atzFat_Servico: ('+alltrim(str(procline()))+') - '+db_error())
+   endif
+   laREPLACE := db_fetchall()
+   for ii := 2 to len(laREPLACE)
+       laWHERE := {'NR_FATURA='+fcNR_FATURA,'CD_TB_SERVICO='+str(laREPLACE[ii,2])}
+       if db_replace(laREPLACE,'fatura_servico',laWHERE) == -1
+          error_sys('atzFat_Servico: ('+alltrim(str(procline()))+') - '+db_error())
+       endif
+   next ii
+return(nil)
+/*
+* Function..: atzFat_Honorario(<fcNR_FATURA>)
+* Objetivo..: Inserir/Atualizar na tabela detalhe Honorarios [fatura_honorario], as Tabelas de Honorarios e seus totais
+* Parâmetros:
+*    fcNR_FATURA: Código da Fatura
+* Retorno...: Nenhum
+*/
+function atzFat_Honorario(fcNR_FATURA)
+   local laFIELDS  := {} ,;
+         laWHERE   := {} ,;
+         laREPLACE := {} as array
+   if db_delete('fatura_honorario','NR_FATURA='+fcNR_FATURA) == -1
+      error_sys('atzFat_Honorario: ('+alltrim(str(procline()))+') - '+db_error())
+   endif
+   laFIELDS := {'mvt_servico.NR_FATURA',;
+                'mvt_servico.CD_TB_HONORARIO',;
+                'sum((mvt_servico.VL_UNIT*mvt_servico.QUANTIDADE)*fatura_moeda.VL_MOEDA) as VL_TOTAL',;
+                'tabela_honorario.NM_NARRATIVA_FATURA'}
+   laWHERE  := {'tabela_honorario.CD_TB_HONORARIO=mvt_servico.CD_TB_HONORARIO',;
+                'fatura_moeda.CD_MOEDA=mvt_servico.CD_MOEDA',;
+                'fatura_moeda.NR_FATURA=mvt_servico.NR_FATURA',;
+                'mvt_servico.NR_FATURA='+fcNR_FATURA,;
+                'mvt_servico.FL_APROVADO='+DLAP+'1'+DLAP,;
+                'mvt_servico.FL_TP_TIMESHEET='+DLAP+'2'+DLAP}
+   if db_select(laFIELDS,'mvt_servico,fatura_moeda,tabela_honorario',,laWHERE,,,{'mvt_servico.NR_FATURA','mvt_servico.CD_TB_HONORARIO','tabela_honorario.NM_NARRATIVA_FATURA'}) == -1
+      error_sys('atzFat_Honorario: ('+alltrim(str(procline()))+') - '+db_error())
+   endif
+   laREPLACE := db_fetchall()
+   for ii := 2 to len(laREPLACE)
+       laWHERE := {'NR_FATURA='+fcNR_FATURA,'CD_TB_HONORARIO='+str(laREPLACE[ii,2])}
+       if db_replace(laREPLACE,'fatura_honorario',laWHERE) == -1
+          error_sys('atzFat_Honorario: ('+alltrim(str(procline()))+') - '+db_error())
+       endif
+   next ii
+return(nil)
+/*
+* Function..: atzFat_Avulso(<fcNR_FATURA>)
+* Objetivo..: Inserir/Atualizar na tabela detalhe Avulso [fatura_avulso], os Serviços e seus totais
+* Parâmetros:
+*    fcNR_FATURA: Código da Fatura
+* Retorno...: Nenhum
+*/
+function atzFat_Avulso(fcNR_FATURA)
+   local laFIELDS  := {} ,;
+         laWHERE   := {} ,;
+         laREPLACE := {} as array
+   if db_delete('fatura_avulso','NR_FATURA='+fcNR_FATURA) == -1
+      error_sys('atzFat_Avulso: ('+alltrim(str(procline()))+') - '+db_error())
+   endif
+   laFIELDS := {'mvt_servico.NR_FATURA',;
+                'mvt_servico.NR_PASTA',;
+                'mvt_servico.NR_SERVICO',;
+                'sum((mvt_servico.VL_UNIT*mvt_servico.QUANTIDADE)*fatura_moeda.VL_MOEDA) as VL_TOTAL',;
+                'mvt_servico.TIMESHEET as NM_NARRATIVA_FATURA'}
+   laWHERE  := {'fatura_moeda.CD_MOEDA=mvt_servico.CD_MOEDA',;
+                'fatura_moeda.NR_FATURA=mvt_servico.NR_FATURA',;
+                'mvt_servico.NR_FATURA='+fcNR_FATURA,;
+                'mvt_servico.FL_APROVADO='+DLAP+'1'+DLAP,;
+                'mvt_servico.FL_TP_TIMESHEET='+DLAP+'3'+DLAP}
+   if db_select(laFIELDS,'mvt_servico,fatura_moeda',,laWHERE,,,{'mvt_servico.NR_FATURA','mvt_servico.NR_PASTA','mvt_servico.NR_SERVICO','mvt_servico.TIMESHEET'}) == -1
+      error_sys('atzFat_Avulso: ('+alltrim(str(procline()))+') - '+db_error())
+   endif
+   laREPLACE := db_fetchall()
+   for ii := 2 to len(laREPLACE)
+       laWHERE := {'NR_FATURA='+fcNR_FATURA,;
+                   'NR_PASTA='+str(laREPLACE[ii,2]),;
+                   'NR_SERVICO='+str(laREPLACE[ii,3])}
+       if db_replace(laREPLACE,'fatura_avulso',laWHERE) == -1
+          error_sys('atzFat_Avulso: ('+alltrim(str(procline()))+') - '+db_error())
+       endif
+   next ii
+return(nil)
+/*
+* Function..: SomaPacote(<fcNR_FATURA>)
+* Objetivo..: Totalizar Pacotes
+* Parâmetros:
+*    fcNR_FATURA: Código da Fatura
+* Retorno...: Nenhum
+*/
+function SomaPacote(fcNR_FATURA)
+   local laRESULT := {} as array
+   local lnTOTAL  := 0
+   if db_select({'sum(fatura_pacote.VL_TOTAL)'},'fatura_pacote',,;
+                {'fatura_pacote.NR_FATURA='+fcNR_FATURA},,,{'fatura_pacote.NR_FATURA'}) == -1
+      error_sys('SomaPacote: ('+alltrim(str(procline()))+') - '+db_error())
+   endif
+   laRESULT := db_fetchrow()
+   if len(laRESULT) > 0
+      lnTOTAL := laRESULT[1]
+   endif
+return(lnTOTAL)
+/*
+* Function..: SomaServico(<fcNR_FATURA>)
+* Objetivo..: Totalizar Serviços
+* Parâmetros:
+*    fcNR_FATURA: Código da Fatura
+* Retorno...: Nenhum
+*/
+function SomaServico(fcNR_FATURA)
+   local laRESULT := {} as array
+   local lnTOTAL  := 0
+   if db_select({'sum(fatura_servico.VL_TOTAL)'},'fatura_servico',,;
+                {'fatura_servico.NR_FATURA='+fcNR_FATURA},,,{'fatura_servico.NR_FATURA'}) == -1
+      error_sys('SomaServico: ('+alltrim(str(procline()))+') - '+db_error())
+   endif
+   laRESULT := db_fetchrow()
+   if len(laRESULT) > 0
+      lnTOTAL := laRESULT[1]
+   endif
+return(lnTOTAL)
+/*
+* Function..: SomaHonorario(<fcNR_FATURA>)
+* Objetivo..: Totalizar Honorários
+* Parâmetros:
+*    fcNR_FATURA: Código da Fatura
+* Retorno...: Nenhum
+*/
+function SomaHonorario(fcNR_FATURA)
+   local laRESULT := {} as array
+   local lnTOTAL  := 0
+   if db_select({'sum(fatura_honorario.VL_TOTAL)'},'fatura_honorario',,;
+                 {'fatura_honorario.NR_FATURA='+fcNR_FATURA},,,{'fatura_honorario.NR_FATURA'}) == -1
+      error_sys('SomaHonorario: ('+alltrim(str(procline()))+') - '+db_error())
+   endif
+   laRESULT := db_fetchrow()
+   if len(laRESULT) > 0
+      lnTOTAL := laRESULT[1]
+   endif
+return(lnTOTAL)
+/*
+* Function..: SomaAvulso(<fcNR_FATURA>)
+* Objetivo..: Totalizar Avulso
+* Parâmetros:
+*    fcNR_FATURA: Código da Fatura
+* Retorno...: Nenhum
+*/
+function SomaAvulso(fcNR_FATURA)
+   local laRESULT := {} as array
+   local lnTOTAL  := 0
+   if db_select({'sum(fatura_avulso.VL_TOTAL)'},'fatura_avulso',,;
+                {'fatura_avulso.NR_FATURA='+fcNR_FATURA},,,{'fatura_avulso.NR_FATURA'}) == -1
+      error_sys('SomaAvulso: ('+alltrim(str(procline()))+') - '+db_error())
+   endif
+   laRESULT := db_fetchrow()
+   if len(laRESULT) > 0
+      lnTOTAL := laRESULT[1]
+   endif
+return(lnTOTAL)
+
+/*
+* Function..: atzTotalFat(<fcNR_FATURA>)
+* Objetivo..: Gravar na Fatura [fatura] a somatória entre Pacote+Servico+Honorario+Avulso
+* Parâmetros:
+*    fcNR_FATURA: Código da Fatura
+*    fnPC_IRRF..: Percentual de IRRF
+*    fnPC_PIS...: Percentual de PIS
+*    fnPC_CSLL..: Percentual de CSLL
+* Retorno...: Nenhum
+*/
+function atzTotalFat(fcNR_FATURA,fnPC_IRRF,fnPC_PIS,fnPC_CSLL)
+   local lnVL_TT_PACOTE    := SomaPacote(fcNR_FATURA)    ,;
+         lnVL_TT_SERVICO   := SomaServico(fcNR_FATURA)   ,;
+         lnVL_TT_HONORARIO := SomaHonorario(fcNR_FATURA) ,;
+         lnVL_TT_AVULSO    := SomaAvulso(fcNR_FATURA)    ,;
+         lnVL_DESCONTO     := WGet('VL_DESCONTO','N') ,;
+         lnVL_TOTAL        := lnVL_TT_PACOTE+lnVL_TT_SERVICO+lnVL_TT_HONORARIO+lnVL_TT_AVULSO-lnVL_DESCONTO ,;
+         lnVL_IRRF         := 0.00 ,;
+         lnVL_PIS          := 0.00 ,;
+         lnVL_CSLL         := 0.00 ,;
+         lnVL_LIQUIDO      := 0.00
+   local laUPDATE := {} as array
+
+   if valtype(fnPC_IRRF) != 'N'
+      fnPC_IRRF := 0
+   endif
+   if valtype(fnPC_PIS) != 'N'
+      fnPC_PIS := 0
+   endif
+   if valtype(fnPC_CSLL) != 'N'
+      fnPC_CSLL := 0
+   endif
+
+   lnVL_IRRF := round(lnVL_TOTAL*(fnPC_IRRF/100),2) //IRRF
+   lnVL_PIS  := round(lnVL_TOTAL*(fnPC_PIS/100),2)  //PIS
+   lnVL_CSLL := round(lnVL_TOTAL*(fnPC_CSLL/100),2) //CSLL
+   /*
+   if lnVL_IRRF < 10
+      lnVL_LIQUIDO := lnVL_TOTAL - (lnVL_PIS+lnVL_CSLL)
+      lnVL_IRRF    := 0.00
+   else
+      lnVL_LIQUIDO := lnVL_TOTAL - (lnVL_IRRF+lnVL_PIS+lnVL_CSLL)
+   endif
+   */
+   lnVL_LIQUIDO := lnVL_TOTAL
+   if lnVL_IRRF > 10
+      lnVL_LIQUIDO := lnVL_TOTAL - lnVL_IRRF
+   else
+      lnVL_IRRF := 0
+   endif
+   if lnVL_TOTAL <= 5000
+      lnVL_PIS  := 0
+      lnVL_CSLL := 0
+   endif
+   lnVL_LIQUIDO := lnVL_LIQUIDO - (lnVL_PIS+lnVL_CSLL)
+
+   aadd(laUPDATE,{'VL_TT_PACOTE',;
+                  'VL_TT_SERVICO',;
+                  'VL_TT_HONORARIO',;
+                  'VL_TT_AVULSO',;
+                  'VL_DESCONTO',;
+                  'VL_TOTAL',;
+                  'VL_LIQUIDO',;
+                  'VL_IRRF',;
+                  'VL_PIS',;
+                  'VL_CSLL'})
+   aadd(laUPDATE,{lnVL_TT_PACOTE,;
+                  lnVL_TT_SERVICO,;
+                  lnVL_TT_HONORARIO,;
+                  lnVL_TT_AVULSO,;
+                  lnVL_DESCONTO,;
+                  lnVL_TOTAL,;
+                  lnVL_LIQUIDO,;
+                  lnVL_IRRF,;
+                  lnVL_PIS,;
+                  lnVL_CSLL})
+   if db_update(laUPDATE,'fatura',{'fatura.NR_FATURA='+fcNR_FATURA}) == -1
+      error_sys('atzTotalFat: ('+alltrim(str(procline()))+') - '+db_error())
+   endif
+return(nil)
+
+
+
+
+
+
+
+
+
+

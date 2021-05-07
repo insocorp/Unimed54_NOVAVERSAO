@@ -1,0 +1,267 @@
+/*
+Alterado em 01/02/2009 - Eliana inclusao rotina para Lits
+*Chama funcoes : verifica_relacionamento
+*                ver_aba
+*                montar_filho
+*                sincroniza_pasta
+
+Project      : gr5
+Program      : psab.garantia.html
+Function     : psab_garantia_html
+Created on   : 06-Dec-2004   22:16:58
+Descripition :
+
+*/
+
+   local lcACTION      := '',;
+         lcWHERE       := '',;
+         lcRelac    := '' ,;
+         lcProgram  := 'psab_garantia_html' ,;
+         lcTABLE       := '',;
+         lcNR_PASTA    := '',;
+         lcTP_PASTA    := '',;
+         lcNR_CONTROLE := '' as string
+
+   local laRESULT        := {} ,;
+         laSAVE          := {} ,;
+         laSAVEFILHO     := {} ,;
+         laSAVE_AUX      := {} ,;
+         laFIELDS        := {} ,;
+         laLABELS        := {} ,;
+         laVALIDA        := {} ,;
+         laPOSICAO_PARTE := {} ,;
+         laPUT           := {} as array
+
+   local llReturn   := .f. as logical
+
+   local ii := 0 as int
+
+   lcACTION      := upper(alltrim(WGet('ACTION','C')))
+   lcNR_PASTA    := WGet('NR_PASTA','C')
+   lcNR_CONTROLE := alltrim(WGet('NR_CONTROLE','C'))
+   if upper(lcNR_CONTROLE) == 'NEW' .or. empty(lcNR_CONTROLE)
+      lcNR_CONTROLE := '0'
+   endif
+   lcTP_PASTA   := WGet('TP_PASTA','C')
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   lcTABLE      := 'pasta_garantia'
+   lcWHERE      := 'pasta_garantia.NR_PASTA = '+lcNR_PASTA+;
+                   ' and pasta_garantia.NR_CONTROLE='+DLAP+lcNR_CONTROLE+DLAP
+   laFIELDS     := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS     := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+   wPut('TP_PASTA',lcTP_PASTA)
+   carrega_cbox({{'tipogarantia','TP_GARANTIA','Y'}})
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   init_reqfield(WSet('_USER_INTERFACE'))
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+
+   if empty(lcACTION)
+      lcACTION = 'NEW'
+   endif
+
+//------------  Verificando relacionamento    -----------------------------------------
+
+   lcRelac:=verifica_relacionamento(lcNR_PASTA, lcTp_pasta)
+
+//------------ Verificando se Aba pode ser alterada  ------------------------
+
+   if lcRelac = 'F' .or. lcRelac = 'P'
+      llReturn:=Ver_ABA(lcTP_PASTA, lcProgram)
+   endif         
+
+   WPut('NR_CONTROLE','New')
+
+   if lcRelac = 'F' .and. llReturn  
+      walert('Somente Para Consulta - Pasta Pertence a Litsconsorte')
+
+   elseif lcACTION = 'NEW' .and. gbWAC_CREATE
+//       wPut('TITLE',lcTP_PASTA+' - Inclusão de Garantia')
+   elseif lcACTION = 'ALTER' .and. gbWAC_READ
+      mkgedico(lcTABLE,lcNR_PASTA,lcNR_CONTROLE)
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      db2Put(db_fetchall())
+//       WPut('TITLE',lcTP_PASTA+' - Alteração da Garantia  '+alltrim(str(getWPut('NR_CONTROLE'))))
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+      if ! verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+         lst_garantia(lcNR_PASTA)
+         pasta_abas(lcTP_PASTA)
+         return(.f.)
+      endif
+
+/*      for ii := 1 to len(laVALIDA)
+          if empty(alltrim(WGet(laVALIDA[ii],'C')))
+             walert(laLABELS[ascan(laFIELDS,laVALIDA[ii])]+' é um campo obrigatório!')
+             get2Put()
+             lst_garantia(lcNR_PASTA)
+             pasta_abas(lcTP_PASTA)
+             return(.f.)
+          endif
+      next ii*/
+      aadd(laSAVE,laFIELDS)
+      for ii := 1 to len(laFIELDS)
+         aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+      next ii
+         if lcRelac = '' .or. lcRelac = 'P' .or. (lcRelac = 'F' .and. llReturn = .f.)      // se .f. posso alterar atraves do filho
+            aadd(laSAVE,laSAVE_AUX)
+            lcWHERE := 'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE
+            psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Peças Processuais')
+            if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+               error_sys(db_error())
+            endif
+            if lcNR_CONTROLE = '0'
+               lnAuto:=db_insert_id()
+            else
+               wout('entrou errado')
+               lnAuto:=val(lcNR_CONTROLE)   
+            endif
+
+            if lcRelac = 'P' .and. llReturn 
+               laFilho:=Montar_filho(lcNR_PASTA, lcTp_pasta)
+               if len(laFilho) > 0
+                  for ii :=1 to len(lafilho)
+                     lcWHEREp  := 'NR_PASTA='+str(lafilho[ii])+' AND NR_GARANTIA_RELACAO='+str(lnAuto)
+                     if db_select({'NR_PASTA','NR_CONTROLE','NR_GARANTIA_RELACAO'},lcTable,,{lcWHEREp}) == -1
+                        error_sys(db_error())
+                     endif
+                     laCampos := db_fetchrow()
+                     if len(laCampos) > 0
+                        for jj:=2 to 2
+                            for ll:=1 to len(laFields)
+                               if laSave[1,ll] = 'NR_PASTA'
+                                  laSave[2,ll] := laCampos[1]
+                               endif
+                               if laSave[1,ll] = 'NR_CONTROLE'
+                                  laSave[2,ll] := laCampos[2]
+                               endif
+                               if laSave[1,ll] = 'NR_GARANTIA_RELACAO'
+                                   laSave[2,ll] := laCampos[3]
+                               endif
+                            next ll   
+                        next jj   
+                        if db_replace(laSAVE,lcTABLE,{lcWHEREp}) = -1
+                          error_sys(db_error())
+                        endif
+                     else 
+                        laSAVEFILHO := {}  
+                        aadd(laSAVEFILHO,laFIELDS)
+                        laSAVE_AUX := {}
+                        for jj:= 1 to len(laFields)
+                            if laFIELDS[jj]='NR_PASTA'
+                               aadd(laSAVE_AUX,laFILHO[ii])
+                            elseif   laFields[jj] = 'NR_CONTROLE'
+                               aadd(laSAVE_AUX,'0')
+                            elseif laFields[jj] = 'NR_GARANTIA_RELACAO'
+                               aadd(laSAVE_AUX,str(lnAuto))
+                            else
+                              aadd(laSAVE_AUX,WGet(laFIELDS[jj]))
+                            endif                         
+                        next jj
+                        aadd(laSAVEFILHO,laSAVE_AUX)
+                        if db_insert(laSAVEfilho,lcTABLE) = -1
+                          error_sys(db_error())
+                        endif
+                        db_commit()
+                     endif 
+                  next ii
+               endif   
+            endif   
+         endif
+ 
+//       wPut('TITLE',lcTP_PASTA+' - Inclusão de Garantia')
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+        if lcRelac = '' .or. lcRelac = 'P' .or. (lcRelac = 'F' .and. llReturn = .f.)      // se .f. posso alterar atraves do filho
+           if db_delete(lcTABLE,lcWHERE) = -1
+             error_sys(db_error())
+           endif
+           if lcRelac = 'P' .and. llReturn 
+              laFilho:=Montar_filho(lcNR_PASTA, lcTp_pasta)
+              if len(laFilho) > 0
+                 for ii := 1 to len(laFilho)                   // gravando abas dos filhos
+                     lcWHEREp  := 'NR_PASTA='+str(lafilho[ii])+' AND NR_GARANTIA_RELACAO='+lcNR_Controle
+                     if db_delete(lcTABLE,lcWHEREp) = -1
+                        error_sys(db_error())
+                     endif
+                 next ii
+              endif   
+           endif
+        endif
+   endif
+   lst_garantia(lcNR_PASTA)
+   pasta_abas(lcTP_PASTA)
+return
+
+/*
+* Function..: lst_garantia()
+* Objetivo..: Gerar listagem de Partes
+* Parâmetros:
+*   fcNR_PASTA: Numero da pasta
+* Retorno...: nil
+*/
+static function lst_garantia(fcNR_PASTA)
+   local laWHERE := {} ,;
+         laRES   := {} as array
+   local ii    := 0 ,;
+         lnPOS := 0 as int
+
+   laWHERE       := {'pasta_garantia.NR_PASTA ='+fcNR_PASTA}
+
+   if db_select({'NR_CONTROLE',;
+                 'TP_GARANTIA',;
+                 'ORGAO',;
+                 'DT_GARANTIA',;
+                 'VL_GARANTIA',;
+                 'VL_CONTABIL'},;
+                 'pasta_garantia',;
+                 ,;
+                 laWHERE,{'NR_CONTROLE'}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 0
+      aadd(laRES[1],'(row)')
+      for ii := 2 to len(laRES)
+
+         aadd(laRES[ii],'(row)'+wic_action('wicaction_gr5/psab.garantia.html'+;
+                                           '?TP_PASTA='+WGet('TP_PASTA','C')+;
+                                           '&NR_PASTA='+fcNR_PASTA+;
+                                           '&NR_CONTROLE='+str(laRES[ii,db_fetchncol(laRES,'NR_CONTROLE')])+;
+                                           '&ACTION=ALTER'))
+      next ii
+      WPut('GRID_GARANTIA',grid_create(laRES))
+   endif
+return(nil)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

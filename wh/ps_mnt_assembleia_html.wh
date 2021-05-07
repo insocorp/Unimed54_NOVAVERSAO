@@ -1,0 +1,55 @@
+/*
+
+Project      : gr5
+Program      : ps.mnt.assembleia.html
+Function     : ps_mnt_assembleia_html
+Created on   : 28-Jul-2004   17:45:14
+Descripition :
+
+*/
+
+   local lcTP_PASTA := '',;
+         lcACTION   := '',;
+         lcTABLE    := '',;
+         lcNR_PASTA := '',;
+         lcNR_ATA   := ''  as string
+   local laWHERE    := {} ,;
+         laFIELDS   := {} as array
+   local ii := 0 as int
+
+   lcTP_PASTA := WGet('TP_PASTA','C')
+   lcACTION   := upper(WGet('ACTION','C'))
+   lcNR_PASTA := WGet('NR_PASTA','C')
+   lcNR_ATA   := WGet('NR_ATA','C')
+
+   lcTABLE    := 'pasta_sct_ata'
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   make_psthead(lcNR_PASTA,lcTP_PASTA) //Cabeçalho
+
+   if empty(lcACTION)
+      lcACTION = 'NEW'
+   endif
+
+   WPut('ACTION',lcACTION)
+   WPut('TP_PASTA',lcTP_PASTA)
+   WPut('TITLE',lcTP_PASTA+' - Atos Societários')
+
+   wPut('NR_ATA',lcNR_ATA)
+   pasta_abas(lcTP_PASTA)
+
+   if ! empty(lcNR_ATA)
+      if db_select({'ASSEMBLEIA_TITULO'},'pasta_sct_ata',,{'NR_PASTA='+lcNR_PASTA,'NR_ATA='+DLAP+lcNR_ATA+DLAP}) = -1
+         error_sys(db_error())
+      endif
+      db2Put(db_fetchall())
+   endif
+return
+
+
+
+
+

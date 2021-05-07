@@ -1,0 +1,133 @@
+/*
+Project      : gr5
+Program      : lst.mvt.moeda.html
+Function     : lst_mvt_moeda_html
+Created on   : 15-Aug-2002   14:21:42
+Descripition : Filtros de localização de Varaições de Moedas
+*/
+
+   local laPARAM := {{'CD_MOEDA',''}},;
+         laQUICK_SEARCH := {} as array
+
+   laSELECT       := {'CD_MOEDA',;
+                      'NM_MOEDA'}
+
+   laQUICK_SEARCH := {'NM_MOEDA'}
+
+   xbp('moeda',;                                                           //Tabela alvo
+       ,;                                                                  //Joins
+       ,;                                                                  //Where
+       ,;                                                                  //Order by
+       ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+       ,;                                                                  //Group by
+       ,;                                                                  //Limit
+       ,;                                                                  //Banco de Dados
+       4,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search, 4-Listagem
+       'gr5',;                                                            //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;                                           //Programa chamador
+       laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+       ,;                                                                  //Parâmetros para os botões das linhas do grid
+       'mnt.mvt.moeda.html',;                                              //Programa que os links/botoes do grid deverao chamar
+       'gr5',;                                                            //Módulo do programa chamado pelos links/botoes do grid
+       ,;                                                                  //Retorno java (nil) - usado apenas para Search
+       laQUICK_SEARCH,;                                                    //Campos usados na pesquisa rápida
+       ,;                                                                  //Campos Ocultos
+       ,;                                                                  //Campos da área de manutenção/entrada de dados
+       laSELECT,;                                                          //Campos exibidos no grid
+       laSELECT)                                                           //Campos usados no select
+
+   WPut('TITLE','Variação de Moeda')
+return
+
+/*
+
+local lcTABLE        := '' ,;
+      lcFILTER_FIELD := '' ,;
+      lcFILTER_VALUE := '' ,;
+      lcORDER_FIELD  := '' as string
+local ii           := 0 ,;
+      lnNR_ROWINI  := 0 ,;
+      lnNR_ROWFIN  := 0 ,;
+      lnNR_ROWPREV := 0 ,;
+      lnNR_ROWNEXT := 0 as int
+local laRES      := {} ,;
+      laFIELDLST := {} ,;
+      laLABELLST := {} ,;
+      laWHERE    := {} ,;
+      laORDERBY  := {} ,;
+      laLIMIT    := {} as array
+   lcFILTER_FIELD := WGet('FILTER_FIELD','C')
+   lcFILTER_VALUE := WGet('FILTER_CONTENT','C')
+   lcORDER_FIELD  := WGet('ORDER_FIELD','C')
+   lnNR_ROWINI    := WGet('NR_ROWINI','N')
+   lnNR_ROWFIN    := WGet('NR_ROWFIN','N')
+   lnNR_ROWPREV   := WGet('NR_ROWPREV','N')
+   lnNR_ROWNEXT   := WGet('NR_ROWNEXT','N')
+   if lnNR_ROWPREV = 0
+      lnNR_ROWPREV := 50
+   endif
+   if lnNR_ROWNEXT = 0
+      lnNR_ROWNEXT := 50
+   endif
+   lcTABLE    := 'moeda'
+   laFIELDLST := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+   laLABELLST := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'A')
+   wPut('FILTER_FIELD',laLABELLST[ascan(laFIELDLST,'NM_MOEDA')])
+   wPut('ORDER_FIELD',laLABELLST[ascan(laFIELDLST,'CD_MOEDA')])
+
+   if empty(lcORDER_FIELD)
+      lcORDER_FIELD := laLABELLST[1]
+   endif
+   if WGet('FIND.X','B')
+      lnNR_ROWINI := 0
+      lnNR_ROWFIN := 0
+   endif
+   if ! empty(lcFILTER_VALUE)
+      //aadd(laWHERE,laFIELDLST[ascan(laLABELLST, lcFILTER_FIELD)]+' like '+DLMT+'%'+lcFILTER_VALUE+'%'+DLMT)
+      aadd(laWHERE,mkwherelst({{laFIELDLST[ascan(laLABELLST, lcFILTER_FIELD)],lcFILTER_VALUE}}))
+   endif
+   aadd(laORDERBY,laFIELDLST[ascan(laLABELLST, lcORDER_FIELD)])
+   if WGet('LSTPREV','B') .or. WGet('LSTPREV.X','B')
+      if lnNR_ROWINI-lnNR_ROWPREV > 0
+         aadd(laLIMIT,lnNR_ROWINI-lnNR_ROWPREV)
+         aadd(laLIMIT,lnNR_ROWPREV)
+         lnNR_ROWINI := lnNR_ROWINI-lnNR_ROWPREV
+      else
+         aadd(laLIMIT,lnNR_ROWPREV)
+         lnNR_ROWINI := 0
+      endif
+   elseif WGet('LSTNEXT','B') .or. WGet('LSTNEXT.X','B')
+      aadd(laLIMIT,lnNR_ROWFIN)
+      aadd(laLIMIT,lnNR_ROWNEXT)
+      lnNR_ROWINI := lnNR_ROWFIN
+   else
+      aadd(laLIMIT,lnNR_ROWNEXT)
+      lnNR_ROWINI := 0
+   endif
+   if db_select(laFIELDLST,lcTABLE,,laWHERE,laORDERBY,,,laLIMIT) = -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   wPut("lstMOEDA",laRES)
+   lnNR_ROWFIN := lnNR_ROWINI+len(laRES)-1
+   if !empty(lcFILTER_FIELD)
+      saveWEnv('lst.mvt.moeda.html',{'FILTER_FIELD','FILTER_CONTENT','ORDER_FIELD'})
+      wPut('FILTER_FIELD_OPT',laLABELLST)
+      wPut('FILTER_FIELD',lcFILTER_FIELD)
+      wPut('FILTER_CONTENT',lcFILTER_VALUE)
+      wPut('ORDER_FIELD_OPT',laLABELLST)
+      wPut('ORDER_FIELD',lcORDER_FIELD)
+   else
+      readWEnv('lst.mvt.moeda.html')
+   endif
+   wPut('FILTER_FIELD_OPT',laLABELLST)
+   wPut('ORDER_FIELD_OPT',laLABELLST)
+   wPut('NR_ROWINI',alltrim(str(lnNR_ROWINI)))
+   wPut('NR_ROWFIN',alltrim(str(lnNR_ROWFIN)))
+   wPut('NR_ROWPREV',alltrim(str(lnNR_ROWPREV)))
+   wPut('NR_ROWNEXT',alltrim(str(lnNR_ROWNEXT)))
+   wPut("TITLE","Relação de Moedas")
+
+*/
+
+

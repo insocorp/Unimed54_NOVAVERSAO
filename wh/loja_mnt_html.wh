@@ -1,0 +1,54 @@
+/*
+
+Project      : gr5
+Program      : loja.mnt.html
+Function     : loja_mnt_html
+Created on   : 18-Oct-2005   16:51:26
+Descripition : Cadastro de lojas
+
+*/
+
+local laPARAM        := {},;
+      laINPUT_OBJ    := {},;
+      laSELECT       := {} as array
+
+laPARAM := {{'ID_LOJA'        ,''     ,'*'},;
+            {'ACTION'         ,'ALTER',   }}
+
+laINPUT_OBJ := {{'ID_LOJA'    ,0,'Y','Y', },;
+                { ,, ,,   },;
+                {'SIGLA_LOJA' ,0, ,'Y',   },;
+                {'NR_LOJA'    ,0, ,'Y',   },;
+                {'NM_LOJA'    ,0, ,'Y',   },;
+                { ,, ,,   },;
+                {'REGIONAL'   ,1, ,'Y',"loadcbox_build('regional','REGIONAL',.F.)"},;
+                {'CANAL'      ,1, ,'Y',"loadcbox_build('canal','CANAL',.F.)"},;
+                {'ID_CANAL'   ,0, ,'Y', }}
+
+laSELECT := {'ID_LOJA','SIGLA_LOJA','NR_LOJA','REGIONAL','CANAL','NM_LOJA','ID_CANAL'}
+
+      
+xbp2('lojas',;                                   //Tabela alvo
+    ,;                                          //Joins
+    ,;                                          //Where
+    {'ID_LOJA','NR_LOJA'},;                               //Order by
+    [A],;                                          //Sort [A]-Ascendente [D]-Descentende
+    ,;                                          //Group by
+    ,;                                          //Limit
+    ,;                                          //Banco de Dados
+    1,;                                         //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+    'gr5',;                                     //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                   //Programa chamador
+    laPARAM,;                                   //Parametros das linhas clicaveis do grid
+    ,;                                          //Parâmetros para os botões das linhas do grid
+    'loja.mnt.html',;                           //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                     //Módulo do programa chamado pelos links/botoes do grid
+    ,;                                          //Retorno java (nil) - usado apenas para Search
+    ,;                                          //Campos usados na pesquisa rápida
+    ,;                                          //Campos Ocultos
+    laINPUT_OBJ,;                               //Campos da área de manutenção/entrada de dados
+    laSELECT ,;                                 //Campos exibidos no grid
+    laSELECT)                                   //Campos usados no select
+return
+
+

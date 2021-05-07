@@ -1,0 +1,234 @@
+/*
+
+Project      : gr5
+Program      : desp.rej.revisao.html
+Function     : desp_rej_revisao_html
+Created on   : 16/06/2017 15:02:08
+Descripition : Despesas - Rejeitadas Revisão
+Projeto      : Alfa
+*/
+
+   local lcACTION  := '' ,;
+         lcTABLE   := '' ,;
+         lcCAMPOF1 := '',;
+         lcCAMPOF2 := '',;
+         lcCONTE1  := '',;
+         lcCONTE2  := '',;
+         lcMENSAGEM:= '',;
+         lcORDEM   := '',;
+         lcAUX     := '',;
+         lcWhere   := '',;
+         lcNRROW   := '' as string
+
+   local laFIELDS             := {} ,;
+         laRES                := {} ,;
+         laLABEL_FL_REVISAO   := {} ,;
+         laVALUE_FL_REVISAO   := {} ,;
+         laVAR                := {} ,;
+         laPUT                := {} ,;
+         laAUX                := {} ,;
+         laJOIN               := {} ,;
+         laWHERE              := {} ,;
+         laCAMPOSFILTRO       := {} ,;
+         laLABELFILTRO        := {} ,;
+         laALERTA             := {} ,;
+         laLINHA_ATUAL        := {} ,;
+         laRESULT             := {} ,;
+         laTMP                := {} ,;         
+         laSAVE               := {} as array
+
+   local ii                   := 0 ,;
+         xx                   := 0 ,;
+         lnQUANTOS            := 0 ,;
+         lnTOTAL              := 0 as int
+
+   local lnVL_RNG1 := 0.00,;
+         lnVL_RNG2 := 0.00 as numeric
+
+   lcACTION     := WGet('ACTION','C')
+   lcTABLE      := 'mvt_despesa'
+   laFIELDS     := {'mvt_despesa.NR_PASTA',;
+                    'mvt_despesa.NR_DESPESA',;
+                    'pfpj.PFPJ',;
+                    'mvt_despesa.CD_DESPESA',;
+                    'despesa.NM_DESPESA',;
+                    'mvt_despesa.FL_REVISAO',;
+                    'mvt_despesa.VL_TOTAL',;
+                    'mvt_despesa.CIP_EMPRESA_PAGADORA',;
+                    'pfpj_empresa_pagadora.PFPJ AS PFPJ_PAGADORA',;
+                    'mvt_despesa.CIP_ESCRITORIO',;
+                    'pfpj.PFPJ',;
+                    'mvt_despesa.CIP_FAVORECIDO',;
+                    'pfpj_favorecido.PFPJ AS PFPJ_FAVORECIDO'}
+
+
+   laVAR        := {'VAR_NR_PASTA',;
+                    'VAR_NR_DESPESA',;
+                    'VAR_FL_REVISAO',;
+                    'NR_PASTA',;
+                    'NR_DESPESA',;
+                    'CIP_EMPRESA_PAGADORA',;
+                    'PFPJ_PAGADORA',;
+                    'CIP_ESCRITORIO',;
+                    'PFPJ',;
+                    'CIP_FAVORECIDO',;
+                    'PFPJ_FAVORECIDO',;
+                    'CD_DESPESA',;
+                    'NM_DESPESA',;
+                    'VL_TOTAL'}
+
+   laCAMPOSFILTRO := {'mvt_despesa.NR_PASTA',;
+                    'mvt_despesa.NR_DESPESA',;
+                    'pfpj_empresa_pagadora.PFPJ',;
+                    'pfpj.PFPJ',;
+                    'pfpj_favorecido.PFPJ',;
+                    'mvt_despesa.CD_DESPESA',;
+                    'despesa.NM_DESPESA',;
+                    'mvt_despesa.VL_TOTAL'}
+
+   laLABELFILTRO := {'Número Pasta',;
+                    'Número Despesa',;
+                    'Empresa Pagadora',;
+                    'Escritório',;
+                    'Favorecido',;
+                    'Código Despesa',;
+                    'Nome Despesa',;
+                    'Valor Total'}
+
+   // Preechimento dos combos que alimentara os combos de filtragem e classificação
+
+   WPut('FILTER_FIELD.option',laLABELFILTRO)
+   WPut('FILTER_FIELD.optionvalue',laCAMPOSFILTRO)
+
+
+   WPut('FILTER_FIELD_2.option',laLABELFILTRO)
+   WPut('FILTER_FIELD_2.optionvalue',laCAMPOSFILTRO)
+
+   WPut('ORDER_FIELD.option',laLABELFILTRO)
+   WPut('ORDER_FIELD.optionvalue',laCAMPOSFILTRO)
+
+
+   laJOIN        := {{2,'pfpj','pfpj.CIP=mvt_despesa.CIP_ESCRITORIO'},;
+                     {2,'pfpj_empresa_pagadora','mvt_despesa.CIP_EMPRESA_PAGADORA = pfpj_empresa_pagadora.CIP'},;
+                     {2,'pfpj_favorecido','mvt_despesa.CIP_FAVORECIDO = pfpj_favorecido.CIP'},;
+                     {2,'despesa','despesa.CD_DESPESA=mvt_despesa.CD_DESPESA'}}
+
+   WPut('TITLE','Despesas - Revisão (Rejeitadas)')
+
+   lcLOGIN := wSet('LOGIN')
+
+   WPut('USR',lcLOGIN)
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE 
+      
+      laSAVE  := {'FL_REVISAO','LOGIN_REVISAO','DT_REVISAO'}
+      laRESULT:={}      
+      laWHERE :={}   
+      
+      if WGet('GRAVAR','C')<>''
+         laRESULT := str2array(WGet('GRAVAR','C'),'|')
+         aadd(laLINHA_ATUAL,laSAVE)
+      endif
+
+      
+      for ii := 1 to len(laRESULT)
+          laTMP := str2array(laRESULT[ii],',')
+          
+          lcWhere:='NR_PASTA='+laTMP[1]+' and '+ 'NR_DESPESA='+laTMP[2]
+          
+          if db_select({'NR_DESPESA','NR_PASTA','LOGIN_REVISAO','DT_REVISAO','FL_REVISAO','despesa.FL_AJUSTA_PEDIDO'},lcTABLE,{{2,'despesa','despesa.CD_DESPESA=mvt_despesa.CD_DESPESA'}},{lcWhere}) == -1
+            error_sys(db_error())
+          endif
+          laRES := db_fetchall()  
+          
+          
+          if len(laRES) > 1
+             if ! empty(laRES[2,3]) .and. (laRES[2,5] == 'A' .and. laTMP[3] == 'A')
+                  aadd(laALERTA,{laRES[2,1],laRES[2,2],laRES[2,3],laRES[2,4],laRES[2,5]})
+             elseif ! empty(laRES[2,3]) .and. (laRES[2,5] == 'R' .and. laTMP[3] == 'R')
+                  aadd(laALERTA,{laRES[2,1],laRES[2,2],laRES[2,3],laRES[2,4],laRES[2,5]})
+             else
+                if laTMP[3]<>'R'
+                   *** rufino 16/06/2016 15:46:34
+                   if laRES[2,6] == 'S'
+                      lcMENSAGEM := 'A despesa '+alltrim(str(laTMP[2]))+ ' da pasta '+alltrim(laTMP[1])
+                      lcMENSAGEM += ' esta com ajuste de pedido, alteração não permitida.'
+                      WAlert(lcMENSAGEM)
+                   else                     
+                      aadd(laLINHA_ATUAL,{laTMP[3],WSet('LOGIN'),date()})
+                      aadd(laWHERE,'NR_PASTA='+laTMP[1]+' and '+ 'NR_DESPESA='+laTMP[2])                  
+                   endif
+                endif           
+             endif
+          endif          
+      next ii 
+
+
+
+
+      // Verifica se a despesa ja não foi aprovada por outro usuário caso 2 usuarios tentarem aprovar ao mesmo tempo a despesa
+
+      if len(laALERTA) > 0
+         for ii := 1 to len(laALERTA)
+             if laALERTA[ii,5]== 'R'
+                lcMENSAGEM := 'A despesa '+alltrim(str(laALERTA[ii,1]))+ ' da pasta '+alltrim(laALERTA[ii,2])
+                lcMENSAGEM += ' foi rejeitada em ' + dtoc(laALERTA[ii,4])+' por ' + alltrim(laALERTA[ii,3])
+             else
+                lcMENSAGEM := 'A despesa '+alltrim(str(laALERTA[ii,1]))+ ' da pasta '+alltrim(laALERTA[ii,2])
+                lcMENSAGEM += ' ja foi aprovada em ' + dtoc(laALERTA[ii,4])+' por ' + alltrim(laALERTA[ii,3])
+             endif
+             WAlert(lcMENSAGEM)
+         next ii
+      endif
+
+      if len(laLINHA_ATUAL) > 1
+         if db_update(laLINHA_ATUAL,lcTABLE,laWHERE) == -1
+            error_sys(db_error())
+         endif
+      endif
+
+      laWHERE := {}
+
+   endif
+return
+
+
+***********************************************************
+static function buscaregra(fcLOGIN,fnCD_DESPESA,fnVL_TOTAL)
+***********************************************************
+
+/* Pegando competência do usuário */
+// customização Alfa - sonia - 16/03/2016 10:08:00
+// despesas que podem ser revisadas/aprovadas
+
+local laRES   :={} ,;
+      laAUX1  :={} ,;
+      laAUX2  :={} as array
+
+local llACHO := .f. as logical
+
+if db_select({'LOGINS','VL_DESPESA_RANGE1','VL_DESPESA_RANGE2','DESP_AUT'},;
+           'despesa_cfg_etapas',,;
+           {'FL_DESP_ETAPA = '+DLAP+'2'+DLAP+' and LOGINS like '+DLAP+'%'+fcLOGIN+'%'+DLAP},;
+           {'NR_CONTROLE'}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+if len(laRES) > 1
+   for ii := 2 to len(laRES)
+     laAUX1 := str2array(laRES[ii,1],',')
+     laAUX2 := str2array(laRES[ii,4],',')
+
+     if ascan(laAUX1,fcLOGIN) > 0 //Contem o usuário
+        if ascan(laAUX2,fnCD_DESPESA) > 0 //Contem a despesa
+           if  (fnVL_TOTAL >= laRES[ii,2] .and.  fnVL_TOTAL <= laRES[ii,3])
+               llACHO:=.t.
+               exit
+           endif
+        endif
+     endif
+
+   next ii
+endif
+return(llACHO)

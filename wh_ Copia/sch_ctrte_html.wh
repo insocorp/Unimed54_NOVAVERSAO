@@ -1,0 +1,111 @@
+/*
+Project      : gr5
+Program      : sch.ctrte.html
+Function     : sch_ctrte_html
+Created on   : 17-Jun-2003   15:32:26
+Descripition : Pesquisa de Contratante.
+*/
+   local lcACTION   := '' ,;
+         lcTABLE    := '' as string
+   local laRES      := {} ,;
+         laCOND     := {} ,;
+         laTPFILTER := {} ,;
+         laFIELDLST := {} ,;
+         laLABELLST := {} ,;
+         laWHERE    := {} ,;
+         laORDERBY  := {} ,;
+         laPROFILE  := {} as array
+   local ii := 0 as int
+   lcACTION   := upper(alltrim(WGet('ACTION','C')))
+   lcTABLE    := 'contratante'
+   laFIELDLST := astruct2col(WSet('DB_ACTIVE'),lcTABLE,1,'A')
+   laLABELLST := astruct2col(WSet('DB_ACTIVE'),lcTABLE,11,'A')
+   laTPFILTER := {'Contendo',;
+                  'Igual',;
+                  'Intervalo',;
+                  'Não contém'}
+   wPut('TITLE','Localizar Contratantes')
+   wPut('FDFILTER1_OPT',laLABELLST)
+   wPut('TPFILTER1_OPT',laTPFILTER)
+   wPut('FDORDER1_OPT',laLABELLST)
+   if empty(lcACTION)
+      lcACTION:= 'EXECSEL'
+   endif
+   if lcACTION == 'EXECSEL'
+      ii := 1
+      do while .t.    // Filter
+         if WGet('FDFILTER'+alltrim(str(ii)),'B')
+            if ! empty(WGet('VLFILTER'+alltrim(str(ii)),'C')) .or. ! empty(WGet('VL2FILTER'+alltrim(str(ii)),'C'))
+               laCOND := {}
+               /*if WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Igual'
+                  aadd(laWHERE,laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' = ' +DLMT+WGet('VLFILTER'+alltrim(str(ii)),'C')+WGet('VL2FILTER'+alltrim(str(ii)),'C')+DLMT)
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Intervalo'
+                  if ! empty(WGet('VLFILTER'+alltrim(str(ii)),'C'))
+                     aadd(laWHERE,laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' > '+DLMT+WGet('VLFILTER'+alltrim(str(ii)),'C')+DLMT)
+                  endif
+                  if ! empty(WGet('VL2FILTER'+alltrim(str(ii)),'C'))
+                     aadd(laWHERE,laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' < '+DLMT+WGet('VL2FILTER'+alltrim(str(ii)),'C')+DLMT)
+                  endif
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Não contém'
+                  if ! empty(WGet('VLFILTER'+alltrim(str(ii)),'C'))
+                     aadd(laWHERE,' not ('+laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' like '+DLMT+'%'+WGet('VLFILTER'+alltrim(str(ii)),'C')+'%'+DLMT+')')
+                  endif
+                  if ! empty(WGet('VL2FILTER'+alltrim(str(ii)),'C'))
+                     aadd(laWHERE,' not ('+laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' like '+DLMT+'%'+WGet('VL2FILTER'+alltrim(str(ii)),'C')+'%'+DLMT+')')
+                  endif
+               else  // Contendo
+                  if ! empty(WGet('VLFILTER'+alltrim(str(ii)),'C'))
+                     aadd(laWHERE,laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' like '+DLMT+'%'+WGet('VLFILTER'+alltrim(str(ii)),'C')+'%'+DLMT)
+                  endif
+                  if ! empty(WGet('VL2FILTER'+alltrim(str(ii)),'C'))
+                     aadd(laWHERE,laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' like '+DLMT+'%'+WGet('VL2FILTER'+alltrim(str(ii)),'C')+'%'+DLMT)
+                  endif
+               endif*/
+               if WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Igual'
+                  aadd(laWHERE,mkwheresch({{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')}},1))
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Intervalo'
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laWHERE,mkwheresch(laCOND,2))
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Não contém'
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laWHERE,mkwheresch(laCOND,3))
+               else  // Contendo
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laWHERE,mkwheresch(laCOND,4))
+               endif
+            endif
+         else
+            exit
+         endif
+         aadd(laPROFILE,'FDFILTER'+alltrim(str(ii)))
+         aadd(laPROFILE,'TPFILTER'+alltrim(str(ii)))
+         aadd(laPROFILE,'VLFILTER'+alltrim(str(ii)))
+         aadd(laPROFILE,'VL2FILTER'+alltrim(str(ii)))
+         ii ++
+      enddo
+      ii := 1
+      do while .t.     // Order
+         if WGet('FDORDER'+alltrim(str(ii)),'B')
+            if ! empty(WGet('FDORDER'+alltrim(str(ii)),'C'))
+               aadd(laORDERBY,laFIELDLST[ascan(laLABELLST,WGet('FDORDER'+alltrim(str(ii)),'C'))])
+            endif
+         else
+            exit
+         endif
+         aadd(laPROFILE,'FDORDER'+alltrim(str(ii)))
+         ii ++
+      enddo
+      if db_select(laFIELDLST,lcTABLE,,laWHERE,laORDERBY) = -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      wPut('schCONTRATANTE',laRES)
+      if len(laPROFILE) > 0
+         SaveWEnv('sch.ctrte.html',laPROFILE)
+      endif
+   endif
+   ReadWEnv('sch.ctrte.html')
+

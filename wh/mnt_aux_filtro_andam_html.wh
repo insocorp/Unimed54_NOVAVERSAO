@@ -1,0 +1,286 @@
+/*
+
+Project      : isj_398
+Program      : mnt.aux_filtro_andam.html
+Function     : mnt_aux_filtro_andam_html
+Created on   : 30/08/2012   17:20
+Descripition : 
+
+*/
+
+local lcWORKGROUP   := '' ,;
+      lcTABLE       := '' ,;
+      lcWHERE       := '' ,;
+      lcWHERE2      := '' as string
+
+private lcTP_PASTA  := ''  
+private lcACTION  := '' 
+      
+local laRES       := {} ,;
+      laFIELDS    := {} ,;
+      laFIELDS_AUX:= {} ,;
+      laSAVE      := {} ,; 
+      laJOIN      := {} ,;
+      laVALIDA    := {} ,; 
+      laVALIDA2   := {} ,;
+      laLST_ATUAL := {} ,;
+      laRESULTCON := {} as array 
+      
+lcTABLE       := 'filtro_aux_andam'
+
+lcACTION      := upper(Wget('ACTION'))
+
+lcWORKGROUP   := Wget('WORKGROUP','C')
+lcTP_PASTA    := Wget('TP_PASTA','C')
+
+laVALIDA     := {'WORKGROUP',; 
+                 'TP_PASTA'}
+                    
+                   
+
+carrega_cbox({{'groupanda','WORKGROUP','Y'}})
+carrega_cbox({{'pasta_config','TP_PASTA','Y'}})
+
+wPut('TITLE','Filtro auxiliar de Andamentos') 
+
+Wput('ifNOVO',.T.)
+Wput('ifSAVE',.F.)
+Wput('ifLOCA',.T.)
+Wput('ifDELE',.F.)
+
+*** marca em vermelho campos obrigatorios
+init_reqfield(WSet('_USER_INTERFACE'),laVALIDA) 
+
+if lcACTION == 'BUSANDA'
+   Wput('ifNOVO',.T.)
+   Wput('ifSAVE',.T.)
+   Wput('ifLOCA',.T.)
+   Wput('ifDELE',.F.) 
+   
+   get2put()
+   
+   alianda(laLST_ATUAL)
+
+elseif lcACTION == 'NEW' .and. gbWAC_CREATE
+   
+   Wput('ifNOVO',.T.)
+   Wput('ifSAVE',.T.)
+   Wput('ifLOCA',.T.)
+   Wput('ifDELE',.F.) 
+   
+elseif lcACTION = 'ALTER' .and. gbWAC_READ
+
+   Wput('ifNOVO',.T.)
+   Wput('ifSAVE',.T.)
+   Wput('ifLOCA',.T.)
+   Wput('ifDELE',.T.)
+  
+
+   laFIELDS     := {'filtro_aux_andam.WORKGROUP',; 
+                    'filtro_aux_andam.TP_PASTA',;      
+                    'filtro_aux_andam.FILTRO'}   
+
+   lcWHERE    := 'filtro_aux_andam.WORKGROUP = ' + DLAP + WGet('WORKGROUP','C') + DLAP + ' and filtro_aux_andam.TP_PASTA = ' + DLAP + WGet('TP_PASTA','C') + DLAP
+   
+   laJOIN := {{2,'groupanda','groupanda.WORKGROUP=filtro_aux_andam.WORKGROUP'},;
+              {2,'pasta_config','pasta_config.TP_PASTA=filtro_aux_andam.TP_PASTA'}}    
+            
+
+   
+   if db_select(laFIELDS,'filtro_aux_andam',laJOIN,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall() 
+   
+   db2put(laRES) //sobe os dados encontrados para tela
+   
+   alianda(str2array(laRES[2,3],','))
+
+elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+
+    lcWHERE    := 'WORKGROUP = ' + DLAP + WGet('WORKGROUP','C') + DLAP + ' and TP_PASTA = ' + DLAP + WGet('TP_PASTA','C') + DLAP
+    
+    psab_logdel(WGet('WORKGROUP','C'),'TP_PASTA',WGet('TP_PASTA','C'),,'Filtro aux andam')
+    
+    if db_delete(lcTABLE,lcWHERE) == -1
+       error_sys(db_error())
+    endif 
+
+    
+elseif lcACTION == 'SEARCH'
+
+    laVALIDA2     := {'WORKGROUP',; 
+                     'TP_PASTA'}
+    
+    Wput('ifSAVE',.F.)
+
+    if  len(alltrim(lcWORKGROUP))==0 .and. len(alltrim(WGet('TP_PASTA','C')))==0
+
+       Wput('ifNOVO',.T.)
+       Wput('ifLOCA',.T.)
+       Wput('ifDELE',.F.)
+       
+       lcWHERE    := 'filtro_aux_andam.WORKGROUP <> ' + DLAP+DLAP
+
+    elseif len(alltrim(lcWORKGROUP))==0 .and. len(alltrim(WGet('TP_PASTA','C')))>0
+
+       lcWHERE    := 'filtro_aux_andam.TP_PASTA = ' + DLAP + WGet('TP_PASTA','C') + DLAP
+          
+    else
+
+       lcWHERE    := 'filtro_aux_andam.WORKGROUP = ' + DLAP + lcWORKGROUP + DLAP
+       lcWHERE    := lcWHERE + ' and filtro_aux_andam.TP_PASTA = ' + DLAP + WGet('TP_PASTA','C') + DLAP 
+
+    endif
+    busca(lcWHERE) 
+
+
+elseif lcACTION == 'SAVE'
+    get2put()
+
+    llERRO := .f.  
+        
+    *** verifica se campos obrigatorios estão com dados
+    if ! verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+       llERRO := .t.
+    endif
+
+    if len(alltrim(WGet('POSSIVEIS','C')))==0
+       walert('Atenção almenos um andamento deve ser possivel.')
+       llERRO := .t.
+    endif
+
+    if llERRO ==.t.
+       Wput('ifNOVO',.T.)
+       Wput('ifSAVE',.T.)
+       Wput('ifLOCA',.T.)
+       Wput('ifDELE',.F.)
+
+       if len(alltrim(Wget('FILTRO','C')))>0
+          alianda(str2array(Wget('FILTRO','C'),','))
+         else
+          alianda({})
+       endif
+    endif
+
+    if llERRO==.f.
+    
+       laFIELDS     := {'WORKGROUP',; 
+                        'TP_PASTA',;      
+                        'FILTRO'}    
+ 
+       laFIELDS_AUX := {}
+       for lnXX := 1 to len(laFIELDS)
+           aadd(laFIELDS_AUX,wGet(laFIELDS[lnXX]))
+       next lnXX 
+       
+       
+       aadd(laSAVE,laFIELDS)
+       aadd(laSAVE,laFIELDS_AUX)       
+       
+       lcWHERE    := 'WORKGROUP = ' + DLAP + WGet('WORKGROUP','C') + DLAP + ' and TP_PASTA = ' + DLAP + WGet('TP_PASTA','C') + DLAP  
+
+       if db_delete(lcTABLE,lcWHERE) == -1
+          error_sys(db_error())
+       endif
+       
+       psab_logs(laSAVE,lcTABLE,lcWHERE,lcWORKGROUP,'Filtro aux andam') 
+
+       if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+          error_sys(db_error())
+       endif       
+             
+       lcACTION:=''                         
+   endif
+
+endif
+
+if lcACTION<>'SEARCH'
+   *** refaz grid
+   lcWHERE    := 'filtro_aux_andam.WORKGROUP <> ' + DLAP+DLAP
+   busca(lcWHERE)
+   ***
+endif
+
+return
+
+******************************
+static function busca(fcWHERE)
+******************************          
+local laJOIN    := {} as array
+local laFIELDS2 := {} as array
+
+
+laJOIN := {{2,'groupanda','groupanda.WORKGROUP=filtro_aux_andam.WORKGROUP'},;
+           {2,'pasta_config','pasta_config.TP_PASTA=filtro_aux_andam.TP_PASTA'}} 
+
+laFIELDS2    := {'filtro_aux_andam.WORKGROUP',; 
+                 'filtro_aux_andam.TP_PASTA',;      
+                 'filtro_aux_andam.FILTRO'}
+
+if db_select(laFIELDS2,'filtro_aux_andam',laJOIN,{fcWHERE},{'WORKGROUP','TP_PASTA','FILTRO'}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+aadd(laRES[1],'(row)')
+for ii := 2 to len(laRES)
+    aadd(laRES[ii],'(row)'+wic_action('wicaction_gr5/mnt.aux_filtro_andam.html'+;
+                                      '?WORKGROUP='+laRES[ii,1]+;
+                                      '&TP_PASTA='+laRES[ii,2]+;
+                                      '&ACTION=ALTER'))
+next ii
+WPut('GRID_FILTRO',grid_create(laRES))
+
+if lcACTION='SEARCH' .and. len(laRES)=1
+   walert('Lançamento não localizado.')
+endif    
+    
+
+return(nil)
+
+************************************
+static function alianda(faLST_ATUAL)
+************************************
+**** ALIMENTA TIPO DE ANDAMENTOS
+local lcWHERE   :=''
+local laRES     :={}
+local laLST_NOVA:={}
+
+lcWHERE:='TP_PASTA='+DLAP+Wget('TP_PASTA','C')+DLAP      
+if db_select({'TP_ANDAMENTO'},'andamento_tipo',,{lcWHERE},{'TP_ANDAMENTO'}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+for ii:=2 to len(laRES)
+    if ascan(faLST_ATUAL,laRES[ii,1]) == 0 // Só Adiciona o campo na Lista,
+                                           // caso ele não esteja na Lista
+                                           // de campos ja selecionados
+       aadd(laLST_NOVA,laRES[ii,1])
+    endif                          
+next ii
+
+if len(faLST_ATUAL)>0
+   if len(alltrim(faLST_ATUAL[1]))>0
+      wPut('DEP_OPT',faLST_ATUAL)
+   endif
+endif
+
+if len(laLST_NOVA)>0
+   if len(alltrim(laLST_NOVA[1]))>0
+      wPut('ALL_FIELDS_OPT',laLST_NOVA)
+   endif
+endif
+
+return(nil)
+
+
+
+
+
+
+
+
+
+

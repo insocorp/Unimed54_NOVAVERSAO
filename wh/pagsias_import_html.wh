@@ -1,0 +1,282 @@
+/*
+
+Project      : gr5
+Program      : pagsias_import.html
+Function     : pagsias_import_html
+Created on   : 18-Oct-2006   10:03:52
+Descripition : Pagamentos gerados pelo SIAS
+
+*/
+
+   local lcTABLE   := '' ,;
+         lcFILEIN  := ''  as string
+
+   local laRESULT := {}  as array
+
+   local lnHAND   := 0  ,;
+         ii       := 0   as int
+
+   lcFILEIN := WSet("FILESIASPAGTO")   // Path+Nome arquivo de recebimento de dados.
+
+   lnHAND := fopen(lcFILEIN, 0)
+   if lnHAND >= 0
+      proc_detalhe(lnHAND)
+      fclose(lnHAND)
+   else
+      qout('Problemas na leitura do arquivo de recebimento: '+lcFILEIN)
+   endif
+
+return
+
+
+/*
+* Function..: proc_detalhe(fcHAND)
+* Parâmetros: fcHAND - handle do arquivo de leitura
+* Retorno...: .t. / .f.
+*/
+static function proc_detalhe(fcHAND)
+
+   #define NEWLINE chr(13) + chr(10)
+
+   local ii       := 0 ,;
+         zz       := 0 ,;
+         lnHAND1  := 0 ,;
+         lnAI     := 0 ,;
+         lnPOS    := 0  as int
+
+   local lcLINE        := '' ,;
+         lcLOG         := '' ,;
+         lcWHERE       := ''  as string
+
+   local laRESULT := {} ,;
+         laFIELDS := {} ,;
+         laDETVAL := {} ,;
+         laSAVEAUX:= {} ,;
+         laSAVE   := {} ,;
+         laDADOS  := {} ,;
+         laPASTA  := {}  as array
+
+   local llERRO    := .f. as logical
+
+   laDETVAL := {{ ""   , "N",    1,   2, 0, "" , ""             ,"N" },; //1
+                { ""   , "N",    3,   7, 0, "" , ""             ,"N" },; //2
+                { ""   , "A",   10,  20, 0, "" , "NR_SINISTRO"  ,"S" },; //3
+                { ""   , "A",   30,  45, 0, "" , "FAVORECIDO"   ,"S" },; //4
+                { ""   , "A",   75,  10, 0, "" , "COD_DESPESA"  ,"S" },; //5
+                { ""   , "A",   85,  20, 0, "" , "PAGAMENTO"    ,"S" },; //6
+                { ""   , "D",  105,   8, 0, "" , "DT_PAGTO"     ,"S" },; //7
+                { ""   , "N",  113,  15, 2, "" , "VL_PAGO"      ,"S" } } //8
+
+   db_begin()
+   while .t.
+       lcLINE := freadtxt (fcHAND)        // Le linha a linha do arquivo referenciado em fcHAND
+       if ferror() <> 0
+          exit
+       endif
+       if substr(lcLINE,1,2) = "01"
+          for ii := 1 to len(laDETVAL)
+              if laDETVAL[ii,8] == 'S'                           // flag que indica que o campo vai ser gravado
+                 // fazer os tratamentos para os campos
+                 if laDETVAL[ii,2] == 'N'
+                    if laDETVAL[ii,5] > 0                                                     // campo definido como numérico e tem casas decimais
+                       aadd(laSAVEAUX , val(substr(lcLINE, laDETVAL[ii,3],(laDETVAL[ii,4]-laDETVAL[ii,5]))+;
+                                            '.'+;
+                                            substr(lcLINE, (laDETVAL[ii,3]+(laDETVAL[ii,4]-laDETVAL[ii,5])),laDETVAL[ii,5])))
+                    else
+                       aadd(laSAVEAUX , val(substr(lcLINE, laDETVAL[ii,3],laDETVAL[ii,4])))
+                    endif
+                 elseif laDETVAL[ii,2] == 'D'
+                    if substr(lcLINE, laDETVAL[ii,3],laDETVAL[ii,4]) == '00000000' .or.;
+                       empty(substr(lcLINE, laDETVAL[ii,3],laDETVAL[ii,4]))
+                       aadd(laSAVEAUX , nil )
+                    else
+                       aadd(laSAVEAUX , alltrim(substr( lcLINE, laDETVAL[ii,3] , laDETVAL[ii,4])))
+                    endif
+                 else
+                    aadd(laSAVEAUX , alltrim(substr( lcLINE, laDETVAL[ii,3] , laDETVAL[ii,4])))
+                 endif
+              endif
+          next ii
+          if len(laSAVEAUX) > 0
+             aadd(laDADOS, laSAVEAUX)
+          endif
+          laSAVEAUX := {}
+   	 endif
+   enddo
+   if len(laDADOS) > 0
+      lcLOG := space(20)+'Importação de Pagtos SIAS - '+dtoc(date())+' - '+time()+NEWLINE
+      lcLOG += NEWLINE
+      for ii := 1 to len(laDADOS)
+          // busca o nr_pasta para o sinistro( laDADOS[ii,1] )
+          if db_select({'NR_PASTA'},'pasta_seguro',,{'NR_SINISTRO='+DLAP+alltrim(laDADOS[ii,1])+DLAP}) == -1
+             error_sys(db_error())
+          endif
+          laPASTA := db_fetchall()
+          if len(laPASTA) > 1
+             // montando array para salvar as despesas mvt_despesa
+             laSAVE := {}
+             aadd(laSAVE, {'NR_PASTA'            ,'NR_SINISTRO'         ,'QUANTIDADE'          ,;
+                           'VL_UNIT'             ,'VL_TOTAL'            ,'LOGIN'               ,;
+                           'LOGIN_RESP'          ,'LOGIN_APROVACAO'     ,'LOGIN_REVISAO'       ,;
+                           'FL_APROVADO'         ,'FL_APROVACAO'        ,'FL_REVISAO'          ,;
+                           'DT_PREVISAO_PAGTO'   ,'DT_EMISSAO_DOCFISCAL','DT_ENVIO_CTPAG'      ,;
+                           'DT_APROVACAO'        ,'DT_REVISAO'          ,'DT_REF'              ,;
+                           'FORMA_PAGAMENTO'     ,'CIP_FAVORECIDO'      ,'CD_DESPESA'          ,;
+                           'CD_GRP_DESPESA' })
+
+             aadd(laSAVE, {laPASTA[2,1]          ,laDADOS[ii,1]         ,1                     ,;
+                           laDADOS[ii,6]         ,laDADOS[ii,6]         ,'SIAS'                ,;
+                           'SIAS'                ,'SIAS'                ,'SIAS'                ,;
+                           'A'                   ,'A'                   ,'A'                   ,;
+                           laDADOS[ii,5]         ,laDADOS[ii,5]         ,laDADOS[ii,5]         ,;
+                           laDADOS[ii,5]         ,laDADOS[ii,5]         ,laDADOS[ii,5]         ,;
+                           gera_FPagto(laDADOS[ii,4]) ,cip_pfpj(alltrim(laDADOS[ii,2]), 'ADV') , laDADOS[ii,3] ,;
+                           gera_GrupoDesp(laDADOS[ii,3]) })
+
+             if db_insert(laSAVE,'mvt_despesa') == -1
+                db_rollback()
+                error_sys(db_error())
+             else
+                // buscando o ultimo nr_despesa AI de mvt_despesa para inserir em mvt_despesa_pagamento
+                lnAI := db_insert_id()
+                // montando array para salvar as despesas mvt_despesa_pagamento
+                laSAVE := {}
+                aadd(laSAVE, {'NR_PASTA'      ,'NR_DESPESA'    ,'DT_PAGAMENTO'  ,;
+                              'VL_PAGO'       ,'DT_CADASTRO'   ,'LOGIN_CADASTRO',;
+                              'FL_PAGAMENTO'                                    })
+
+                aadd(laSAVE, {laPASTA[2,1]    ,lnAI            ,laDADOS[ii,5]   ,;
+                              laDADOS[ii,6]   ,laDADOS[ii,5]   ,'SIAS'          ,;
+                              'A'                                               })
+
+                if db_insert(laSAVE,'mvt_despesa_pagamento') == -1
+                   db_rollback()
+                   error_sys(db_error())
+                else
+                   lcLOG += 'Registro importado com sucesso. Pasta Nr. '+alltrim(str(laPASTA[2,1])) + ', Sinistro '+alltrim(laDADOS[ii,1])+NEWLINE
+                endif
+	  	       endif
+          else
+             lcLOG += 'Registro não importado. Sinistro '+alltrim(laDADOS[ii,1])+ ' não encontrado.'+NEWLINE
+          endif
+      next ii
+      lnHAND1 := fcreate('pag_sias.log', 0)
+      if lnHAND1 >= 0
+         if FWrite(lnHAND1,lcLOG) <= 0
+            walert("Erro na gravação do arquivo.")
+            return(.f.)
+         endif
+         fclose(lnHAND1)
+      endif
+   endif
+   db_commit()
+return
+
+
+/*
+* Function..: gera_cip_pfpj(fcVAL, fcTIPO, fnHAND1)
+* Objetivo..: Solicita o numero do cip da tabela pfpj
+* Parâmetros: fcVAL   valor do pfpj.PFPJ
+              fcTIPO
+* Retorno...: CIP de fcVAL recebido
+*/
+Static Function cip_pfpj(fcVAL, fcTIPO)
+
+       local lcVAL     := '' as string
+       local laFIELDS  := {"CIP","NR_CONTROLE"}                        // colunas a serem geradas no select
+       local laWHERE   := {"PFPJ like '%"+alltrim(fcVAL)+"%'" } as array // clausula where para solicitacao de dados ao SNT
+       local lcTABLE   := "pfpj"                                       // tabela a serem consultada
+       local lcINSERT  := "insert into " + lcTABLE + " (PFPJ, PFPJ_TIPO) VALUES (" as string
+       local lcUPDATE  := "update " + lcTABLE + " set CIP = " as string
+       local lnRET     := 0 as int
+       local laDATA    := {} as array
+
+       if db_select(laFIELDS,lcTABLE,,laWHERE) == -1
+          qout("Problemas em db_select. ProcLine: "+alltrim(str(procline()))+" ProcName: "+ProcName())
+          qout("Erro Select -> "+db_error())
+       endif
+       laDATA := db_fetchrow()
+       if len(laDATA) > 0
+          lcVAL := laDATA[1]
+       else
+          lcINSERT += "'" + alltrim(fcVAL) + "'" + ",'" + fcTIPO + "')"
+          if db_insert({{"PFPJ","PFPJ_TIPOS","LOGIN_CADASTRO","DT_CADASTRO"},;
+                        {alltrim(fcVAL),fcTIPO,'Import. SIOS',dtos(date())}},lcTABLE) == -1
+             qout("Erro Insert -> "+db_error())
+             qout("Ultimo Comando -> " + wset("_LASTSQL"))
+             lcVAL := ""
+          else
+             if db_select(laFIELDS, lcTABLE, ,laWHERE) == -1
+                qout("Erro Select -> "+db_error())
+                qout("Ultimo Comando -> " + wset("_LASTSQL"))
+             endif
+             // lendo cada linha do select
+             laDATA := db_fetchrow()
+             if len(laDATA) > 0
+                lcVAL    := strzero(laDATA[2],6,0)
+                lcUPDATE += "'" + lcVAL + "' "
+                lcUPDATE += "WHERE NR_CONTROLE = " + alltrim(str(laDATA[2]))
+                if db_update( { {"CIP"}, {lcVAL} },lcTABLE,{"nr_controle = " + alltrim( str( laDATA[2] ) ) } ) == -1
+                   qout("Problemas na atualizacao da tabela PFPJ")
+                   qout("Erro Update -> "+db_error())
+                   qout("Ultimo Comando -> " + wset("_LASTSQL"))
+                   lcVAL := ""
+                endif
+             else
+                qout("Problemas na leitura da tabela PFPJ")
+                lcVAL := ""
+             endif
+          endif
+       endif
+return (lcVAL)
+
+
+/*
+* Function..: gera_FPagto(fcPAGTO)
+* Objetivo..: Solicita a forma de pagamento
+* Parâmetros: fcPAGTO descricao da forma de pagamento
+* Retorno...: forma de pagamento
+*/
+Static Function gera_FPagto(fcPAGTO)
+
+       local lcVAL     := '' as string
+       local laWHERE   := {"FORMA_PAGAMENTO like '%"+alltrim(fcPAGTO)+"%'" } as array
+       local laRESULT    := {} as array
+
+       if db_select({'FORMA_PAGAMENTO'},'forma_pagamento',,laWHERE) == -1
+          qout("Problemas em db_select. ProcLine: "+alltrim(str(procline()))+" ProcName: "+ProcName())
+          qout("Erro Select -> "+db_error())
+       endif
+       laRESULT := db_fetchrow()
+       if len(laRESULT) > 0
+          lcVAL := laRESULT[1]
+       else
+          if db_insert({{'FORMA_PAGAMENTO'},{alltrim(fcPAGTO)}},'forma_pagamento') == -1
+             qout("Erro Insert -> "+db_error())
+             qout("Ultimo Comando -> " + wset("_LASTSQL"))
+          else
+             lcVAL := alltrim(fcPAGTO)
+          endif
+       endif
+return (lcVAL)
+
+
+/*
+* Function..: gera_GrupoDesp(fcDESP)
+* Objetivo..: Busca o Cod. do Grupo da Despesa
+* Parâmetros: fcDESP -> Codigo da Despesa
+* Retorno...: Grupo da Despesa
+*/
+Static Function gera_GrupoDesp(fcDESP)
+
+       local laRES := {} as array
+
+       if db_select({'CD_GRP_DESPESA'},'despesa',,{'cd_despesa = '+DLAP+alltrim(fcDESP)+DLAP}) == -1
+          qout("Problemas em db_select. ProcLine: "+alltrim(str(procline()))+" ProcName: "+ProcName())
+          qout("Erro Select -> "+db_error())
+       endif
+       laRES := db_fetchrow()
+       if len(laRES) > 0
+          return (laRES[1])
+       endif
+return ('')

@@ -1,0 +1,331 @@
+/*
+
+Project      : isj_45
+Program      : mnt.filxgrupo.html
+Function     : mnt_filxgrupo_html
+Created on   : 27/04/2015 18:14:56
+Descripition :
+
+*/
+
+private lcACTION   := ''
+
+local laRESULT     := {} ,;
+      laSAVE       := {} ,;
+      laIDS        := {} ,;
+      laLINHA_ATUAL:= {} as array
+
+local lcCIP_EMPRESA:= '' ,;
+      lcLIBERADO   := '' as string
+
+local lnID_FILXDIV   := 0 ,;
+      lnID_PLATAFORMA:= 0 as int
+
+local ii             := 0 as int
+
+
+lcACTION          := upper(Wget('ACTION'))
+
+
+WPut('TITLE','Identificação das Filiais por Grupo')
+
+if lcACTION == 'SAVE' .and. gbWAC_WRITE
+
+   laRESULT := str2array(WGet('FILIAIS','C'),',')
+
+   for ii := 1 to len(laRESULT)
+
+          lcCIP_EMPRESA:=buscaemp(laRESULT[ii])
+
+          laIDS :=buscaids(laRESULT[ii])
+
+          if len(laIDS)==0
+             exit
+          endif
+
+
+          lnID_FILXDIV   :=laIDS[1]
+          lnID_PLATAFORMA:=laIDS[2]
+
+          laLINHA_ATUAL:={}
+
+          laSAVE  := {'CD_GRUPO',;
+                      'ID_FILXDIV',;
+                      'ID_PLATAFORMA',;
+                      'CIP_FILIAL',;
+                      'CIP_EMPRESA',;
+                      'DT_CADASTRO',;
+                      'LOGIN_CADASTRO'}
+
+          aadd(laLINHA_ATUAL,laSAVE)
+
+
+          laSAVE  := {WGet('CD_GRUPO','N'),;
+                     lnID_FILXDIV,;
+                     lnID_PLATAFORMA,;
+                     laRESULT[ii],;
+                     lcCIP_EMPRESA,;
+                     date(),;
+                     gcLOGIN}
+
+          aadd(laLINHA_ATUAL,laSAVE)
+
+
+
+          if db_insert(laLINHA_ATUAL,'filxgrp') == -1
+              error_sys(db_error())
+          endif
+
+   next ii
+
+elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+
+    lcLIBERADO:=podexcluir(WGet('EXCLUIR','C'))
+
+    if lcLIBERADO='S'
+       lcWHERE    := 'NR_CONTROLE = ' + WGet('EXCLUIR','C')
+       if db_delete('filxgrp',lcWHERE) == -1
+          error_sys(db_error())
+       endif
+    endif
+
+endif
+
+cmb_grupo()
+alimenta_grid()
+
+WPut('ACTION','')
+lcACTION:=''
+
+return
+
+********************************
+static function cmb_grupo()
+********************************
+local lcWHERE:=''
+local laRES:={}
+local laLST_NOVA:={}
+local laVINCULADO:={}
+
+local paAUTO     :={} as array
+
+
+
+local  laOPT    := {} ,;
+       laOPTV   := {} ,;
+       laPUT    := {} ,;
+       laDEF    := {} ,;
+       laDEFV   := {} ,;
+       laATI    := {} ,;
+       laATIV   := {} ,;
+       laINA    := {} ,;
+       laINAV   := {} ,;
+       laPUTV   := {} ,;
+       laFIELD  := {} as array
+
+
+local  jj    := 1  as int
+
+
+laDEF := {}
+laDEFV:= {}
+
+laATI := {}
+laATIV:= {}
+
+laINA := {}
+laINAV:= {}
+
+laPUT := {}
+laPUTV:= {}
+
+
+laFIELD:={'CD_GRUPO','NM_GRUPO','FL_ATIVO'}
+
+if db_select(laFIELD,'grupo_cont',,,{'NM_GRUPO'}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+
+
+for jj := 2 to len(laRES)
+    if laRES[jj,3] == 'D'
+       aadd(laDEF,laRES[jj,2])
+       aadd(laDEFV,laRES[jj,1])
+
+     elseif laRES[jj,3] == 'I'
+       aadd(laINA,laRES[jj,2])
+       aadd(laINAV,laRES[jj,1])
+
+     else
+       aadd(laATI,laRES[jj,2])
+       aadd(laATIV,laRES[jj,1])
+    endif
+next jj
+
+if len(laDEF) == 0
+   aadd(laDEF,'') // Adiciona uma linha vazia no inicio do combo, caso seja solicitado
+   aadd(laDEFV,'0')
+endif
+
+for jj=1 to len(laDEF)
+    aadd(laPUT,laDEF[jj])
+    aadd(laPUTV,laDEFV[jj])
+next jj
+
+for jj=1 to len(laATI)
+    aadd(laPUT,laATI[jj])
+    aadd(laPUTV,laATIV[jj])
+next jj
+
+for jj=1 to len(laINA)
+    aadd(laPUT,'INATIVO - '+laINA[jj])
+    aadd(laPUTV,laINAV[jj])
+next jj
+
+
+WPut('GRUPO.option',laPUT)
+WPut('GRUPO.optionvalue',laPUTV)
+
+return(nil)
+
+
+**************************************
+static function buscaemp(fnCIP_FILIAL)
+**************************************
+**** busca empresa
+
+local lcWHERE   :='' as string
+local laRES     :={} as array
+local lcCIP_EMP :=''
+
+lcWHERE:='CIP='+fnCIP_FILIAL
+
+if db_select({'CIP_EMPRESA'},'pfpj',,{lcWHERE}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+if len(laRES)>1
+   lcCIP_EMP:=laRES[2,1]
+   if lcCIP_EMP=''
+      lcCIP_EMP:='0'
+   endif
+else
+   lcCIP_EMP:='0'
+endif
+
+
+return(lcCIP_EMP)
+
+**************************************
+static function buscaids(fnCIP_FILIAL)
+**************************************
+**** busca empresa
+
+local lcWHERE      :='' as string
+local laRES        :={} as array
+local lcID_FILXDIV :=''
+
+lcWHERE:='CIP_FILIAL='+fnCIP_FILIAL
+
+if db_select({'NR_CONTROLE','ID_PLATAFORMA'},'filxdiv',,{lcWHERE}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+if len(laRES)>1
+   return({laRES[2,1],laRES[2,2]})
+  else
+   walert('Não encontrei divisão cadastrada por filial!')
+   return({})
+endif
+
+*******************************
+static function alimenta_grid()
+*******************************
+
+local lcQUERY :='' as string
+local laRESULT:={} as array
+
+
+lcQUERY  ='select'
+lcQUERY +=' filxgrp.NR_CONTROLE,'
+lcQUERY +=' filxgrp.CD_GRUPO,'
+lcQUERY +=' grupo_cont.NM_GRUPO,'
+lcQUERY +=' filxgrp.ID_PLATAFORMA,'
+lcQUERY +=' plataforma.DESC_PLATAFORMA as DESCPLATAFORMA,'
+lcQUERY +=' filxgrp.CIP_FILIAL,'
+lcQUERY +=' pfpj.PFPJ as FILIAL,'
+lcQUERY +=' filxgrp.CIP_EMPRESA,'
+lcQUERY +=' pfpj_empresa.PFPJ as EMPRESA'
+
+lcQUERY +=' from filxgrp'
+
+lcQUERY +=' left join plataforma on plataforma.ID_PLATAFORMA = filxgrp.ID_PLATAFORMA'
+lcQUERY +=' left join pfpj on pfpj.cip=filxgrp.CIP_FILIAL'
+lcQUERY +=' left join pfpj_empresa on pfpj_empresa.CIP = filxgrp.CIP_EMPRESA'
+lcQUERY +=' left join grupo_cont on grupo_cont.CD_GRUPO = filxgrp.CD_GRUPO'
+
+lcQUERY +=' order by grupo_cont.NM_GRUPO,plataforma.DESC_PLATAFORMA,pfpj_empresa.PFPJ,pfpj.PFPJ'
+
+if db_query(lcQUERY) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchall()
+
+if len(laRESULT)>1
+   aadd(laRESULT[1],'VAR_NR_CONTROLE')
+
+   for xx=2 to len(laRESULT)
+       lcNR_ROW := alltrim(str(xx-1))
+       aadd(laRESULT[xx],'VAR_NR_CONTROLE'+lcNR_ROW)
+
+       WPut('VAR_NR_CONTROLE'+lcNR_ROW,  laRESULT[xx,db_fetchncol(laRESULT,'NR_CONTROLE')])
+
+
+   next xx
+
+endif
+
+WPut('GRID',laRESULT)
+
+return(nil)
+
+*****************************************
+static function podexcluir(fcNR_CONTROLE)
+*****************************************
+
+local lcWHERE   :='' as string
+local laRES     :={} as array
+local laRES2    :={} as array
+
+
+lcWHERE:='NR_CONTROLE='+fcNR_CONTROLE
+
+if db_select({'CIP_FILIAL'},'filxgrp',,{lcWHERE}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+
+lcWHERE:='CIP_FILIAL='+laRES[2,1]
+
+if db_select({'NR_CONTROLE'},'usrxgrp',,{lcWHERE}) == -1
+   error_sys(db_error())
+endif
+laRES2 := db_fetchall()
+if len(laRES2)>1
+   walert('Filial esta sendo utilizada por usuário, exclusão não permitida!')
+   return('N')
+else
+   return('S')
+endif
+
+return(nil)
+
+
+
+
+
+
+

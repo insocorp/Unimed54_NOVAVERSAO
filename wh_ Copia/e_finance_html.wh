@@ -1,0 +1,370 @@
+/*
+
+Project      : isj_392
+Program      : e-finance.html
+Function     : e-finance_html
+Created on   : 09-06-2009 - Alvaro
+Descripition : Interface com E-Finance
+
+*/
+
+   local ii := 0  as int
+
+   // variáveis para gravação da execução do batch
+   local  lcStatus   := '3' ,;
+          lcHORAINI  := time() ,;
+          lcTABLEINT := 'seq_interfaces' as string
+
+   local  laWHEREINT  := {} ,;
+          laFIELDSINT := {} ,;
+          laRES_INT   := {} ,;
+          laSAVEINT   := {} as array
+
+   local  lnSEQ := 0 as int
+
+   local  ldDIAINI := date() as date
+   
+   If (proc_detalhe())== .f.
+   
+      lcStatus := '2'  //Atualiza seq_interfaces - erro no processo
+      
+   Else
+      lcStatus := '1'  //Atualiza seq_interfaces - processo ok
+   Endif
+
+     //Atualizar Interfaces - seq_interfaces
+
+     laFIELDSINT := structtable(WSet("DB_ACTIVE"),lcTABLEINT,1,'N')
+     laWHEREINT  := {"PROGRAM = 'e_finance_html'"}
+     if db_select(laFIELDSINT, lcTABLEINT,,laWHEREINT) == -1
+        error_sys(db_error())
+     endif
+     laRES_INT := db_fetchrow()
+     lnSEQ     := laRES_INT[2] + 1
+     aadd(laSAVEINT,laFIELDSINT)
+     aadd(laSAVEINT,{laRES_INT[1],lnSEQ, ldDIAINI, lcHORAINI, date(), time(), lcStatus})
+     if db_replace(laSAVEINT,lcTABLEINT,laWHEREINT) == -1
+        error_sys(db_error())
+     endif
+
+Return
+
+
+/*
+* Function..: proc_detalhe(fcPAR1)
+* Parâmetros: fcPAR1 -> R - Recebimento ou E - Envio
+* Retorno...: .t. / .f.
+*/
+
+static function proc_detalhe(fcPAR1)
+
+   #define NEWLINE chr(13) + chr(10)
+
+   local ii      := 0 ,;
+         zz      := 0 ,;
+         lnPOS   := 0 ,;
+         lnCONT  := 0 ,;
+         lnHAND  := 0 ,;
+         lnHAND3 := 0  as int
+
+   local lnVL_TOTAL := 0 as numeric
+   
+   local lcLINE     := '' ,;
+         lcLINE3    := '' ,;
+         lcWHERE    := '' ,;
+         lcUSUARIO  := '' ,;
+         lcEMPRESA  := '' ,;
+         lcFILEIN   := '' ,;
+         lcFILEOUT  := '' ,;
+         lcFILECAPA := '' as string
+
+   local laDETVAL := {} ,;
+         laFIELDS := {} ,;
+         laSAVE   := {} ,;
+         laJOIN   := {} ,;
+         laRESULT := {} as array
+
+
+   laDETVAL := cria_array('0')
+
+/*
+16    MAPFRE NOSSA CAIXA VIDA E PREVIDÊNCIA S/A.
+20    MAPFRE VERA CRUZ SEGURADORA SA
+21    MAPFRE VERA CRUZ VIDA E PREVIDÊNCIA S/A
+22    MARES-MAPFRE RISCOS ESPECIAIS SEGURADORA S/A
+26    VIDA SEGURADORA S/A
+
+*/
+
+// Buscando os dados a enviar
+     laFIELDS := {'DISTINCT mvt_despesa.NR_PASTA'   ,;
+                  'mvt_despesa.VL_TOTAL'            ,;
+                  'mvt_despesa.CD_CCUSTO'           ,;
+                  'mvt_despesa.FORMA_PAGAMENTO'     ,;
+                  'mvt_despesa.DT_EMISSAO_DOCFISCAL',;
+                  'mvt_despesa.DT_PREVISAO_PAGTO'   ,;
+                  'mvt_despesa.FL_PGINTERFACE'      ,;
+                  'mvt_despesa.VL_TT_RATEIO'        ,;
+                  'mvt_despesa.LOGIN_APROVACAO'     ,;
+                  'pfpj.CNPJ_CPF'                   ,;
+                  'pfpj.PFPJ'                       ,;
+                  'pfpj.ENDERECO'                   ,;
+                  'pfpj.NR_ENDERECO'                ,;
+                  'pfpj.EXTRA_ENDERECO'             ,;
+                  'pfpj.BAIRRO'                     ,;
+                  'pfpj.CIDADE'                     ,;
+                  'pfpj.UF'                         ,;
+                  'pfpj.CEP'                        ,;
+                  'pfpj.CD_BANCO'                   ,;
+                  'pfpj.BANCO_AGENCIA'              ,;
+                  'pfpj.BANCO_CONTA'                ,;
+                  'pfpj.CD_LEGADO'                  ,;
+                  'pasta.NR_PROCESSO'               ,;
+                  'pasta.DT_VENCTO'                 ,;
+                  'pasta.PRODUTO'                   ,;
+                  'pasta_config.FL_CTPAG'           ,;
+                  'pfpj.banco_conta   as DV_CONTA'  ,;
+                  'pfpj.banco_agencia as DV_AGENCIA',;
+                  'mvt_despesa.NR_DESPESA'  }
+
+      laJOIN := { { 2,'pasta_seguro'          ,'mvt_despesa.nr_pasta           = pasta_seguro.nr_pasta' },;
+                  { 2,'pasta_cip'             ,"mvt_despesa.nr_pasta           = pasta_cip.nr_pasta and pasta_cip.wfield = 'CIP_FILIAL'" },;
+                  { 2,'pasta'                 ,'mvt_despesa.nr_pasta           = pasta.nr_pasta'                                         },;
+                  { 2,'pasta_config'          ,'pasta.tp_pasta                 = pasta_config.tp_pasta'                                  },;
+                  { 2,'pfpj'                  ,'mvt_despesa.cip_favorecido     = pfpj.cip'                                               },;
+                  { 2,'mvt_despesa_pagamento' ,'mvt_despesa_pagamento.nr_pasta = mvt_despesa.nr_pasta and mvt_despesa_pagamento.nr_despesa = mvt_despesa.nr_despesa'} }
+
+      lcWHERE := 'mvt_despesa.FL_APROVACAO = ' +DLMT+ 'A' +DLMT+ ' AND mvt_despesa.FL_REVISAO = '+DLMT+ 'A' +DLMT
+
+      if db_select(laFIELDS,'mvt_despesa',laJOIN,{lcWHERE}, {'pfpj.CD_LEGADO'}) == -1   // despesas pendentes de aprovacao não podem ser enviadas
+         db_error()
+      endif
+
+      laRESULT := db_fetchall()
+
+      //for ii := 2 to len(laRESULT)
+      //   wout(laRESULT[ii,db_fetchncol(laRESULT, 'PFPJ')])
+      //   wout(laRESULT[ii,db_fetchncol(laRESULT,'CD_LEGADO')])
+      //next
+
+      if len(laRESULT) > 1
+      
+         lcEMPRESA  := laRESULT[02,db_fetchncol(laRESULT, 'CD_LEGADO')]
+         lcUSUARIO  := laRESULT[02,db_fetchncol(laRESULT, 'LOGIN_APROVACAO')]
+         
+         lcFILEOUT  := 'MAPFRE_EFINANCE_TESTE_' + lcEMPRESA + '_' + dtos(date()) + '.CSV'
+         lnHAND     := fcreate(lcFILEOUT , 0)
+
+         lcFILECAPA := 'MAPFRE_EFINANCE_CAPA_'  + lcEMPRESA + '_' + dtos(date()) + '.CSV'
+         lnHAND3    := fcreate(lcFILECAPA, 0)
+
+         for ii := 2 to len(laRESULT)
+         
+             if laRESULT[ii,db_fetchncol(laRESULT,'FL_CTPAG')] = 'I' .and. ;
+                laRESULT[ii,db_fetchncol(laRESULT,'FL_PGINTERFACE')] <> 'Y'
+
+                if lcEMPRESA != laRESULT[ii,db_fetchncol(laRESULT, 'CD_LEGADO')]
+
+                   lcLINE3 := lcEMPRESA +';'+ strzero(lnPOS,10) +';'+ strtran(strzero(lnVL_TOTAL,18,02),'.',',') +';'+ lcUSUARIO +';'
+                   lcLINE3 += NEWLINE
+
+                   if FWrite(lnHAND3,lcLINE3) <= 0
+                      WOut('Problemas na leitura do arquivo de recebimento: ' + lcFILECAPA)
+                      return(.f.)
+                   endif
+
+                   lnPOS      := 0
+                   lnVL_TOTAL := 0
+
+                   lcUSUARIO  := laRESULT[ii,db_fetchncol(laRESULT, 'LOGIN_APROVACAO')]
+                   lcEMPRESA  := laRESULT[ii,db_fetchncol(laRESULT, 'CD_LEGADO')]
+                   
+                   lcFILEOUT  := 'MAPFRE_EFINANCE_TESTE_' + lcEMPRESA + '_' + dtos(date()) + '.CSV'
+                   lnHAND     := fcreate(lcFILEOUT , 0)
+
+                   lcFILECAPA := 'MAPFRE_EFINANCE_CAPA_'  + lcEMPRESA + '_' + dtos(date()) + '.CSV'
+                   lnHAND3    := fcreate(lcFILECAPA, 0)
+
+                endif
+                
+                lnPOS ++ // contador
+                lcLINE := ''
+                lnVL_TOTAL += laRESULT[ii,db_fetchncol(laRESULT,'VL_TOTAL')]
+
+                for zz := 1 to len(laDETVAL)
+                    if laDETVAL[zz,8] == 'F'
+                       if empty(laDETVAL[zz,1])
+                          if laDETVAL[zz,7] == 'SEQUENCIA'
+                             lcLINE += strzero(lnPOS,10)
+                          else
+                             if laDETVAL[zz,10] == 'N'
+                                lcLINE += replicate('0', laDETVAL[zz,4])
+                             else
+                                lcLINE += replicate(' ', laDETVAL[zz,4])
+                             endif
+                          endif
+                       else
+                          lcLINE += laDETVAL[zz,1]
+                       endif
+                    elseif laDETVAL[zz,8] == 'S'
+                       if laDETVAL[zz,7] == 'NR_DESPESA'  // Codigo de identificacao do pagamento  nr_pasta + nr_despesa
+                            lcID := strzero(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])],6)+;
+                                    strzero(laRESULT[ii,db_fetchncol(laRESULT, 'NR_PASTA')],6)
+                            lcLINE += lcID + replicate(' ', (laDETVAL[zz,4] - len(lcID) ))
+                       else
+                          if laDETVAL[zz,2] == 'A'                // campos string
+                             if len(alltrim(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])])) > 0
+                                if  len(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]) > laDETVAL[zz,4]
+                                    lcLINE += substr(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )] , 1,laDETVAL[zz,4])
+                                else
+                                    if laDETVAL[zz,10] == 'N'
+                                       lcLINE += replicate('0', (laDETVAL[zz,4] - len(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )])) ) + laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])]
+                                    else
+                                       lcLINE += laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])] + replicate(' ', (laDETVAL[zz,4] - len(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )])) )
+                                    endif
+                                endif
+                             else
+                                if laDETVAL[zz,10] == 'N'
+                                   lcLINE += replicate('0', laDETVAL[zz,4])
+                                else
+                                   lcLINE += replicate(' ', laDETVAL[zz,4])
+                                endif
+                             endif
+
+                          elseif laDETVAL[zz,2] == 'D'             // campos data
+                             lcLINE += dtos(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])])
+                          elseif laDETVAL[zz,2] == 'N'      // campos numericos
+                             if laDETVAL[zz,5] = 0          // não contem casas decimais
+                                lcLINE += strzero(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )], laDETVAL[zz,4],laDETVAL[zz,5])
+                             else                                 // se contem casas decimais   retira o . das casas decimais
+                                //lcLINE += strzero(val(strtran( str(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])]) , '.',',')), laDETVAL[zz,4])
+                                
+                                lcLINE += strtran(strzero(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])], laDETVAL[zz,4],laDETVAL[zz,5]), '.',',')
+                             endif
+                          endif
+                       endif
+                    endif
+               
+                next zz
+                
+                lcLINE += NEWLINE
+                
+                if FWrite(lnHAND,lcLINE) <= 0
+                   WOut('Problemas ao criar arquivo de envio : ' + lcFILEOUT)
+                   return(.f.)
+                endif
+
+                if ( ii + 1 ) > len(laRESULT)
+                
+                   lcLINE3 := lcEMPRESA +';'+ strzero(lnPOS,10) +';'+ strtran(strzero(lnVL_TOTAL,18,02),'.',',') +';'+ lcUSUARIO +';'
+                   lcLINE3 += NEWLINE
+
+                   if FWrite(lnHAND3,lcLINE3) <= 0
+                      wout("Erro na gravação do arquivo.")
+                      return(.f.)
+                   endif
+
+                endif
+
+                // Alterando o flag de envio de solicitacao ao PagNet
+                lcWHERE := 'NR_PASTA   = '+alltrim(str(laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')]))+' and '+;
+                           'NR_DESPESA = '+alltrim(str(laRESULT[ii,db_fetchncol(laRESULT,'NR_DESPESA')]))
+
+                if db_update({{"FL_PGINTERFACE","DT_ENVIO_CTPAG"},{"Y",date()}},'mvt_despesa',{lcWHERE}) == -1
+                   qout("Erro Update -> "+db_error())
+          	    endif
+             endif
+             
+         next ii
+
+         fclose(lnHAND)
+         fclose(lnHAND3)
+         
+      endif
+return
+
+/*
+* Function..: cria_array(fcTIPO)
+* Parâmetros: fcTIPO
+* Retorno...: Array com estrutura do layout E-Finance
+              1 - Conteudo do campo lido
+              2 - Tipo do Dado (N-Num, D-Date, C-Char) base GR5
+              3 - Posicao Inicial
+              4 - Número de caracteres
+              5 - Casas decimais
+              6 - Destino/Origem Tabela
+              7 - Destino/Origem Campo
+              8 - F-Fixo, S Dados, N - Não dados
+              9 - Flag para leitura no arquivo de retorno so lê o campo se true
+              10- Tipo do campo no layout N - numerico / A - Alfa numerico
+*/
+static function cria_array(fcTIPO)
+
+   local laESTRU := {} as array
+
+   if fcTIPO == '0' 
+*                   //1      2      3    4  5  6               7                       8     9   10
+      aadd(laESTRU,{ ""     , "A",   1,  14, 0, "pfpj"        , "CNPJ_CPF"             ,"S" , .f. ,'A' } ) // 1 CNPJ/CPF                  A
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) //       
+      aadd(laESTRU,{ ""     , "A",  15,  45, 0, "pfpj"        , "PFPJ"                 ,"S" , .f. ,'A' } ) // 2 Nome Pessoa               B
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 
+      aadd(laESTRU,{ ""     , "A",  60,  45, 0, "pfpj"        , "ENDERECO"             ,"S" , .f. ,'A' } ) // 3 Endereço                  C
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""     , "N", 105,   6, 0, "pfpj"        , "NR_ENDERECO"          ,"S" , .f. ,'N' } ) // 3 Endereço                  C
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""     , "A", 111,  45, 0, "pfpj"        , "EXTRA_ENDERECO"       ,"S" , .f. ,'A' } ) // 3 Endereço                  C
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 
+      aadd(laESTRU,{ ""     , "A", 156,  25, 0, "pfpj"        , "BAIRRO"               ,"S" , .f. ,'A' } ) // 4 Bairro                    D
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""     , "A", 181,  25, 0, "pfpj"        , "CIDADE"               ,"S" , .f. ,'A' } ) // 5 Cidade                    E
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 
+      aadd(laESTRU,{ ""     , "A", 206,   2, 0, "pfpj"        , "UF"                   ,"S" , .f. ,'A' } ) // 6 Estado                    F
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 
+      aadd(laESTRU,{ ""     , "A", 208,  10, 0, "pfpj"        , "CEP"                  ,"S" , .f. ,'A' } ) // 7 CEP                       G
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 
+      aadd(laESTRU,{ "1"    , "A", 218,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 8 Categoria                 H
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 
+      aadd(laESTRU,{ ""     , "N", 219,   5, 0, "pfpj"        , "CD_BANCO"             ,"S" , .f. ,'N' } ) // 9 Banco                     I
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 
+      aadd(laESTRU,{ ""     , "A", 224,  10, 0, "pfpj"        , "BANCO_AGENCIA"        ,"S" , .f. ,'A' } ) // 10 Nr.Agência               J K
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 
+      aadd(laESTRU,{ ""     , "A", 234,  12, 0, "pfpj"        , "BANCO_CONTA"          ,"S" , .f. ,'A' } ) // 11 Nr.Conta                 L M
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 
+      aadd(laESTRU,{ ""     , "A", 246,   1, 0, ""            , "SEQUENCIA"            ,"F" , .f. ,'A' } ) // 12 num titulo               N   //'SEQUENCIA' -> gera num sequencial
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 
+      aadd(laESTRU,{ ""     , "D", 247,   9, 0, "mvt_despesa" , "DT_EMISSAO_DOCFISCAL" ,"S" , .f. ,'N' } ) // 13 Dat.Emissao              O
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 
+      aadd(laESTRU,{ ""     , "D", 258,   9, 0, "pasta"       , "DT_VENCTO"            ,"S" , .f. ,'N' } ) // 14 Dat.Vencimento           P
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 
+      aadd(laESTRU,{ ""     , "N", 267,  18, 2, "mvt_despesa" , "VL_TOTAL"             ,"S" , .f. ,'N' } ) // 15 Val.Titulo Bruto         Q
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 
+      aadd(laESTRU,{ ""     , "A", 285,  15, 0, "mvt_despesa" , "CD_CCUSTO"            ,"S" , .f. ,'A' } ) // 16 Cod.Ccusto Solicitante   R
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 
+      aadd(laESTRU,{ ""     , "A", 300,   3, 0, "mvt_despesa" , "FORMA_PAGAMENTO"      ,"S" , .f. ,'A' } ) // 17 Forma de pagamento       S
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 
+      aadd(laESTRU,{ "1"    , "A", 303,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 18 local envio cheque       T
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 
+      aadd(laESTRU,{ ""     , "A", 304,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 19 Tipo de pagamento        U
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 
+      aadd(laESTRU,{ ""     , "A", 305, 100, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 20 Observação Pagamento     V
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 
+      aadd(laESTRU,{ "00414", "A", 405,   5, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 21 conceito                 W
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 
+      aadd(laESTRU,{ "02"   , "A", 410,   2, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 22 atividade conceito       X
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 
+      aadd(laESTRU,{ "1000,00", "N", 412, 7, 2, ""            , ""                     ,"F" , .f. ,'N' } ) // 23 val. Conceito            Y
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 
+      aadd(laESTRU,{ "00001", "A", 419,   5, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 24 Cod. Custo Despesa       Z
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 
+      aadd(laESTRU,{ ""     , "A", 424,  20, 0, "pasta"       , "PRODUTO"              ,"S" , .f. ,'A' } ) // 25 Produto                  AA
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 
+      aadd(laESTRU,{ "25"   , "A", 444,   2, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 26 Projeto                  AB
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 
+      aadd(laESTRU,{ ""     , "N", 446,  18, 2, "mvt_despesa" , "VL_TT_RATEIO"         ,"S" , .f. ,'N' } ) // 27 Vr.Rateio                AC
+      aadd(laESTRU,{ ";"    , "A",  15,   1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 
+    endif
+
+return(laESTRU)
+
+
+

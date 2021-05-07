@@ -1,0 +1,454 @@
+//
+// Glauber - 04/2016
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Classe...........: EbaoConsultarRequest
+*
+* Objetivo.........: Classe utilizada para consultar Sinistros por Numero de Sinistro / Ramo.
+*
+* Atributos........:
+*
+*    EXPORT HeaderRequest
+*    EXPORT TpPessoa
+*    EXPORT IdDoc
+*
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD ObterSinistros()
+*    METHOD DetalheSinistro()
+*
+*
+* Classes Ligadas..:
+*
+*    RespEbaoConsultar, HeaderRequest, EbaoListaSntResponse, EbaoConfig, EbaoUtils, EbaoLog
+*
+*/
+
+
+CLASS EbaoConsultarRequest
+
+    // Atributos privado
+
+    INSTANCE Config
+    INSTANCE Utils
+    INSTANCE XmlServico
+
+    // Atributos publico
+
+    EXPORT HeaderRequest
+    EXPORT TpPessoa
+    EXPORT IdDoc
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()             CLASS EbaoConsultarRequest
+    PROTOTYPE METHOD Destroy()          CLASS EbaoConsultarRequest
+    PROTOTYPE METHOD ObterSinistros()   CLASS EbaoConsultarRequest
+    PROTOTYPE METHOD DetalheSinistro()  CLASS EbaoConsultarRequest
+
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS EbaoConsultarRequest
+
+    self:HeaderRequest  := HeaderRequestNew()
+    self:TpPessoa       := ''
+    self:IdDoc          := ''
+    self:XmlServico     := ''
+
+    self:Config         := EbaoConfigNew()
+    self:Utils          := EbaoUtilsNew()
+
+return(self)
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS EbaoConsultarRequest
+
+    self:HeaderRequest  := nil
+    self:TpPessoa       := nil
+    self:IdDoc          := nil
+    self:Config         := nil
+    self:XmlServico     := nil
+    self:Utils          := nil
+
+
+return(nil)
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: ObterSinistros()
+* Objetivo..: Obter os sinistros de um determinado CNPJ / CPF.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Array com os dados dos Sinistros. Em caso de erro ou não encontado retorna um array vazio.
+*
+*/
+
+METHOD ObterSinistros() CLASS EbaoConsultarRequest
+
+   local laRES      := {},;
+         laSAVE     := {},;
+         laSAVEAUX  := {} as Array
+
+   local lnPOS      := 0 as Int
+
+   local lcEnv      := '',;
+         lcRet      := '',;
+         lcParser   := '',;
+         lcTmp      := '',;
+         lcErro     := '',;
+         lcRun      := ''  as String
+
+   local llDebug    := .F.
+   local objLog     := EbaoLogNew() AS Object
+
+   if ! self:CarregarCfg(0)
+      return {}
+   endif
+
+   // Prepara o envio
+
+   lcEnv    := Utils:PathEbao + 'ELST_' + Wset('LOGIN') +'_'+alltrim(wic_random()) +'.XML'
+   lcRet    := strtran(lcEnv,'.XML','.RET')
+   lcParser := Utils:Parser2Str(self:XmlServico,{{'TP_PESSOA','CNPJ_CPF'},;
+                                                 {self:TpPessoa, self:IdDoc}})
+
+   GravaArquivo(lcEnv,lcParser) // Função presente na func_wic.wh
+
+   // Executa o pedido das informações
+
+   lcRun    := Utils:AppEbao + ' listarsinistros ' + lcEnv + ' '
+   Utils:ExecutarPlugIn(lcRun,llDebug)
+
+//   lcRet := 'lista.RET'
+
+   // Obter o conteúdo da resposta
+
+   if (! file(lcRet))
+      Walert('Erro ao receber o arquivo de retorno.Arquivo de retorno não existe:'+lcRet)
+      return {}
+   endif
+
+  lcTmp  := GetFileContent(lcRet) // Resgata o conteúdo do arquivo de retorno. Função presente na func_wic.wh
+  // Glauber 09/2017 - Pasta 5290
+//  laRES  := Utils:StrSerealize(lcTmp)
+   laRES  := Utils:MultiRowStrSerealize(lcTmp)
+
+  if (len(laRES) < 2)
+      return {}
+  endif
+
+
+  // Gravar o Log
+
+  objLog:NrControle := 0
+  objLog:Data       := Date()
+  objLog:Hora       := Time()
+  objLog:Login      := WSet('LOGIN')
+  objLog:IdServico  := 0
+  objLog:Requisicao := lcParser
+  objLog:Retorno    := lcTmp
+
+  objLog:Save()
+
+  // Tratar o erro
+
+  lnPOS := ascan(laRES[1],'CDRETORNO')
+
+  if (lnPOS == 0)
+      Walert('Atenção, ocorreu um erro ao processar o arquivo de retorno: '+lcRet)
+      return {}
+  endif
+
+  if val(laRES[2,lnPOS]) > 0
+     lnPOS := ascan(laRES[1], 'NMRETORNO')
+     Walert(laRES[2,lnPOS])
+     return {}
+  endif
+
+
+return (laRES)
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: DetalheSinistro()
+* Objetivo..: Obter o detalhe de um sinistro
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Objeto RespEbaoConsultar.
+*
+*/
+
+METHOD DetalheSinistro() CLASS EbaoConsultarRequest
+
+   local laRES      := {},;
+         laSAVE     := {},;
+         laSAVEAUX  := {} as Array
+
+   local lnPOS      := 0 as Int
+
+   local lcEnv      := '',;
+         lcRet      := '',;
+         lcParser   := '',;
+         lcTmp      := '',;
+         lcErro     := '',;
+         lcRun      := ''  as String
+
+   local llDebug    := .F.
+   local objRet     := RespEbaoConsultarNew() AS Object
+   local objLog     := EbaoLogNew() AS Object
+   local objStatus  := RetornoEbaoNew() AS Object
+
+
+   if ! self:CarregarCfg(1)
+      return objRet
+   endif
+
+   // Prepara o envio
+
+   lcEnv    := Utils:PathEbao + 'EDET_' + Wset('LOGIN') +'_'+alltrim(wic_random()) +'.XML'
+   lcRet    := strtran(lcEnv,'.XML','.RET')
+   lcParser := Utils:Parser2Str(self:XmlServico,{{'CD_RAMOSRSN','NR_SINISTRO'},;
+                                                 {HeaderRequest:Ramo, HeaderRequest:SinistroNumero}})
+
+   GravaArquivo(lcEnv,lcParser) // Função presente na func_wic.wh
+
+   // Executa o pedido das informações
+
+   lcRun    := Utils:AppEbao + ' detalharsinistro ' + lcEnv + ' '
+   Utils:ExecutarPlugIn(lcRun,llDebug)
+
+   // Obter o conteúdo da resposta
+
+//   lcRet := 'detalsin.RET'
+
+   if (! file(lcRet))
+      Walert('Erro ao receber o arquivo de retorno. Arquivo de retorno não existe:'+lcRet)
+      objStatus:CdRetorno := -9
+      objStatus:NmRetorno := 'Erro ao receber o arquivo de retorno. Arquivo de retorno não existe:'+lcRet
+      objRet:Retorno      := objStatus
+      return objRet
+   endif
+
+  lcTmp  := GetFileContent(lcRet) // Resgata o conteúdo do arquivo de retorno. Função presente na func_wic.wh
+  laRES  := Utils:StrSerealize(lcTmp)
+
+  if (len(laRES) < 2)
+     objStatus:CdRetorno := -9
+     objStatus:NmRetorno := 'Não foi encontrado conteúdo ao receber o arquivo de retorno:'+lcRet
+     objRet:Retorno      := objStatus
+     return objRet
+  endif
+
+  // Gravar o Log
+
+  objLog:NrControle := 0
+  objLog:Data       := Date()
+  objLog:Hora       := Time()
+  objLog:Login      := WSet('LOGIN')
+  objLog:IdServico  := 1
+  objLog:Requisicao := lcParser
+  objLog:Retorno    := lcTmp
+
+  objLog:Save()
+
+  // Tratar o erro
+
+  lnPOS := ascan(laRES[1], 'CDRETORNO')
+
+  if (lnPOS == 0)
+      Walert('Atenção, ocorreu um erro ao processar o arquivo de retorno: '+lcRet)
+      objStatus:CdRetorno := -9
+      objStatus:NmRetorno := 'Atenção, ocorreu um erro ao processar o arquivo de retorno: '+lcRet
+      objRet:Retorno      := objStatus
+      return objRet
+  endif
+
+  objStatus:CdRetorno := val(laRES[2,lnPOS])
+  lnPOS := ascan(laRES[1], 'NMRETORNO')
+  objStatus:NmRetorno := laRES[2,lnPOS]
+
+  if val(laRES[2,lnPOS]) > 0
+     objRet:Retorno      := objStatus
+     return objRet
+  endif
+
+//debug2(laRES,,30)
+
+  // Processamento com sucesso, preencher o objeto de retorno
+
+  objRet:SinistroNumero      := laRES[2,db_fetchncol(laRES,'SINISTRONUMERO')]
+  objRet:Ramo                := laRES[2,db_fetchncol(laRES,'RAMO')]
+  objRet:StatusSinistro      := laRES[2,db_fetchncol(laRES,'STATUSSINISTRO')]
+  objRet:TipoSinistro        := laRES[2,db_fetchncol(laRES,'TIPOSINISTRO')]
+  objRet:PremioPendente      := laRES[2,db_fetchncol(laRES,'PREMIOPENDENTE')]
+  objRet:NumApolice          := laRES[2,db_fetchncol(laRES,'NUMAPOLICE')]
+  objRet:Produto             := laRES[2,db_fetchncol(laRES,'PRODUTO')]
+  objRet:TitularApolice      := laRES[2,db_fetchncol(laRES,'TITULARAPOLICE')]
+  objRet:DocumentoTitular    := laRES[2,db_fetchncol(laRES,'DOCUMENTOTITULAR')]
+  objRet:FlCosseguro         := laRES[2,db_fetchncol(laRES,'FLCOSSEGURO')]
+  objRet:IniVigencia         := laRES[2,db_fetchncol(laRES,'INIVIGENCIA')]
+  objRet:FimVigencia         := laRES[2,db_fetchncol(laRES,'FIMVIGENCIA')]
+  objRet:CausaSinistro       := laRES[2,db_fetchncol(laRES,'CAUSASINISTRO')]
+  objRet:DataSinistro        := laRES[2,db_fetchncol(laRES,'DATASSINISTRO')]
+  objRet:DataRegistro        := laRES[2,db_fetchncol(laRES,'DATAREGISTRO')]
+  objRet:PessoaContato       := laRES[2,db_fetchncol(laRES,'PESSOACONTATO')]
+  objRet:TelefoneContato     := laRES[2,db_fetchncol(laRES,'TELEFONECONTATO')]
+  objRet:EstadoAcidente      := laRES[2,db_fetchncol(laRES,'ESTADOACIDENTE')]
+  objRet:CidadeAcidente      := laRES[2,db_fetchncol(laRES,'CIDADEACIDENTE')]
+  objRet:ObjetoSegurado      := laRES[2,db_fetchncol(laRES,'OBJETOSEGURADO')]
+  objRet:Reclamante          := laRES[2,db_fetchncol(laRES,'RECLAMANTE')]
+  objRet:TelefoneReclamante  := laRES[2,db_fetchncol(laRES,'TELEFONERECLAMANTE')]
+  objRet:DocumentoReclamante := laRES[2,db_fetchncol(laRES,'DOCUMENTORECLAMANTE')]
+  objRet:TipoDano            := laRES[2,db_fetchncol(laRES,'TIPODANO')]
+  objRet:Cobertura           := laRES[2,db_fetchncol(laRES,'COBERTURA')]
+//  objRet:CobSubCobertura     := laRES[2,db_fetchncol(laRES,'STATUSSINISTRO')]
+//  objRet:IsCobSubCobertura   := laRES[2,db_fetchncol(laRES,'STATUSSINISTRO')]
+  objStatus:CdRetorno        := val(laRES[2,db_fetchncol(laRES,'CDRETORNO')])
+  objStatus:NmRetorno        := laRES[2, db_fetchncol(laRES,'NMRETORNO')]
+  objRet:Retorno             := objStatus
+
+return (objRet)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: pnOPERACAO
+* Objetivo..: Carrega a configuração corrente de um serviço.
+*
+* Parâmetros:
+*
+*  pnOPERACAO : Operação a ser carregada.
+*
+* Retorno...:
+*             Array com os dados dos Sinistros. Em caso de erro ou não encontado retorna um array vazio.
+*
+*/
+
+METHOD CarregarCfg(pnOPERACAO) CLASS EbaoConsultarRequest
+
+    local lnPOS  := 0  as int
+    local lcMSG  := '',;
+          lcSERV := '' as String
+
+
+    if ! Utils:ValidaPathAppEbao()
+       return .F.
+    endif
+
+    Config:ObterConfiguracao() // Recuperar a Configuração corrente
+    Config:ObterServicos()     // Recuperar todos os serviços
+
+    if (pnOPERACAO == 0)
+       lcSERV := Alltrim(Config:IdListaSinistros)
+       lcMSG  := 'O serviço para listagem de sinistros é inválido.'
+    elseif (pnOPERACAO == 1)
+           lcSERV := Alltrim(Config:IdDetalheSinistro)
+           lcMSG  := 'O serviço para detalhamento de sinistros é inválido.'
+    endif
+
+//    if (lnSERV == 0)
+//       Walert(lcMSG)
+//       return .F.
+//    endif
+
+
+    lnPOS := ascan(Config:ResultSet, {|x| alltrim(x[1]) == lcSERV})
+
+    if (lnPOS == 0)
+       Walert(lcMSG + ' O serviço informado não foi encontrado.')
+       return .F.
+    endif
+    self:XmlServico := Config:ResultSet[lnPOS,3]
+    if (Empty(self:XmlServico))
+       Walert(lcMSG + ' O serviço não contém leiaute de comunicação.')
+       return .F.
+    endif
+
+
+
+return .T.

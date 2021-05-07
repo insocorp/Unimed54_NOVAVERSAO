@@ -1,0 +1,446 @@
+//
+// Glauber - 04/2016
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+*
+* Glauber - 10/2016
+*
+* Classe...........: EbaoAtualizarReserva
+*
+* Objetivo.........: Classe que envia o ajuste da reserva.
+*
+* Atributos........:
+*
+*    EXPORT HeaderRequest
+*    EXPORT NrPasta
+*    EXPORT TpPasta
+*    EXPORT NrControleSeguro
+*    EXPORT Cobertura
+*    EXPORT SubCobertura
+*    EXPORT TipoReserva
+*    EXPORT ValorReserva
+*    EXPORT ValorAtualizacao
+*    EXPORT AjusteCorrecao
+*    EXPORT EncerrarSinistro
+*    EXPORT FlAtuPagamento
+*    INSTANCE CdRetorno
+*    INSTANCE NmRetorno
+*
+*
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD AtualizarReserva()
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS EbaoAtualizarReserva
+
+    // Atributos privado
+
+    INSTANCE Config
+    INSTANCE Utils
+    INSTANCE XmlServico
+
+
+
+    // Atributos publico
+
+    EXPORT HeaderRequest
+    EXPORT NrPasta
+    EXPORT TpPasta
+    EXPORT NrControleSeguro
+    EXPORT Cobertura
+    EXPORT SubCobertura
+    EXPORT TipoReserva
+    EXPORT ValorReserva
+    EXPORT ValorAtualizacao
+    EXPORT AjusteCorrecao
+    EXPORT EncerrarSinistro
+    EXPORT FlAtuPagamento
+    EXPORT Retorno
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()             CLASS EbaoAtualizarReserva
+    PROTOTYPE METHOD Destroy()          CLASS EbaoAtualizarReserva
+    PROTOTYPE METHOD AtualizarReserva() CLASS EbaoAtualizarReserva
+
+
+
+
+/*
+*
+* Glauber - 10/2016
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS EbaoAtualizarReserva
+
+
+    self:HeaderRequest        := HeaderRequestNew()
+    self:NrPasta              := WGet('NR_PASTA')
+    self:TpPasta              := WGet('TP_PASTA')
+    self:NrControleSeguro     := 0
+    self:Cobertura            := ''
+    self:SubCobertura         := ''
+    self:TipoReserva          := 'I'
+    self:ValorReserva         := 0.00
+    self:ValorAtualizacao     := 0.00
+    self:AjusteCorrecao       := 'N'
+    self:EncerrarSinistro     := 'N'
+    self:FlAtuPagamento       := 'N'
+    self:Retorno              := RetornoEbaoNew()
+
+    self:Config               := EbaoConfigNew()
+    self:Utils                := EbaoUtilsNew()
+    self:XmlServico           := ''
+    self:Retorno              := RetornoEbaoNew()
+
+
+
+return(self)
+
+
+/*
+*
+* Glauber - 10/2016
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS EbaoAtualizarReserva
+
+    self:HeaderRequest        := nil
+    self:NrPasta              := nil
+    self:TpPasta              := nil
+    self:NrControleSeguro     := nil
+    self:Cobertura            := nil
+    self:SubCobertura         := nil
+    self:TipoReserva          := nil
+    self:ValorReserva         := nil
+    self:ValorAtualizacao     := nil
+    self:AjusteCorrecao       := nil
+    self:EncerrarSinistro     := nil
+    self:FlAtuPagamento       := nil
+    self:Retorno              := nil
+    
+    self:Config               := nil
+    self:XmlServico           := nil
+    self:Utils                := nil
+    self:Retorno              := nil
+
+
+
+return(nil)
+
+// Gets
+
+
+/*
+*
+* Glauber - 10/2016
+*
+* Metodo....: AtualizarReserva()
+* Objetivo..: Envia o ajuste da reserva.
+*
+* Parâmetros:
+*
+* Retorno...:
+*    T. Caso a comunicação ocorra com sucesso.
+*
+*/
+
+
+
+METHOD AtualizarReserva() CLASS EbaoAtualizarReserva
+
+
+   local laRES      := {},;
+         laSAVE     := {},;
+         laSAVEAUX  := {} as Array
+
+   local lnPOS      := 0,;
+         lnCODRET   := 0,;
+         lnDESRET   := 0  as Int
+
+   local lcEnv      := '',;
+         lcRet      := '',;
+         lcParser   := '',;
+         lcTmp      := '',;
+         lcErro     := '',;
+         lcRun      := ''  as String
+
+   local llDebug    := .F.
+   local objLog     := EbaoLogNew() AS Object
+
+
+   if ! self:CarregarCfg(4)
+      self:Retorno:CdRetorno := -999
+      self:Retorno:NmRetorno := 'Não existe configuração do eBao para operação atualizar reserva.'
+      return self:Retorno
+   endif
+
+   if ! self:ValidaChamada()
+      return self:Retorno
+   endif
+
+   // Prepara o envio
+
+   aadd(laRES, {'CD_RAMOSRSN',;
+                'NR_SINISTRO',;
+                'NR_PASTA',;
+                'TP_PASTA',;
+                'NR_CONTROLE_SEGURO',;
+                'COBERTURA',;
+                'SUBCOBERTURA',;
+                'TIPORESERVA',;
+                'VALORRESERVA',;
+                'VALORATUALIZADO',;
+                'AJUSTECORRECAO',;
+                'ENCERRARSINISTRO',;
+                'FLATUPAGAMENTO'})
+
+    aadd(laRES, {self:HeaderRequest:Ramo,;
+                 self:HeaderRequest:SinistroNumero,;
+                 self:NrPasta,;
+                 self:TpPasta,;
+                 self:NrControleSeguro,;
+                 self:Cobertura,;
+                 self:SubCobertura,;
+                 self:TipoReserva,;
+                 TRANSFORM(self:ValorReserva,'999999999999999'),;
+                 TRANSFORM(self:ValorAtualizacao,'999999999999999'),;
+                 self:AjusteCorrecao,;
+                 self:EncerrarSinistro,;
+                 self:FlAtuPagamento })
+
+
+
+   lcEnv    := Utils:PathEbao + 'ATURES_' + Wset('LOGIN') +'_'+alltrim(wic_random()) +'.XML'
+   lcRet    := strtran(lcEnv,'.XML','.RET')
+   lcParser := Utils:Parser2Str(self:XmlServico, laRES)
+
+   GravaArquivo(lcEnv,lcParser) // Função presente na func_wic.wh
+
+   // Executa o pedido das informações
+
+   lcRun    := Utils:AppEbao + ' atualizareserva ' + lcEnv + ' '
+   Utils:ExecutarPlugIn(lcRun,llDebug)
+
+//   lcRet := 'lista.RET'
+
+   // Obter o conteúdo da resposta
+
+   if (! file(lcRet))
+      Walert('Erro ao receber o arquivo de retorno.Arquivo de retorno não existe:'+lcRet)
+      self:Retorno:CdRetorno := -999
+      self:Retorno:NmRetorno := 'Erro ao receber o arquivo de retorno.Arquivo de retorno não existe:'+lcRet
+      return self:Retorno
+   endif
+
+  lcTmp  := GetFileContent(lcRet) // Resgata o conteúdo do arquivo de retorno. Função presente na func_wic.wh
+  laRES  := Utils:StrSerealize(lcTmp)
+
+//debug2(laRES,,30)
+
+  if (len(laRES) < 2)
+      self:Retorno:CdRetorno := -999
+      self:Retorno:NmRetorno := 'Não foi retornado informações do eBao para operação marcar sinistro.'
+      return self:Retorno
+  endif
+
+
+  // Gravar o Log
+
+  objLog:NrControle := 0
+  objLog:Data       := Date()
+  objLog:Hora       := Time()
+  objLog:Login      := WSet('LOGIN')
+  objLog:IdServico  := 0
+  objLog:Requisicao := lcParser
+  objLog:Retorno    := lcTmp
+
+  objLog:Save()
+
+  // Tratar o erro
+
+  lnPOS    := ascan(laRES[1],'CDRETORNO')
+  lnCODRET := lnPOS
+
+  if (lnPOS == 0)
+      Walert('Atenção, ocorreu um erro ao processar o arquivo de retorno: '+lcRet)
+      self:Retorno:CdRetorno := -999
+      self:Retorno:NmRetorno := 'Atenção, ocorreu um erro ao processar o arquivo de retorno: '+lcRet
+      return self:Retorno
+  endif
+
+  if val(laRES[2,lnPOS]) > 0
+     lnPOS    := ascan(laRES[1], 'NMRETORNO')
+     lnDESRET := lnPOS
+//     Walert(laRES[2,lnPOS])
+     self:Retorno:CdRetorno := val(laRES[2,lnCODRET])
+     self:Retorno:NmRetorno := laRES[2,lnPOS]
+     return self:Retorno
+  endif
+
+  // Preencher o objeto de retorno
+
+  self:Retorno:CdRetorno    := val(laRES[2,lnCODRET])
+  self:Retorno:NmRetorno    := laRES[2,lnDESRET]
+
+
+return self:Retorno
+
+
+
+
+
+
+
+
+
+/*
+*
+* Glauber - 10/2016
+*
+* Metodo....: CarregarCfg(pnOPERACAO)
+* Objetivo..: Carrega a configuração corrente de um serviço.
+*
+* Parâmetros:
+*
+*  pnOPERACAO : Operação a ser carregada.
+*
+* Retorno...:
+*             Array com os dados dos Sinistros. Em caso de erro ou não encontado retorna um array vazio.
+*
+*/
+
+METHOD CarregarCfg(pnOPERACAO) CLASS EbaoAtualizarReserva
+
+    local lnPOS  := 0  as int
+    local lcMSG  := '',;
+          lcSERV := '' as String
+
+
+    if ! Utils:ValidaPathAppEbao()
+       return .F.
+    endif
+
+    Config:ObterConfiguracao() // Recuperar a Configuração corrente
+    Config:ObterServicos()     // Recuperar todos os serviços
+    lcSERV := Alltrim(Config:IdAtualizaReserva)
+
+    if (pnOPERACAO != 4)
+       lcMSG  := 'O serviço para atualização da reserva é inválido.'
+    endif
+
+
+    lnPOS := ascan(Config:ResultSet, {|x| alltrim(x[1]) == lcSERV})
+
+    if (lnPOS == 0)
+       Walert(lcMSG + ' O serviço informado não foi encontrado.')
+       return .F.
+    endif
+    self:XmlServico := Config:ResultSet[lnPOS,3]
+    if (Empty(self:XmlServico))
+       Walert(lcMSG + ' O serviço não contém leiaute de comunicação.')
+       return .F.
+    endif
+
+
+
+return .T.
+
+
+
+
+/*
+*
+* Glauber - 10/2016
+*
+* Metodo....: ValidaChamada
+* Objetivo..: Faz a validação dos campos antes de consumir o webservice.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             .T. Caso esteja válido.
+*
+*/
+
+METHOD ValidaChamada() CLASS EbaoAtualizarReserva
+
+
+    if (self:NrPasta == 0)
+       self:Retorno:CdRetorno := -999
+       self:Retorno:NmRetorno := 'Número de pasta inválido ou não informado.'
+       return .F.
+    endif
+    if Empty(self:Cobertura)
+       self:Retorno:CdRetorno := -999
+       self:Retorno:NmRetorno := 'Tipo de cobertura inválido ou não informado.'
+       return .F.
+    endif
+    if Empty(self:TipoReserva)
+       self:Retorno:CdRetorno := -999
+       self:Retorno:NmRetorno := 'Tipo de reserva inválido ou não informado.'
+       return .F.
+    endif
+    if (self:ValorReserva == 0)
+       self:Retorno:CdRetorno := -999
+       self:Retorno:NmRetorno := 'Valor da reserva inválido ou não informado.'
+       return .F.
+    endif
+    if (self:ValorAtualizacao == 0)
+       self:Retorno:CdRetorno := -999
+       self:Retorno:NmRetorno := 'Valor oferecido inválido ou não informado.'
+       return .F.
+    endif
+    if Empty(self:EncerrarSinistro)
+       self:Retorno:CdRetorno := -999
+       self:Retorno:NmRetorno := 'Status de encerramento de sinistro inválido ou não informado.'
+       return .F.
+    endif
+    if Empty(self:FlAtuPagamento)
+       self:Retorno:CdRetorno := -999
+       self:Retorno:NmRetorno := 'Status de encerramento de sinistro inválido ou não informado.'
+       return .F.
+    endif
+
+return .T.

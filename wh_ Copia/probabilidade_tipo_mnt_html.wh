@@ -1,0 +1,63 @@
+/*
+
+Project      : gr5
+Program      : probabilidade_tipo.mnt.html
+Function     : probabilidade_tipo_mnt_html
+Created on   : 22/06/2012 14:29:33
+Descripition : Tipo de Probabilidade
+
+*/
+
+local laPARAM        := {} ,;
+      laINPUT_OBJ    := {} ,;
+      laSELECT       := {} as array
+
+laPARAM := {{'PROBABILIDADE',''     ,'*'},;
+            {'FL_ATIVO','',},;
+            {'TP_PASTA'     ,''     ,'*'},;
+            {'ACTION'       ,'ALTER',   }}
+
+laINPUT_OBJ := {{'TP_PASTA',1, ,'Y',"loadcboxorder_build('pasta_config','TP_PASTA',.T.,{'TP_PASTA'})"},;
+                {               , , ,   ,   },;
+                {'PROBABILIDADE',0, ,'Y',   } ,;
+                {,,,,},;
+                {'FL_ATIVO',2,,,'"S"' }}
+
+laSELECT := {'TP_PASTA','PROBABILIDADE','FL_ATIVO'}
+
+
+
+xbp('tipo_probabilidade',;                                                   //Tabela alvo
+     ,;                                                                  //Joins
+     ,;                                                                  //Where
+     {'TP_PASTA','PROBABILIDADE'},;		                                         //Order by
+     ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+     ,;                                                                  //Group by
+     ,;                                                                  //Limit
+     ,;                                                                  //Banco de Dados
+     2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+     'gr5',;                                                             //Modulo do programa chamador
+     WSet('_USER_INTERFACE'),;                                           //Programa chamador
+     laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+     ,;                                                                  //Parâmetros para os botões das linhas do grid
+     'probabilidade_tipo.mnt.html',;                                          //Programa que os links/botoes do grid deverao chamar
+     'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+     ,;                                                                  //Retorno java (nil) - usado apenas para Search
+     ,;                                                                  //Campos usados na pesquisa rápida
+     ,;                                                                  //Campos Ocultos
+     laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+     laSELECT ,;                                                         //Campos exibidos no grid
+     laSELECT)                                                           //Campos usados no select
+return
+
+
+
+
+
+
+
+
+
+
+
+

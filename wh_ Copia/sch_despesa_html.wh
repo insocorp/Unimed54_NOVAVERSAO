@@ -1,0 +1,81 @@
+/*
+
+Project      : gr5
+Program      : sch.despesa.html
+Function     : sch_despesa_html
+Created on   : 22-Aug-2002   16:32:40
+Descripition : Pesquisa de Despesas
+
+*/
+
+local lcWSCRIPT := ''            as string
+
+local laFIELDS       := {},;
+      laJAVA         := {},;
+      laJOIN         := {},;
+      laWHERE        := {},;      
+      laQUICK_SEARCH := {} as array
+
+laFIELDS       := {'despesa.CD_DESPESA','despesa.NM_DESPESA','despesa.CD_GRP_DESPESA',;
+                   'grupo_despesa.NM_GRP_DESPESA','despesa.CD_MOEDA','moeda.NM_MOEDA',;
+                   'despesa.SET_VL_REVISAO','despesa.SET_VL_APROVACAO','despesa.FL_AJUSTA_PEDIDO','despesa.FL_ZERAR_PROVISAO',;
+                   'despesa.FL_CONTABILIZA_PEDIDO','despesa.FL_CONTABILIZA_LANCTOS_CONT','despesa.CD_DESPESA_INTERFACE',;
+                   'despesa.INCIDENCIA_IMPOSTOS','despesa.OCOR_PEDIDO_QUITA'}
+
+laJAVA         := {'mntform',{{'CD_DESPESA','CD_DESPESA'},{'NM_DESPESA','NM_DESPESA'},;
+                  {'NM_GRP_DESPESA','NM_GRP_DESPESA'},{'CD_GRP_DESPESA','CD_GRP_DESPESA'},; 
+                  {'CD_MOEDA','CD_MOEDA'},{'NM_MOEDA','NM_MOEDA'},{'SET_VL_REVISAO','SET_VL_REVISAO'},;
+                  {'SET_VL_APROVACAO','SET_VL_APROVACAO'},{'FL_AJUSTA_PEDIDO','FL_AJUSTA_PEDIDO'},{'FL_ZERAR_PROVISAO','FL_ZERAR_PROVISAO'},;
+                  {'FL_CONTABILIZA_PEDIDO','FL_CONTABILIZA_PEDIDO'},{'FL_CONTABILIZA_LANCTOS_CONT','FL_CONTABILIZA_LANCTOS_CONT'},;
+                  {'CD_DESPESA_INTERFACE','CD_DESPESA_INTERFACE'},{'INCIDENCIA_IMPOSTOS','INCIDENCIA_IMPOSTOS'},;
+                  {'OCOR_PEDIDO_QUITA','OCOR_PEDIDO_QUITA'}}}
+
+laQUICK_SEARCH := {'despesa.CD_DESPESA','despesa.NM_DESPESA','grupo_despesa.NM_GRP_DESPESA'}
+laJOIN         := {{2,'moeda','moeda.CD_MOEDA=despesa.CD_MOEDA'},;
+                   {2,'grupo_despesa','despesa.CD_GRP_DESPESA = grupo_despesa.CD_GRP_DESPESA'}}
+
+laWHERE        := {'despesa.FL_ATIVO <> '+DLAP+'I'+DLAP}
+
+xbp('despesa',;                 //Tabela Alvo
+              laJOIN,;                    //Join
+              laWHERE,;                   //Where
+              {'NM_DESPESA'},;            //Order by
+              ,;                          //Sort [A]-Ascendente [D]-Descentende
+              ,;                          //Group by
+              ,;                          //Limit
+              ,;                          //Banco de Dados
+              3,;                         //Modo de funcionamento [1]-Listagem/Form para manutenção [2]-Listagem e Manutenção [3]-Search
+              'gr5',;                     //Modulo do programa chamador
+              WSet('_USER_INTERFACE'),;   //Programa chamador
+              ,;                          //Parametros para linhas clicáveis
+              ,;                          //Botoes (nil)
+              'mnt.despesa.html',;        //Programa chamado pelos links (linhas clicáveis)
+              'gr5',;                     //Módulo do programa chamado pelos links
+              laJAVA,;                    //Retorno java (nil) - usado apenas no search
+              laQUICK_SEARCH,;            //Campos usados na pesquisa rápida
+              ,;                          //Campos ocultos. Usado apenas em manutenções    ***
+              ,;                          //Campos da área de manutenção/entrada de dados  ***
+              laFIELDS,;                  //Campos mostratos no grid
+              laFIELDS)                   //Campos usados no select
+
+lcWSCRIPT := 'opener.document.mntform.submit()'
+return(lcWSCRIPT)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

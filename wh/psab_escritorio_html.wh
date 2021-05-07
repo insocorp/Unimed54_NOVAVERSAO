@@ -1,0 +1,219 @@
+/*
+Alterado em 01/02/2009 - Eliana inclusao rotina para Lits
+*Chama funcoes : verifica_relacionamento
+*                ver_aba
+*                montar_filho
+
+Project      : gr5
+Program      : psab.escritorio.html
+Function     : psab_escritorio_html
+Created on   : 12-Dec-2004   10:00:55
+Descripition : Aba Escritório
+
+*/
+
+   local lcNR_PASTA := '' ,;
+         lcTP_PASTA := '' ,;
+         lcRelac    := '' ,;
+         lcProgram  := 'psab_escritorio_html' ,;
+         lcACTION   := '' ,;
+         lcWHERE    := '' as string
+   local laFIELDS   := {} ,;
+         laPUT      := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} as array
+   local ii := 0 as int
+   local llReturn   := .f. as logical
+
+   laFIELDS    := {'VL_RISCO_ADVEXT' ,;
+                   'VL_RISCO2_ADVEXT',;
+                   'PC_RISCO_ADVEXT' ,;
+                   'PC_RISCO2_ADVEXT',;
+                   'VL_AUTOR',;
+                   'FASE_PROCESSUAL' ,;
+                   'EXTRA',;
+                   'VL_RISCO_HONORARIO',;
+                   'DT_AUDIENCIA',;
+                   'DT_DEFESA'}
+
+   lcACTION    := WGet('ACTION','C')
+   lcNR_PASTA  := WGet('NR_PASTA','C')
+   lcTP_PASTA  := WGet('TP_PASTA','C')
+   lcWHERE     := 'NR_PASTA='+lcNR_PASTA
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+
+   init_reqfield(WSet('_USER_INTERFACE'))
+   make_psthead(lcNR_PASTA,lcTP_PASTA) //Cabeçalho
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+
+   WPut('TP_PASTA',lcTP_PASTA)
+   WPut('NR_PASTA',lcNR_PASTA)
+//    WPut('TITLE',lcTP_PASTA+' - Escritório')
+
+/*  sonia - 24/01/2014 17:48:43
+   if db_select({'FASE_PROCESSUAL'},'fase_processual',,{'TP_PASTA='+DLAP+lcTP_PASTA+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   aadd(laPUT,'')
+   for ii := 2 to len(laRES)
+       aadd(laPUT,laRES[ii,1])
+   next ii
+   WPut('FASE_PROCESSUAL.option',laPUT)
+*/
+   carrega_cbox({{'fase_processual','FASE_PROCESSUAL','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+
+//------------  Verificando relacionamento    -----------------------------------------
+
+   lcRelac:=verifica_relacionamento(lcNR_PASTA,lcTp_pasta)
+
+//------------ Verificando se Aba pode ser alterada  ------------------------
+
+   if lcRelac = 'F' .or. lcRelac = 'P'
+      llReturn:=Ver_ABA(lcTP_PASTA, lcProgram)
+   endif         
+
+   if lcRelac = 'F' .and. llReturn  
+      walert('Somente Para Consulta - Pasta Pertence a Litsconsorte')
+
+   elseif lcACTION == 'SAVE' .and. gbWAC_CREATE
+       if verif_reqfield(WSet('_USER_INTERFACE'))
+          aadd(laSAVE,laFIELDS)
+          for ii := 1 to len(laFIELDS)
+             aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+          next ii
+          aadd(laSAVE,laSAVE_AUX)
+          psab_logs(laSAVE,'pasta',lcWHERE,lcNR_PASTA,'Escritório')
+          if db_update(laSAVE,'pasta',{lcWHERE}) = -1
+             error_sys(db_error())
+          endif
+
+          /* Gravando os campos CIP */
+          if ! empty(alltrim(WGet('CIP_ADVOGADO_EXTERNO','C')))
+             laSAVE  := {{'NR_PASTA','WFIELD','CIP'}}
+             if lcRelac = '' .or. lcRelac = 'P' .or. (lcRelac = 'F' .and. llReturn = .f.)      // se .f. posso alterar atraves do filho
+                aadd(laSAVE,{val(lcNR_PASTA),;
+                          'CIP_ADVOGADO_EXTERNO',;
+                          WGet('CIP_ADVOGADO_EXTERNO','C')})
+                lcWHERE := 'NR_PASTA='+lcNR_PASTA+' and WFIELD='+DLAP+'CIP_ADVOGADO_EXTERNO'+DLAP
+                psab_logs(laSAVE,'pasta_cip',lcWHERE,lcNR_PASTA,'Informações Principais') //Gravar log de alterações da pasta
+                if db_replace(laSAVE,'pasta_cip',{lcWHERE}) == -1
+                   error_sys(db_error())
+                endif
+                if lcRelac = 'P' .and. llReturn 
+                   laFilho:=Montar_filho(lcNR_PASTA,lcTp_pasta)
+                   if len(laFilho) > 0
+                      for ii :=1 to len(lafilho)
+                         lcWHEREP := 'NR_PASTA='+str(lafilhoa[ii])+' and WFIELD='+DLAP+'CIP_ADVOGADO_EXTERNO'+DLAP
+                         if db_replace(laSAVE,'pasta_cip',{lcWHEREP}) == -1
+                            error_sys(db_error())
+                         endif
+                      next ii
+                   endif
+                endif
+             endif
+          else
+             if lcRelac = '' .or. lcRelac = 'P' .or. (lcRelac = 'F' .and. llReturn = .f.)      // se .f. posso alterar atraves do filho
+                if db_delete('pasta_cip','NR_PASTA='+lcNR_PASTA+' and WFIELD='+DLAP+'CIP_ADVOGADO_EXTERNO'+DLAP) == -1
+                   error_sys(db_error())
+                endif
+                if lcRelac = 'P' .and. llReturn 
+                   laFilho:=Montar_filho(lcNR_PASTA, lcTp_pasta)
+                   if len(laFilho) > 0
+                      for ii :=1 to len(lafilho)
+                        lcWHEREP := 'NR_PASTA='+str(lafilhoa[ii])+' and WFIELD='+DLAP+'CIP_ADVOGADO_EXTERNO'+DLAP
+                          if db_delete('pasta_cip','NR_PASTA='+str(lafilho[ii])+' and WFIELD='+DLAP+'CIP_ADVOGADO_EXTERNO'+DLAP) == -1
+                             error_sys(db_error())
+                          endif
+                      next ii
+                   endif
+                endif       
+             endif
+          endif
+       endif
+   endif
+
+   if ! empty(lcNR_PASTA)
+      lcWHERE     := 'NR_PASTA='+lcNR_PASTA
+      if db_select(laFIELDS,'pasta',,{lcWHERE}) = -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      if len(laRES) > 0
+         db2Put(laRES)
+//          if db_select({'PFPJ'},'pfpj',,{'CIP='+DLAP+laRES[2,db_fetchncol(laRES,'CIP_ADVOGADO_EXTERNO')]+DLAP}) = -1
+//             error_sys(db_error())
+//          endif
+//          laPUT := db_fetchrow()
+//          if len(laPUT) > 0
+//             WPut('CIP_ADVOGADO_EXTERNO_PFPJ',laPUT[1])
+//          endif
+
+         if db_select({'CIP','WFIELD'},'pasta_cip',,{'NR_PASTA='+lcNR_PASTA+' and '+;
+                                                     '(WFIELD='+DLAP+'CIP_ADVOGADO_EXTERNO'+DLAP+;
+                                                     ' or WFIELD='+DLAP+'CIP_ESCRITORIO'+DLAP+')'}) == -1
+            error_sys(db_error())
+         endif
+         laPUT := db_fetchall()
+         if len(laPUT) > 1
+            for ii := 2 to len(laPUT)
+               if db_select({'CIP as '+laPUT[ii,2],'PFPJ as '+laPUT[ii,2]+'_PFPJ'},'pfpj',,{'CIP='+DLAP+laPUT[ii,1]+DLAP}) == -1
+                  error_sys(db_error())
+               endif
+               db2put(db_fetchall())
+            next ii
+         endif
+
+         if db_select({'RISCOPERDA'},'exito_riscoperda',,{'PC_RISCO='+str(laRES[2,db_fetchncol(laRES,'PC_RISCO_ADVEXT')])} ) = -1
+            error_sys(db_error())
+         endif
+         laPUT := db_fetchrow()
+         if len(laPUT) > 0
+            WPut('PC_RISCO_ADVEXT_RISCOPERDA',laPUT[1])
+         endif
+
+         if db_select({'RISCOPERDA'},'exito_riscoperda',,{'PC_RISCO='+str(laRES[2,db_fetchncol(laRES,'PC_RISCO2_ADVEXT')])} ) = -1
+            error_sys(db_error())
+         endif
+         laPUT := db_fetchrow()
+         if len(laPUT) > 0
+            WPut('PC_RISCO2_ADVEXT_RISCOPERDA',laPUT[1])
+         endif
+
+      endif
+   endif
+   pasta_abas(lcTP_PASTA)
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,423 @@
+/*
+
+Project      : isj_45
+Program      : clarbschfil.class
+Function     : clarbschfil_class
+Created on   : 23-Feb-2017   14:58:06
+Descripition : 
+
+*/
+
+
+
+
+//
+// Glauber - Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+*
+* Glauber - 02/2017
+*
+* Classe...........: RbSchFilter
+*
+* Objetivo.........: Classe que realiza a presistência da tabela RbSchFilter.
+*
+* Atributos........:
+*
+*    EXPORT PkRbSchFilter
+*    EXPORT NomeAgendamento
+*    EXPORT Descricao
+*    EXPORT DiaExecucao
+*    EXPORT HoraExecucao
+*    EXPORT Report
+*
+*
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD Salvar()
+*    METHOD Valida()
+*    METHOD Apagar()
+*    METHOD FindByPk()
+*    METHOD Filtrar()
+*    METHOD ToList()
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS RbSchFilter
+
+    // Atributos publico
+
+    EXPORT PkRbSchFilter
+    EXPORT RbSchedule
+    EXPORT RbModule
+    EXPORT RbFilter
+    EXPORT RbFtValue1
+    EXPORT RbFtValue2
+
+
+    // Atributos privado
+
+    INSTANCE Filter
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()      CLASS RbSchFilter
+    PROTOTYPE METHOD Destroy()   CLASS RbSchFilter
+    PROTOTYPE METHOD Salvar()    CLASS RbSchFilter
+    PROTOTYPE METHOD Valida()    CLASS RbSchFilter
+    PROTOTYPE METHOD Apagar()    CLASS RbSchFilter
+    PROTOTYPE METHOD FindByPk()  CLASS RbSchFilter
+    PROTOTYPE METHOD Filtrar()   CLASS RbSchFilter
+    PROTOTYPE METHOD ToList()    CLASS RbSchFilter
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS RbSchFilter
+
+
+    self:PkRbSchFilter := 0
+    self:RbSchedule    := 0
+    self:RbModule      := ''
+    self:RbFilter      := ''
+    self:RbFtValue1    := ''
+    self:RbFtValue2    := ''
+    self:Filter        := {}
+
+
+
+
+
+
+return(self)
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS RbSchFilter
+
+    self:PkRbSchFilter := nil
+    self:RbSchedule    := nil
+    self:RbModule      := nil
+    self:RbFilter      := nil
+    self:RbFtValue1    := nil
+    self:RbFtValue2    := nil
+    self:Filter        := nil
+
+
+return(nil)
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Salvar()
+* Objetivo..: Salva um registro.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD Salvar() CLASS RbSchFilter
+
+
+   local laSAVE     := {} as Array
+
+   local lcWhere    := '' as String
+
+
+
+
+
+   if self:Valida() == .F.
+      return(self)
+   endif
+
+
+   laSAVE := {{'PK_RBSCHFILTER',;
+               'RBSCHEDULE',;
+               'RBMODULE',;
+               'RBFILTER',;
+               'RBFTVALUE1',;
+               'RBFTVALUE2'}}
+
+   aadd(laSAVE, { self:PkRbSchFilter,;
+                  self:RbSchedule,;
+                  self:RbModule,;
+                  self:RbFilter,;
+                  self:RbFtValue1,;
+                  self:RbFtValue2 })
+
+
+
+
+    lcWhere := 'PK_RBSCHFILTER = ' + alltrim(self:PkRbSchFilter)
+
+
+    if db_replace(laSAVE, 'RBSCHFILTER', {lcWhere}) == -1
+       error_sys(db_error())
+    endif
+
+return self
+
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Apagar()
+* Objetivo..: Apaga um registro.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD Apagar() CLASS RbSchFilter
+
+
+
+   local lcWhere    := '' as String
+
+
+    lcWhere := 'PK_RBSCHFILTER= ' + alltrim(self:PkRbSchFilter)
+
+    if self:PkRbSchFilter > 0
+       if db_delete('RBSCHFILTER', lcWHERE) == -1
+          error_sys(db_error())
+       endif
+    endif
+
+return self
+
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: FindByPk()
+* Objetivo..: Pesquisa um registro pela chave primaria retornando um objeto.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD FindByPk() CLASS RbSchFilter
+
+
+   local laRES      := {} as Array
+
+   local lcWhere    := '' as String
+
+
+    lcWhere := 'PK_RbSchFilter= ' + alltrim(self:PkRbSchFilter)
+
+
+    if db_select({'RBSCHEDULE','RBMODULE','RBFILTER','RBFTVALUE1','RBFTVALUE2'}, 'RBSCHFILTER',,{lcWhere}) == -1
+       error_sys(db_error())
+    endif
+    laRES := db_fetchall()
+
+    if len(laRES) > 1
+
+       self:RbSchedule         := laRES[2,1]
+       self:RbModule           := laRES[2,2]
+       self:RbFilter           := laRES[2,3]
+       self:RbFtValue1         := laRES[2,4]
+       self:RbFtValue2         := laRES[2,5]
+    endif
+
+
+return self
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Filtrar()
+* Objetivo..: Pesquisa registros com base nos campos preenchido do objeto corrente.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD Filtrar() CLASS RbSchFilter
+
+
+   local laWHERE    := {} as Array
+
+    if (self:RbSchedule > 0)
+       aadd(laWHERE, 'RBSCHEDULE=' + Alltrim(self:RbSchedule))
+    endif
+
+    if (! empty(self:RbModule))
+       aadd(laWHERE, 'RBMODULE=' + DLAP + self:RbModule + DLAP)
+    endif
+
+    if (! empty(self:RbFilter))
+       aadd(laWHERE, 'RBFILTER=' + DLAP + self:RbFilter + DLAP)
+    endif
+
+    if (! empty(self:RbFtValue1))
+       aadd(laWHERE, 'RBFTVALUE1=' + DLAP + self:RbFtValue1 + DLAP)
+    endif
+
+    if (! empty(self:RbFtValue2))
+       aadd(laWHERE, 'RBFTVALUE2=' + DLAP + self:RbFtValue2 + DLAP)
+    endif
+
+    if db_select({'RBSCHEDULE','RBMODULE','RBFILTER','RBFTVALUE1','RBFTVALUE2'},'RbSchFilter',,laWHERE) == -1
+       error_sys(db_error())
+    endif
+
+    self:Filter := db_fetchall()
+
+
+return self
+
+
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: ToList()
+* Objetivo..: Retorna um array FlagShip / Wictrix resultado do processamento do metodo Filter.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD ToList() CLASS RbSchFilter
+
+
+return  self:Filter
+
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Valida()
+* Objetivo..: Faz a validação e crítica do campos necessário.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD Valida() CLASS RbSchFilter
+
+
+
+    if (self:RbSchedule == 0)
+       Alert('O campo ' + lblfscreen('RBSCHEDULE') + ' é obrigatório.')
+       return .F.
+    endif
+
+    if (empty(self:RbModule))
+       Alert('O campo ' + lblfscreen('RBMODULE') + ' é obrigatório.')
+       return .F.
+    endif
+
+    if (! empty(self:RbFilter))
+       Alert('O campo ' + lblfscreen('RBFILTER') + ' é obrigatório.')
+       return .F.
+    endif
+
+    if (! empty(self:RbFtValue1))
+       Alert('O campo ' + lblfscreen('RBFTVALUE1') + ' é obrigatório.')
+       return .F.
+    endif
+
+return  .T.
+
+
+
+
+
+

@@ -1,0 +1,111 @@
+/*
+
+Project      : gr5
+Program      : psab.rateio.ccusto.html
+Function     : psab_rateio_ccusto_html
+Created on   : 04-Nov-2005   11:14:07
+Descripition : Aba Rateio Centro de Custo.
+
+*/
+
+   local lcACTION    := upper(WGet('ACTION','U')),;
+         lcNR_PASTA  := WGet('NR_PASTA','C'),;
+         lcTP_PASTA  := WGet('TP_PASTA','C'),;
+         lcCD_CCUSTO := WGet('CD_CCUSTO','C'),;
+         lcTABLE     := '',;
+         lcWHERE     := '' as string
+   local laFIELDS   := {} ,;
+         laRESULT   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laVALIDA   := {} as array
+   local ii := 0 as int
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   get2Put({'NR_PASTA','TP_PASTA'})
+   laVALIDA := {'CD_CCUSTO'}
+
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+   lcTABLE  := 'pasta_rateio_ccusto'
+   laFIELDS := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   lcWHERE  := 'NR_PASTA='+lcNR_PASTA+' and CD_CCUSTO='+DLAP+lcCD_CCUSTO+DLAP
+   // Glauber 06/01/2011
+   AbasPerfil(lcTP_PASTA,laFIELDS)
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      if verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+         //Validação de total
+         if db_select({'sum(PC_CCUSTO_RATEIO)'},'pasta_rateio_ccusto',,{'NR_PASTA='+lcNR_PASTA+' and CD_CCUSTO<>'+DLAP+lcCD_CCUSTO+DLAP}) == -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchrow()
+         if (laRESULT[1]+WGet('PC_CCUSTO_RATEIO','N')) > 100
+            walert('A soma dos rateios não pode ser superior a 100%')
+            get2put()
+         else
+            aadd(laSAVE,laFIELDS)
+            for ii := 1 to len(laFIELDS)
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+            next ii
+            aadd(laSAVE,laSAVE_AUX)
+
+            psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Rateio Centro de Custo') //Gravar log de alterações da pasta
+
+            if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+         endif
+      endif
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2Put(laRESULT)
+         amkgedico(lcTABLE,lcNR_PASTA,lcCD_CCUSTO)
+         if ! empty(getwput('CD_CCUSTO'))
+            if db_select({'NM_CCUSTO'},'centrocusto',,{'CD_CCUSTO='+DLAP+getwput('CD_CCUSTO')+DLAP}) == -1
+               error_sys(db_error())
+            endif
+            db2put(db_fetchall())
+         endif
+      endif
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+   endif
+
+   if db_select({'pasta_rateio_ccusto.CD_CCUSTO',;
+                 'centrocusto.NM_CCUSTO',;
+                 'pasta_rateio_ccusto.PC_CCUSTO_RATEIO'},lcTABLE,;
+                {{2,'centrocusto','centrocusto.CD_CCUSTO=pasta_rateio_ccusto.CD_CCUSTO'}},;
+                {'NR_PASTA='+lcNR_PASTA},{'pasta_rateio_ccusto.CD_CCUSTO'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      aadd(laRESULT[1],'(row)')
+      for ii := 2 to len(laRESULT)
+         aadd(laRESULT[ii],'(row)'+wic_action('wicaction/psab.rateio.ccusto.html'+;
+                                              '?ACTION=ALTER'+;
+                                              '&NR_PASTA='+lcNR_PASTA+;
+                                              '&TP_PASTA='+lcTP_PASTA+;
+                                              '&CD_CCUSTO='+laRESULT[ii,1]))
+      next ii
+      WPut('GRID_RATEIO_CCUSTO',grid_create(laRESULT))
+   endif
+   pasta_abas(lcTP_PASTA)
+return
+
+
+
+
+
+
+
+
+
+

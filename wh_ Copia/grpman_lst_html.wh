@@ -1,0 +1,45 @@
+/*
+
+Project      : gr5
+Program      : grpman.lst.html
+Function     : grpman_lst_html
+Created on   : 03-Mar-2007   13:33:52
+Descripition :
+
+*/
+
+
+laPARAM := {{'WGID',''     ,'*'},{'WGROUP',''     ,'*'},;
+            {'ACTION' ,'ALTER',   }}
+
+laSEARCH := {'WGID','WGROUP'}
+laSELECT := {'WGID','WGROUP'}
+
+xbp('acgroup',;                                                         //Tabela alvo
+    ,;                                                                  //Joins
+    ,;                                                                  //Where
+    {'WGROUP'},;                                                        //Order by
+    ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+    ,;                                                                  //Group by
+    ,;                                                                  //Limit
+    ,;                                                                  //Banco de Dados
+    4,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+    'gr5',;                                                             //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                                           //Programa chamador
+    laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+    ,;                                                                  //Parâmetros para os botões das linhas do grid
+    'grpman.mnt.html',;                                                 //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+    ,;                                                                  //Retorno java (nil) - usado apenas para Search
+    laSEARCH,;                                                          //Campos usados na pesquisa rápida
+    ,;                                                                  //Campos Ocultos
+    ,;                                                       //Campos da área de manutenção/entrada de dados
+    laSELECT,;                                                          //Campos exibidos no grid
+    laSELECT)                                                           //Campos usados no select
+return
+
+
+
+
+
+

@@ -1,0 +1,176 @@
+/*
+
+Project      : gr5
+Program      : psab.unifica.pasta.html
+Function     : psab_unifica.pasta_html
+Created on   : 16/06/2017 09:15:02
+Descripition : Aba Unificação entre Pastas
+
+*/
+
+              
+
+local lcACTION     := Upper(WGet('ACTION')) as String
+
+local lcWHERE      := '' as string
+local ii           := 0 as int
+
+local laRes        := {},;
+      laAUX        := {},; 
+      laRESULT     := {},; 
+      laLINHA_ATUAL:= {},;
+      laFIELDS     := {},; 
+      laJOIN       := {},; 
+      laWHERE      := {},;                   
+      laSAVE       := {} AS Array       
+
+local lcNR_PASTA   := WGet('NR_PASTA','C') as string
+WPut('NR_PASTA',lcNR_PASTA)
+
+local lcTP_PASTA   := WGet('TP_PASTA','C') as string
+WPut('TP_PASTA',lcTP_PASTA)
+
+   
+   WPut('TITLE','Unificação entre Pastas')
+        
+   
+   wac_tp_pasta(lcTP_PASTA)               // Função para verificação de permissões por pasta, encontra-se na func.wic
+   make_psthead(lcNR_PASTA,lcTP_PASTA)    //Cabeçalho    
+  
+   AbasPerfil(lcTP_PASTA,{'NR_PASTA','NR_PASTA_AGREGADA'})
+   
+   pasta_abas(WGet('lcTP_PASTA'))    
+  
+   WPut('ifNEW',.t.)
+   
+
+   if lcACTION == 'SAVE' .and. gbWAC_CREATE
+
+      lcQUERY := 'select ' 
+      lcQUERY += 'pasta.NR_PASTA,'
+      lcQUERY += 'pasta.FL_PASTA,'
+      lcQUERY += 'pasta.TP_PASTA,'       
+      lcQUERY += 'pasta.NR_PROCESSO,'
+      lcQUERY += 'pasta_seguro.NR_SINISTRO,'
+      lcQUERY += 'pasta_pfpj_parte_contraria.cip,'  
+      lcQUERY += 'pasta.DT_CADASTRO'       
+      lcQUERY += ' from pasta' 
+      lcQUERY += ' left join pasta_pfpj_parte_contraria on pasta_pfpj_parte_contraria.NR_PASTA=pasta.NR_PASTA'
+      lcQUERY += ' left join pasta_seguro on pasta_seguro.nr_pasta = pasta.nr_pasta'           
+      
+      lcQUERY += " where pasta.FL_PASTA <> 'Encerrada' and pasta.TP_PASTA = " + DLAP + lcTP_PASTA + DLAP        
+            
+      if WGet('NR_PASTA_AGREGADA','N') <> 0
+         lcQUERY += ' and pasta.NR_PASTA='+ str(WGet('NR_PASTA_AGREGADA','N')) + ' and pasta.NR_PASTA <> ' + lcNR_PASTA  
+      elseif WGet('NR_PROCESSO','C') <> ''
+         lcQUERY += ' and pasta.NR_PROCESSO=' + DLAP + WGet('NR_PROCESSO','C') + DLAP + ' and pasta.NR_PASTA <> ' + lcNR_PASTA  
+      elseif WGet('NR_SINISTRO','C') <> ''
+         lcQUERY += ' and pasta_seguro.NR_SINISTRO='+DLAP+WGet('NR_SINISTRO','C') + DLAP + ' and pasta.NR_PASTA <> ' + lcNR_PASTA   
+      else       
+         return
+      endif
+      
+      
+
+      
+                                                                        
+*--where nr_processo='4252414' 
+*--where nr_processo='051236478'
+                                    
+      if db_query(lcQUERY) == -1         
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()   
+
+      if len(laRES) == 1
+         
+         walert('Não localizei lançamento!')
+               
+      else
+      
+         laFIELDS := {'NR_PASTA',;             
+                      'NR_PASTA_AGREGADA',;    
+                      'LOGIN_CADASTRO',;       
+                      'HR_CADASTRO',;                             
+                      'DT_CADASTRO',; 
+                      'STATUS',;       
+                      'CIP_PARTE_CONTRARIA',;  
+                      'NR_PROCESSO',;         
+                      'NR_SINISTRO',;          
+                      'DT_CADASTRO_ORIGEM'}      
+      
+         aadd(laSAVE,laFIELDS)  
+         
+         for ii := 2 to len(laRES)
+         
+             laAUX:={} 
+             
+             aadd(laAUX,lcNR_PASTA)
+             aadd(laAUX,laRES[ii,1])
+             aadd(laAUX,gcLOGIN)
+             aadd(laAUX,time())
+             aadd(laAUX,date())
+             aadd(laAUX,'A')              
+             aadd(laAUX,laRES[ii,6])
+             aadd(laAUX,laRES[ii,4])
+             aadd(laAUX,laRES[ii,5])
+             aadd(laAUX,laRES[ii,7])
+      
+             aadd(laSAVE,laAUX)  
+             
+             aadd(laWHERE,'NR_PASTA = ' + lcNR_PASTA + ' and NR_PASTA_AGREGADA = ' + str(laRES[ii,1]))     
+
+
+         next ii 
+                         
+         if db_replace(laSAVE,'pasta_unifica',laWHERE) == -1
+            error_sys(db_error())
+         endif              
+
+            
+      endif
+      
+    elseif lcACTION == 'EXCLU' .and. gbWAC_DELETE     
+   
+   lcWHERE := 'NR_PASTA = ' + WGet('NR_PASTA','C') + ' and NR_PASTA_AGREGADA = ' + str(WGet('NR_PASTA_AGREGADA','N')) 
+
+      if db_delete('pasta_unifica',lcWHERE) == -1
+         error_sys(db_error())
+      endif 
+
+   endif 
+
+   
+   laFIELDS := {'pasta_unifica.NR_PASTA',;             
+                'pasta_unifica.NR_PASTA_AGREGADA',;    
+                'pasta_unifica.LOGIN_CADASTRO',;       
+                'pasta_unifica.HR_CADASTRO',;          
+                'pasta_unifica.DT_CADASTRO',;               
+                'pasta_unifica.STATUS',; 
+                'pasta_unifica.DT_PROCESSAMENTO',; 
+                'pasta_unifica.HR_PROCESSAMENTO',;     
+                'pasta_unifica.CIP_PARTE_CONTRARIA',;  
+                'pasta_unifica.NR_PROCESSO',;         
+                'pasta_unifica.NR_SINISTRO',;          
+                'pasta_unifica.DT_CADASTRO_ORIGEM',;
+                'pasta_pfpj_parte_contraria.PFPJ as PFPJ_PARTE_CONTRARIA'}  
+                
+   aadd(laJOIN,{2,'pasta_pfpj_parte_contraria','pasta_pfpj_parte_contraria.NR_PASTA=pasta_unifica.NR_PASTA_AGREGADA'})               
+
+ //   if db_select(laFIELDS,'pasta_unifica',laJOIN,,{'NR_PASTA_AGREGADA'}) == -1
+  
+   lcWHERE := 'pasta_unifica.NR_PASTA = ' + lcNR_PASTA
+   if db_select(laFIELDS,'pasta_unifica',laJOIN,{lcWHERE},{'NR_PASTA_AGREGADA'}) == -1
+  
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall() 
+
+   WPut('lstPASTA',laRESULT)    
+
+return
+
+
+
+
+

@@ -1,0 +1,271 @@
+/*
+
+Project      : gr5
+Program      : pst.dist_interna.html
+Function     : pst_dist_interna_html
+Created on   : 14-May-2007   09:53:02
+Descripition :
+   1. IDE para definir regras os Advogados pertecentes a cada regra de Distribuição:
+      1.1. Tipo de Pasta
+      1.2. Grupo de Trabalho.
+         1.2.1. Ao escolher Grupo de Trabalho, listar todos os membros do grupo com possibilidade de definir Distribuição Automática/Manual.
+
+   2. Funcionalidade na Pasta para distribuir a Pasta ao Advogado Interno/Técnico Subsídio.
+      2.1. Executar funcionalidade somente na Inclusão de uma Pasta.
+      2.2. Ao Incluir verifica se Tipo de Pasta e Grupo de Trabalho atende alguma regra de distribuição.
+      2.3. Distribuir a Pasta para o Advogado Interno e Técnico Subsídio utilizando conceito de Fila.
+      2.4. Não distribuir a Pasta para o Login nos casos de:
+         2.4.1. Advogado Interno: Se o login não for correspondente a uma pessoa do Tipo "Advogado Interno";
+         2.4.2. Técnico Subsídio: Se o login não for correspondente a uma pessoa do Tipo "Técnico Subsídio";
+         2.4.3. Se o Login estiver bloqueado;
+         2.4.4. Se o Login estiver Temporariamente afastado;
+         2.4.5. Se na regra foi desativada Distribuição Automática para o Login.
+      2.5. Se nenhum Login competente for encontrado para ser distribuida a Pasta, deve ser emitido um alerta ao usuário.
+
+   3. Na inclusão da Pasta:
+      3.1. Filtrar conteúdo do combo 'Grupo de Trabalho' para listar somente os Grupos que tenham regra de distribuição definida
+           para o Tipo de Pasta atual. Se não existirem regras, lista todos.
+
+   4. No Cadastro de Grupo de Trabalho:
+      4.1. Ao Inluir ou excluir um login em um Grupo de Trabalho, o mesmo deve ser removido/incluido de todas as regras a qual o
+           Grupo pertence.
+
+*/
+
+   local lcACTION    := '',;
+         lcTP_PASTA  := '',;
+         lcWORKGROUP := '',;
+         lcCODE      := '',;
+         lcFILTRO    := '',;
+         lcWHERE     := '' as string
+   local laSAVE      := {},;
+         laSAVE_AUX  := {},;
+         laRESULT    := {},;
+         laFIELDS    := {},;
+         laPAGINAS   := {},;
+         laLIMIT     := {},;
+         laVALIDA    := {},;
+         laJOIN      := {},;
+         laRES       := {} as array
+   local lnII        := 0 ,;
+         lnCOUNT     := 0 ,;
+         lnCURSOR    := 0 as int
+   local llERRO      := .F.
+
+   lcACTION    := Wget('ACTION')
+   lcTP_PASTA  := Wget('TP_PASTA')
+   lcWORKGROUP := Wget('WORKGROUP')
+   lcWHERE     := 'pasta_distribuicao_interna.TP_PASTA = ' +DLAP+lcTP_PASTA+DLAP+' and pasta_distribuicao_interna.WORKGROUP = '+DLAP+lcWORKGROUP+DLAP
+
+   laFIELDS    := {'pasta_distribuicao_interna.TP_PASTA',;
+                   'pasta_distribuicao_interna.WORKGROUP',;
+                   'pasta_distribuicao_interna.LOGIN_GESTOR',;
+                   'pasta_distribuicao_interna.FL_ATIVO',;
+                   'pasta_distribuicao_interna_login.LOGIN',;
+                   'pasta_distribuicao_interna_login.FL_AUTOMATICO',;
+                   'pfpj.PFPJ',;
+                   'pfpj.PFPJ_TIPOS',;
+                   'pfpj_gestor.PFPJ as LOGIN_GESTOR_PFPJ'}
+
+   laJOIN         := {{2,'pasta_distribuicao_interna_login','pasta_distribuicao_interna.TP_PASTA = pasta_distribuicao_interna_login.TP_PASTA and pasta_distribuicao_interna.WORKGROUP = pasta_distribuicao_interna_login.WORKGROUP'},;
+                      {2,'acuser'                          ,'pasta_distribuicao_interna_login.LOGIN = acuser.LOGIN'},;
+                      {2,'pfpj'                            ,'acuser.CIP = pfpj.CIP'},;
+                      {2,'acuser as acuser_gestor'         ,'pasta_distribuicao_interna.LOGIN_GESTOR = acuser_gestor.LOGIN'},;
+                      {2,'pfpj as pfpj_gestor'             ,'acuser_gestor.CIP = pfpj_gestor.CIP'}}
+   // Combo com os Tipos de pasta
+   carrega_cbox({{'pasta_config','TP_PASTA','Y'}})
+   // Combo com os Grupos de Trabalho
+   carrega_cbox({{'workgroup','WORKGROUP','Y'}})
+   Wput('ifNEW',.T.)
+   Wput('ifALTER',.F.)
+   // Campos de preenchimento obrigatório
+
+   *WPut('TP_PASTA.label.style.color'          ,'#FF0000')
+   *WPut('TP_PASTA.label.style.font-weight'    ,'bold')
+   WPut('TP_PASTA.style.border','2px solid red')
+
+   *WPut('WORKGROUP.label.style.color'         ,'#FF0000')
+   *WPut('WORKGROUP.label.style.font-weight'   ,'bold')
+   WPut('WORKGROUP.style.border','2px solid red')
+
+   *WPut('LOGIN_GESTOR.label.style.color'      ,'#FF0000')
+   *WPut('LOGIN_GESTOR.label.style.font-weight','bold')
+   WPut('LOGIN_GESTOR.style.border','2px solid red')
+
+   WPut('FL_ATIVO_OPT','Y')
+   laVALIDA := {'TP_PASTA','WORKGROUP','LOGIN_GESTOR'}
+   if lcACTION == 'ALTER'
+      // Deixar os combos de seleção readonly
+      Wput('ifNEW',.F.)
+      Wput('ifALTER',.T.)
+      Wput('TP_PASTA',lcTP_PASTA)
+      Wput('WORKGROUP',lcWORKGROUP)
+      // Selecionar os participantes
+      if db_select(laFIELDS,'pasta_distribuicao_interna',laJOIN,{lcWHERE},{'TP_PASTA','WORKGROUP','LOGIN'}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2put(laRESULT)
+         aadd(laRESULT[1],'TP_PASTA_VAR')
+         aadd(laRESULT[1],'WORKGROUP_VAR')
+         aadd(laRESULT[1],'LOGIN_VAR')
+         aadd(laRESULT[1],'FL_AUTOMATICO_VAR')
+         aadd(laRESULT[1],'PFPJ_VAR')
+         aadd(laRESULT[1],'PFPJ_TIPOS_VAR')
+         lnCURSOR := 1
+         for lnII := 2 to len(laRESULT)
+             aadd(laRESULT[lnII],'TP_PASTA_'     +alltrim(str(lnCURSOR)))
+             aadd(laRESULT[lnII],'WORKGROUP_'    +alltrim(str(lnCURSOR)))
+             aadd(laRESULT[lnII],'LOGIN_'        +alltrim(str(lnCURSOR)))
+             aadd(laRESULT[lnII],'AUTOMATICO_'   +alltrim(str(lnCURSOR)))
+             aadd(laRESULT[lnII],'PFPJ_'         +alltrim(str(lnCURSOR)))
+             aadd(laRESULT[lnII],'PFPJ_TIPOS_'   +alltrim(str(lnCURSOR)))
+             Wput('TP_PASTA_'  +alltrim(str(lnCURSOR)),laRESULT[lnII,ascan(laRESULT[1],'TP_PASTA')])
+             Wput('WORKGROUP_' +alltrim(str(lnCURSOR)),laRESULT[lnII,ascan(laRESULT[1],'WORKGROUP')])
+             Wput('LOGIN_'     +alltrim(str(lnCURSOR)),laRESULT[lnII,ascan(laRESULT[1],'LOGIN')])
+             WPut('AUTOMATICO_'+alltrim(str(lnCURSOR))+'_OPT','Y')
+             Wput('AUTOMATICO_'+alltrim(str(lnCURSOR)),laRESULT[lnII,ascan(laRESULT[1],'FL_AUTOMATICO')])
+             Wput('PFPJ_'      +alltrim(str(lnCURSOR)),laRESULT[lnII,ascan(laRESULT[1],'PFPJ')])
+             Wput('PFPJ_TIPOS_'+alltrim(str(lnCURSOR)),laRESULT[lnII,ascan(laRESULT[1],'PFPJ_TIPOS')])
+             ++lnCURSOR
+         next lnII
+         Wput('lstLOGIN',laRESULT)
+      endif
+   elseif lcACTION == 'DELETE'
+          lcWHERE     := 'TP_PASTA = ' +DLAP+lcTP_PASTA+DLAP+' and WORKGROUP = '+DLAP+lcWORKGROUP+DLAP
+          if db_delete('pasta_distribuicao_interna_login',lcWHERE) = -1
+             error_sys(db_error())
+          endif
+          if db_delete('pasta_distribuicao_interna',lcWHERE) = -1
+             error_sys(db_error())
+          endif
+   elseif lcACTION == 'SAVE'
+           // Validação dos campos obrigatórios
+           if verif_reqfield(WSET('_USER_INTERFACE'),laVALIDA) == .F.
+              get2put()
+              llERRO := .T.
+           endif
+           // Validação de participantes
+           lnII := 1
+           if Wget('LOGIN_'+alltrim(transform(lnII,'99999')),'B') == .F.
+              llERRO := .T.
+              Walert('Esta regra não contém participantes, inclusão não efetuada.')
+              get2put()
+           endif
+
+           if ! llERRO
+              // Primeiramente apagar os registros existentes
+
+              lcWHERE     := 'TP_PASTA = ' +DLAP+lcTP_PASTA+DLAP+' and WORKGROUP = '+DLAP+lcWORKGROUP+DLAP
+
+              if db_delete('pasta_distribuicao_interna_login',lcWHERE) = -1
+                 error_sys(db_error())
+              endif
+
+              // Inserir registro principal da regra
+
+              laSAVE := {{'TP_PASTA','WORKGROUP','FL_ATIVO','LOGIN_GESTOR'},;
+                         {lcTP_PASTA,lcWORKGROUP,Wget('FL_ATIVO'),Wget('LOGIN_GESTOR')}}
+              if db_replace(laSAVE,'pasta_distribuicao_interna',{lcWHERE}) == -1
+                 error_sys(db_error())
+              endif
+
+              // Recuperar dados da lista e inserir os registros dos participantes.
+
+              lnII := 1
+              while Wget('LOGIN_'+alltrim(transform(lnII,'99999')),'B')
+                    laSAVE := {{'TP_PASTA','WORKGROUP','LOGIN','FL_AUTOMATICO'}}
+                    aadd(laSAVE,{lcTP_PASTA,;
+                                 lcWORKGROUP,;
+                                 Wget('LOGIN_'+alltrim(transform(lnII,'99999'))),;
+                                 Wget('AUTOMATICO_'+alltrim(transform(lnII,'99999')),'C')})
+
+                    lcWHERE := ' TP_PASTA  = ' + DLAP +lcTP_PASTA + DLAP + ' and '
+                    lcWHERE += ' WORKGROUP = ' + DLAP +lcWORKGROUP+ DLAP + ' and '
+                    lcWHERE += ' LOGIN     = ' + DLAP +Wget('LOGIN_'+alltrim(transform(lnII,'99999'))) + DLAP
+                    if db_replace(laSAVE,'pasta_distribuicao_interna_login',{lcWHERE}) == -1
+                       error_sys(db_error())
+                    endif
+                    ++lnII
+              enddo
+           endif
+   elseif lcACTION == 'SEARCH'
+          if ! empty(lcTP_PASTA)
+             lcFILTRO := 'TP_PASTA = ' + DLAP +lcTP_PASTA+DLAP
+          endif
+          if ! empty(lcWORKGROUP)
+             if ! empty(lcTP_PASTA)
+                lcFILTRO += ' and WORKGROUP = ' + DLAP +lcWORKGROUP +DLAP
+             else
+                lcFILTRO := 'WORKGROUP = ' + DLAP +lcWORKGROUP +DLAP
+             endif
+
+          endif
+   endif
+
+
+   // Montagem da Grid de Distribuição
+
+   if ! empty(lcFILTRO)
+      if db_select({'distinct TP_PASTA,WORKGROUP'},'pasta_distribuicao_interna',,{lcFILTRO}) == -1
+         db_error()
+      endif
+   else
+      if db_select({'distinct TP_PASTA,WORKGROUP'},'pasta_distribuicao_interna') == -1
+         db_error()
+      endif
+   endif
+   laRESULT  := db_fetchall()
+   lnCOUNT   := len(laRESULT)-1
+   if lnCOUNT > 0
+	   laPAGINAS := paginacao(lnCOUNT,'','','pst.dist_interna.html')
+	   laLIMIT   := param_fetch(laPAGINAS,'LIMIT')
+      if ! empty(lcFILTRO)
+         if db_select({'TP_PASTA','WORKGROUP'},'pasta_distribuicao_interna',,{lcFILTRO},{'TP_PASTA','WORKGROUP'},,,laLIMIT) == -1
+            error_sys(db_error())
+         endif
+      else
+         if db_select({'TP_PASTA','WORKGROUP'},'pasta_distribuicao_interna',,,{'TP_PASTA','WORKGROUP'},,,laLIMIT) == -1
+            error_sys(db_error())
+         endif
+      endif
+      laRESULT := db_fetchall()
+	   //Resumo da pesquisa
+	   lcCODE := alltrim(str(laLIMIT[1]+1))+'-'
+	   if ((len(laRESULT)-1) < (laLIMIT[2]-laLIMIT[1]))
+	      lcCODE += alltrim(str(len(laRESULT)-1))
+	   elseif param_fetch(laPAGINAS,'GOTO_PAGE') == param_fetch(laPAGINAS,'NR_PAGES') //lnNR_PAGES
+	      lcCODE += alltrim(str(lnCOUNT))
+	   else
+	      lcCODE += alltrim(str(laLIMIT[1]+param_fetch(laPAGINAS,'ROWS_PAGE')))
+	   endif
+	   lcCODE += ' de '+alltrim(str(lnCOUNT))
+	   if lnCOUNT > 1
+	      lcCODE := ' Resultados '+lcCODE+' registros'
+	   else
+	      lcCODE := ' Resultado '+lcCODE+' registro'
+	   endif
+	   wput('RESUME_RESULTSET',lcCODE)
+
+      if len(laRESULT) > 1
+         aadd(laRESULT[1],'(row)')
+         for lnII := 2 to len(laRESULT)
+             aadd(laRESULT[lnII],'(row)'+wic_action('wicaction/pst.dist_interna.html?'+;
+                                       'TP_PASTA='  +laRESULT[lnII,ascan(laRESULT[1],'TP_PASTA')]+;
+                                       '&WORKGROUP='+laRESULT[lnII,ascan(laRESULT[1],'WORKGROUP')]+;
+                                       '&ACTION=ALTER'))
+         next lnII
+         Wput('lstGROUP',grid_create(laRESULT))
+      endif
+   endif
+return
+
+
+
+
+
+
+
+
+

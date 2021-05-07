@@ -1,0 +1,204 @@
+//
+// Glauber - 04/2016
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Classe...........: RespEbaoConsultar
+*
+* Objetivo.........: Classe que espelha o retorno dos dados de consulta do Sinistro.
+*
+* Atributos........:
+*
+*    EXPORT SinistroNumero
+*    EXPORT Ramo
+*    EXPORT StatusSinistro
+*    EXPORT TipoSinistro
+*    EXPORT PremioPendente
+*    EXPORT NumApolice
+*    EXPORT Produto
+*    EXPORT TitularApolice
+*    EXPORT DocumentoTitular
+*    EXPORT FlCosseguro
+*    EXPORT IniVigencia
+*    EXPORT FimVigencia
+*    EXPORT CausaSinistro
+*    EXPORT DataSinistro
+*    EXPORT DataRegistro
+*    EXPORT PessoaContato
+*    EXPORT TelefoneContato
+*    EXPORT EstadoAcidente
+*    EXPORT CidadeAcidente
+*    EXPORT ObjetoSegurado
+*    EXPORT Reclamante
+*    EXPORT TelefoneReclamante
+*    EXPORT DocumentoReclamante
+*    EXPORT TipoDano
+*    EXPORT Cobertura
+*    EXPORT CobSubCobertura
+*    EXPORT IsCobSubCobertura
+*    EXPORT Retorno
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*
+*
+* Classes Ligadas..:
+*
+*    ConsultarRequest, RetornoEbao
+*
+*/
+
+
+CLASS RespEbaoConsultar
+
+    // Atributos publico
+
+    EXPORT SinistroNumero
+    EXPORT Ramo
+    EXPORT StatusSinistro
+    EXPORT TipoSinistro
+    EXPORT PremioPendente
+    EXPORT NumApolice
+    EXPORT Produto
+    EXPORT TitularApolice
+    EXPORT DocumentoTitular
+    EXPORT FlCosseguro
+    EXPORT IniVigencia
+    EXPORT FimVigencia
+    EXPORT CausaSinistro
+    EXPORT DataSinistro
+    EXPORT DataRegistro
+    EXPORT PessoaContato
+    EXPORT TelefoneContato
+    EXPORT EstadoAcidente
+    EXPORT CidadeAcidente
+    EXPORT ObjetoSegurado
+    EXPORT Reclamante
+    EXPORT TelefoneReclamante
+    EXPORT DocumentoReclamante
+    EXPORT TipoDano
+    EXPORT Cobertura
+    EXPORT CobSubCobertura
+    EXPORT IsCobSubCobertura
+    EXPORT Retorno
+
+
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()      CLASS RespEbaoConsultar
+    PROTOTYPE METHOD Destroy()   CLASS RespEbaoConsultar
+
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS RespEbaoConsultar
+
+
+    self:SinistroNumero      := ''
+    self:Ramo                := ''
+    self:StatusSinistro      := ''
+    self:TipoSinistro        := ''
+    self:PremioPendente      := ''
+    self:NumApolice          := ''
+    self:Produto             := ''
+    self:TitularApolice      := ''
+    self:DocumentoTitular    := ''
+    self:FlCosseguro         := ''
+    self:IniVigencia         := ''
+    self:FimVigencia         := ''
+    self:CausaSinistro       := ''
+    self:DataSinistro        := ''
+    self:DataRegistro        := ''
+    self:PessoaContato       := ''
+    self:TelefoneContato     := ''
+    self:EstadoAcidente      := ''
+    self:CidadeAcidente      := ''
+    self:ObjetoSegurado      := ''
+    self:Reclamante          := ''
+    self:TelefoneReclamante  := ''
+    self:DocumentoReclamante := ''
+    self:TipoDano            := ''
+    self:Cobertura           := ''
+    self:CobSubCobertura     := ''
+    self:IsCobSubCobertura   := ''
+    self:Retorno             := RetornoEbaoNew()
+
+
+return(self)
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS RespEbaoConsultar
+
+    self:SinistroNumero      := nil
+    self:Ramo                := nil
+    self:StatusSinistro      := nil
+    self:TipoSinistro        := nil
+    self:PremioPendente      := nil
+    self:NumApolice          := nil
+    self:Produto             := nil
+    self:TitularApolice      := nil
+    self:DocumentoTitular    := nil
+    self:FlCosseguro         := nil
+    self:IniVigencia         := nil
+    self:FimVigencia         := nil
+    self:CausaSinistro       := nil
+    self:DataSinistro        := nil
+    self:DataRegistro        := nil
+    self:PessoaContato       := nil
+    self:TelefoneContato     := nil
+    self:EstadoAcidente      := nil
+    self:CidadeAcidente      := nil
+    self:ObjetoSegurado      := nil
+    self:Reclamante          := nil
+    self:TelefoneReclamante  := nil
+    self:DocumentoReclamante := nil
+    self:TipoDano            := nil
+    self:Cobertura           := nil
+    self:CobSubCobertura     := nil
+    self:IsCobSubCobertura   := nil
+    self:RetornoEbao         := nil
+
+return(nil)
+

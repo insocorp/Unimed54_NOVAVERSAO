@@ -1,0 +1,83 @@
+/*
+
+Project      : isj_45
+Program      : lst.sinebao.html
+Function     : lst_sinebao_html
+Created on   : 28-Apr-2016   10:16:07
+Descripition : 
+
+*/
+
+local lcACTION        := WGET('ACTION') ,;
+      lcCNPJCPF       := WGET('CNPJ_CPF'),;
+      lcDATA          := '' AS String
+
+
+local ii     := 0  AS Int
+
+local laSINIS    := {} ,;
+      lcFields   := {} ,;
+      laCONF     := {} ,;
+      laRESULT   := {} ,;
+      laDEPARA   := {} ,;
+      laAUX      := {} AS Array
+
+
+local llErro  := .F.,;
+      llDebug := .F.
+
+
+local objSinis  := EbaoConsultarRequestNew()
+local headerReq := HeaderRequestNew()
+
+
+if (lcACTION == 'SEARCH')
+    headerReq:TpIntegracao := 0
+    
+    objSinis:IdDoc         := lcCNPJCPF
+    objSinis:TpPessoa      := iif(len(lcCNPJCPF) < 14, 'PF','PJ')
+    objSinis:HeaderRequest := headerReq
+    
+    
+    laSINIS := objSinis:ObterSinistros()
+    
+    if len(laSINIS) < 1
+       WAlert('Não foi encontrado dados para este Cnpj / Cpf.')
+       return
+    endif
+    
+    laSINIS[1,1] := ''
+    laSINIS[1,2] := ''
+    laSINIS[1,db_fetchncol(laSINIS,'FIMVIGENCIA')]    := 'DT_VIGENCIA_INI'
+    laSINIS[1,db_fetchncol(laSINIS,'INIVIGENCIA')]    := 'DT_VIGENCIA_FIN'
+    laSINIS[1,db_fetchncol(laSINIS,'NOMECOMPLETO')]   := 'PFPJ'
+    laSINIS[1,db_fetchncol(laSINIS,'NUMAPOLICE')]     := 'NR_APOLICE'
+    laSINIS[1,db_fetchncol(laSINIS,'SINISTRONUMERO')] := 'NR_SINISTRO'
+    laSINIS[1,db_fetchncol(laSINIS,'STATUSSINISTRO')] := 'FL_SINISTRO'
+    laSINIS[1,db_fetchncol(laSINIS,'TIPOSINISTRO')]   := 'TP_SINISTRO'
+
+
+    for ii := 2 to len(laSINIS)
+
+    // http://192.168.0.2/cgi-bin/wictrix/isj_45/gr5/ID=LJRJLEIQHEEIIEFC/sch.sinebao.html?NR_SINISTRO=20150000013/001&CD_RAMOSRSN=0378
+
+//        laSINIS[ii,1] := 'Selecionar'
+        laSINIS[ii,1] := ''
+        lcTMP := 'detalhaSinistro(' + DLAP + alltrim(laSINIS[ii, db_fetchncol(laSINIS,'NR_SINISTRO')]) + DLAP + ',' + DLAP + laSINIS[ii, db_fetchncol(laSINIS,'CD_RAMOSRSN')] + DLAP + ')'
+    //    lcTMP := '<a href=javascript:void(0) onclick="newaguarde(1);'+lcTMP+';newaguarde(0)"> Detalhe </a>'
+        lcTMP := '<a href=javascript:void(0) onclick="'+lcTMP+';"> Detalhe </a>'
+        laSINIS[ii,2] := lcTMP
+        lcDATA := substr(laSINIS[ii,db_fetchncol(laSINIS,'DT_VIGENCIA_INI')],7,2) + '/' + substr(laSINIS[ii,db_fetchncol(laSINIS,'DT_VIGENCIA_INI')],5,2) + '/' + substr(laSINIS[ii,db_fetchncol(laSINIS,'DT_VIGENCIA_INI')],1,4)
+        laSINIS[ii,db_fetchncol(laSINIS,'DT_VIGENCIA_INI')] := Ctod(lcDATA)
+        lcDATA := substr(laSINIS[ii,db_fetchncol(laSINIS,'DT_VIGENCIA_FIN')],7,2) + '/' + substr(laSINIS[ii,db_fetchncol(laSINIS,'DT_VIGENCIA_FIN')],5,2) + '/' + substr(laSINIS[ii,db_fetchncol(laSINIS,'DT_VIGENCIA_FIN')],1,4)
+        laSINIS[ii,db_fetchncol(laSINIS,'DT_VIGENCIA_FIN')] := Ctod(lcDATA)
+    
+    
+    next ii
+    
+    //debug2(laSINIS,,30)
+    
+    WPut('lstSINISTROS', grid_create(laSINIS))
+endif
+
+return

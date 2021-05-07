@@ -1,0 +1,57 @@
+/*
+
+Project      : gr5
+Program      : werror.wic
+Function     : werror_wic
+Created on   : 13-Dec-2002   10:58:56
+Descripition : pagina de aviso de erro.
+
+*/
+
+   local lcDOCUMENT := '' as string
+
+   lcDOCUMENT := '<html>'+CRLF
+   lcDOCUMENT += '<head>'+CRLF
+   lcDOCUMENT += '<meta name="generator" content="Wictrix 0.1">'+CRLF
+   lcDOCUMENT += '<meta content="Project : gr5  -  Program : werror.wic">'+CRLF
+   lcDOCUMENT += '<style type="text/css">'+CRLF
+   lcDOCUMENT += '   body,table {font-family:verdana,helvetica,arial; font-size: 11px}'+CRLF
+   lcDOCUMENT += '   .mens_erro {font-family:verdana,helvetica,arial; font-size: 11px}'+CRLF
+   lcDOCUMENT += '   a {'+CRLF
+   lcDOCUMENT += '      margin: 1px;'+CRLF
+   lcDOCUMENT += '      font-family: arial, helvetica;'+CRLF
+   lcDOCUMENT += '      font-size: 11px;'+CRLF
+   lcDOCUMENT += '      color: #000000; '+CRLF
+   lcDOCUMENT += '      background-color: #FAFAFA;'+CRLF
+   lcDOCUMENT += '      text-decoration: none;'+CRLF
+   lcDOCUMENT += '      border: 1px solid #CCCCCC;'+CRLF
+   lcDOCUMENT += '      cursor:pointer;'+CRLF
+   lcDOCUMENT += '      padding-left:15px;'+CRLF
+   lcDOCUMENT += '      padding-right:15px;'+CRLF
+   lcDOCUMENT += '      }'+CRLF
+   lcDOCUMENT += '</style>'+CRLF
+   lcDOCUMENT += '<title>Erro</title>'+CRLF
+   lcDOCUMENT += '</head>'+CRLF
+   lcDOCUMENT += '<body>'+CRLF
+   lcDOCUMENT += '<br><br>'+CRLF
+   lcDOCUMENT += '<table cellspacing="4" cellpadding="4" align="center">'+CRLF
+   lcDOCUMENT += '  <tr>'+CRLF
+   lcDOCUMENT += '    <td width="50" valign="middle" rowspan="2"><img src="'+wSet('URL_COMPONENTS')+'/error.png" border="0"></td>'+CRLF
+   lcDOCUMENT += '    <td><b><font color="#FF0000">Erro</font></b></td>'+CRLF
+   lcDOCUMENT += '  </tr>'+CRLF
+   lcDOCUMENT += '  <tr>'+CRLF
+   lcDOCUMENT += '    <td class="mens_erro">'+getWPut('ERRORMENS')+'</td>'+CRLF
+   lcDOCUMENT += '  </tr>'+CRLF
+   lcDOCUMENT += '  <tr>'+CRLF
+   lcDOCUMENT += '    <td colspan="2" align="center">'+CRLF
+   lcDOCUMENT += '       <a href="'+wic_action('wicaction/logout.wic')+'">Clique aqui para efetuar login novamente</a>'+CRLF
+   lcDOCUMENT += '    </td>'+CRLF
+   lcDOCUMENT += '  </tr>'+CRLF
+   lcDOCUMENT += '</table>'+CRLF
+   lcDOCUMENT += '<br>'+CRLF
+   lcDOCUMENT += '<br>'+CRLF
+   lcDOCUMENT += '</body>'+CRLF
+   lcDOCUMENT += '</html>'
+
+   wOut(lcDOCUMENT)
+

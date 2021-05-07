@@ -1,0 +1,74 @@
+/*
+
+Project      : gr5
+Program      : pfpj.cf.tipo_campo.html
+Function     : pfpj_cf_tipo_campo_html
+Created on   : 23-Jan-2004   13:29:56
+Descripition : Configuração Tipos Pessoas X Campos
+
+*/
+
+   local lcACTION           := '',;
+         lcTABLE            := '',;
+         lcPFPJ_TABLE_FIELD := '' as string
+   local laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laFIELDS   := {} ,;
+         laLABELS   := {} ,;
+         laWHERE    := {} as array
+   local ii := 0 as int
+   local llERRO := .F. as logical
+
+   lcACTION    := upper(alltrim(WGet('ACTION','C')))
+   lcPFPJ_TABLE_FIELD := alltrim(WGet('PFPJ_TABLE_FIELD','C'))
+   lcTABLE     := 'pfpj_conftipocampo'
+   laWHERE     := {'PFPJ_TABLE_FIELD = '+DLMT+lcPFPJ_TABLE_FIELD+DLMT}
+   laFIELDS    := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+   laLABELS    := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'A')
+
+   wPut('TITLE','Configuração Tipos Pessoas X Campos')
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      if len(alltrim(WGet('PFPJ_TABLE_FIELD'))) = 0
+         wPut('ERROR_MENS',laLABELS[ascan(laFIELDS,'PFPJ_TABLE_FIELD')]+' é um campo obrigatório')
+         Get2Put()
+         llERRO := .T.
+      endif
+      if ! llERRO
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+         if db_replace(laSAVE,lcTABLE,laWHERE) = -1
+            error_sys(db_error())
+         endif
+      endif
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+      mkgedico(lcTABLE,lcPFPJ_TABLE_FIELD)
+      if db_select(laFIELDS,lcTABLE,,laWHERE) = -1
+         error_sys(db_error())
+      endif
+      db2Put(db_fetchall())
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      if db_delete(lcTABLE,laWHERE[1]) = -1
+         error_sys(db_error())
+      endif
+   endif
+
+   if db_select(laFIELDS,lcTABLE) = -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 0
+      aadd(laRES[1],'(row)')
+      for ii := 2 to len(laRES)
+         aadd(laRES[ii],'(row)'+wic_action('wicaction/pfpj.cf.tipo_campo.html'+;
+                                           '?PFPJ_TABLE_FIELD='+laRES[ii, db_fetchncol(laRES,'PFPJ_TABLE_FIELD')]+;
+                                           '&ACTION=ALTER'))
+      next ii
+      WPut('GRID_CF_TIPO_CAMPO',grid_create(laRES))
+   endif
+return
+
+

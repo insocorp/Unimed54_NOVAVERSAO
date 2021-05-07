@@ -1,0 +1,389 @@
+/*
+
+Project      : gr5
+Project      : gr5
+Program      : psab.causaraiz.html
+Function     : psab_causaraiz_html
+Created on   : 11/11/2014   08:30
+Descripition : Aba de Causa Raiz dos Pedidos
+
+
+*/ 
+
+local laFIELDS      := {} ,;
+      laTMP         := {} ,;
+      laRESULT      := {} ,;
+      laDIFFROW     := {} ,;  
+      laLINHA_ATUAL := {} as array
+
+local lcNR_PASTA    := WGet('NR_PASTA','C') ,;
+      lcTP_PASTA    := WGet('TP_PASTA','C') ,;
+      lcAUX         := '' ,;
+      lcACTION      := upper(WGet('ACTION','C')) as string
+      
+      laFIELDS      :={'NR_CONTROLE',;
+                       'PEDIDO_PROCESSO',;
+                       'CAUSA_RAIZ',;
+                       'AVALIA1',;
+                       'DT_AVALIA1',;
+                       'HISTORICO'}                            
+local zz := 0 as int      
+
+wac_tp_pasta(lcTP_PASTA)               // Função para verificação de permissões por pasta, encontra-se na func.wic
+make_psthead(lcNR_PASTA,lcTP_PASTA)    //Cabeçalho
+init_reqfield(WSet('_USER_INTERFACE'))
+AbasPerfil(lcTP_PASTA, laFIELDS)
+pasta_abas(lcTP_PASTA) 
+        
+      
+if lcACTION == 'SAVENEW' .and. gbWAC_CREATE  
+     laRESULT :={}
+     
+      laSAVE        :={'PEDIDO_PROCESSO',;
+                       'CAUSA_RAIZ',;
+                       'DT_CADASTRO',;
+                       'LOGIN_CADASTRO',;
+                       'NR_PASTA'}     
+
+      if WGet('PED_NOVOS','C')<>''
+         laRESULT := str2array(WGet('PED_NOVOS','C'),'|') 
+         aadd(laLINHA_ATUAL,laSAVE)
+      endif
+      
+      for ii := 1 to len(laRESULT)
+          aadd(laTMP,str2array(laRESULT[ii],'|'))
+
+          for zz := 1 to len(laTMP[ii])
+              lcAUX:=array2str(laTMP[ii],',')
+              lcAUX:=lcAUX + ','+DTOS(date())+','+gcLOGIN+','+lcNR_PASTA        
+              aadd(laLINHA_ATUAL,str2array(lcAUX,','))
+          next zz
+
+      next ii
+      if len(laLINHA_ATUAL)>1
+
+         db_query('BEGIN TRANS') //Iniciando Transação
+
+         if db_insert(laLINHA_ATUAL,'pasta_causa') == -1
+            db_query('ROLLBACK')
+            error_sys(db_error())
+         endif
+
+         db_query('COMMIT')     //Efetivando alterações no Banco de Dados         
+          
+      endif       
+endif
+if lcACTION == 'SAVEALTER' .and. gbWAC_READ
+       laRESULT     :={}
+       laLINHA_ATUAL:={}
+       laTMP        :={}
+       
+       laSAVE       := {'NR_CONTROLE',;
+                        'AVALIA1',;
+                        'DT_AVALIA1',;
+                        'AVALIA2',;
+                        'DT_AVALIA2',;
+                        'AVALIA3',;
+                        'DT_AVALIA3',;
+                        'HISTORICO'}                     
+                                            
+  
+  
+      aadd(laLINHA_ATUAL,laSAVE)
+
+
+      aadd(laTMP,str2array(WGet('PED_UPDATE','C'),','))
+// alteração sonia - 04/02/2015 14:30:50 - Solicitante Daniel Tronco
+      if !empty(laTMP[1,2]) .and. empty(laTMP[1,3])
+         laTMP[1,3] = dtoc(date())
+      endif    
+      if !empty(laTMP[1,4]) .and. empty(laTMP[1,5])
+         laTMP[1,5] = dtoc(date())
+      endif  
+      if !empty(laTMP[1,6]) .and. empty(laTMP[1,7])
+         laTMP[1,7] = dtoc(date())
+      endif  
+      laSAVE        := {val(laTMP[1,1]),;
+                        laTMP[1,2],;
+                        ctod(laTMP[1,3]),;
+                        laTMP[1,4],;
+                        ctod(laTMP[1,5]),;
+                        laTMP[1,6],;
+                        ctod(laTMP[1,7]),;
+                        laTMP[1,8]}  
+                            
+   
+      aadd(laLINHA_ATUAL,laSAVE)
+      
+      if len(laLINHA_ATUAL)>1
+         db_query('BEGIN TRANS') //Iniciando Transação 
+         
+         ** grava log de alteração 
+         lcWHERE:= 'NR_CONTROLE='+str(laLINHA_ATUAL[2,1])
+         if psab_logs(laLINHA_ATUAL,'pasta_causa',lcWHERE,WGet('NR_PASTA','C'),'Causa Raiz dos Pedidos') == .f.
+            db_query('ROLLBACK')
+         endif 
+         
+         lcWHERE:= 'NR_CONTROLE='+str(laLINHA_ATUAL[2,1])
+         if db_update(laLINHA_ATUAL,'pasta_causa',{lcWHERE}) == -1
+            db_query('ROLLBACK')
+            error_sys(db_error())
+         endif         
+         
+         
+                  
+         db_query('COMMIT')     //Efetivando alterações no Banco de Dados
+      endif
+
+
+endif
+
+
+if gbWAC_READ
+   prepapac()
+   lista_causaraiz(lcNR_PASTA)       
+endif         
+
+
+
+return(nil)
+
+
+/*
+* Function..: lista_pedidos(fcNR_PASTA)
+* Objetivo..: Gerar Listagem de cauzaraiz
+* Parâmetros: fcNR_PASTA
+* Retorno...: nil
+*/
+static function lista_causaraiz(fcNR_PASTA)
+
+   local lcTABLEDET   := '',;
+         lcWHEREDET   := ''  as string
+
+   local laRESULT   := {} ,;
+         laFIELDSDET:= {} ,;
+         laLABELS   := {} ,;
+         laWICDO    := {} ,;
+         laLABELSDET:= {} as array 
+         
+  *** PEGA TIPOS DE AVALIAÇAO
+  
+  
+   lcTABLEDET      := 'avaliacao'
+   lcWHEREDET      := 'TP_PASTA = '+DLAP+WGet('TP_PASTA','C')+DLAP
+
+   if db_select({'avaliacao'},;
+                 lcTABLEDET,,;
+                 {lcWHEREDET},{'avaliacao'}) == -1
+      error_sys(db_error())
+   endif  
+   laRESULT := db_fetchall()
+
+   paAUTO        := {''}
+   paAUTO_LABELS := {''} 
+   
+   for ii := 2 to len(laRESULT)
+      aadd(paAUTO,laRESULT[ii,1])
+      aadd(paAUTO_LABELS,laRESULT[ii,1])
+   next ii     
+
+   lcTABLEDET      := 'pasta_causa'
+   lcWHEREDET      := 'pasta_causa.NR_PASTA='+fcNR_PASTA
+
+
+   if db_select({'NR_CONTROLE',;
+                 'PEDIDO_PROCESSO',;
+                 'CAUSA_RAIZ',;
+                 'AVALIA1',;
+                 'DT_AVALIA1',;
+                 'AVALIA2',;
+                 'DT_AVALIA2',;                 
+                 'AVALIA3',;
+                 'DT_AVALIA3',;                 
+                 'HISTORICO'},;
+                 lcTABLEDET,,;
+                 {lcWHEREDET},{'PEDIDO_PROCESSO','CAUSA_RAIZ'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+      aadd(laRESULT[1],'VAR_BT_AVAL')
+      aadd(laRESULT[1],'VAR_NR_CONTROLE')
+      aadd(laRESULT[1],'VAR_PEDIDO_PROCESSO')
+      aadd(laRESULT[1],'VAR_CAUSA_RAIZ')
+      aadd(laRESULT[1],'VAR_AVALIA1')
+      aadd(laRESULT[1],'VAR_DT_AVALIA1') 
+      aadd(laRESULT[1],'VAR_BT_AVALIA1') 
+      aadd(laRESULT[1],'VAR_AVALIA2')
+      aadd(laRESULT[1],'VAR_DT_AVALIA2')
+      aadd(laRESULT[1],'VAR_BT_AVALIA2')
+      aadd(laRESULT[1],'VAR_AVALIA3')
+      aadd(laRESULT[1],'VAR_DT_AVALIA3') 
+      aadd(laRESULT[1],'VAR_BT_AVALIA3')           
+      aadd(laRESULT[1],'VAR_HISTORICO')
+      
+      aadd(laRESULT[1],'VAR_BT_SAL')
+      aadd(laRESULT[1],'VAR_BT_CAN')
+           
+             
+
+   for ii := 2 to len(laRESULT)
+      lcNR_ROW := alltrim(str(ii-1))
+        
+        
+      aadd(laRESULT[ii],'VAR_BT_AVAL_'+lcNR_ROW)
+      
+      aadd(laRESULT[ii],'VAR_NR_CONTROLE_'+lcNR_ROW)
+      aadd(laRESULT[ii],'VAR_PEDIDO_PROCESSO_'+lcNR_ROW)
+      aadd(laRESULT[ii],'VAR_CAUSA_RAIZ_'+lcNR_ROW)
+
+      aadd(laRESULT[ii],'VAR_AVALIA1_'+lcNR_ROW)
+      aadd(laRESULT[ii],'VAR_DT_AVALIA1_'+lcNR_ROW)
+      aadd(laRESULT[ii],'VAR_BT_AVALIA1_'+lcNR_ROW)
+      
+      aadd(laRESULT[ii],'VAR_AVALIA2_'+lcNR_ROW)
+      aadd(laRESULT[ii],'VAR_DT_AVALIA2_'+lcNR_ROW) 
+      aadd(laRESULT[ii],'VAR_BT_AVALIA2_'+lcNR_ROW)      
+      
+      
+      aadd(laRESULT[ii],'VAR_AVALIA3_'+lcNR_ROW)
+      aadd(laRESULT[ii],'VAR_DT_AVALIA3_'+lcNR_ROW)  
+      aadd(laRESULT[ii],'VAR_BT_AVALIA3_'+lcNR_ROW)   
+
+      aadd(laRESULT[ii],'VAR_HISTORICO_'+lcNR_ROW)  
+      
+      aadd(laRESULT[ii],'VAR_BT_SAL_'+lcNR_ROW)
+      aadd(laRESULT[ii],'VAR_BT_CAN_'+lcNR_ROW)
+      
+     
+      
+      WPut('VAR_AVALIA1_'+lcNR_ROW+'.option',paAUTO_LABELS)
+      WPut('VAR_AVALIA1_'+lcNR_ROW+'.optionvalue',paAUTO)
+
+      
+      WPut('VAR_AVALIA2_'+lcNR_ROW+'.option',paAUTO_LABELS)
+      WPut('VAR_AVALIA2_'+lcNR_ROW+'.optionvalue',paAUTO)
+
+      
+      WPut('VAR_AVALIA3_'+lcNR_ROW+'.option',paAUTO_LABELS)
+      WPut('VAR_AVALIA3_'+lcNR_ROW+'.optionvalue',paAUTO)
+ 
+      
+      WPut('VAR_AVALIA1_'+lcNR_ROW,        laRESULT[ii,db_fetchncol(laRESULT,'AVALIA1')])
+      WPut('VAR_AVALIA2_'+lcNR_ROW,        laRESULT[ii,db_fetchncol(laRESULT,'AVALIA2')])
+      WPut('VAR_AVALIA3_'+lcNR_ROW,        laRESULT[ii,db_fetchncol(laRESULT,'AVALIA3')])      
+      
+      WPut('VAR_NR_CONTROLE_'+lcNR_ROW,    laRESULT[ii,db_fetchncol(laRESULT,'NR_CONTROLE')]) 
+      WPut('VAR_PEDIDO_PROCESSO_'+lcNR_ROW,laRESULT[ii,db_fetchncol(laRESULT,'PEDIDO_PROCESSO')]) 
+      WPut('VAR_CAUSA_RAIZ_'+lcNR_ROW,     laRESULT[ii,db_fetchncol(laRESULT,'CAUSA_RAIZ')]) 
+      
+      WPut('VAR_DT_AVALIA1_'+lcNR_ROW,     laRESULT[ii,db_fetchncol(laRESULT,'DT_AVALIA1')]) 
+      
+      WPut('VAR_DT_AVALIA2_'+lcNR_ROW,     laRESULT[ii,db_fetchncol(laRESULT,'DT_AVALIA2')])      
+      
+      WPut('VAR_DT_AVALIA3_'+lcNR_ROW,     laRESULT[ii,db_fetchncol(laRESULT,'DT_AVALIA3')])      
+      WPut('VAR_HISTORICO_'+lcNR_ROW,      laRESULT[ii,db_fetchncol(laRESULT,'HISTORICO')])      
+          
+
+   next ii
+
+   WPut('lstPEDIDO',laRESULT)
+
+return(nil)
+***********************************
+static function prepapac()
+***********************************
+local lcSELECT:='',;
+      lcPED   :='',;
+      lcCAUSA :='' as string
+
+local laRESULT:={} as array
+local laRES   :={} as array
+local laRES2  :={} as array
+local laRESFIN:={} as array
+
+local ii :=0 as int
+local xx :=0 as int
+
+
+laRESFIN:={}
+
+aadd(laRESFIN,{'PEDIDO_PROCESSO','CAUSA_RAIZ'})
+
+
+*** PEGO OS PEDIDOS PAI DA PASTA
+lcSELECT:='select pasta_pedidos.pedido_processo from pasta_pedidos'
+lcSELECT+=' where pasta_pedidos.nr_pasta='+DLAP+WGet('NR_PASTA','C')+DLAP
+lcSELECT+=' and (pasta_pedidos.nr_pedido_origem is null or pasta_pedidos.nr_pedido_origem=0)'
+lcSELECT+=' order by pasta_pedidos.nr_controle'
+if db_query(lcSELECT) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchall()
+
+if len(laRESULT)>1
+   for ii := 2 to len(laRESULT)
+
+       lcSELECT:='select pedido_processo,causa_raiz from causa_raiz'
+       lcSELECT+=' where causa_raiz.tp_pasta='+DLAP+WGet('TP_PASTA','C')+DLAP
+       lcSELECT+=' and fl_ativo='+DLAP+'S'+DLAP
+       lcSELECT+=' and pedido_processo='+DLAP+laRESULT[ii,1]+DLAP
+       lcSELECT+=' order by causa_raiz'
+
+       if db_query(lcSELECT) == -1
+          error_sys(db_error())
+       endif
+       laRES := db_fetchall()
+       if len(laRES)>1
+          for xx := 2 to len(laRES)
+
+              *** verifica se ja não tem lançamento se tiver ignora
+              lcSELECT:='select nr_controle from pasta_causa'
+              lcSELECT+=' where nr_pasta='+DLAP+WGet('NR_PASTA','C')+DLAP
+              lcSELECT+=' and pedido_processo='+DLAP+laRES[xx,1]+DLAP
+              lcSELECT+=' and causa_raiz='+DLAP+laRES[xx,2]+DLAP
+              if db_query(lcSELECT) == -1
+                  error_sys(db_error())
+              endif
+              laRES2 := db_fetchall()
+
+              if len(laRES2)==1
+                 aadd(laRESFIN,{laRES[xx,1],laRES[xx,2]})
+              endif
+
+          next xx
+       else
+          aadd(laRESFIN,{laRESULT[ii,1],''})
+       endif
+
+   next ii
+endif
+
+
+lcPED:=''
+for ii := 2 to len(laRESFIN)
+    lnACHO := at(laRESFIN[ii,1],lcPED)
+    if lnACHO == 0     
+       if lcPED==''
+          lcPED:=laRESFIN[ii,1]
+         else
+          lcPED:=lcPED+'|'+laRESFIN[ii,1]
+       endif
+    endif        
+next ii
+WPut('APED',lcPED)
+
+lcCAUSA:=''
+for ii := 2 to len(laRESFIN)
+    if lcCAUSA==''
+       lcCAUSA:=laRESFIN[ii,1]+','+laRESFIN[ii,2]
+      else
+       lcCAUSA:=lcCAUSA+'|'+laRESFIN[ii,1]+','+laRESFIN[ii,2]
+    endif        
+next ii
+WPut('ACAUSA',lcCAUSA)
+
+return(nil)
+
+
+

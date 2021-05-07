@@ -1,0 +1,72 @@
+/*
+
+Project      : gr5
+Program      : check_fields.html
+Function     : check_fields_html
+Created on   : 30-Aug-2005   18:33:58
+Descripition : 
+
+*/
+
+
+   local ii        := 0  ,;
+         lnHAND    := 0  as int
+   local lcFILE    := '' as string
+   local laRES     := {} ,;
+         laRESULT  := {} ,;         // todos os campos cadastrados no sistema ( wfield )
+         laRESULT1 := {} ,;         // todos os campos nas tabelas cadastradas no sistema ( wtable )
+         laRESULT2 := {} ,;
+         laRESULT3 := {} ,;
+         laWHERE   := {} as array   // colunas a serem geradas no select
+
+   lcFILE := 'check_fields.txt'
+
+   // buscando todos os campos cadastrados no sistema ( wfield )
+   if db_select({'WFIELD'}, 'wfield',,{'PROJECT= '+DLAP+'gr5'+DLAP}) == -1
+      qout("Erro Select -> "+db_error())
+      qout("Ultimo Comando -> " + wset("_LASTSQL"))
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      // buscando todos os campos nas tabelas cadastradas no sistema ( wtable )
+      if db_select({'WFIELDS'}, 'wtable',,{'PROJECT= '+DLAP+'gr5'+DLAP}) == -1
+         qout("Erro Select -> "+db_error())
+         qout("Ultimo Comando -> " + wset("_LASTSQL"))
+      endif
+      laRESULT1 := db_fetchall()
+   endif
+   if len(laRESULT) > 1 .and. len(laRESULT1) > 1
+      for ii := 2 to len(laRESULT1)
+          laRESULT2 := {}
+          laRESULT2 := str2array(laRESULT1[ii,1],',')
+          // verifica se o campo já está no array de comparação.
+          for zz := 1 to len(laRESULT2)
+              if ascan(laRESULT3, alltrim(laRESULT2[zz])) = 0
+                 aadd(laRESULT3, alltrim(laRESULT2[zz]))
+              endif
+          next zz
+      next ii
+      if len(laRESULT3) > 0
+         // comparação entre result de wfield (laRESULT)  com result de wtable (laRESULT3)
+         for ii := 2 to len(laRESULT)
+             if ascan(laRESULT3, alltrim(laRESULT[ii,1])) = 0
+                if ascan(laRES, alltrim(laRESULT[ii,1])) = 0
+                   aadd(laRES, alltrim(laRESULT[ii,1]))
+                endif
+             endif
+         next ii
+      endif
+      if len(laRES) > 0
+         lnHAND := fcreate(lcFILE, 0)
+         if lnHAND > 0
+            dispmess('BEGIN;', lnHAND, 0, 0)
+            for ii := 1 to len(laRES)
+                dispmess('--'+laRES[ii], lnHAND, 0, 0)
+                dispmess('delete from db_field where project = '+DLAP+'gr5'+DLAP+' and wfield = '+DLAP+laRES[ii]+DLAP+';', lnHAND, 0, 0)
+                dispmess('', lnHAND, 0, 0)
+            next ii
+            dispmess('COMMIT;', lnHAND, 0, 0)
+            fclose(fnHAND)
+         endif
+      endif
+   endif

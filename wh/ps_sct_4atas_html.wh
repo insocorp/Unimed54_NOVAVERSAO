@@ -1,0 +1,228 @@
+
+   local lcACTION   := '' ,;
+         lcTP_PASTA := '' ,;
+         lcNR_ATA   := '' ,;
+         lcTABLE    := '' ,;
+         lcNR_PASTA := '' ,;
+         lcMANDATA  := ''  as string
+   local laRESULT   := {} ,;
+         laRES      := {} ,;
+         laPUT      := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laWHERE    := {} ,;
+         laFIELDS   := {} ,;
+         laLABELS   := {} ,;
+         laDELETE   := {} ,;
+         laVALIDA   := {} ,;
+         laTEXT     := {} as array
+   local ii     := 0 ,;
+         lnROWS := 0 as int
+   local llERRO := .F. as logical
+
+   lcACTION   := upper(alltrim(WGet('ACTION','C')))
+   lcTP_PASTA := WGet('TP_PASTA','C')
+   lcNR_PASTA := WGet('NR_PASTA','C')
+   lcNR_ATA   := WGet('NR_ATA','C')
+   lcTABLE    := 'pasta_sct_ata'
+   laWHERE    := {'NR_PASTA='+lcNR_PASTA+' and NR_ATA='+DLAP+lcNR_ATA+DLAP}
+   laFIELDS   := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS   := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+  
+  
+  
+   laVALIDA   := {'NR_ATA'}   
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)  
+  
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+
+   if empty(lcACTION)
+      lcACTION = 'NEW'
+   endif
+
+   wPut('TP_PASTA',lcTP_PASTA)
+   wPut('NR_PASTA',lcNR_PASTA)
+//   WPut('TRANSCRITO_LIVRO_OPT',{'','SIM','NAO'})
+//   WPut('EMISSAO_ACOES_OPT',{'','SIM','NAO'})
+    
+   carrega_cbox({{'societario_ato','SOCIETARIO_ATO','Y'},;
+                 {'forma_realizacao','FORMA_REALIZACAO','Y'},;
+                 {'transcrito_livro','TRANSCRITO_LIVRO','Y'},;
+                 {'emissao_acoes','EMISSAO_ACOES','Y'}})
+
+   /* Array com os campos Textarea de tamanho dinâmico */
+   laTEXT := {'SCT_ORDENS',;
+              'ASSEMBLEIA_PUBLICACAO',;
+              'ASSEMBLEIA_PRESENCA',;
+              'ASSEMBLEIA_MESA',;
+              'ASSEMBLEIA_CONVOCACAO',;
+              'ASSEMBLEIA_ENCERRAMENTO'}
+
+   for ii := 1 to len(laTEXT)
+      WPut(laTEXT[ii]+'_ROWS',3)
+   next ii
+
+   if lcACTION == 'NEW' .and. gbWAC_CREATE
+      wPut('TITLE','Inclusão de Ata de Assembléia')
+      wPut('ifNR_ATARW',.T.)
+//      wout('Action = new, com return sem montar a grid')
+//      Wput('GRID_DELIBERACAO',{laFIELDS,{99,'teste glauber'}})
+//alteração sonia teste de Ata o Campo é caracter
+//      Wput('NR_ATA',0)
+//      wPut('WSCRIPT','parent.document.mntform.NR_ATA.value='+DLMT+'0'+DLMT+';parent.document.mntform.ASSEMBLEIA_TITULO.value='+DLMT+getWPut('ASSEMBLEIA_TITULO')+DLMT)
+      Wput('NR_ATA','')
+      wPut('WSCRIPT','parent.document.mntform.NR_ATA.value='+DLMT+''+DLMT+';parent.document.mntform.ASSEMBLEIA_TITULO.value='+DLMT+getWPut('ASSEMBLEIA_TITULO')+DLMT)
+      return
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+
+      if db_select(laFIELDS,lcTABLE,,laWHERE) = -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2put(laRESULT)
+         if db_select({'PFPJ'},'pfpj',,{'CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_FILIAL')]+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchrow()
+         if len(laRESULT) > 0
+            WPut('CIP_FILIAL_PFPJ',laRESULT[1])
+         endif
+      endif
+      wPut('TITLE','Alteração do Ata de Assembléia '+getWPut('NR_ATA'))
+      wPut('ifNR_ATARO',.T.)
+   elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+   
+   
+   
+      //rufino metodo de validação anterior 
+      //for ii := 1 to len(laVALIDA)
+      //    if empty(alltrim(WGet(laVALIDA[ii],'C')))
+      //       walert(laLABELS[ascan(laFIELDS,laVALIDA[ii])]+' é um campo obrigatório!')
+      //       get2Put()
+      //       llERRO := .T.
+      //       wPut('ifNR_ATARW',.T.)
+      //       exit
+      //    endif
+      //next ii
+      
+     //rufino novo metodo de validação
+     if verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA) == .F.
+        llERRO := .T.
+        wPut('ifNR_ATARW',.T.)
+       else 
+        llERRO := .F.         
+     endif        
+      
+      
+      
+      
+      if ! llERRO
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+
+         psab_logs(laSAVE,lcTABLE,'NR_PASTA='+lcNR_PASTA+' and NR_ATA='+DLAP+lcNR_ATA+DLAP,lcNR_PASTA,'Atas de Assembléia')
+
+         if db_replace(laSAVE,lcTABLE,laWHERE) = -1
+            error_sys(db_error())
+         endif
+         wPut('TITLE','Inclusão de novo Ata de Assembléia')
+
+         /*
+         if db_select(laFIELDS,'pasta_sct_ata',,laWHERE) = -1
+            error_sys(db_error())
+         endif
+         db2Put(db_fetchall())
+         */
+         get2put()
+         wPut('WSCRIPT','parent.document.mntform.NR_ATA.value='+DLMT+getWPut('NR_ATA')+DLMT+';parent.document.mntform.ASSEMBLEIA_TITULO.value='+DLMT+getWPut('ASSEMBLEIA_TITULO')+DLMT)
+         wPut('ifNR_ATARO',.T.)
+      endif
+
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      psab_logdel(lcNR_PASTA,'NR_ATA',lcNR_ATA,'Ata Excluída','Atas de Assembléia')
+
+      //Exclusão em cascata
+  
+      laDELETE := {'pasta_sct_ata',;
+                   'pasta_sct_ata2_deliberacao',;
+                   'pasta_sct_sprocedimento'}
+
+      for ii := len(laDELETE) to 1 step -1
+         if db_delete(lcTABLE,laWHERE[1]) = -1
+            error_sys(db_error())
+         endif
+      next ii
+      wPut('TITLE','Inclusão de novo Ata de Assembléia')
+      /* wPut('WSCRIPT','parent.location.href="'+wic_action('wicaction/ps.lst.4assembleia.html')+'?TP_PASTA='+lcTP_PASTA+'&NR_PASTA='+lcNR_PASTA+'";') */
+      wPut('WSCRIPT','location.href="'+wic_action('wicaction/ps.sct.4atas.html')+'?ACTION=NEW&NR_PASTA='+lcNR_PASTA+'";')
+   endif
+
+   /* Define tamanho dinâmico aos campos TEXT */
+   for ii := 1 to len(laTEXT)
+      lnROWS := mlcount(GetWput(laTEXT[ii]))
+      WPut(laTEXT[ii]+'_ROWS',iif(lnROWS <= 3 ,3, lnROWS+2 ))
+   next ii
+// Glauber 19/10/2010 - Alimentar a Grid GRID_DELIBERACAO
+/*
+   if db_select(laFIELDS,lcTABLE,,{'NR_PASTA = '+ lcNR_PASTA}) = -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      Wput('GRID_DELIBERACAO',laRESULT)
+   endif
+*/
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

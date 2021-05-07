@@ -1,0 +1,402 @@
+/*
+
+Project      : gr5
+Program      : mkcips
+Function     : mkcips
+Created on   : 21-Sep-2005   09:44:31
+Descripition :
+Parametros   : pcPROGRAM
+               Conteúdo :
+               MKCIPS        -> Gerar a coluna CIPS de todas as pastas
+               MKLMI         -> Converte os antigos campos da pasta_seguro para a nova tabela pasta_seguro_lmi.
+               MKPASTAFILTRO -> Gerar o conteúdo de pasta.PASTA_FILTRO de todas as pastas.
+               NMFAVORECIDO  -> Copia o conteudo de pasta.NM_FAVORECIDO para pasta_cip.
+               WCATALOG      -> Sincronizar as tabelas customer (geradas pelo WCatalog) com o catálogo do GR5.
+*/
+
+  //parameters pcPARAMETRO
+
+
+
+  wSet('_WF_STATUS','DISABLE')    // Desabilita o WF
+  do case
+     case Upper(alltrim(pcPARAMETRO)) == 'MKCIPS'
+          process_cip()
+     case Upper(alltrim(pcPARAMETRO)) == 'MKLMI'
+          process_LMI()
+     case Upper(alltrim(pcPARAMETRO)) == 'MKPASTAFILTRO'
+          process_PSTFILTRO()
+     case Upper(alltrim(pcPARAMETRO)) == 'NMFAVORECIDO'
+          process_NMFAVORECIDO()
+     case Upper(alltrim(pcPARAMETRO)) == 'WCATALOG'
+          process_WCATALOG()
+  endcase
+  wSet('_WF_STATUS','ENABLE') // Abilita o WF
+return
+
+
+
+/*
+* Function..: process_cip()
+* Objetivo..: Gerar a coluna CIPS de todas as pastas
+* Parâmetros:
+* Retorno...: Retorna .t. / .f.
+*/
+Function process_cip()
+
+  local ii       := 0  ,;
+        zz       := 0  ,;
+        contador := 0  ,;
+        lnPASTA  := 0  as int
+  local lcCIP    := '' as string
+  local laRESULT := {} ,;
+        laRES    := {} ,;
+        laSAVE   := {} ,;
+        laLIMIT  := {} ,;
+        laWHERE  := {} as array
+  local llERRO   := .f.as logical
+
+  if db_select({'count(*)'},'pasta_cip') == -1
+     qout("Erro Select -> "+db_error())
+     qout("Ultimo Comando -> " + wset("_LASTSQL"))
+  endif
+  laRES := db_fetchrow()              // limitado para pasta_cip com 200.000 registros
+  qout("Aguarde !!! Registros a processar -> "+alltrim(str(laRES[1]-1)))
+  for zz := 0 to 12                   // limitando o result em no máximo 40.000 registros
+      laLIMIT := {}                   // para evitar o estouro de array.
+      laSAVE  := {}
+      laWHERE := {}
+      laRESULT:= {}
+      aadd(laLIMIT, (20000*zz)+1)
+      aadd(laLIMIT,  20000)
+      //  seleciona todos os CIP'S para alteração
+      if db_select({'NR_PASTA','CIP'},'pasta_cip',,,{'NR_PASTA'},,,laLIMIT) == -1
+         qout("Erro Select -> "+db_error())
+         qout("Ultimo Comando -> " + wset("_LASTSQL"))
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         aadd(laSAVE,{'CIPS'})
+         lnPASTA := laRESULT[2,1]
+         lcCIP   := '#'
+         for ii := 2 to len(laRESULT)
+             contador ++
+             if len(laRESULT[ii,2]) > 0
+                if lnPASTA = laRESULT[ii,1]
+                   lcCIP += alltrim(laRESULT[ii,2])+'#'
+                else
+                   aadd(laWHERE,'NR_PASTA = '+alltrim(str(lnPASTA)))
+                   aadd(laSAVE,{lcCIP})
+                   lcCIP := '#'+laRESULT[ii,2]+'#'
+                   lnPASTA := laRESULT[ii,1]
+                endif
+             endif
+         next ii
+         if db_update(laSAVE,'pasta',laWHERE) == -1
+            qout("Erro Update -> "+db_error())
+            qout("Ultimo Comando -> " + wset("_LASTSQL"))
+         endif
+         qout("Processados "+alltrim(str(contador))+" de "+alltrim(str(laRES[1]-1)))
+      endif
+      if contador >= laRES[1]
+         exit
+      endif
+
+  next zz
+
+return
+
+
+
+/*
+* Function..: process_LMI()
+* Objetivo..: Converte os antigos campos da pasta_seguro para a nova tabela pasta_seguro_lmi.
+* Parâmetros:
+* Retorno...: Retorna .t. / .f.
+*/
+Function process_LMI()
+    local ii       := 0   as int
+    local laRES    := {} ,;
+          laFIELDS := {} ,;
+          laSAVE   := {}  as array
+
+    laFIELDS := {'nr_pasta'      ,;     //  1
+                 'nr_controle'   ,;     //  2
+                 'vl_lmi1'       ,;     //  3
+                 'vl_lmi2'       ,;     //  4
+                 'vl_lmi3'       ,;     //  5
+                 'vl_lmi4'       ,;     //  6
+                 'vl_sinistrado1',;     //  7
+                 'vl_sinistrado2',;     //  8
+                 'vl_sinistrado3',;     //  9
+                 'vl_sinistrado4' }     // 10
+
+    if db_select(laFIELDS,'pasta_seguro') == -1
+       qout("Erro Select -> "+db_error())
+       qout("Ultimo Comando -> " + wset("_LASTSQL"))
+    endif
+    laRES := db_fetchall()
+    if len(laRES) > 1
+       qout("Aguarde, processando registros !!!")
+       aadd(laSAVE, {'nr_pasta','nr_controle','vl_lmi','vl_sinistrado'})
+       for ii := 2 to len(laRES)
+           if laRES[ii,3] > 0 .or. laRES[ii,7] > 0
+              aadd(laSAVE, { laRES[ii,1],laRES[ii,2],laRES[ii,3], laRES[ii,7] })
+           endif
+           if laRES[ii,4] > 0 .or. laRES[ii,8] > 0
+              aadd(laSAVE, { laRES[ii,1],laRES[ii,2],laRES[ii,4], laRES[ii,8] })
+           endif
+           if laRES[ii,5] > 0 .or. laRES[ii,9] > 0
+              aadd(laSAVE, { laRES[ii,1],laRES[ii,2],laRES[ii,5], laRES[ii,9] })
+           endif
+           if laRES[ii,6] > 0 .or. laRES[ii,10] > 0
+              aadd(laSAVE, { laRES[ii,1],laRES[ii,2],laRES[ii,6], laRES[ii,10]})
+           endif
+       next ii
+       if db_insert(laSAVE,'pasta_seguro_lmi') == -1
+          qout("Erro Insert -> "+db_error())
+          qout("Ultimo Comando -> " + wset("_LASTSQL"))
+       else
+          qout("Processados -> "+ alltrim(str(len(laSAVE)-1)) +' registros !!!')
+       endif
+    endif
+return
+
+
+
+/*
+* Function..: Process_PSTFILTRO()
+* Objetivo..:
+* Parâmetros:
+* Retorno...: Retorna .t. / .f.
+*/
+Function Process_PSTFILTRO()
+
+    local ii       := 0  ,;
+          lnPASTA  := 0   as int
+    local laRESULT := {} ,;
+          laFIELDS := {} ,;
+          laJOIN   := {} ,;
+          laWHERE  := {} ,;
+          laSAVE   := {}  as array
+    local lcFILTRO := '' as string
+
+    laFIELDS := {'pasta_seguro.NR_PASTA'   ,;   // 1
+                 'pasta_seguro.CD_RAMOSRSN',;   // 2
+                 'ramosrsn.CD_RAMOSRSN'    ,;   // 3
+                 'ramosrsn.SEGURORAMO'     ,;   // 4
+                 'ramosrsn.SEGUROPRODUTO'  ,;   // 5
+                 'ramosrsn.SEGUROPROFIT'    }   // 6
+
+    laJOIN := {{2,'ramosrsn','pasta_seguro.CD_RAMOSRSN = ramosrsn.CD_RAMOSRSN'}}
+
+    if db_select(laFIELDS,'pasta_seguro',laJOIN,,{'NR_PASTA'}) == -1
+       qout("Erro Select -> "+db_error())
+       qout("Ultimo Comando -> " + wset("_LASTSQL"))
+    endif
+    laRESULT := db_fetchall()
+    if len(laRESULT) > 1
+       qout("Aguarde, processando registros !!!")
+       aadd(laSAVE,{'PASTA_FILTRO'})
+       lnPASTA  := laRESULT[2,1]
+       lcFILTRO := '#'
+       for ii := 2 to len(laRESULT)
+           if lnPASTA = laRESULT[ii,1]
+              if !empty(alltrim(laRESULT[ii,4]))
+                 lcFILTRO += alltrim(laRESULT[ii,4])+'#'
+              endif
+              if !empty(alltrim(laRESULT[ii,5]))
+                 lcFILTRO += alltrim(laRESULT[ii,5])+'#'
+              endif
+              if !empty(alltrim(laRESULT[ii,6]))
+                 lcFILTRO += alltrim(laRESULT[ii,6])+'#'
+              endif
+              if ii == len(laRESULT)
+                 aadd(laWHERE,'NR_PASTA = '+alltrim(str(lnPASTA)))
+                 aadd(laSAVE, {lcFILTRO})
+              endif
+           else
+              if len(lcFILTRO) > 1
+                 aadd(laWHERE,'NR_PASTA = '+alltrim(str(lnPASTA)))
+                 aadd(laSAVE, {lcFILTRO})
+              endif
+              lcFILTRO := '#'
+              if !empty(alltrim(laRESULT[ii,4]))
+                 lcFILTRO += alltrim(laRESULT[ii,4])+'#'
+              endif
+              if !empty(alltrim(laRESULT[ii,5]))
+                 lcFILTRO += alltrim(laRESULT[ii,5])+'#'
+              endif
+              if !empty(alltrim(laRESULT[ii,6]))
+                 lcFILTRO += alltrim(laRESULT[ii,6])+'#'
+              endif
+              lnPASTA  := laRESULT[ii,1]
+           endif
+       next ii
+       if db_update(laSAVE,'pasta',laWHERE) == -1
+          qout("Erro Update -> "+db_error())
+          qout("Ultimo Comando -> " + wset("_LASTSQL"))
+       else
+          qout("Processados -> "+ alltrim(str(len(laSAVE)-1)) +' registros !!!')
+       endif
+    endif
+return
+
+
+/*
+* Function..: Process_NMFAVORECIDO()
+* Objetivo..: Copiar o conteudo de pasta.NM_FAVORECIDO para pasta_cip.
+* Parâmetros:
+* Retorno...: nil
+*/
+Function Process_NMFAVORECIDO()
+
+    local ii       := 0  as int
+    local laRESULT := {} ,;
+          laWHERE  := {} ,;
+          laFIELDS := {} ,;
+          laSAVE   := {} as array
+
+    local lcXML := '' as string
+
+    qout("Aguarde, processando registros !!!")
+
+    if db_select({'NR_PASTA','NM_FAVORECIDO'},'pasta',,{"NM_FAVORECIDO <> ''"}) == -1
+       qout("Erro Select -> "+db_error())
+       qout("Ultimo Comando -> " + wset("_LASTSQL"))
+    endif
+    laRESULT := db_fetchall()
+    if len(laRESULT) > 1
+       aadd(laSAVE, {'NR_PASTA','WFIELD','CIP'} )    // montando array para salvar em pasta_cip
+       for ii := 2 to len(laRESULT)
+           aadd(laSAVE,{laRESULT[ii,1],'CIP_FAVORECIDO',gera_cip(laRESULT[ii,2])})
+           aadd(laWHERE,"NR_PASTA="+alltrim(str(laRESULT[ii,1]))+" and WFIELD = 'CIP_FAVORECIDO'")
+       next ii
+       if len(laSAVE) > 1
+          if db_update(laSAVE,'pasta_cip',laWHERE) == -1
+             qout("Erro Insert -> "+db_error())
+             qout("Ultimo Comando -> " + wset("_LASTSQL"))
+          else
+             qout("Inseridos "+ alltrim(str(len(laSAVE)-1)) +' registros em PASTA_CIP.')
+          endif
+       endif
+    else
+       qout('Não há registros para atualização !!!')
+    endif
+
+return
+
+
+/*
+*  Pesquisa/Inclui  o numero do CIP
+*  fcNOME = nome a ser pesquisado, caso náo exista inclui
+*  fcTIPO = tipo de pessoa
+*/
+Function gera_cip(fcNOME,fcTIPO)
+
+   local lcCIP   := '' ,;
+         lcWHERE := '' as string
+   local laRES   := {} as array
+
+   fcNOME := substr(fcNOME,1,45)
+
+   if !empty(fcNOME)
+      lcWHERE := "PFPJ like '"+alltrim(strtran(fcNOME,"'","''"))+"'"
+      if db_select({'CIP'},'PFPJ',,{lcWHERE}) == -1
+         qout("Erro Select -> "+db_error())
+         qout("Ultimo Comando -> " + wset("_LASTSQL"))
+      endif
+      laRES := db_fetchall()
+      if len(laRES) > 1
+         lcCIP := laRES[2,1]
+      else
+         // faz a inclusao do CIP
+         if db_insert({{'PFPJ','PFPJ_TIPOS'},{fcNOME,fcTIPO}},'PFPJ') == -1
+            qout("Erro Insert PFPJ -> "+db_error())
+            qout("Ultimo Comando -> " + wset("_LASTSQL"))
+         else
+            lcCIP := alltrim(str(db_insert_id()))     // retorna o ultimo NR_CONTROLE inserido
+            if db_update({{'CIP'},{lcCIP}},'PFPJ',{'NR_CONTROLE = '+lcCIP}) == -1
+               qout("Erro Update PFPJ -> "+db_error())
+               qout("Ultimo Comando -> " + wset("_LASTSQL"))
+            endif
+         endif
+      endif
+   endif
+Return(lcCIP)
+
+
+
+/*
+* Function..: Process_WCATALOG()
+* Objetivo..: Sincronizar as tabelas (wprogram_customer, wfield_customer)
+*             geradas pelo WCatalog com o catálogo do GR5.
+* Parâmetros: WCATALOG
+* Retorno...: nil
+*/
+Function Process_WCATALOG()
+
+    local ii       := 0  ,;
+          zz       := 0  ,;
+          xx       := 0   as int
+
+    local lcWHERE  := ''  as string
+
+    local laRESULT := {} ,;
+          laWHERE  := {} ,;
+          laFIELDS := {} ,;
+          laSAVE   := {} ,;
+          laTABLE  := {}  as array
+
+    qout("Aguarde, processando registros !!!")
+
+//             { {'TB_ORIGEM1','TB_DESTINO1',{ 'CAMPO1, CAMPO2, CAMPOn' },{'CAMPO_CHAVE1','CAMPO_CHAVE2'} },;
+//               {'TB_ORIGEM2','TB_DESTINO2',{ 'CAMPO1, CAMPO2, CAMPOn' },{'CAMPO_CHAVE1','CAMPO_CHAVE2'} } }
+
+    laTABLE := {{'WPROGRAM_CUSTOMER','WPROGRAM',{'PROJECT,PROGRAM,NM_PROGRAM,NM_HELP,WREQUIRED_FIELDS'}      ,{'PROJECT','PROGRAM'}},;
+                {'WFIELD_CUSTOMER'  ,'WFIELD'  ,{'PROJECT,WFIELD,LABEL_SCREEN,LABEL_REPORT,NM_HELP,WPICTURE'},{'PROJECT','WFIELD' }}}
+
+
+    // Inicio da Tranzação.
+    db_begin()
+    for ii := 1 to len(laTABLE)
+        // Fazendo o Select dos campos na tabela origem laTABLE[ii,1]
+        laRESULT := {}
+        laSAVE   := {}
+        laWHERE  := {}
+        if db_select(laTABLE[ii,3],laTABLE[ii,1]) == -1
+           db_rollback()
+           qout("Erro Select -> "+laTABLE[ii,1]+' '+db_error())
+           qout("Ultimo Comando -> " + wset("_LASTSQL"))
+        endif
+        laRESULT := db_fetchall()
+        if len(laRESULT) > 1
+           aadd(laSAVE, laRESULT[1] )
+           for zz := 2 to len(laRESULT)
+               aadd(laSAVE, laRESULT[zz])
+               // montando o Where para o UPDATE
+               lcWHERE := ''
+               for xx := 1 to len(laTABLE[ii,4])
+                   if len(lcWHERE) > 1
+                      lcWHERE += ' and '
+                   endif
+                   lcWHERE += laTABLE[ii,4][xx]+" = '"+laRESULT[zz,db_fetchncol(laRESULT,laTABLE[ii,4][xx])]+"'"
+               next xx
+               aadd(laWHERE, lcWHERE)
+           next zz
+           if len(laSAVE) > 1
+              if db_update(laSAVE,laTABLE[ii,2],laWHERE) == -1
+                 db_rollback()
+                 qout("Erro Update PFPJ -> "+laTABLE[ii,2]+' '+db_error())
+                 qout("Ultimo Comando -> " + wset("_LASTSQL"))
+              else
+                 qout('Alterados '+alltrim(str(len(laSAVE)-1))+' registros da tabela '+laTABLE[ii,2])
+              endif
+           endif
+        else
+           qout('Não há registros em '+laTABLE[ii,1]+' para serem importados !!!')
+        endif
+    next ii
+    db_commit()   // Encerra a transação e grava fisicamente todos os dados pendentes
+return
+

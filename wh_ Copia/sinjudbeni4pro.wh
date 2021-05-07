@@ -1,0 +1,135 @@
+
+
+//
+// Glauber - 10/2017
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Classe...........: I4proSinJudBen
+*
+* Objetivo.........: Classe que espelha um beneficiario de um sinistro judicial.
+*
+* Atributos........:
+*
+*    EXPORT IdPessoaBeneficiario
+*    EXPORT NmBeneficiario
+*    EXPORT NmParentesco
+*    EXPORT PcParticipacaoSegurado
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD toString()
+*
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS I4proSinJudBen
+
+    // Atributos publico
+
+    EXPORT IdPessoaBeneficiario
+    EXPORT NmBeneficiario
+    EXPORT NmParentesco
+    EXPORT PcParticipacaoSegurado
+
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()                          CLASS I4proSinJudBen
+    PROTOTYPE METHOD Destroy()                       CLASS I4proSinJudBen
+    PROTOTYPE METHOD toString()                      CLASS I4proSinJudBen
+
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS I4proSinJudBen
+
+
+    self:IdPessoaBeneficiario   := 0
+    self:NmBeneficiario         := ''
+    self:NmParentesco           := ''
+    self:PcParticipacaoSegurado := 0.00
+
+
+return(self)
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS I4proSinJudBen
+
+    self:IdPessoaBeneficiario   := nil
+    self:NmBeneficiario         := nil
+    self:NmParentesco           := nil
+    self:PcParticipacaoSegurado := nil
+
+
+return(nil)
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: toString()
+* Objetivo..: Retornar uma String com a representação do Objeto.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             String
+*
+*/
+
+METHOD toString() CLASS I4proSinJudBen
+
+return    'I4proSinJudBen [IdPessoaBeneficiario=' +  Transform(self:IdPessoaBeneficiario) +;
+          ', NmBeneficiario=' + Transform(self:NmBeneficiario) +;
+          ', NmParentesco=' + Transform(self:NmParentesco) +;
+          ', PcParticipacaoSegurado=' + Transform(self:PcParticipacaoSegurado) +;
+          ']'
+

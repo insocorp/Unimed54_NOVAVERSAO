@@ -1,0 +1,64 @@
+/*
+
+Project      : gr5
+Program      : servlog.mnt.html
+Function     : servlog_mnt_html
+Created on   : 2010-08-26 14:47:07
+Descripition : Log de Servicos Webservice
+
+*/
+
+   local laPARAM        := {},;
+         laINPUT_OBJ    := {},;
+         laSELECT       := {} as array
+
+   laPARAM := {{'NR_PASTA',''     ,'*'},;
+               {'ACTION'       ,'ALTER',   }}
+
+   laINPUT_OBJ := {{'NR_PASTA',0, ,'Y',},;
+                   {               , , ,   ,   },;
+                   {'NR_SINISTRO',0, ,'Y',},;
+                   {               , , ,   ,   },;
+                   {'ID_INTEGRACAO',0,'Y','Y',"'New'"},;
+                   {               , , ,   ,   },;
+                   {'ID_SERVICO',0, ,,},;
+                   {               , , ,   ,   },;
+                   {'DT_OPERACAO',0, ,,},;
+                   {               , , ,   ,   },;
+                   {'HR_OPERACAO',0, ,,},;
+                   {               , , ,   ,   },;
+                   {'FL_ACAOJUD',0, ,,},;
+                   {               , , ,   ,   },;
+                   {'FL_REABERTURA',0, ,,},;
+                   {               , , ,   ,   },;
+                   {'RETORNO',4, ,,   } }
+
+   laSELECT := {'NR_PASTA','NR_SINISTRO','ID_INTEGRACAO','ID_SERVICO','DT_OPERACAO','HR_OPERACAO','FL_ACAOJUD','FL_REABERTURA','RETORNO'}
+
+
+   xbp2('isjunimedservlog',;                                                         //Tabela alvo
+       ,;                                                                  //Joins
+       ,;                                                                  //Where
+       {'ID_INTEGRACAO'},;                                        			//Order by
+       ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+       ,;                                                                  //Group by
+       ,;                                                                  //Limit
+       ,;                                                                  //Banco de Dados
+       2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+       'gr5',;                                                             //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;                                           //Programa chamador
+       laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+       ,;                                                                  //Parâmetros para os botões das linhas do grid
+       'servlog.mnt.html',;                                                 //Programa que os links/botoes do grid deverao chamar
+       'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+       ,;                                                                  //Retorno java (nil) - usado apenas para Search
+       ,;                                                                  //Campos usados na pesquisa rápida
+       ,;                                                                  //Campos Ocultos
+       laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+       laSELECT ,;                                                         //Campos exibidos no grid
+       laSELECT)                                                           //Campos usados no select
+return
+
+
+
+

@@ -1,0 +1,61 @@
+/*
+
+Project      : gr5
+Program      : canal_produto.mnt.html
+Function     : canal_produto_mnt_html
+Created on   : 31-Jan-2008   10:03:30
+Descripition : Canal/Produto
+
+*/
+
+
+local laPARAM        := {},;
+      laINPUT_OBJ    := {},;
+      laSELECT       := {} as array
+
+laPARAM := {{'CANAL','' ,'*'},;
+            {'CD_PRODUTO','','*' },;
+            {'FL_ATIVO','',},;
+            {'ACTION'       ,'ALTER',   }}
+
+laINPUT_OBJ := {{'CANAL',1,'N','Y',"loadcbox_build('canal','canal',.T.)"},;
+               {                   , , ,   ,   },;
+               {'CD_PRODUTO' ,0,'N','Y'   ,  },;
+               {                   , , ,   ,   },;
+               {'NM_PRODUTO' ,0,'N','N'   ,  },;
+                {,,,,},;
+                {'FL_ATIVO',1,,'Y','{"S","I","D"}' }}
+
+
+laSELECT := {'CANAL','CD_PRODUTO','NM_PRODUTO','FL_ATIVO'}
+
+
+xbp2('canal_produto',;                                                           //Tabela alvo
+    ,;                                                                  //Joins
+    ,;                                                                  //Where
+    {'CANAL','CD_PRODUTO','NM_PRODUTO'},;                               //Order by
+    ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+    ,;                                                                  //Group by
+    ,;                                                                  //Limit
+    ,;                                                                  //Banco de Dados
+    2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+    'gr5',;                                                             //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                                           //Programa chamador
+    laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+    ,;                                                                  //Parâmetros para os botões das linhas do grid
+    'canal_produto.mnt.html',;                                                   //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+    ,;                                                                  //Retorno java (nil) - usado apenas para Search
+    ,;                                                                  //Campos usados na pesquisa rápida
+    ,;                                                                  //Campos Ocultos
+    laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+    laSELECT ,;                                                         //Campos exibidos no grid
+    laSELECT)                                                           //Campos usados no select
+return
+
+
+
+
+
+
+

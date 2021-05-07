@@ -1,0 +1,242 @@
+/*
+Project      : gr5
+Program      : gem_isj_despesas.html
+Function     : gem_isj_despesas_html
+Created on   : 15/9/2009 11:27:16  Hélio
+Descripition : Envio de dados das Despesas do sistema ISJ para o e-Vida e Top Saúde 
+*/
+
+    WSet('_USER_INTERFACE','none.wic')
+
+    local lcXML      := '' ,;
+          lcWHERE    := '' ,;
+          lcFILEOUT  := '' ,;
+          lcTABLE    := 'mvt_despesa',;
+          lcRAMO     := '' ,;
+          lcSini     := '' ,;
+          lcStatus   := '3' ,;
+          lcHORAINI  := time() ,;
+          lcTABLEINT := 'seq_interfaces' ,;
+          lcCip      := ' ' as string
+
+    local ii       := 0 ,;
+          lnHAND   := 0 ,;
+          lnValor  := 0 ,;
+          lnIdInt  := 1 ,;
+          lnSEQ    := 0 ,;
+          jj       := 0 as int
+
+    local lnV_A   := 0 ,; 
+          lnV_R_C := 0 ,;
+          lnV_C   := 0 ,;
+          lnV_J   := 0 ,;
+          lnV_S   := 0 ,;
+          lnVSuc  := 0 ,;
+          lnV_P   := 0 as numeric
+
+    local laXML       := {},;
+          laFIELDS    := {},;
+          laRESULT    := {},;
+          laJOIN      := {},;
+          laFIELDSINT := {},;
+          laWHEREINT  := {},;
+          laRES_INT   := {},;
+          laSAVEINT   := {},;
+          laEVIDA     := {},;
+          laTOP       := {} as array
+          
+    local ldDIAINI := date() ,;
+          ldDTpag  := ctod('') as date
+
+    laJOIN := {{2,'pasta_seguro'              , 'mvt_despesa.NR_PASTA       = pasta_seguro.NR_PASTA              AND mvt_despesa.NR_CONTROLE_SEGURO = pasta_seguro.NR_CONTROLE'},;
+               {2,'pasta_seguro_beneficiario' , 'mvt_despesa.NR_PASTA       = pasta_seguro_beneficiario.NR_PASTA AND mvt_despesa.NR_CONTROLE_SEGURO = pasta_seguro_beneficiario.NR_CONTROLE'},;
+               {2,'mvt_despesa_pagamento'     , 'mvt_despesa.NR_PASTA       = mvt_despesa_pagamento.NR_PASTA     AND mvt_despesa.NR_DESPESA         = mvt_despesa_pagamento.NR_DESPESA'},;
+               {2,'pasta_pedidos'             , 'mvt_despesa.NR_PASTA       = pasta_pedidos.NR_PASTA'},;
+               {2,'pasta'                     , 'mvt_despesa.NR_PASTA       = pasta.NR_PASTA'},;
+               {2,'pfpj'                      , 'mvt_despesa.CIP_ESCRITORIO = pfpj.CIP'},;
+               {2,'grupo_despesa'             , 'mvt_despesa.CD_GRP_DESPESA = grupo_despesa.CD_GRP_DESPESA'},;
+               {2,'tipo_favorecido'           , 'mvt_despesa.TP_FAVORECIDO  = tipo_favorecido.TP_FAVORECIDO'},;
+               {2,'tipo_docfiscal'            , 'mvt_despesa.TP_DOCFISCAL   = tipo_docfiscal.TP_DOCFISCAL'},;
+               {2,'centrocusto'               , 'mvt_despesa.CD_CCUSTO      = centrocusto.CD_CCUSTO'},;
+               {2,'despesa'                   , 'mvt_despesa.CD_DESPESA     = despesa.CD_DESPESA'}}
+
+    laFIELDS := {'DISTINCT pasta_seguro.NR_SINISTRO',;
+                 'pasta_seguro.NR_CONTROLE',;
+                 'CASE ' +;
+                    'WHEN pasta_seguro.CIP_SEGURADO = '+DLMT+'3'+DLMT+' THEN '+DLMT+'3'+DLMT+;
+                    'WHEN pasta_seguro_beneficiario.CIP_BENEFICIARIO = '+DLMT+'4'+DLMT+' THEN '+DLMT+'4'+DLMT+;
+                    'WHEN pasta_seguro_beneficiario.CIP_BENEFICIARIO = '+DLMT+'5'+DLMT+' THEN '+DLMT+'5'+DLMT+;
+                    'ELSE '+DLMT+' '+DLMT+;
+                  'END AS TIPO_REGISTRO',;
+                 'CASE '+; 
+                    'WHEN pasta_seguro.CD_RAMOSRSN IN ('+DLMT+'77'+DLMT+', '+DLMT+'81'+DLMT+', '+DLMT+'82'+DLMT+', '+DLMT+'90'+DLMT+', '+DLMT+'93'+DLMT+','+DLMT+'99'+DLMT+') THEN '+DLMT+'EVIDA'+DLMT+;
+                    'WHEN pasta_seguro.CD_RAMOSRSN IN ('+DLMT+'86'+DLMT+', '+DLMT+'87'+DLMT+') THEN '+DLMT+'TOP'+DLMT +;
+                    'ELSE '+DLMT+'   '+DLMT+;
+                  'END AS SIS_RAMO',;
+                 'pasta_pedidos.NR_CONTROLE_SEGURO' ,;
+                 'CASE ' +;
+                     'WHEN mvt_despesa.FORMA_PAGAMENTO LIKE '+DLMT+'%Cheque%'+DLMT+' THEN '+DLMT+'1'+DLMT +;
+                     'WHEN mvt_despesa.FORMA_PAGAMENTO LIKE '+DLMT+'%Débito em Conta%'+DLMT+' THEN '+DLMT+'2'+DLMT +;
+                     'WHEN mvt_despesa.FORMA_PAGAMENTO NOT IN ('+DLMT+'%Cheque%'+DLMT+','+DLMT+'%Débito em Conta%'+DLMT+') THEN '+DLMT+'3'+DLMT +;
+                     'ELSE '+DLMT+' '+DLMT +;
+                  'END AS FORMA_PAGAMENTO',;
+                 'mvt_despesa.CIP_FAVORECIDO',;
+                 'mvt_despesa.CD_GRP_DESPESA',;
+                 'mvt_despesa.NR_DOCFISCAL',;
+                 'mvt_despesa_pagamento.VL_PAGO',;
+                 'mvt_despesa_pagamento.DT_PAGAMENTO',;
+                 'despesa.INCIDENCIA_IMPOSTOS',;
+                 'CASE ' +;
+                     'WHEN pfpj.PFPJ_NATUREZA LIKE '+DLMT+'%Física%'  +DLMT+' THEN '+DLMT+'1'+DLMT +;
+                     'WHEN pfpj.PFPJ_NATUREZA LIKE '+DLMT+'%Jurídica%'+DLMT+' THEN '+DLMT+'2'+DLMT +;
+                     'ELSE '+DLMT+' '+DLMT+;
+                  'END AS PFPJ_NATUREZA',;
+                 'pfpj.PFPJ',;
+                 'pfpj.CNPJ_CPF',;
+                 'pfpj.ENDERECO',;
+                 'pfpj.NR_ENDERECO',;
+                 'pfpj.EXTRA_ENDERECO',;             
+                 'pfpj.BAIRRO',;                     
+                 'pfpj.CIDADE',;                     
+                 'pfpj.UF',;                         
+                 'pfpj.PAIS',;                       
+                 'pfpj.CEP',;                        
+                 'pfpj.CD_BANCO',;                   
+                 'pfpj.BANCO_AGENCIA',;              
+                 'pfpj.BANCO_CONTA',;                
+                 'pfpj.CIP'}
+
+    lcWHERE := ' pasta.TP_PASTA LIKE '+DLMT+'Ressarcimento_Expediente'+DLMT  // trocar por 'Cível com Sinistro'
+    //lcWHERE += ' AND mvt_despesa_pagamento.DT_PAGAMENTO IS NULL'
+    lcWHERE += ' AND pasta_seguro.NR_SINISTRO IS NOT NULL'
+    lcWHERE += ' AND pasta_pedidos.PEDIDO_PROCESSO NOT LIKE '+DLMT+'Sucumb_ncia de Condena__o'+DLMT  // trocar por  'Sucumbência de Condenação'
+/*
+    lcWHERE += ' AND ( mvt_despesa.FL_INTERFACEGEM = '+DLMT+'N'+DLMT
+    lcWHERE += '  OR mvt_despesa.FL_INTERFACEGEM is null )'               // Filtra os não(N) atualizados
+    lcWHERE += ' AND ( mvt_despesa_pagamento.FL_INTERFACEGEM = '+DLMT+'N'+DLMT
+    lcWHERE += '  OR mvt_despesa_pagamento.FL_INTERFACEGEM is null )'     // Filtra os não(N) atualizados
+    lcWHERE += ' AND ( pasta_pedidos.FL_INTERFACEGEM = '+DLMT+'N'+DLMT  
+    lcWHERE += '  OR pasta_pedidos.FL_INTERFACEGEM is null )'             // Filtra os não(N) atualizados
+*/
+    If db_select( laFIELDS,lcTABLE,laJOIN,{lcWHERE},{'SIS_RAMO','pasta_seguro.NR_SINISTRO','mvt_despesa_pagamento.DT_PAGAMENTO'}) == -1
+       db_error()
+    Endif
+
+    laRESULT := db_fetchall()
+
+    If len(laRESULT) > 1
+
+       For jj := 1 to 2
+          
+          lcWHERE := ''          
+          lcRAMO  := If(jj == 1, 'EVIDA', 'TOP')          
+          ii      := 0
+          
+          For ii := 2 to len(laRESULT)
+          
+             If lcRAMO != laRESULT[ii,db_fetchncol(laRESULT,'SIS_RAMO')]
+                Loop
+             Endif
+             
+             If laRESULT[ii,db_fetchncol(laRESULT,'NR_CONTROLE_SEGURO')] == 0
+             
+                aadd(laXML, {'sinistro_numero='    , laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')]        })
+                aadd(laXML, {'id_integracao valor=', StrZero(lnIdInt++, 4)                                    })
+                aadd(laXML, {'tp_integracao valor=', '6'                                                      })
+                aadd(laXML, {'cod_grupo_despesa='  , laRESULT[ii,db_fetchncol(laRESULT,'CD_GRP_DESPESA')]     })
+                aadd(laXML, {'forma_pgto='         , laRESULT[ii,db_fetchncol(laRESULT,'FORMA_PAGAMENTO')]    })
+                aadd(laXML, {'deduz_imposto='      , laRESULT[ii,db_fetchncol(laRESULT,'INCIDENCIA_IMPOSTOS')]})
+                aadd(laXML, {'cod_pessoa='         , laRESULT[ii,db_fetchncol(laRESULT,'CIP_FAVORECIDO')]     })
+                aadd(laXML, {'tipo_pessoa='        , laRESULT[ii,db_fetchncol(laRESULT,'PFPJ_NATUREZA')]      })
+                aadd(laXML, {'nm_favorecido='      , laRESULT[ii,db_fetchncol(laRESULT,'PFPJ')]               })
+                aadd(laXML, {'cnpj_cpf_favorecido=', laRESULT[ii,db_fetchncol(laRESULT,'CNPJ_CPF')]           })
+                aadd(laXML, {'tipo_registro='      , laRESULT[ii,db_fetchncol(laRESULT,'TIPO_REGISTRO')]      })
+                aadd(laXML, {'endereco='           , laRESULT[ii,db_fetchncol(laRESULT,'ENDERECO')]           })
+                aadd(laXML, {'numero='             , laRESULT[ii,db_fetchncol(laRESULT,'NR_ENDERECO')]        })
+                aadd(laXML, {'complemento='        , laRESULT[ii,db_fetchncol(laRESULT,'EXTRA_ENDERECO')]     })
+                aadd(laXML, {'bairro='             , laRESULT[ii,db_fetchncol(laRESULT,'BAIRRO')]             })
+                aadd(laXML, {'cidade='             , laRESULT[ii,db_fetchncol(laRESULT,'CIDADE')]             })
+                aadd(laXML, {'uf='                 , laRESULT[ii,db_fetchncol(laRESULT,'UF')]                 })
+                aadd(laXML, {'pais='               , laRESULT[ii,db_fetchncol(laRESULT,'PAIS')]               })
+                aadd(laXML, {'cep='                , laRESULT[ii,db_fetchncol(laRESULT,'CEP')]                })
+                aadd(laXML, {'banco='              , laRESULT[ii,db_fetchncol(laRESULT,'CD_BANCO')]           })
+                aadd(laXML, {'agencia='            , laRESULT[ii,db_fetchncol(laRESULT,'BANCO_AGENCIA')]      })
+                aadd(laXML, {'conta='              , laRESULT[ii,db_fetchncol(laRESULT,'BANCO_CONTA')]        })
+                aadd(laXML, {'valor_pgto='         , laRESULT[ii,db_fetchncol(laRESULT,'VL_PAGO')]            })
+                aadd(laXML, {'data_pgto='          , laRESULT[ii,db_fetchncol(laRESULT,'DT_PAGAMENTO')]       })
+                aadd(laXML, {'nr_doc_fiscal='      , laRESULT[ii,db_fetchncol(laRESULT,'NR_DOCFISCAL')]       })
+
+                If len(lcWHERE) > 0
+                   lcWHERE += ', '
+                Endif
+
+                lcWHERE += alltrim(str(laRESULT[ii,db_fetchncol(laRESULT,'NR_CONTROLE')]))
+
+             Endif
+          Next ii
+          
+          lcXML := array2xml(laXML)
+          
+          If len(lcXML) < 1      // manda arquivo em branco quando ñ há dados
+             lcXML := Space(100)
+          Endif
+
+          // Gerando arquivo de exportacao
+          
+          lnHAND := fcreate('RETPAG' + lcRAMO + 'DESP' + dtos(date()) + '_' + dtos(date()) + strtran(time(),':','') + '.TXT', 0)
+          If lnHAND > 0
+             if FWrite(lnHAND,lcXML) <= 0
+                wout("Erro na gravação do arquivo.")
+                return(.f.)
+             endif
+             fclose(lnHAND)
+             
+             lcStatus := '1'  //Atualiza seq_interfaces - processo OK
+          Else
+          
+             wout("Problemas na criacao do arquivo: " + 'RETPAG' + lcRAMO + 'DESP' + dtos(date()) + '_' + dtos(date()) + strtran(time(),':','') + '.TXT')
+             lcStatus := '2'  //Atualiza seq_interfaces - erro no processo
+          Endif
+          
+          laXML   := {}
+          lnIdInt := 1
+
+       Next jj                                                                                                
+
+       If lcStatus == '1'  //Atualiza seq_interfaces - processo OK
+       
+          //If db_update({{"FL_INTERFACEGEM"},{'S'}},'mvt_despesa',{'mvt_despesa.NR_CONTROLE_SEGURO in (' + lcWHERE + ')'}) == -1
+          //   wout("Erro Update -> "+db_error())
+          //Endif
+          
+          //If db_update({{"FL_INTERFACEGEM"},{'S'}},'mvt_despesa_pagamento',{'mvt_despesa_pagamento.NR_CONTROLE in (' + lcWHERE + ')'}) == -1
+          //   wout("Erro Update -> "+db_error())
+          //Endif
+                 
+          //If db_update({{"FL_INTERFACEGEM"},{'S'}},'pasta_pedidos',{'pasta_pedidos.NR_CONTROLE in (' + lcWHERE + ')'}) == -1
+          //   wout("Erro Update -> "+db_error())
+          //Endif
+       Endif
+
+    Else
+    
+       wout("Sem Conteudo para gravação do arquivo.")
+       lcStatus := '2'  //Atualiza seq_interfaces - erro no processo
+    Endif
+    
+    //Atualizar Interfaces - seq_interfaces  
+                                          
+    laFIELDSINT := structtable(WSet("DB_ACTIVE"),lcTABLEINT,1,'N')                      
+    laWHEREINT  := {"PROGRAM = 'gem_isj_despesas_html'"}                                      
+    if db_select(laFIELDSINT, lcTABLEINT,,laWHEREINT) == -1                             
+       error_sys(db_error())                                                            
+    endif                                                                               
+    laRES_INT := db_fetchrow()                                                          
+    lnSEQ     := laRES_INT[2] + 1                                                     
+    aadd(laSAVEINT,laFIELDSINT)                                                         
+    aadd(laSAVEINT,{laRES_INT[1],lnSEQ, ldDIAINI, lcHORAINI, date(), time(), lcStatus})      
+    if db_replace(laSAVEINT,lcTABLEINT,laWHEREINT) == -1                                
+       error_sys(db_error())                                                            
+    endif
+
+Return

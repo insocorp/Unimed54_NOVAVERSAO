@@ -1,0 +1,530 @@
+/*
+
+Project      : isj_45
+Program      : ebaocfg.class
+Function     : ebaocfg_class
+Created on   : 20-Apr-2016   11:24:10
+Descripition :
+
+*/
+
+
+//
+// Glauber - 04/2016
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+
+
+// *******************************************  H I S T Ó R I C O  D E  A L T E R A Ç Õ E S  *************************************************
+
+/*
+
+Glauber - 31/05/2016
+
+Alexandre de Alexandri
+08:46 (Há 6 horas)
+
+para mim, Celia, apoio, Desenvolvimento 
+Sim
+
+
+
+Alexandre de Alexandri
+Diretor
+Fone: +55 (11) 5096-4321
+INSO Soluções Jurídicas
+www.inso.com.br
+  
+ 
+ 
+
+ 
+
+
+
+
+
+
+
+Em 30/05/16 17:37, Glauber Duma escreveu:
+Alexandre no caso da interface Ebao que trabalha pelo ramo do seguro, é necessário implementar o tipo de pasta ?
+Lembrando que o Evida também trabalha por ramo do seguro e não contempla tipo de pasta.
+
+Abraços,
+
+
+
+--
+
+
+Glauber Duma
+Desenvolvimento
+Fone: +55 (11) 5096-4321
+INSO Soluções Jurídicas
+www.inso.com.br
+
+
+
+
+
+*/
+
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Classe...........: EbaoConfig
+*
+* Objetivo.........: Classe utilizada para configurar a interface eBao.
+*
+* Atributos........:
+*
+*    EXPORT IdListaSinistros
+*    EXPORT IdDetalheSinistro
+*    EXPORT IdMarcaSinistro
+*    EXPORT IdAtualizaReserva
+*    EXPORT IdRealizarPagamento
+*    EXPORT RamosEbao
+*    EXPORT TipoPastas
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD ObterConfiguracao()
+*    METHOD SalvarConfiguracao()
+*    METHOD ValidarConfiguracao()
+*    METHOD ObterServicos()
+*    METHOD Habilitada(pcPASTAS, pc_RAMO)
+*    METHOD DeveExecutarInterface(pnNrPasta)
+*
+*
+* Classes Ligadas..:
+*
+*    EbaoConsultarResponse, HeaderRequest, EbaoListaSntResponse
+*
+*/
+
+
+CLASS EbaoConfig
+
+    // Atributos publico
+
+    EXPORT IdListaSinistros
+    EXPORT IdDetalheSinistro
+    EXPORT IdMarcaSinistro
+    EXPORT IdAtualizaReserva
+    EXPORT IdRealizarPagamento
+    EXPORT RamosEbao
+    EXPORT TipoPastas
+
+    // Atributos Privado
+
+    INSTANCE ResultSet
+    INSTANCE ErrorCode
+    INSTANCE ErrorMessage
+
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()                           CLASS EbaoConfig
+    PROTOTYPE METHOD Destroy()                        CLASS EbaoConfig
+    PROTOTYPE METHOD ObterConfiguracao()              CLASS EbaoConfig
+    PROTOTYPE METHOD SalvarConfiguracao()             CLASS EbaoConfig
+    PROTOTYPE METHOD ValidarConfiguracao()            CLASS EbaoConfig
+    PROTOTYPE METHOD ObterServicos()                  CLASS EbaoConfig
+    PROTOTYPE METHOD Habilitada(pcPASTAS, pc_RAMO)    CLASS EbaoConfig
+    PROTOTYPE METHOD DeveExecutarInterface(pnNrPasta) CLASS EbaoConfig
+
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS EbaoConfig
+
+    self:IdListaSinistros      := 0
+    self:IdDetalheSinistro     := 0
+    self:IdMarcaSinistro       := 0
+    self:IdAtualizaReserva     := 0
+    self:IdRealizarPagamento   := 0
+    self:RamosEbao             := ''
+    self:ResultSet             := {}
+    self:ErrorCode             := 0
+    self:ErrorMessage          := ''
+    self:TipoPastas            := ''
+
+return(self)
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS EbaoConfig
+
+    self:IdListaSinistros      := nil
+    self:IdDetalheSinistro     := nil
+    self:IdMarcaSinistro       := nil
+    self:IdAtualizaReserva     := nil
+    self:IdRealizarPagamento   := nil
+    self:RamosEbao             := nil
+    self:ResultSet             := nil
+    self:ErrorCode             := nil
+    self:ErrorMessage          := nil
+    self:TipoPastas            := nil
+
+
+return(nil)
+
+
+
+// GET
+ACCESS ErrorCode CLASS EbaoConfig
+   return self:ErrorCode
+
+ACCESS ErrorMessage CLASS EbaoConfig
+   return self:ErrorMessage
+
+
+ACCESS ResultSet CLASS EbaoConfig
+   return self:ResultSet
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: ObterConfiguracao()
+* Objetivo..: Obter a configuração corrente.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             self
+*
+*/
+
+METHOD ObterConfiguracao() CLASS EbaoConfig
+
+   local laFIELDS   := {'ID_LISTASINISTROS',;
+                        'ID_DETALHESINISTRO',;
+                        'ID_MARCARSINISTRO',;
+                        'ID_ATUALIZARRESERVA',;
+                        'ID_REALIZARPAGAMENTO',;
+                        'ID_RAMOS_EBAO',;
+                        'PASTAS' } as Array
+
+
+   if db_select(laFIELDS,'ebaoconfservices',,,,,,{0,1}) == -1
+       error_sys(db_error())
+   endif
+   self:ResultSet := db_fetchall()
+   if len(self:ResultSet) > 1
+      self:IdListaSinistros      := self:ResultSet[2,db_fetchncol(self:ResultSet,'ID_LISTASINISTROS')]
+      self:IdDetalheSinistro     := self:ResultSet[2,db_fetchncol(self:ResultSet,'ID_DETALHESINISTRO')]
+      self:IdMarcaSinistro       := self:ResultSet[2,db_fetchncol(self:ResultSet,'ID_MARCARSINISTRO')]
+      self:IdAtualizaReserva     := self:ResultSet[2,db_fetchncol(self:ResultSet,'ID_ATUALIZARRESERVA')]
+      self:IdRealizarPagamento   := self:ResultSet[2,db_fetchncol(self:ResultSet,'ID_REALIZARPAGAMENTO')]
+      self:RamosEbao             := self:ResultSet[2,db_fetchncol(self:ResultSet,'ID_RAMOS_EBAO')]
+      self:TipoPastas            := self:ResultSet[2,db_fetchncol(self:ResultSet,'PASTAS')]
+      self:ErrorCode             := 0
+      self:ErrorMessage          := ''
+   endif
+
+return self
+
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: SalvarConfiguracao()
+* Objetivo..: Salvar a configuração corrente.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             .T. Caso a operação ocorra som sucesso.
+*
+*/
+
+
+
+METHOD SalvarConfiguracao()  CLASS EbaoConfig
+
+   local laFIELDS   := {'ID_LISTASINISTROS',;
+                        'ID_DETALHESINISTRO',;
+                        'ID_MARCARSINISTRO',;
+                        'ID_ATUALIZARRESERVA',;
+                        'ID_REALIZARPAGAMENTO',;
+                        'ID_RAMOS_EBAO',;
+                        'PASTAS'} as Array
+
+
+   local laSAVEAUX := {self:IdListaSinistros,;
+                       self:IdDetalheSinistro,;
+                       self:IdMarcaSinistro,;
+                       self:IdAtualizaReserva,;
+                       self:IdRealizarPagamento,;
+                       self:RamosEbao,;
+                       self:TipoPastas} as Array
+   local laSAVE    := {},;
+         laRES     := {} as Array
+
+   local llRetorno := self:ValidarConfiguracao()
+
+   if llRetorno
+
+       aadd(laSAVE,laFIELDS)
+       aadd(laSAVE,laSAVEAUX)
+
+       if db_select(laFIELDS,'ebaoconfservices',,,,,,{0,1}) == -1
+          error_sys(db_error())
+       endif
+       laRES := db_fetchall()
+       if len(laRES) < 2
+          if db_insert(laSAVE,'ebaoconfservices') == -1
+             error_sys(db_error())
+          endif
+       else
+          if db_update(laSAVE,'ebaoconfservices',{'1=1'}) == -1
+             error_sys(db_error())
+          endif
+       endif
+       self:ErrorCode             := 0
+       self:ErrorMessage          := ''
+
+   endif
+return (llRetorno)
+
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: ValidarConfiguracao()
+* Objetivo..: Valida a configuração corrente.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             .T. Caso a configuração seja válida.
+*
+*/
+
+METHOD ValidarConfiguracao() CLASS EbaoConfig
+
+    self:ErrorCode             := -1
+
+
+    if (self:IdListaSinistros == 0)
+       self:ErrorMessage := 'O serviço para listagem de sinistros é inválido.'
+       return .F.
+    endif
+    if (self:IdDetalheSinistro == 0)
+       self:ErrorMessage := 'O serviço para detalhamento de sinistros é inválido.'
+       return .F.
+    endif
+    if (self:IdMarcaSinistro == 0)
+       self:ErrorMessage := 'O serviço para marcação de sinistros é inválido.'
+       return .F.
+    endif
+    if (self:IdAtualizaReserva == 0)
+       self:ErrorMessage := 'O serviço para atualizar reserva de sinistros é inválido.'
+       return .F.
+    endif
+    if (self:IdRealizarPagamento == 0)
+       self:ErrorMessage := 'O serviço para realizar pagamento é inválido.'
+       return .F.
+    endif
+    if empty(self:RamosEbao)
+       self:ErrorMessage := 'Ramos de sinistro é de preenchimento obrigatório.'
+       return .F.
+    endif
+
+    if empty(self:TipoPastas)
+       self:ErrorMessage := 'Tipo de pasta é de preenchimento obrigatório.'
+       return .F.
+    endif
+
+    self:ErrorCode             := 0
+    self:ErrorMessage          := ''
+
+
+return .T.
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: ObterServicos()
+* Objetivo..: Retorna uma lista de serviços.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             lista de serviços.
+*
+*/
+
+METHOD ObterServicos() CLASS EbaoConfig
+
+
+   if db_select({'NR_CONTROLE','DESCRICAO','SERVICO'},'ebaoservices') == -1
+       error_sys(db_error())
+   endif
+   self:ResultSet := db_fetchall()
+
+return self:ResultSet
+
+
+
+
+/*
+*
+* Glauber - 06/2016
+*
+* Metodo....: Habilitada(pcPASTAS, pc_RAMO)
+* Objetivo..: Verifica se a interface eBao esta habilitada para uso em um determinado tipo de pasta ou determinado ramo.
+*
+* Parâmetros:
+*
+*   pcPASTAS.: Tipo de pasta
+*
+*
+* Retorno...:
+*             .T. caso esteja habilitado.
+*
+*/
+
+METHOD Habilitada(pcPASTAS, pcRAMO) CLASS EbaoConfig
+
+
+   local laTMP   := {} as Array
+   local ii         := 0 as Int
+   local llRET      := .F.
+
+    if ((pcPASTAS == NIL .or. Empty(pcPASTAS) ) .AND. (pcRAMO == NIL .or. Empty(pcRAMO) ))
+       return llRET
+    endif
+
+    self:ObterConfiguracao()
+
+    if (! Empty(pcPASTAS))
+       laTMP := Str2Array(self:TipoPastas, ',')
+    else
+       laTMP := Str2Array(self:RamosEbao, ',')
+    endif
+
+    for ii := 1 to len(laTMP)
+        if (laTMP[ii] == iif(! Empty(pcPASTAS), pcPASTAS, pcRAMO) )
+           llRET := .T.
+           exit
+        endif
+    next ii
+
+return llRET
+
+
+/*
+*
+* Glauber - 12/2016
+*
+* Metodo....: DeveExecutarInterface(pnNrPasta)
+* Objetivo..: Verifica se a interface eBao deve ser executada para a pasta informada no parâmetro pnNrPasta.
+*
+* Parâmetros:
+*
+*   pnNrPasta: Número de pasta
+*
+*
+* Retorno...:
+*             .T. caso esteja habilitado.
+*
+*/
+
+METHOD DeveExecutarInterface(pnNrPasta) CLASS EbaoConfig
+
+
+   local laRAMOS   := {},;
+         laPASTAS  := {},;
+         laRESULT  := {} as Array
+   local ii         := 0 as Int
+   local llRET      := .F.
+   local lcRAMO     := '',;
+         lcTPPASTA  := '' AS String
+
+    if (pnNrPasta == NIL .or. pnNrPasta == 0 )
+       return llRET
+    endif
+
+    self:ObterConfiguracao()
+
+//    laPASTAS := Str2Array(self:TipoPastas, ',')
+//    laRAMOS  := Str2Array(self:RamosEbao, ',')
+
+
+   if db_select({'pasta_seguro.CD_RAMOSRSN', 'pasta.TP_PASTA'},'pasta_seguro, pasta',,{'(pasta_seguro.NR_PASTA = pasta.NR_PASTA) and (pasta_seguro.NR_PASTA = '+ Alltrim(pnNrPasta)  +')'}) == -1
+       error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   if len(laRESULT) > 1
+      lcRAMO    := laRESULT[2,1]
+      lcTPPASTA :=  laRESULT[2,2]
+
+      llRET := ((AT(lcRAMO, self:RamosEbao) > 0) .AND. (AT(lcTPPASTA, self:TipoPastas) > 0))
+
+
+//      for ii := 1 to len(laRAMOS)
+//          if (laRAMOS[ii] == laRESULT[2,1]) .or. (laPASTAS[ii] == laRESULT[2,2])
+//             llRET := .T.
+//             exit
+//          endif
+//      next ii
+    endif
+
+return llRET
+

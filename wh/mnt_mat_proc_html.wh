@@ -1,0 +1,69 @@
+/*
+
+Project      : isj_60
+Program      : mnt.mat.proc.html
+Function     : mnt_mat_proc_html
+Created on   : 22/09/2017 14:05:14
+Descripition :
+
+*/
+private lcACTION   := '' 
+local   lcAUX      := '' as string
+local   lcWHERE    := '' as string
+
+
+local   laRESULT      := {} as array
+local   laTMP         := {} as array
+local   laLINHA_ATUAL := {} as array
+local   laWHERE       := {} as array
+local   laWAUX        := {} as array
+
+local ii := 0 as int
+local zz := 0 as int
+
+lcACTION          := upper(Wget('ACTION'))
+
+
+WPut('TITLE','Identificação de Matéria do Processo')
+
+laSAVE      := {'TP_PASTA',;
+                'MATERIA_PROCESSO',;
+                'MATERIA_DESCRITIVO',;
+                'MATERIA_ANDAMENTOS'} 
+            
+if lcACTION == 'SAVE' .and. gbWAC_CREATE
+
+   laRESULT := str2array(WGet('GRAVAR','C'),'|')
+   
+   aadd(laLINHA_ATUAL,laSAVE)
+
+   
+   for ii := 1 to len(laRESULT)
+       laTMP:=str2array(laRESULT[ii],',')     
+       
+       laTMP[4]= strtran(laTMP[4],'#',',')
+
+       aadd(laLINHA_ATUAL,laTMP)
+    
+       lcWHERE:='TP_PASTA = '+ DLAP + laTMP[1] + DLAP +  ' and MATERIA_PROCESSO = ' + DLAP +  laTMP[2] + DLAP  
+       aadd(laWHERE,lcWHERE)
+
+   next ii
+   
+   ***debug2(laLINHA_ATUAL)
+   ***debug2(laWHERE,,100)    
+
+   if db_replace(laLINHA_ATUAL,'materia_processo',laWHERE) == -1
+      error_sys(db_error())
+   endif 
+
+elseif lcACTION = 'EXCLU' .and. gbWAC_DELETE
+   
+   lcWHERE:= 'ID_MATERIA = ' + str(Wget('NR_CONTROLE','N'))
+   
+   if db_delete('materia_processo',lcWHERE) == -1
+      error_sys(db_error())
+   endif    
+
+endif
+return

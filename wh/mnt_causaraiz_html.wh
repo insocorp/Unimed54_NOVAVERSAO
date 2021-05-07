@@ -1,0 +1,72 @@
+/*
+
+Project      : gr5
+Program      : mnt.causaraiz.html
+Function     : mnt_causaraiz_html
+Created on   : 21/11/2014 16:01:27
+Descripition : Causa Raiz
+
+*/
+
+   local laPARAM        := {},;
+         laINPUT_OBJ    := {},;
+         laSELECT       := {} as array
+
+   laPARAM := {{'TP_PASTA'     ,''     ,'*'},;
+               {'PEDIDO_PROCESSO',''     ,'*'},;
+               {'CAUSA_RAIZ','','*'},;
+               {'FL_ATIVO','',},;
+               {'ACTION'       ,'ALTER',   }}
+
+   laINPUT_OBJ := {{'TP_PASTA',1, ,'Y',"loadcboxorder_build('pasta_config','TP_PASTA',.T.,{'TP_PASTA'})"},;
+                   {               , , ,   ,   },;
+                   {'PEDIDO_PROCESSO',0, ,'Y',"loadcboxorder_build('pasta_objeto','substr(OBJETO,1,50)',.T.,{'substr(OBJETO,1,50)'})"},;
+                   {,,,,},;
+                   {'CAUSA_RAIZ',0, ,'Y',   },;
+                   {,,,,},;
+                   {'FL_ATIVO',1,,'Y','{"S","I","D"}' }}
+           
+
+   laSELECT := {'TP_PASTA','PEDIDO_PROCESSO','CAUSA_RAIZ','FL_ATIVO'}
+
+   if upper(alltrim(WGet('ACTIONBP'))) == 'ALTER'
+   	mkgedico('causa_raiz',WGet('TP_PASTA','C'),WGet('causa_raiz','C'))
+	endif
+
+   xbp('causa_raiz',;                                                         //Tabela alvo
+       ,;                                                                  //Joins
+       ,;                                                                  //Where
+       {'TP_PASTA','PEDIDO_PROCESSO','CAUSA_RAIZ'},;                                        			//Order by
+       ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+       ,;                                                                  //Group by
+       ,;                                                                  //Limit
+       ,;                                                                  //Banco de Dados
+       2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+       'gr5',;                                                             //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;                                           //Programa chamador
+       laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+       ,;                                                                  //Parâmetros para os botões das linhas do grid
+       'mnt.causaraiz.html',;                                                 //Programa que os links/botoes do grid deverao chamar
+       'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+       ,;                                                                  //Retorno java (nil) - usado apenas para Search
+       ,;                                                                  //Campos usados na pesquisa rápida
+       ,;                                                                  //Campos Ocultos
+       laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+       laSELECT ,;                                                         //Campos exibidos no grid
+       laSELECT)                                                           //Campos usados no select
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,100 @@
+/*
+
+Project      : gr5
+Program      : pass.change.html
+Function     : pass_change_html
+Created on   : 15-Nov-2004   14:19:11
+Descripition : Popup para Troca de Senha
+
+*/
+
+   local lcACTION             := upper(WGet('ACTION','C')) ,;
+         lcPASSWD             := WGet('PASSWD','C') ,;
+         lcNEW_PASSWD         := WGet('NEW_PASSWD','C') ,;
+         lcCONFIRM_NEW_PASSWD := WGet('CONFIRM_NEW_PASSWD','C') ,;
+         lcWMESSAGE           := '' as string
+   local laRES := {} as array
+
+
+
+   WPut('LOGIN',gcLOGIN)
+   WPut('ifCONFIRM',.t.)
+   WPut('ifFORM',.t.)
+
+   if ! empty(WSet('URL_LOGO'))
+      WPut('URL_LOGO',WSet('URL_LOGO')+'/logo_login.gif')
+   else
+      WPut('URL_LOGO',WSet('URL_COMPONENTS')+'/logo/logo_login.gif')
+   endif
+
+   if lcACTION == 'SAVE'
+      if lcNEW_PASSWD == lcCONFIRM_NEW_PASSWD
+         if chkpasswd(gcLOGIN,lcPASSWD) != -1
+            if chknewpasswd(gcLOGIN,lcNEW_PASSWD) != -1
+               if changepasswd(gcLOGIN,lcPASSWD,lcNEW_PASSWD) != -1
+                  WPut('ifOK',.t.)
+                  WPut('ifCONFIRM',.f.)
+                  WPut('ifFORM',.f.)
+                  WPut('MENSCHANGEPASS','Senha alterada com sucesso!')
+
+                  // Grava nova Data de Validade de Senha para o Usuário
+                  if db_update({{'DT_VALIDADE_PSW'},{date()+WSet('PSW_DIASUGERIDO')}},;
+                               'acuser',;
+                               {'WUID='+alltrim(WSet('WUID'))}) = -1
+                     error_sys(db_error())
+                  endif
+
+                  return
+               else
+                  walert('Não foi possivel alterar a senha!')
+               endif
+            else
+               walert('Nova Senha informada, não atende politica de segurança!\n'+;
+                      'Possíveis motivos:\n'+;
+                      '- A Senha não atende os requisitos de preenchimento e máscara.\n'+;
+                      '- A Senha pode estar sendo reutilizada um número de vezes maior que o permitido para o Perfil.\n')
+            endif
+         else
+            //WPut('MENSCHANGEPASS','Favor digitar Novamente as senhas.')
+            //walert('Favor digitar Novamente as senhas!')
+            walert('Senha atual não confere!')
+         endif
+      else
+         //WPut('MENSCHANGEPASS','Favor digitar Novamente as senhas.')
+         walert('Favor digitar Novamente as senhas!')
+      endif
+   endif
+
+   if db_select({'PSW_QTDMIN','PSW_QTDMAX','PSW_QTDMINCHAR','PSW_QTDMINNUM','PSW_PICT','FL_PWDRULE'},'acgroup',,{'WGID = '+str(WSet('WGID'))}) == -1
+      puterror('acprglogin: ('+alltrim(str(procline()))+') - '+db_error())
+      return(-1)
+   endif
+
+   laRES := db_fetchrow()
+
+   if upper(laRES[6]) <> 'Y'
+      if db_select({'PSW_QTDMIN',;
+                    'PSW_QTDMAX',;
+                    'PSW_QTDMINCHAR',;
+                    'PSW_QTDMINNUM',;
+                    'PSW_PICT'},'empresa_usuaria',,{'CD_EMPRESA = '+DLAP+'1'+DLAP}) == -1
+         puterror('acprglogin: ('+alltrim(str(procline()))+') - '+db_error())
+         return(-1)
+      endif
+      // lendo cada linha do select
+      laRES := db_fetchrow()
+   endif
+
+   if len(laRES) > 0
+      lcWMESSAGE := 'Formato da Senha:<br>'
+      lcWMESSAGE += '&nbsp;&nbsp;Mínimo '+alltrim(str(laRES[1]))+', máximo '+alltrim(str(laRES[2]))+' caracteres.<br>'
+      lcWMESSAGE += '&nbsp;&nbsp;Mínimo '+alltrim(str(laRES[3]))+' letras.<br>'
+      lcWMESSAGE += '&nbsp;&nbsp;Mínimo '+alltrim(str(laRES[4]))+' números.<br>'
+      if ! empty(alltrim(laRES[5]))
+         lcWMESSAGE += '&nbsp;&nbsp;Máscara de senha: '+laRES[5]
+      endif
+      WPut('MENSPSWD',lcWMESSAGE)
+   endif
+return
+
+

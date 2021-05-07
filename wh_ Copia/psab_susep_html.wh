@@ -1,0 +1,308 @@
+/*
+
+Project      : gr5
+Program      : psab.susep.html
+Function     : psab_susep_html
+Created on   : 09/05/2016 09:15:05
+Descripition : Aba de Susep - Customização Prudential
+
+*/ 
+
+
+local lcACTION      := '' ,;
+      lcTABLE       := '' ,;
+      lcWHERE       := '' ,;
+      lcNR_CONTROLE := '' ,;
+      lcLOGIN       := '' ,;
+      lcNR_PASTA    := '' ,;
+      lcTP_PASTA    := ''  as string
+
+local ldDT_CADASTRO as date
+
+local llERRO := .f. as logical
+
+local laFIELDS:= {} ,;
+      laWHERE := {} ,;
+      laSAVE0 := {} ,;
+      laSAVE1 := {} as array
+
+lcTABLE := 'pasta_susep'
+      
+
+   lcACTION         := WGet('ACTION','C')
+   lcTP_PASTA       := WGet('TP_PASTA','C')
+   lcNR_PASTA       := WGet('NR_PASTA','C')
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+
+//Exibe os botões permitidos
+   if gbWAC_CREATE
+      WPut('ifWAC_CREATE',.t.)
+   endif
+   if gbWAC_DELETE
+      WPut('ifWAC_DELETE',.t.)
+   endif
+   if gbWAC_WRITE
+      WPut('ifWAC_WRITE',.t.)
+   endif
+   
+   if empty(lcACTION)
+      lcACTION = 'NEW'
+      WPut('ifSUSEP',.f.)   
+   endif
+ 
+   if lcACTION = 'INCSUSEP'
+      WPut('ifSUSEP',.t.)  
+
+   endif
+
+   laFIELDS         := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS         := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   lcWHERE          := 'NR_PASTA='+lcNR_PASTA
+
+   lcACTION             := upper(WGet('ACTION','C'))
+
+ 
+   lcLOGIN := wSet('LOGIN')
+   Wput('LOGIN_CADASTRO',lcLOGIN)
+   Wput('DT_CADASTRO',DATE())
+   Wput('LOGIN_ALTERACAO',lcLOGIN)
+   Wput('DT_ALTERACAO',DATE())
+
+    WPut('FL_FCPA_OPT','Y')
+    WPut('TP_DEMANDAC_OPT','Y')
+WPut('TP_DEMANDAA_OPT','Y')
+WPut('TP_DEMANDAP_OPT','Y')
+WPut('TP_DEMANDAT_OPT','Y')
+WPut('PREST_ATUALIZADO_OPT','Y')
+WPut('LEG_S_OPT','Y')
+WPut('LEG_NR_OPT','Y')
+WPut('LEG_N_OPT','Y')
+WPut('LEG_NA_OPT','Y')
+WPut('COPIA_CONTRATO_OPT','Y')
+WPut('COPIA_ADITIVO_OPT','Y')
+WPut('ARQUIVO_PEP_OPT','Y')
+WPut('FL_DISPENSA_OPT','Y')
+WPut('FL_PEP_OPT','Y')
+WPut('FL_CONFIDENCIALIDADE_OPT','Y')
+WPut('FL_USO_MARCA_OPT','Y')
+WPut('FL_FCPA_OPT','Y')
+WPut('FL_ANTICORRUPCAO_OPT','Y')
+WPut('FL_NAO_KEY_VENDOR_OPT','Y')
+WPut('FL_KEY_VENDOR_OPT','Y')
+WPut('FL_SLA_OPT','Y')
+WPut('FL_KPI_OPT','Y')
+WPut('FL_ISSUE_TRACK_OPT','Y')
+WPut('FL_ISQ_OPT','Y')
+WPut('FL_BCQ_OPT','Y')
+lcTP_PASTA           := WGet('TP_PASTA','C')
+lcNR_PASTA           := WGet('NR_PASTA','C')
+
+
+WPut('TITLE','Circular SUSEP Pasta ' + lcNR_PASTA )
+
+
+*** marca em vermelho campos obrigatorios
+init_reqfield(WSet('_USER_INTERFACE'))
+
+WPut('TP_PASTA',lcTP_PASTA)
+WPut('NR_PASTA',lcNR_PASTA)
+make_psthead(lcNR_PASTA,lcTP_PASTA)
+wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+pasta_abas(lcTP_PASTA)   // Função coloca abas lado esquerdo
+AbasPerfil(lcTP_PASTA, laFIELDS)
+
+pasta_abas(lcTP_PASTA)         
+
+enchecombos(lcNR_PASTA)
+
+   // contar os registros, se tiver mais que um não permitir inserir mais
+      if db_select(laFIELDS,lcTABLE,,{'NR_PASTA='+lcNR_PASTA}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+          walert('Circular SUSEP já inserida. - Permissão apenas para alterar') 
+ 
+         db2put(laRESULT)
+
+         if db_select({'PFPJ'},'pfpj',,{'CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_GERENTE')]+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laPUT := db_fetchrow()
+         if len(laPUT) > 0
+            WPut('CIP_GERENTE_PFPJ',laPUT[1])
+         endif
+         if db_select({'PFPJ'},'pfpj',,{'CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_ANALISTA_RESPONSAVEL')]+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laPUT := db_fetchrow()
+         if len(laPUT) > 0
+            WPut('CIP_ANALISTA_RESPONSAVEL_PFPJ',laPUT[1])
+         endif
+         /*
+         if db_select({'PFPJ'},'pfpj',,{'CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_ENVIADO_POR')]+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laPUT := db_fetchrow()
+         if len(laPUT) > 0
+            WPut('CIP_ENVIADO_POR_PFPJ',laPUT[1])
+         endif
+         */
+         if db_select({'PFPJ'},'pfpj',,{'CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_CONFERENTE')]+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laPUT := db_fetchrow()
+         if len(laPUT) > 0
+            WPut('CIP_CONFERENTE_PFPJ',laPUT[1])
+         endif
+          if db_select({'PFPJ'},'pfpj',,{'CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_AUTORIZADO_POR')]+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laPUT := db_fetchrow()
+         if len(laPUT) > 0
+            WPut('CIP_AUTORIZADO_POR_PFPJ',laPUT[1])
+         endif
+
+      endif
+
+  
+
+
+   /* Tamanhos dos Textareas */
+   
+   WPut('ROWS_ESPECIFICAR1',2)
+
+     
+if lcACTION == 'SAVE' .and. gbWAC_CREATE  
+
+      laWHERE:={}
+      laSAVE0:={}
+      laSAVE1:={}
+      laSAVE_AUX:={}
+
+
+      lcWHERE  := 'NR_PASTA = ' + lcNR_PASTA
+      
+      aadd(laWHERE,lcWHERE)
+
+         aadd(laSAVE0,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+              if laFIELDS[ii] == 'LOGIN_CADASTRO'
+                 if WGet('LOGIN_CADASTRO','C') == ''
+                    aadd(laSAVE_AUX,WSet('LOGIN'))
+                    loop
+                 else
+                    aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+                    loop
+                 endif
+              elseif laFIELDS[ii] == 'DT_CADASTRO'
+                 if WGet('DT_CADASTRO','C') == ''
+                    aadd(laSAVE_AUX,date())
+                    loop
+                 else
+                    aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+                    loop
+                 endif
+             elseif laFIELDS[ii] == 'LOGIN_ALTERACAO'
+                if WGet('LOGIN_CADASTRO','C') == ''
+                   aadd(laSAVE_AUX,WSet('LOGIN'))
+                   loop
+                else
+                   aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+                   loop
+               endif
+            elseif laFIELDS[ii] == 'DT_ALTERACAO'
+               if WGet('DT_CADASTRO','C') == ''
+                  aadd(laSAVE_AUX,date())
+                  loop
+               else
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+                  loop
+               endif
+           else
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+           endif
+         next ii
+         aadd(laSAVE0,laSAVE_AUX)
+
+         if db_replace(laSAVE0,lcTABLE,laWHERE) = -1
+            error_sys(db_error())
+         endif
+         
+        get2put()
+        
+//         psab_logs(laSAVE0,lcTABLE,laWHERE,lcNR_PASTA,'FCPA')
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+ //     psab_logdel(lcNR_PASTA,'NR_CONTROLE',lcNR_CONTROLE,,'Superintendência')
+       lcWHERE  := 'NR_PASTA = ' + lcNR_PASTA
+      if db_delete(lcTABLE,lcWHERE) = -1
+         error_sys(db_error())
+      endif
+      
+
+
+   endif
+
+    
+
+
+return
+
+****************************************
+static function enchecombos(flcNR_PASTA)
+****************************************
+
+
+local  laOPT    := {} ,;
+       laOPTV   := {} ,;
+       laPUT    := {} ,;
+       laDEF    := {} ,;
+       laDEFV   := {} ,;
+       laATI    := {} ,;
+       laATIV   := {} ,;
+       laINA    := {} ,;
+       laINAV   := {} ,;
+       laPUTV   := {} ,;
+       laFIELD  := {} ,;
+       laRES    := {} as array
+
+local  ii    := 1  ,;
+       liPOS := 0  as int
+
+   lcTP_PASTA    := WGet('TP_PASTA','C')
+
+//   WPut('PFPJ_NATUREZA_OPT',{'','Física','Jurídica'})
+
+
+    *** alimenta combo tipo de resultado_contrato
+ carrega_cbox({{'resultado_contrato','RESULTADO_CONTRATO','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+ carrega_cbox({{'empresa_area_solicitante','AREA_SOLICITANTE','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+ carrega_cbox({{'tipo_consulta','TP_CONSULTA','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+
+return(nil)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

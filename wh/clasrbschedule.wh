@@ -1,0 +1,581 @@
+/*
+
+Project      : isj_45
+Program      : clasrbschedule
+Function     : clasrbschedule
+Created on   : 23-Feb-2017   14:27:05
+Descripition :
+
+*/
+
+
+//
+// Glauber - Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+*
+* Glauber - 02/2017
+*
+* Classe...........: RbSchedule
+*
+* Objetivo.........: Classe que realiza a presistência da tabela rbschedule.
+*
+* Atributos........:
+*
+*    EXPORT PkRbschedule
+*    EXPORT NomeAgendamento
+*    EXPORT Descricao
+*    EXPORT DiaExecucao
+*    EXPORT HoraExecucao
+*    EXPORT Report
+*
+*
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD Salvar()
+*    METHOD Valida()
+*    METHOD Apagar()
+*    METHOD FindByPk()
+*    METHOD Filtrar()
+*    METHOD ToList()
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS RbSchedule
+
+    // Atributos publico
+
+    EXPORT PkRbschedule
+    EXPORT NomeAgendamento
+    EXPORT Descricao
+    EXPORT DiaExecucao
+    EXPORT HoraExecucao
+    EXPORT Report
+    EXPORT FormatoSaida
+    EXPORT EmailNotifica
+    EXPORT FlAtivo
+
+    // Atributos privado
+
+    INSTANCE ErrorCode
+    INSTANCE ErrorMessage
+    INSTANCE Filter
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()     CLASS RbSchedule
+    PROTOTYPE METHOD Destroy()  CLASS RbSchedule
+    PROTOTYPE METHOD Salvar()   CLASS RbSchedule
+    PROTOTYPE METHOD Valida()   CLASS RbSchedule
+    PROTOTYPE METHOD Apagar()   CLASS RbSchedule
+    PROTOTYPE METHOD FindByPk() CLASS RbSchedule
+    PROTOTYPE METHOD Filtrar()  CLASS RbSchedule
+    PROTOTYPE METHOD ToList()   CLASS RbSchedule
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS RbSchedule
+
+
+    self:PkRbschedule     := 0
+    self:NomeAgendamento  := ''
+    self:Descricao        := ''
+    self:DiaExecucao      := 0
+    self:HoraExecucao     := 0
+    self:Report           := ''
+    self:FormatoSaida     := 'HTML'
+    self:EmailNotifica    := ''
+    self:FlAtivo          := 'S'
+    self:Filter           := {}
+    self:ErrorCode        := 0
+
+
+
+
+return(self)
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS RbSchedule
+
+    self:PkRbschedule     := nil
+    self:NomeAgendamento  := nil
+    self:Descricao        := nil
+    self:DiaExecucao      := nil
+    self:HoraExecucao     := nil
+    self:Report           := nil
+    self:FormatoSaida     := nil
+    self:EmailNotifica    := nil
+    self:FlAtivo          := nil
+    self:Filter           := nil
+    self:ErrorCode        := 0
+
+
+return(nil)
+
+
+// GET
+ACCESS ErrorCode CLASS RbSchedule
+   return self:ErrorCode
+
+ACCESS ErrorMessage CLASS RbSchedule
+   return self:ErrorMessage
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Salvar()
+* Objetivo..: Salva um registro.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD Salvar() CLASS RbSchedule
+
+
+   local laSAVE     := {},;
+         laSAVEAUX  := {} as Array
+
+   local lcWhere    := '',;
+         lcTmp      := '' as String
+
+
+   local llRetorno := self:Valida()
+
+   if llRetorno
+
+      laSAVE := {{'PK_RBSCHEDULE',;
+                  'NOME_AGENDAMENTO',;
+                  'DESCRICAO',;
+                  'DIA_EXECUCAO',;
+                  'HORA_EXECUCAO',;
+                  'REPORT',;
+                  'FORMATO_SAIDA',;
+                  'EMAIL_NOTIFICA',;
+                  'FL_ATIVO'}}
+
+
+      aadd(laSAVE, {self:PkRbschedule,;
+                    self:NomeAgendamento,;
+                    self:Descricao,;
+                    self:DiaExecucao,;
+                    self:HoraExecucao,;
+                    self:Report,;
+                    self:FormatoSaida,;
+                    self:EmailNotifica,;
+                    self:FlAtivo})
+
+
+
+      lcWhere := 'PK_RBSCHEDULE = ' + alltrim(self:PkRbschedule)
+
+      if db_replace(laSAVE, 'rbschedule', {lcWhere}) == -1
+         error_sys(db_error())
+      endif
+
+      self:ErrorCode       := 0
+      self:ErrorMessage    := ''
+
+    endif
+
+return(llRetorno)
+
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Apagar()
+* Objetivo..: Apaga um registro.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD Apagar() CLASS RbSchedule
+
+   local lcWhere := '' as String
+
+
+    lcWhere := 'PK_RBSCHEDULE = ' + alltrim(self:PkRbschedule)
+
+    if self:PkRbschedule > 0
+       if db_delete('rbschedule', lcWHERE) == -1
+          error_sys(db_error())
+       endif
+    endif
+
+return(self)
+
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: FindByPk()
+* Objetivo..: Pesquisa um registro pela chave primaria retornando um objeto.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD FindByPk() CLASS RbSchedule
+
+
+   local laRES      := {} AS Array
+
+   local lcWhere    := '' as String
+
+
+    lcWhere := 'PK_RBSCHEDULE = ' + alltrim(self:PkRbschedule)
+
+
+    if db_select({'NOME_AGENDAMENTO','DESCRICAO','DIA_EXECUCAO','HORA_EXECUCAO','REPORT','FORMATO_SAIDA','EMAIL_NOTIFICA','FL_ATIVO'}, 'rbschedule',,{lcWhere}) == -1
+       error_sys(db_error())
+    endif
+
+    laRES := db_fetchall()
+
+    if len(laRES) > 1
+       self:NomeAgendamento  := laRES[2,1]
+       self:Descricao        := laRES[2,2]
+       self:DiaExecucao      := laRES[2,3]
+       self:HoraExecucao     := laRES[2,4]
+       self:Report           := laRES[2,5]
+       self:FormatoSaida     := laRES[2,6]
+       self:EmailNotifica    := laRES[2,7]
+       self:FlAtivo          := laRES[2,8]
+    endif
+
+
+return(self)
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Filtrar()
+* Objetivo..: Pesquisa registros com base nos campos preenchido do objeto corrente.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD Filtrar() CLASS RbSchedule
+
+
+   local laWHERE    := {} as Array
+
+    if (! empty(self:NomeAgendamento))
+       aadd(laWHERE, 'NOME_AGENDAMENTO=' + DLAP + self:NomeAgendamento + DLAP)
+    endif
+
+    if (! empty(self:Descricao))
+       aadd(laWHERE, 'DESCRICAO=' + DLAP + self:Descricao + DLAP)
+    endif
+
+    if (self:DiaExecucao > 0)
+       aadd(laWHERE, 'DIA_EXECUCAO=' + AllTrim(self:DiaExecucao))
+    endif
+
+    if (self:HoraExecucao > 0)
+       aadd(laWHERE, 'HORA_EXECUCAO=' + AllTrim(self:HoraExecucao))
+    endif
+
+    if (! empty(self:Report))
+       aadd(laWHERE, 'REPORT=' + DLAP + self:Report + DLAP)
+    endif
+
+
+    if db_select({'PK_RBSCHEDULE','NOME_AGENDAMENTO','DESCRICAO','DIA_EXECUCAO','HORA_EXECUCAO','REPORT','FORMATO_SAIDA','EMAIL_NOTIFICA','FL_ATIVO'}, 'rbschedule',,laWHERE) == -1
+       error_sys(db_error())
+    endif
+
+    self:Filter := db_fetchall()
+
+
+
+
+return(self)
+
+/*
+*
+* Rufino
+*
+* Metodo....: ToList()
+* Objetivo..: Retorna um array FlagShip
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+METHOD ToList() CLASS RbSchedule
+    local laRES    := {} as array
+    local ii       := 0 as int
+    local lcNR_ROW := '' as string
+
+    local laJoin    := {{2,'report','report.REPORT=rbschedule.REPORT'}}
+
+    if db_select({'rbschedule.PK_RBSCHEDULE','rbschedule.NOME_AGENDAMENTO','report.NM_REPORT','rbschedule.DESCRICAO','rbschedule.DIA_EXECUCAO','rbschedule.HORA_EXECUCAO','rbschedule.REPORT','rbschedule.FORMATO_SAIDA','rbschedule.EMAIL_NOTIFICA','rbschedule.FL_ATIVO'}, 'rbschedule',laJoin,,{'NOME_AGENDAMENTO'}) == -1
+       error_sys(db_error())
+    endif
+
+    laRES:= db_fetchall()
+
+    if len(laRES) > 1
+       aadd(laRES[1],'VAR_PK_RBSCHEDULE')
+       aadd(laRES[1],'VAR_NOME_AGENDAMENTO')
+       aadd(laRES[1],'VAR_NM_REPORT')
+       aadd(laRES[1],'VAR_DESCRICAO')
+       aadd(laRES[1],'VAR_DIA_EXECUCAO')
+       aadd(laRES[1],'VAR_HORA_EXECUCAO')
+       aadd(laRES[1],'VAR_REPORT')
+       aadd(laRES[1],'VAR_FORMATO_SAIDA')
+       aadd(laRES[1],'VAR_EMAIL_NOTIFICA')
+       aadd(laRES[1],'VAR_FL_ATIVO')
+
+
+       for ii := 2 to len(laRES)
+           lcNR_ROW := alltrim(str(ii-1))
+
+           aadd(laRES[ii],'VAR_PK_RBSCHEDULE_'+lcNR_ROW)
+           aadd(laRES[ii],'VAR_NOME_AGENDAMENTO_'+lcNR_ROW)
+           aadd(laRES[ii],'VAR_NM_REPORT_'+lcNR_ROW)
+           aadd(laRES[ii],'VAR_DESCRICAO_'+lcNR_ROW)
+           aadd(laRES[ii],'VAR_DIA_EXECUCAO_'+lcNR_ROW)
+           aadd(laRES[ii],'VAR_HORA_EXECUCAO_'+lcNR_ROW)
+           aadd(laRES[ii],'VAR_REPORT_'+lcNR_ROW)
+           aadd(laRES[ii],'VAR_FORMATO_SAIDA_'+lcNR_ROW)
+           aadd(laRES[ii],'VAR_EMAIL_NOTIFICA_'+lcNR_ROW)
+           aadd(laRES[ii],'VAR_FL_ATIVO_'+lcNR_ROW)
+
+           WPut('VAR_PK_RBSCHEDULE_'+lcNR_ROW,     laRES[ii,db_fetchncol(laRES,'PK_RBSCHEDULE')])
+           WPut('VAR_NOME_AGENDAMENTO_'+lcNR_ROW,  laRES[ii,db_fetchncol(laRES,'NOME_AGENDAMENTO')])
+           WPut('VAR_NM_REPORT_'+lcNR_ROW,         laRES[ii,db_fetchncol(laRES,'NM_REPORT')])
+           WPut('VAR_DESCRICAO_'+lcNR_ROW,         laRES[ii,db_fetchncol(laRES,'DESCRICAO')])
+           WPut('VAR_DIA_EXECUCAO_'+lcNR_ROW,      laRES[ii,db_fetchncol(laRES,'DIA_EXECUCAO')])
+           WPut('VAR_HORA_EXECUCAO_'+lcNR_ROW,     laRES[ii,db_fetchncol(laRES,'HORA_EXECUCAO')])
+           WPut('VAR_REPORT_'+lcNR_ROW,            laRES[ii,db_fetchncol(laRES,'REPORT')])
+           WPut('VAR_FORMATO_SAIDA_'+lcNR_ROW,     laRES[ii,db_fetchncol(laRES,'FORMATO_SAIDA')])
+           WPut('VAR_EMAIL_NOTIFICA_'+lcNR_ROW,    laRES[ii,db_fetchncol(laRES,'EMAIL_NOTIFICA')])
+
+
+           WPut('VAR_FL_ATIVO_'+lcNR_ROW+'.option',{'S','N'})
+           WPut('VAR_FL_ATIVO_'+lcNR_ROW,          laRES[ii,db_fetchncol(laRES,'FL_ATIVO')])
+
+
+       next ii
+
+    endif
+
+
+return(laRES)
+
+/*
+*
+* Rufino
+*
+* Metodo....: ToList_T(tipo)
+* Objetivo..: Retorna um array FlagShip
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+METHOD ToList_T(tipo) CLASS RbSchedule
+    local laRES    := {} as array
+    local laFIELDS := {} as array
+    local laORDER  := {} as array
+    local ii       := 0 as int
+    local lcNR_ROW := '' as string
+    local lcTABLE  := '' as string
+
+    local lcWHERE    := '' as String
+
+
+    if tipo == 'F'
+       lcTABLE  := 'rbschedulefilter'
+       laORDER  := {'RBMODULE'}
+    endif
+
+    if tipo == 'T'
+       lcTABLE  := 'rbscheduletoken'
+       laORDER  := {'DATA_GERACAO desc','HORA_GERACAO'}
+    endif
+
+    if tipo == 'H'
+       lcTABLE  := 'rblogexec'
+       laORDER  := {'DATA desc','HORA'}
+    endif
+
+    laFIELDS := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+
+    lcWHERE := 'RBSCHEDULE = ' + alltrim(self:PkRbschedule)
+
+    if db_select(laFIELDS, lcTABLE,,{lcWHERE},laORDER,'D') == -1
+       error_sys(db_error())
+    endif
+
+    laRES:= db_fetchall()
+
+
+return(laRES)
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: xToList()
+* Objetivo..: Retorna um array FlagShip / Wictrix resultado do processamento do metodo Filter.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD xToList() CLASS RbSchedule
+
+
+    return(self:Filter)
+
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Valida()
+* Objetivo..: Faz a validação e crítica do campos necessário.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD Valida() CLASS RbSchedule
+
+    self:ErrorCode             := -1
+
+    if (empty(self:NomeAgendamento))
+       self:ErrorMessage :='O campo ' + lblfscreen('NOME_AGENDAMENTO') + ' é obrigatório.'
+       return .F.
+    endif
+
+    if (empty(self:Descricao))
+       self:ErrorMessage :='O campo ' + lblfscreen('DESCRICAO') + ' é obrigatório.'
+       return .F.
+    endif
+
+    if (self:DiaExecucao == 0)
+       self:ErrorMessage :='O campo ' + lblfscreen('DIA_EXECUCAO') + ' é obrigatório.'
+       return .F.
+    endif
+
+    if (self:HoraExecucao == 0)
+       self:ErrorMessage :='O campo ' + lblfscreen('HORA_EXECUCAO') + ' é obrigatório.'
+       return .F.
+    endif
+
+    if (empty(self:Report))
+       self:ErrorMessage :='O campo ' + lblfscreen('REPORT') + ' é obrigatório.'
+       return .F.
+    endif
+
+    self:ErrorCode             := 0
+    self:ErrorMessage          := ''
+
+return  .T.
+
+
+

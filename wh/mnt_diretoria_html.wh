@@ -1,0 +1,131 @@
+/*
+
+Project      : gr5
+Program      : mnt.diretoria.html
+Function     : mnt_diretoria_html
+Created on   : 12/11/2014 09:24:12
+Descripition : Qtde de aprovações possíveis por diretoria
+
+*/
+
+
+   local lcCIP_DIRETORIA     := '' ,;
+         lcACTION            := '' ,;
+         lcTABLE             := 'diretoria_aprovacao' AS String
+
+   local laSAVE              := {},;
+         laRES               := {},;
+         laJOIN              := {},;
+         laFIELDS            := {}  as Array
+         
+   local llERRO              := .F.
+
+
+   lcACTION := Upper(AllTrim(WGet('ACTION')))
+
+
+
+   if empty(lcAction)
+      WPut('QTDE',0)
+      WPut('DIAS_RESPOSTA',0)
+   elseif lcACTION == 'SAVE'
+          if Empty(WGet('CIP_DIRETORIA'))
+             WAlert('O campo '+lblfscreen('CIP_DIRETORIA')+ ' é de preenchimento obrigatório.' )
+             getWput()
+             llERRO := .T.
+          endif
+          if Empty(WGet('QTDE','C'))
+             WAlert('O campo '+lblfscreen('QTDE')+ ' é de preenchimento obrigatório.' )
+             getWput()
+             llERRO := .T.
+          endif
+
+          if Empty(WGet('DIAS_RESPOSTA','C'))
+             WAlert('O campo '+lblfscreen('DIAS_RESPOSTA')+ ' é de preenchimento obrigatório.' )
+             getWput()
+             llERRO := .T.
+          endif
+
+          if llERRO == .F.
+             if db_replace({{'CIP_DIRETORIA','QTDE','DIAS_RESPOSTA'},;
+                            {WGet('CIP_DIRETORIA'),WGet('QTDE'),WGet('DIAS_RESPOSTA')}},lcTABLE,{'CIP_DIRETORIA='+DLAP+ WGet('CIP_DIRETORIA') +DLAP}) == -1
+                error_sys(db_error())
+             endif
+          endif
+
+   elseif lcACTION == 'ALTER' .AND. ! Empty(WGet('CIP_DIRETORIA'))
+          laJOIN  := {{2,'pfpj','pfpj.CIP = diretoria_aprovacao.CIP_DIRETORIA'}}
+          laFIELDS := {'diretoria_aprovacao.CIP_DIRETORIA',;
+                       'pfpj.PFPJ AS CIP_DIRETORIA_PFPJ',;
+                       'diretoria_aprovacao.QTDE',;
+                       'diretoria_aprovacao.DIAS_RESPOSTA'}
+          if db_select(laFIELDS,lcTABLE,laJOIN,{'CIP_DIRETORIA='+DLAP+ WGet('CIP_DIRETORIA') +DLAP}) == -1
+             error_sys(db_error())
+          endif
+          laRES := db_fetchall()
+          if len(laRES) > 1
+             db2Put(laRES)
+          endif
+
+   elseif lcACTION == 'DELETE' .AND. ! Empty(WGet('CIP_DIRETORIA'))
+          if db_delete(lcTABLE,'CIP_DIRETORIA='+DLAP+ WGet('CIP_DIRETORIA') +DLAP) == -1
+             error_sys(db_error())
+          endif
+
+   endif
+
+
+   montarGrid()
+
+
+
+return
+
+
+
+
+
+Static function montarGrid()
+
+local laFIELD := {'diretoria_aprovacao.CIP_DIRETORIA',;
+                  'pfpj.PFPJ',;
+                  'diretoria_aprovacao.QTDE',;
+                  'diretoria_aprovacao.DIAS_RESPOSTA'} AS Array
+local laJOIN  := {{2,'pfpj','pfpj.CIP = diretoria_aprovacao.CIP_DIRETORIA'}} AS Array
+
+local laRES   := {}
+
+
+     if db_select(laFIELD,'diretoria_aprovacao',laJOIN,) == -1
+        error_sys(db_error())
+     endif
+     laRES := db_fetchall()
+     if len(laRES) > 1
+        aadd(laRES[1],'(row)')
+        for ii := 2 to len(laRES)
+            aadd(laRES[ii],'(row)'+wic_action('wicaction/mnt.diretoria.html?ACTION=ALTER'+;
+                                                 '&CIP_DIRETORIA='+laRES[ii,ascan(laRES[1],'CIP_DIRETORIA')]))
+        next ii
+        WPut('GRID_DIRETORIA', grid_create(laRES))
+     endif
+
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

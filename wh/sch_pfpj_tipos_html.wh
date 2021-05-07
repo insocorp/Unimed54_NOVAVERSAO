@@ -1,0 +1,85 @@
+/*
+
+Project      : gr5
+Program      : sch.pfpj.tipos.html
+Function     : sch_pfpj_tipos_html
+Created on   : 23-Jan-2004   16:01:48
+Descripition : Pesquisa de Tipo de pessoa
+
+*/
+
+   local lcACTION       := '' ,;
+         lcTABLE        := '' ,;
+         lcNM_FIELD     := '' ,;
+         lcWSCRIPT      := '' ,;
+         lcQUICK_SEARCH := '' ,;
+         lcITEM         := '' as string
+   local laRES       := {} ,;
+         laFIELDLST  := {} ,;
+         laLABELLST  := {} ,;
+         laWHERE     := {} ,;
+         laRESULTS   := {} ,;
+         laCHECKLST  := {} as array
+   local ii := 0 as int
+
+   lcACTION       := alltrim(upper(WGet('ACTION','C')))
+   lcQUICK_SEARCH := WGet('QUICK_SEARCH','C')
+   lcTABLE        := 'pfpj_tipo'
+   lcNM_FIELD     := 'PFPJ_TIPOS'
+   laFIELDLST     := structtable(WSet('DB_ACTIVE'),lcTABLE,1,'A')
+   laLABELLST     := structtable(WSet('DB_ACTIVE'),lcTABLE,11,'A')
+   laTPFILTER     := {'Contendo',;
+                      'Igual',;
+                      'Intervalo',;
+                      'Não contém'}
+   WPut('TITLE','Localizar Tipos de Pessoa')
+   WPut('QUICK_SEARCH',lcQUICK_SEARCH)
+
+   if empty(lcACTION)
+      lcACTION:= 'EXECSEL'
+   endif
+
+   if lcACTION == 'EXECSEL'
+      if ! empty(lcQUICK_SEARCH)
+         aadd(laWHERE,'FL_ATIVO <> '+DLAP+'I'+DLAP+' and PFPJ_TIPO like'+DLAP+'%'+lcQUICK_SEARCH+'%'+DLAP+' or '+;
+                      'PFPJ_NM_TIPO like'+DLAP+'%'+lcQUICK_SEARCH+'%'+DLAP)
+      endif
+      if db_select(laFIELDLST,lcTABLE,,laWHERE,{'PFPJ_TIPO'}) = -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      if len(laRES) > 0
+         aadd(laRES[1],'VAR_PFPJ_TIPO')
+         aadd(laRES[1],'VAR_CTR')  // Campo para controle
+         for ii:= 2 to len(laRES)
+            lcITEM := alltrim(str(ii-1))
+            aadd(laRES[ii],'VAR_PFPJ_TIPO_'+lcITEM)
+            aadd(laRES[ii],'VAR_CTR_'+lcITEM)
+            wPut('VAR_PFPJ_TIPO_'+lcITEM+'_OPT',laRES[ii,db_fetchncol(laRES,'PFPJ_TIPO')])
+            wPut('VAR_CTR_'+lcITEM,laRES[ii,db_fetchncol(laRES,'PFPJ_TIPO')])
+         next ii
+         wPut('schPFPJ_TIPO',laRES)
+      endif
+   elseif lcACTION == 'EXECSEND'
+      ii     := 1
+      lcITEM := '_'+alltrim(str(ii))
+      do while WGet('VAR_CTR'+lcITEM,'B')
+         if ! empty(alltrim(WGet('VAR_PFPJ_TIPO'+lcITEM,'C')))
+            aadd(laCHECKLST,WGet('VAR_PFPJ_TIPO'+lcITEM,'C'))
+         endif
+         ii ++
+         lcITEM := '_'+alltrim(str(ii))
+      enddo
+      if len(laCHECKLST) > 0
+         lcWSCRIPT := 'if (opener.document.mntform.'+lcNM_FIELD+'.value.length==0) {'+;
+                      '   opener.document.mntform.'+lcNM_FIELD+'.value="'+afields2comma(laCHECKLST)+'";}'+;
+                      'else {'+;
+                      '   opener.document.mntform.'+lcNM_FIELD+'.value+=",'+afields2comma(laCHECKLST)+'"}'
+         wPut('WSCRIPT',lcWSCRIPT)
+         WSet('_USER_INTERFACE','close.wic')
+      else
+         WSet('_USER_INTERFACE','close.wic')
+      endif
+   endif
+
+

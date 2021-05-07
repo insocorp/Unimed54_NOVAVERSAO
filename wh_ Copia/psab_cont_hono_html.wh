@@ -1,0 +1,517 @@
+/*
+
+Project      : gr5
+Program      : psab.cont_hono.html
+Function     : psab_cont_hono_html.wh
+Created on   : 25/08/2015 14:04:14
+Descripition :
+*/
+
+   local lcPROGRAM      := 'psab_cont_hono_html',;
+         lcACTION       := '',;
+         lcTABLE        := '',;
+         lcWHERE        := '',;
+         lcNR_CONTRATO  := '',;
+         lcAUX          := '',;
+         lcNRCONTROLE  := '',;
+         lcCD_PARC_HONOR:= '',;
+         lcNR_CONT      := '',;
+         lcNR_PASTA     := '' as string
+
+   local laRESULT     := {} ,;
+         laSAVE       := {} ,;
+         laSAVED      := {} ,;
+         laFIELDS     := {} ,;
+         laTABLES     := {} ,;
+         laLINHA_ATUAL:= {} ,;
+         laCOMP_LINHA := {} ,;
+         laDIFFROW    := {} ,;
+         laCOMPARA    := {} ,;
+         laTMP        := {} ,;
+         laTMP2       := {} ,;
+         laDRESULT    := {} ,;
+         laDLINHA_ATUAL:={} ,;
+         laDRES        :={} ,;
+         laPERFIL      := {} ,;
+         laWHERE      := {} as array
+
+
+
+   local ii             := 0 as int
+   local dd             := 0 as int
+   local zz             := 0 as int
+
+
+   laVALIDA   :={'MODALIDADE','DT_CONTRATACAO'}
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+   lcACTION         := upper(WGet('ACTION','C'))
+   lcNR_PASTA       := WGet('NR_PASTA','C')
+   lcTP_PASTA       := WGet('TP_PASTA','C')
+
+   WPut('NR_PASTA',lcNR_PASTA)
+   Wput('TP_PASTA',lcTP_PASTA)
+
+   Wput('URL_GIF',WSet('PATH_COMPONENTS')+'/btged.gif')
+
+   WPut('TITLE','Contratação de Honorários')
+
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+
+   laPERFIL :=   {'MODALIDADE','DT_CONTRATACAO'}
+                      
+   AbasPerfil(lcTP_PASTA, laPERFIL)
+
+   pasta_abas(lcTP_PASTA)
+
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+
+   cargacbox('indice_reajuste',{'CD_INDICE','NM_INDICE'},{'NM_INDICE'},'NM_INDICE')
+   cargacbox('mod_contratacao',{'CD_MODALIDADE','MODALIDADE'},{'MODALIDADE'},'MODALIDADE')
+   cargacbox('parc_honorario',{'CD_PARC_HONOR','PARCELA'},{'PARCELA'},'PARCELA')
+
+
+   WPut('COCORRENCIA.option',{'','Baixa','Media','Alta'})
+   WPut('COCORRENCIA.optionvalue',{'','B', 'M', 'A'})
+
+
+   WPut('HACOR.option','N')
+   WPut('DEVIDO.option','N')
+   WPut('LIQUIDADA.option','N')
+
+   WPut('ifINCLUIR',.F.)
+   WPut('ifCONSULTAR',.F.)
+   WPut('ifSALVAR',.F.)
+   WPut('ifEXCLUIR',.F.)
+
+   if gbWAC_CREATE
+      WPut('ifINCLUIR',.T.)
+   else
+      WPut('ifINCLUIR',.F.)
+   endif
+
+   if gbWAC_READ
+      WPut('ifCONSULTAR',.T.)
+   else
+      WPut('ifCONSULTAR',.F.)
+   endif
+
+   if gbWAC_WRITE
+      WPut('ifSALVAR',.T.)
+   else
+      WPut('ifSALVAR',.F.)
+   endif
+
+   if gbWAC_DELETE
+      WPut('ifEXCLUIR',.T.)
+   else
+      WPut('ifEXCLUIR',.F.)
+   endif
+
+   if lcACTION == 'EXCLUIR' .and. gbWAC_DELETE
+
+      if psab_logdel(lcNR_PASTA,'NR_CONTRATO',WGet('CONT_EXC','C'),,'Honorários') == .f.
+         error_sys(db_error())
+      endif
+
+      lcWHERE := 'NR_CONTRATO='+WGet('CONT_EXC','C')+' AND NR_PASTA='+lcNR_PASTA
+
+      if db_delete('pasta_det_chono',lcWHERE) == -1
+         error_sys(db_error())
+      endif
+
+      if db_delete('pasta_chono',lcWHERE) == -1
+         error_sys(db_error())
+      endif
+
+   elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+
+      laSAVE      := {'NR_PASTA',;
+                      'CD_MODALIDADE',;
+                      'DT_CONTRATACAO',;
+                      'VL_ECONOMICO',;
+                      'CD_INDICE',;
+                      'DT_FIM_PROC',;
+                      'OBS',;
+                      'LOGIN_CADASTRO',;
+                      'DT_CADASTRO',;
+                      'HR_CADASTRO'}
+
+      laCOMPARA   := {'NR_PASTA',;
+                      'CD_MODALIDADE',;
+                      'DT_CONTRATACAO',;
+                      'VL_ECONOMICO',;
+                      'CD_INDICE',;
+                      'DT_FIM_PROC',;
+                      'OBS'}
+
+      laRESULT :={}
+
+      if WGet('CONT_PAI','C')<>''
+          aadd(laLINHA_ATUAL,laSAVE)
+
+          laRESULT := str2array(WGet('CONT_PAI','C'),',')
+
+          lcNR_CONTRATO:=laRESULT[1]
+
+          adel(laRESULT,1)
+          asize(laRESULT,len(laRESULT)-1)
+
+          aadd(laRESULT,gcLOGIN)
+          aadd(laRESULT,date())
+          aadd(laRESULT,time())
+
+          laRESULT[1]:= val(laRESULT[1])
+          laRESULT[2]:= val(laRESULT[2])
+          laRESULT[3]:= ctod(laRESULT[3])
+          laRESULT[4]:= val(laRESULT[4])
+          laRESULT[5]:= val(laRESULT[5])
+          laRESULT[6]:= ctod(laRESULT[6])
+
+          aadd(laLINHA_ATUAL,laRESULT)
+
+          if alltrim(lcNR_CONTRATO) == 'NEW'
+             if db_insert(laLINHA_ATUAL,'pasta_chono') == -1
+                error_sys(db_error())
+             endif
+
+             if db_select({'max(NR_CONTRATO)'},'pasta_chono') == -1
+	              error_sys(db_error())
+    	       endif
+             laRES     := db_fetchrow()
+
+             lcNR_CONTRATO:= str(laRES[1])
+
+          else
+
+             aadd(laCOMP_LINHA,laCOMPARA)
+
+             laCOMPARA:={}
+
+             for ii= 1 to 7
+                 aadd(laCOMPARA,laRESULT[ii])
+             next ii
+
+             aadd(laCOMP_LINHA,laCOMPARA)
+
+             laDIFFROW := db_diffrow(laCOMP_LINHA,'pasta_chono','NR_CONTRATO='+DLAP+lcNR_CONTRATO+DLAP)
+
+             if len(laDIFFROW)>0
+
+                *grava log de alteração
+                lcWHERE:= 'NR_CONTRATO='+DLAP+lcNR_CONTRATO+DLAP
+                if psab_logs(laCOMP_LINHA,'pasta_chono',lcWHERE,WGet('NR_PASTA','C'),'Det.Honorários') == .f.
+                   error_sys(db_error())
+                endif
+
+                if db_update(laLINHA_ATUAL,'pasta_chono',{lcWHERE}) == -1
+                   error_sys(db_error())
+                endif
+
+             endif
+
+          endif
+
+      endif
+
+      laDRESULT :={}
+      if WGet('CONT_DETE','C')<>''
+         laDRESULT := str2array(WGet('CONT_DETE','C'),'|')
+         for dd := 1 to len(laDRESULT)
+            laTMP :={}
+            aadd(laTMP,str2array(laDRESULT[dd],'|'))
+
+            laDRES :={}
+            lcAUX:=array2str(laTMP[1],',')
+            aadd(laDRES,str2array(lcAUX,','))
+
+            lcNR_CONTRATO   := laDRES[1,1]
+            lcCD_PARC_HONOR := laDRES[1,2]
+
+            if psab_logdel(lcNR_PASTA,'CD_PARC_HONOR',lcCD_PARC_HONOR,,'Cont.Honor.='+lcNR_CONTRATO) == .f.
+               error_sys(db_error())
+            endif
+
+            lcWHERE := 'NR_CONTRATO='+lcNR_CONTRATO+' AND NR_PASTA='+lcNR_PASTA+' AND CD_PARC_HONOR='+lcCD_PARC_HONOR
+            if db_delete('pasta_det_chono',lcWHERE) == -1
+               error_sys(db_error())
+            endif
+         next dd
+      endif
+
+      laDRESULT :={}
+      if WGet('CONT_DET','C')<>''
+         laDRESULT := str2array(WGet('CONT_DET','C'),'|')
+
+         for dd := 1 to len(laDRESULT)
+
+            laSAVED     := {'NR_CONTRATO',;
+                            'CD_PARC_HONOR',;
+                            'CONDICAO',;
+                            'VALOR',;
+                            'HACOR',;
+                            'DT_CORRECAO',;
+                            'VL_CORRIGIDO',;
+                            'COCORRENCIA',;
+                            'DEVIDO',;
+                            'LIQUIDADA',;
+                            'NR_PASTA'}
+
+            laDLINHA_ATUAL := {}
+            aadd(laDLINHA_ATUAL,laSAVED)  //{{}}
+
+            laTMP :={}
+            aadd(laTMP,str2array(laDRESULT[dd],'|'))
+
+            laDRES :={}
+            lcAUX:=array2str(laTMP[1],',')
+            aadd(laDRES,str2array(lcAUX,','))
+
+            laTMP2:={}
+            for zz:=1 to len(laDRES[1])
+                aadd(laTMP2,laDRES[1,zz])
+            next zz
+
+            aadd(laTMP2,lcNR_PASTA)
+
+            laTMP2[1]:= val(laTMP2[1])
+
+            laTMP2[2]:= val(lcNR_CONTRATO)
+
+            laTMP2[3]:= val(laTMP2[3])
+            laTMP2[5]:= val(laTMP2[5])
+            laTMP2[7]:= ctod(laTMP2[7])
+            laTMP2[8]:= val(laTMP2[8])
+            laTMP2[12]:= val(laTMP2[12])
+
+            adel(laTMP2,1)
+            asize(laTMP2,len(laTMP2)-1)
+
+            *** campo condicao se vazio não grava
+            if laTMP2[db_fetchncol(laDLINHA_ATUAL,'CONDICAO')] == ''
+
+               lnCOL:=db_fetchncol(laDLINHA_ATUAL,'CONDICAO')
+               adel(laDLINHA_ATUAL[1],lnCOL)
+              asize(laDLINHA_ATUAL[1],len(laDLINHA_ATUAL[1])-1)
+
+               adel(laTMP2,lnCOL)
+               asize(laTMP2,len(laTMP2)-1)
+
+            endif
+
+            *** campo cocorrencia se vazio não grava
+            if laTMP2[db_fetchncol(laDLINHA_ATUAL,'COCORRENCIA')] == ''
+
+               lnCOL:=db_fetchncol(laDLINHA_ATUAL,'COCORRENCIA')
+               adel(laDLINHA_ATUAL[1],lnCOL)
+               asize(laDLINHA_ATUAL[1],len(laDLINHA_ATUAL[1])-1)
+
+               adel(laTMP2,lnCOL)
+               asize(laTMP2,len(laTMP2)-1)
+
+            endif
+
+            aadd(laDLINHA_ATUAL,laTMP2)  //{{},{}}
+
+            lcNR_CONTRATO   := str(laDLINHA_ATUAL[2,db_fetchncol(laDLINHA_ATUAL,'NR_CONTRATO')])
+            lcCD_PARC_HONOR := str(laDLINHA_ATUAL[2,db_fetchncol(laDLINHA_ATUAL,'CD_PARC_HONOR')])
+
+            lcWHERE := 'NR_CONTRATO='+lcNR_CONTRATO+' AND NR_PASTA='+lcNR_PASTA+' AND CD_PARC_HONOR='+lcCD_PARC_HONOR
+
+            if psab_logs(laDLINHA_ATUAL,'pasta_det_chono',lcWHERE,WGet('NR_PASTA','C'),'Honorários') == .f.
+               error_sys(db_error())
+            endif
+
+            if db_replace(laDLINHA_ATUAL,'pasta_det_chono',{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+
+         next dd
+      endif
+
+   endif
+
+   mgrid(lcNR_PASTA)
+
+return(nil)
+
+*********************************
+static function mgrid(fcNR_PASTA)
+*********************************
+local laFIELDS := {} ,;
+      laJOIN   := {} as array
+
+local lcNR_ROW := '' ,;
+      lcTMP    := '' as string
+
+local ii       := 0 as int
+
+laFIELDS    := {'pasta_chono.NR_CONTRATO',;
+                'pasta_chono.NR_PASTA',;
+                'pasta_chono.CD_MODALIDADE',;
+                'mod_contratacao.MODALIDADE',;
+                'pasta_chono.DT_CONTRATACAO',;
+                'pasta_chono.VL_ECONOMICO',;
+                'pasta_chono.CD_INDICE',;
+                'indice_reajuste.NM_INDICE',;
+                'pasta_chono.DT_FIM_PROC',;
+                'pasta_chono.OBS',;
+                'pasta_chono.LOGIN_CADASTRO',;
+                'pasta_chono.DT_CADASTRO',;
+                'pasta_chono.HR_CADASTRO'}
+
+
+laJOIN     := {{2,'mod_contratacao','mod_contratacao.CD_MODALIDADE = pasta_chono.CD_MODALIDADE'},;
+               {2,'indice_reajuste','indice_reajuste.CD_INDICE = pasta_chono.CD_INDICE'}}
+
+
+if db_select(laFIELDS,'pasta_chono',laJOIN,{'NR_PASTA='+fcNR_PASTA}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+if len(laRES)>1
+
+   aadd(laRES[1],'VAR_NR_CONTRATO')
+   aadd(laRES[1],'VAR_NR_PASTA')
+   aadd(laRES[1],'VAR_CD_MODALIDADE')
+   aadd(laRES[1],'VAR_MODALIDADE')
+   aadd(laRES[1],'VAR_DT_CONTRATACAO')
+   aadd(laRES[1],'VAR_VL_ECONOMICO')
+   aadd(laRES[1],'VAR_CD_INDICE')
+   aadd(laRES[1],'VAR_NM_INDICE')
+   aadd(laRES[1],'VAR_DT_FIM_PROC')
+   aadd(laRES[1],'VAR_OBS')
+   aadd(laRES[1],'VAR_LOGIN_CADASTRO')
+   aadd(laRES[1],'VAR_DT_CADASTRO')
+   aadd(laRES[1],'VAR_HR_CADASTRO')
+   aadd(laRES[1],'VAR_GED')
+   aadd(laRES[1],'VAR_GED_BT')
+   aadd(laRES[1],'VAR_TOT_GED')
+   aadd(laRES[1],'TOT_GED')
+
+
+   for ii := 2 to len(laRES)
+       lcNR_ROW := alltrim(str(ii-1))
+       aadd(laRES[ii],'VAR_NR_CONTRATO'+lcNR_ROW)
+       aadd(laRES[ii],'VAR_NR_PASTA'+lcNR_ROW)
+       aadd(laRES[ii],'VAR_CD_MODALIDADE'+lcNR_ROW)
+       aadd(laRES[ii],'VAR_MODALIDADE'+lcNR_ROW)
+       aadd(laRES[ii],'VAR_DT_CONTRATACAO'+lcNR_ROW)
+       aadd(laRES[ii],'VAR_VL_ECONOMICO'+lcNR_ROW)
+       aadd(laRES[ii],'VAR_CD_INDICE'+lcNR_ROW)
+       aadd(laRES[ii],'VAR_NM_INDICE'+lcNR_ROW)
+       aadd(laRES[ii],'VAR_DT_FIM_PROC'+lcNR_ROW)
+       aadd(laRES[ii],'VAR_OBS'+lcNR_ROW)
+       aadd(laRES[ii],'VAR_LOGIN_CADASTRO'+lcNR_ROW)
+       aadd(laRES[ii],'VAR_DT_CADASTRO'+lcNR_ROW)
+       aadd(laRES[ii],'VAR_HR_CADASTRO'+lcNR_ROW)
+
+
+       lcTMP := "winged('open'," + DLAP + mkgedruf('pasta_chono',{fcNR_PASTA,WGet('TP_PASTA','C'),STR(laRES[ii,db_fetchncol(laRES,'NR_CONTRATO')]),'',''}) + DLAP + ',event)'
+       *lcTMP := '<a href=javascript:void(0) onclick="'+lcTMP+'">GED</a>'
+       aadd(laRES[ii],lcTMP)
+
+       aadd(laRES[ii],'VAR_GED_BT'+lcNR_ROW)
+       aadd(laRES[ii],'VAR_TOT_GED'+lcNR_ROW)
+       aadd(laRES[ii],totged(fcNR_PASTA,str(laRES[ii,db_fetchncol(laRES,'NR_CONTRATO')])))
+
+       WPut('VAR_NR_CONTRATO'+lcNR_ROW,laRES[ii,db_fetchncol(laRES,'NR_CONTRATO')])
+       WPut('VAR_NR_PASTA'+lcNR_ROW,laRES[ii,db_fetchncol(laRES,'NR_PASTA')])
+       WPut('VAR_CD_MODALIDADE'+lcNR_ROW,laRES[ii,db_fetchncol(laRES,'CD_MODALIDADE')])
+       WPut('VAR_MODALIDADE'+lcNR_ROW,laRES[ii,db_fetchncol(laRES,'MODALIDADE')])
+       WPut('VAR_DT_CONTRATACAO'+lcNR_ROW,laRES[ii,db_fetchncol(laRES,'DT_CONTRATACAO')])
+
+       WPut('VAR_VL_ECONOMICO'+lcNR_ROW,strtran(strtran(strtran(transform(laRES[ii,db_fetchncol(laRES,'VL_ECONOMICO')],'999,999,999,999.99'),'.','#'),',','.'),'#',','))
+
+       WPut('VAR_CD_INDICE'+lcNR_ROW,laRES[ii,db_fetchncol(laRES,'CD_INDICE')])
+       WPut('VAR_NM_INDICE'+lcNR_ROW,laRES[ii,db_fetchncol(laRES,'NM_INDICE')])
+       WPut('VAR_DT_FIM_PROC'+lcNR_ROW,laRES[ii,db_fetchncol(laRES,'DT_FIM_PROC')])
+
+       **WPut('VAR_OBS'+lcNR_ROW,laRES[ii,db_fetchncol(laRES,'OBS')])
+
+       WPut('VAR_LOGIN_CADASTRO'+lcNR_ROW,laRES[ii,db_fetchncol(laRES,'LOGIN_CADASTRO')])
+       WPut('VAR_DT_CADASTRO'+lcNR_ROW,laRES[ii,db_fetchncol(laRES,'DT_CADASTRO')])
+       WPut('VAR_HR_CADASTRO'+lcNR_ROW,laRES[ii,db_fetchncol(laRES,'HR_CADASTRO')])
+
+       WPut('VAR_TOT_GED'+lcNR_ROW,totged(fcNR_PASTA,str(laRES[ii,db_fetchncol(laRES,'NR_CONTRATO')])))
+
+   next ii
+
+   WPut('GRID_HONO',laRES)
+endif
+return(nil)
+
+/*
+* Data......: 04/05/2015 10:58:27 - Rufino
+* Function..: mkgedruf(fcWTABLE, faValues)
+* Objetivo..: Verificar a existencia de configurções GED para uma determinada tabela e criar o link para o ícone do GED
+* Parâmetros:
+*   fcWTABLE: Nome da tabela
+*   faValues: Vetor com os valores para WFIELD1,WFIELD2..WFIELD5
+* Retorno...: Nenhum
+*/
+static function mkgedruf(fcWTABLE,faValues)
+   local lcPARAMS  := '' ,;
+         lcHTML    := '' ,;
+         lcCONTENT := '' as string
+
+   local laFIELDS := {} ,;
+         laRESULT := {} as array
+
+   local ii := 0 as int
+
+   if valtype(fcWTABLE) == 'U' .or. empty(fcWTABLE)
+      puterror('mkgedico: Tabela não definida')
+      return(nil)
+   endif
+
+   laFIELDS := {'WTABLE','CD_BUSINESS','WFIELD1','WFIELD2','WFIELD3','WFIELD4','WFIELD5'}
+   if db_select(laFIELDS,'gdrelacionamento',,{'WTABLE='+DLAP+fcWTABLE+DLAP}) == -1
+      puterror('mkgedico: ('+alltrim(str(procline()))+') '+db_error())
+      return(nil)
+   endif
+   laRESULT := db_fetchrow()
+
+   if len(laRESULT) > 0
+      if !empty(laRESULT[2]) .and. !empty(laRESULT[3])
+         lcPARAMS += 'WTABLE='+fcWTABLE
+         lcPARAMS += '&CD_BUSINESS='+alltrim(laRESULT[2])
+         for ii := 1 to 5
+             if !empty(laRESULT[ascan(laFIELDS,'WFIELD'+alltrim(str(ii)))])
+                //lcCONTENT := alltrim(getwput(laRESULT[ascan(laFIELDS,'WFIELD'+alltrim(str(ii)))],'C')) // Recupera dados da UI
+                lcCONTENT := faValues[ii]
+                if !empty(lcCONTENT)
+                   lcPARAMS += '&WFIELD'+alltrim(str(ii))+'='+alltrim(lcCONTENT)
+                else
+                   lcPARAMS += '&WFIELD'+alltrim(str(ii))+'=RELATIONEMPTY.'+laRESULT[ascan(laFIELDS,'WFIELD'+alltrim(str(ii)))]
+                endif
+             endif
+         next ii
+
+         lcPARAMS := wic_action('wicaction_workflow/ged.mgr.html')+'?'+lcPARAMS
+      endif
+    else
+      lcPARAMS := 'ERRO! Falta relacionamento no GED.'
+   endif
+
+return(lcPARAMS)
+
+
+************************************************
+static function totged(fcNR_PASTA,fcNR_CONTRATO)
+************************************************
+local laRESULT:={} as array
+
+if db_select({'count(*)'},'ged',,{'wtable="pasta_chono"','REFERENCIA1='+fcNR_PASTA,'REFERENCIA3='+fcNR_CONTRATO}) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchrow()
+
+return(alltrim(str(laRESULT[1])))
+
+
+
+
+
+
+

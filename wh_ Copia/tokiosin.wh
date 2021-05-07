@@ -1,0 +1,80 @@
+/*
+
+Project      : isj_391
+Program      : tokiosin
+Function     : tokiosin
+Created on   : 05-Apr-2010   10:53:13
+Descripition : Interface para troca de NR_SINISTRO tokio.
+
+*/
+
+    local laLAYOUT := {},;
+          laRES    := {},;
+          laFORA   := {} as array
+    local lnHANDLE := 0,;
+          lnLOG    := 0,;
+          lnII     := 0  as int
+    local lcBUFFER := space(40) as string
+    local llERRO   := .f. 
+    
+    // Geração do arquivo de log
+    
+    lnLOG := fcreate('troca_sinistro.log',0)
+    fwrite(lnLOG,'Inicio do Processamento:'+ Dtoc(date()) + '-' + time()+ CRLF)
+    if ! file('atualiza_num_sinistro.txt')
+       fwrite(lnLOG,'Arquivo atualiza_num_sinistro.txt não encontrado.'+ CRLF)
+       llERRO :=.t.
+    endif
+    if ! llERRO
+       lnHANDLE := fopen('atualiza_num_sinistro.txt',0)
+       fwrite(lnLOG,'Sinistros Atualizados:'+ CRLF)
+       while (ferror() == 0) .and. (! llERRO)
+             lcBUFFER := FReadTxt(lnHANDLE)
+             if ! empty(lcBUFFER)
+                if db_select({'nr_sinistro','nr_pasta'},'pasta_seguro',,{"nr_sinistro = " + DLAP + alltrim(substr(lcBUFFER,1,20))+ DLAP}) == -1
+                   fwrite(lnLOG,"Erro ao selecionar o sinistro: "+db_error() + CRLF)
+                   llERRO := .t.
+                endif 
+       	        laRES := db_fetchall()      
+                if len(laRES) > 1
+                
+                   // Atualiza o número do sinistro na tabela pasta_seguro
+                   
+                   if db_update({{"NR_SINISTRO"},{alltrim(substr(lcBUFFER,21,20))}},'pasta_seguro',{"nr_sinistro = " + DLAP + alltrim(substr(lcBUFFER,1,20))+ DLAP}) == -1
+                      fwrite(lnLOG,"Erro ao atualizar o sinistro: "+db_error() + CRLF)
+                      llERRO := .t.
+                   endif
+                   
+                   // Gera o log das alterações
+                   
+                   for lnII := 2 to len(laRES)
+                       // Grava o arquivo de log de processamento
+                       fwrite(lnLOG,"Pasta: "+str(laRES[lnII,2])+" - Sinistro Anterior: " + substr(lcBUFFER,1,20) + " - Sinistro Atual: " + substr(lcBUFFER,21,20) + CRLF)
+                       // Grava o log de alteração da pasta
+                       if db_insert({{'nr_pasta','wfield','conteudo_anterior', 'conteudo_novo','dt_alteracao','hr_alteracao','local_alteracao','login'},;
+                                     {laRES[lnII,2],'NR_SINISTRO',substr(lcBUFFER,1,20),substr(lcBUFFER,21,20),date(),time(),'Interface','inso'}},'pasta_log_altera') == -1
+                          fwrite(lnLOG,"Erro ao inserir o log de alteração: "+db_error() + CRLF)
+                          llERRO := .t.
+                          exit           
+                       endif              
+                   next lnII
+                else
+                   // Adiciona o número do sinistro não encotrado para ser informado no arquivo de log mais tarde
+                   aadd(laFORA,alltrim(substr(lcBUFFER,1,20)))   
+                endif           
+             endif
+       enddo
+       
+       // Grava no log os sinistros que não foram atualizados
+       
+       fwrite(lnLOG,iif(len(laFORA) > 0,'Sinistros não Atualizados:','')+ CRLF)
+       for lnII := 1 to len(laFORA)
+           fwrite(lnLOG,laFORA[lnII] + CRLF)   
+       next lnII
+    endif
+
+    // Encerra o arquivo de log e sai
+     
+    fwrite(lnLOG,'Término do Processamento:'+ Dtoc(date()) + '-' + time()+ CRLF)
+    fclose(lnLOG)
+    return

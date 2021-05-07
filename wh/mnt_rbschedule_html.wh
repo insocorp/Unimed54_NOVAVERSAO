@@ -1,0 +1,454 @@
+/*
+
+Project      : isj_45
+Program      : mnt.rbschedule.html
+Function     : mnt_rbschedule_html
+Created on   : 13/03/2017 15:59:21
+Descripition : 
+
+*/
+
+local lcACTION   := '' as string
+local lcHTML     := '' as string
+
+local laFIELDS   := {} as array
+local laRESULT   := {} as array
+local lafOBRIGA  := {} as array
+local latOBRIGA  := {} as array
+local lahOBRIGA  := {} as array
+
+local xx         := 0 as int
+
+local obj        := RbScheduleNew() as Object
+
+
+
+WPut('TITLE','Manutenção de Agendamentos')
+
+laFIELDS  := structtable(WSet("DB_ACTIVE"),'rbschedule',1,'N')
+lcACTION  := alltrim(upper(WGet('ACTION')))
+
+WPut('IFLINHNEW','1')
+WPut('IFGRID','1')
+WPut('IFMANUT','0')
+WPut('IFDETALHE','0')
+
+diaexe()
+horasexe()
+formato()
+carrega_report()
+
+WPut('FL_ATIVO.option',{'S','N'})
+
+if lcACTION == 'MANU'
+
+   WPut('IFLINHNEW','0')
+   WPut('IFGRID','0')
+   WPut('IFMANUT','1')
+   WPut('IFDETALHE','0')
+
+   obj:PkRbschedule     := WGet('IDMANU','N')
+
+   obj:FindByPk()
+
+   WPut('PK_RBSCHEDULE',       obj:PkRbschedule)
+   WPut('NOME_AGENDAMENTO',    obj:NomeAgendamento)
+   WPut('DESCRICAO',           obj:Descricao)
+   WPut('DIA_EXECUCAO',        obj:DiaExecucao)
+   WPut('HORA_EXECUCAO',       obj:HoraExecucao)
+   WPut('REPORT',              obj:Report)
+   WPut('FORMATO_SAIDA',       obj:FormatoSaida)
+   WPut('EMAIL_NOTIFICA',      obj:EmailNotifica)
+   WPut('FL_ATIVO',            obj:FlAtivo)
+
+
+   return
+
+endif
+
+if lcACTION == 'FILTROS'
+
+   obj:PkRbschedule     := WGet('IDMANU','N')
+   laRESULT := obj:ToList_T('F')
+
+   lcHTML ='<table border="0" width="100%" cellspacing="1" cellpadding="0">'+CRLF
+   lcHTML +='   <tr class="wgridheader">'+CRLF
+   lcHTML +='      <td>wiclabel.RBMODULE</td>'+CRLF
+   lcHTML +='      <td>wiclabel.RBFILTER</td>'+CRLF
+   lcHTML +='      <td>wiclabel.RBFTVALUE1</td>'+CRLF
+   lcHTML +='      <td>wiclabel.RBFTVALUE2</td>'+CRLF
+   lcHTML +='   </tr>'+CRLF
+
+   if len(laRESULT)>1
+
+      for xx=2 to len(laRESULT)
+
+          lcITEM := alltrim(str(xx-1))
+
+//wout("<br>Campo:["+ upper(laRESULT[xx,db_fetchncol(laRESULT,'RBFILTER')]) + "]")
+//wout("<br>Label:["+ lblfscreen(upper(laRESULT[xx,db_fetchncol(laRESULT,'RBFILTER')])) + "]")
+
+          laRESULT[xx,db_fetchncol(laRESULT,'RBFILTER')] := laRESULT[xx,db_fetchncol(laRESULT,'RBFILTER')] + " --> " + lblfscreen(upper(laRESULT[xx,db_fetchncol(laRESULT,'RBFILTER')]))
+
+          lcHTML +='      <tr class="wgridrow">'+CRLF
+          lcHTML +='         <td align="center">'+CRLF
+          lcHTML +='            <input type="text" class="winputreadonly" id="'+'VAR_RBMODULE_'+lcITEM+'" name="'+'VAR_RBMODULE_'+lcITEM+'" readonly wicinput>'+CRLF
+          lcHTML +='         </td>'+CRLF
+          lcHTML +='         <td align="left">'+CRLF
+          lcHTML +='            <input type="text" class="winputreadonly" id="'+'VAR_RBFILTER_'+lcITEM+'" name="'+'VAR_RBFILTER_'+lcITEM+'" readonly wicinput size="80">'+CRLF
+          lcHTML +='         </td>'+CRLF
+          lcHTML +='         <td align="center">'+CRLF
+          lcHTML +='            <textarea id="'+'RBFTVALUE1_'+lcITEM+'" name="'+'RBFTVALUE1_'+lcITEM+'" class="winputreadonly" rows="1" cols="60" disabled="true"><wicfield name="VAR_RBFTVALUE1_'+lcITEM+'"></textarea>'+CRLF
+          lcHTML +='         </td>'+CRLF
+          lcHTML +='         <td align="center">'+CRLF
+          lcHTML +='            <textarea id="'+'RBFTVALUE2_'+lcITEM+'" name="'+'RBFTVALUE2_'+lcITEM+'" class="winputreadonly" rows="1" cols="60" disabled="true"><wicfield name="VAR_RBFTVALUE2_'+lcITEM+'"></textarea>'+CRLF
+          lcHTML +='         </td>'+CRLF
+          lcHTML +='      </tr>'+CRLF
+
+
+          WPut('VAR_RBMODULE_'+lcITEM           ,laRESULT[xx,db_fetchncol(laRESULT,'RBMODULE')])
+
+          WPut('VAR_RBFILTER_'+lcITEM           ,laRESULT[xx,db_fetchncol(laRESULT,'RBFILTER')])
+          WPut('VAR_RBFTVALUE1_'+lcITEM         ,laRESULT[xx,db_fetchncol(laRESULT,'RBFTVALUE1')])
+          WPut('VAR_RBFTVALUE2_'+lcITEM         ,laRESULT[xx,db_fetchncol(laRESULT,'RBFTVALUE2')])
+
+
+      next xx
+
+      lcHTML +='</table>'+CRLF
+
+   endif
+
+
+   WPut('legenda','Filtros Schedule = ' + WGet('SCHNOME','C'))
+
+   WPut('detalhe',lcHTML)
+
+   WPut('IFLINHNEW','1')
+   WPut('IFGRID','1')
+   WPut('IFMANUT','0')
+   WPut('IFDETALHE','1')
+
+
+endif
+
+if lcACTION == 'TOKENS'
+
+   obj:PkRbschedule     := WGet('IDMANU','N')
+
+   laRESULT := obj:ToList_T('T')
+
+
+
+   lcHTML ='<table border="0" width="100%" cellspacing="1" cellpadding="0">'+CRLF
+   lcHTML +='   <tr class="wgridheader">'+CRLF
+   lcHTML +='      <td>wiclabel.TOKEN</td>'+CRLF
+   lcHTML +='      <td>wiclabel.REPORT</td>'+CRLF
+   lcHTML +='      <td>wiclabel.DATA_GERACAO</td>'+CRLF
+   lcHTML +='      <td>wiclabel.HORA_GERACAO</td>'+CRLF
+   lcHTML +='      <td>wiclabel.FILENAME</td>'+CRLF
+   lcHTML +='   </tr>'+CRLF
+
+
+   if len(laRESULT)>1
+
+      for xx=2 to len(laRESULT)
+
+          lcITEM := alltrim(str(xx-1))
+
+          lcHTML +='      <tr class="wgridrow">'+CRLF
+          lcHTML +='         <td align="center">'+CRLF
+          lcHTML +='            <input type="text" class="winputreadonly" id="'+'VAR_TOKEN_'+lcITEM+'" name="'+'VAR_TOKEN_'+lcITEM+'" readonly wicinput>'+CRLF
+          lcHTML +='         </td>'+CRLF
+          lcHTML +='         <td align="center">'+CRLF
+          lcHTML +='            <input type="text" class="winputreadonly" id="'+'VAR_2REPORT_'+lcITEM+'" name="'+'VAR_2REPORT_'+lcITEM+'" readonly wicinput>'+CRLF
+          lcHTML +='         </td>'+CRLF
+          lcHTML +='         <td align="center">'+CRLF
+          lcHTML +='            <input type="text" style="text-align: center" class="winputreadonly" id="'+'VAR_DATA_GERACAO_'+lcITEM+'" name="'+'VAR_DATA_GERACAO_'+lcITEM+'" readonly wicinput>'+CRLF
+          lcHTML +='         </td>'+CRLF
+          lcHTML +='         <td align="center">'+CRLF
+          lcHTML +='            <input type="text" style="text-align: center" class="winputreadonly" id="'+'VAR_HORA_GERACAO_'+lcITEM+'" name="'+'VAR_HORA_GERACAO_'+lcITEM+'" readonly wicinput>'+CRLF
+          lcHTML +='         </td>'+CRLF
+          lcHTML +='         <td align="center">'+CRLF
+          lcHTML +='            <input type="text" class="winputreadonly" id="'+'VAR_FILENAME_'+lcITEM+'" name="'+'VAR_FILENAME_'+lcITEM+'" readonly wicinput>'+CRLF
+          lcHTML +='         </td>'+CRLF
+          lcHTML +='      </tr>'+CRLF
+
+
+          WPut('VAR_TOKEN_'+lcITEM           ,laRESULT[xx,db_fetchncol(laRESULT,'TOKEN')])
+          WPut('VAR_2REPORT_'+lcITEM         ,laRESULT[xx,db_fetchncol(laRESULT,'REPORT')])
+          WPut('VAR_DATA_GERACAO_'+lcITEM    ,laRESULT[xx,db_fetchncol(laRESULT,'DATA_GERACAO')])
+          WPut('VAR_HORA_GERACAO_'+lcITEM    ,laRESULT[xx,db_fetchncol(laRESULT,'HORA_GERACAO')])
+          WPut('VAR_FILENAME_'+lcITEM        ,laRESULT[xx,db_fetchncol(laRESULT,'FILENAME')])
+
+
+      next xx
+
+      lcHTML +='</table>'+CRLF
+
+   endif
+
+   WPut('legenda','Tokens Schedule = ' + WGet('SCHNOME','C'))
+
+   WPut('detalhe',lcHTML)
+
+   WPut('IFLINHNEW','1')
+   WPut('IFGRID','1')
+   WPut('IFMANUT','0')
+   WPut('IFDETALHE','1')
+
+endif
+
+if lcACTION == 'HISTOR'
+
+   obj:PkRbschedule     := WGet('IDMANU','N')
+   laRESULT := obj:ToList_T('H')
+
+   lcHTML ='<table border="0" width="100%" cellspacing="1" cellpadding="0">'+CRLF
+   lcHTML +='   <tr class="wgridheader">'+CRLF
+   lcHTML +='      <td>wiclabel.DATA</td>'+CRLF
+   lcHTML +='      <td>wiclabel.HORA</td>'+CRLF
+   lcHTML +='      <td>wiclabel.REPORT</td>'+CRLF
+   lcHTML +='      <td>wiclabel.STATUS</td>'+CRLF
+   lcHTML +='   </tr>'+CRLF
+
+
+   if len(laRESULT)>1
+
+      for xx=2 to len(laRESULT)
+
+          lcITEM := alltrim(str(xx-1))
+
+          lcHTML +='      <tr class="wgridrow">'+CRLF
+          lcHTML +='         <td align="center">'+CRLF
+          lcHTML +='            <input type="text" style="text-align: center" class="winputreadonly" id="'+'VAR_DATA_'+lcITEM+'" name="'+'VAR_DATA_'+lcITEM+'" readonly wicinput>'+CRLF
+          lcHTML +='         </td>'+CRLF
+          lcHTML +='         <td align="center">'+CRLF
+          lcHTML +='            <input type="text" style="text-align: center" class="winputreadonly" id="'+'VAR_HORA_'+lcITEM+'" name="'+'VAR_HORA_'+lcITEM+'" readonly wicinput>'+CRLF
+          lcHTML +='         </td>'+CRLF
+          lcHTML +='         <td align="center">'+CRLF
+          lcHTML +='            <input type="text" class="winputreadonly" id="'+'VAR_2REPORT_'+lcITEM+'" name="'+'VAR_2REPORT_'+lcITEM+'" readonly wicinput>'+CRLF
+          lcHTML +='         </td>'+CRLF
+          lcHTML +='         <td align="center">'+CRLF
+          lcHTML +='            <input type="text" class="winputreadonly" id="'+'VAR_STATUS_'+lcITEM+'" name="'+'VAR_STATUS_'+lcITEM+'" readonly wicinput>'+CRLF
+          lcHTML +='         </td>'+CRLF
+          lcHTML +='      </tr>'+CRLF
+
+
+          WPut('VAR_DATA_'+lcITEM      ,laRESULT[xx,db_fetchncol(laRESULT,'DATA')])
+          WPut('VAR_HORA_'+lcITEM      ,laRESULT[xx,db_fetchncol(laRESULT,'HORA')])
+          WPut('VAR_2REPORT_'+lcITEM    ,laRESULT[xx,db_fetchncol(laRESULT,'REPORT')])
+          WPut('VAR_STATUS_'+lcITEM    ,laRESULT[xx,db_fetchncol(laRESULT,'STATUS')])
+
+
+      next xx
+
+      lcHTML +='</table>'+CRLF
+
+   endif
+
+   WPut('legenda','Históricos Schedule = ' + WGet('SCHNOME','C'))
+
+   WPut('detalhe',lcHTML)
+
+   WPut('IFLINHNEW','1')
+   WPut('IFGRID','1')
+   WPut('IFMANUT','0')
+   WPut('IFDETALHE','1')
+
+endif
+
+if lcACTION == 'SAVE'
+
+          WPut('IFLINHNEW','1')
+          WPut('IFGRID','1')
+          WPut('IFMANUT','0')
+          WPut('IFDETALHE','0')
+
+          obj:PkRbschedule     := WGet('PK_RBSCHEDULE','N')
+          obj:NomeAgendamento  := WGet('NOME_AGENDAMENTO','C')
+          obj:Descricao        := WGet('DESCRICAO','C')
+          obj:DiaExecucao      := WGet('DIA_EXECUCAO','N')
+          obj:HoraExecucao     := WGet('HORA_EXECUCAO','N')
+          obj:Report           := WGet('REPORT','C')
+          obj:FormatoSaida     := WGet('FORMATO_SAIDA','C')
+          obj:EmailNotifica    := WGet('EMAIL_NOTIFICA','C')
+          obj:FlAtivo          := WGet('FL_ATIVO','C')
+
+          obj:Salvar()
+
+          if (obj:ErrorCode != 0)
+
+             WPut('PK_RBSCHEDULE',    obj:PkRbschedule)
+             WPut('NOME_AGENDAMENTO', obj:NomeAgendamento)
+             WPut('DESCRICAO',        obj:Descricao)
+             WPut('DIA_EXECUCAO',     obj:DiaExecucao)
+             WPut('HORA_EXECUCAO',    obj:HoraExecucao)
+             WPut('REPORT',           obj:Report)
+             WPut('FORMATO_SAIDA',    obj:FormatoSaida)
+             WPut('EMAIL_NOTIFICA',   obj:EmailNotifica)
+             WPut('FL_ATIVO',         obj:FlAtivo)
+
+             WPut('IFLINHNEW','0')
+             WPut('IFGRID','0')
+             WPut('IFMANUT','1')
+             WPut('IFDETALHE','0')
+
+             WAlert(obj:ErrorMessage)
+
+             return
+          endif
+
+endif
+
+if lcACTION == 'EXCLU'
+   obj:PkRbschedule     := WGet('IDMANU','N')
+
+   obj:Apagar()
+
+endif
+
+laRESULT := obj:ToList()
+WPut('lstSCH',laRESULT)
+
+
+return
+********************************
+static function carrega_report()
+********************************
+
+local lcWHERE:=''
+local laRES:={}
+local laLST_NOVA:={}
+local laVINCULADO:={}
+
+local paAUTO     :={} as array
+
+
+
+local  laOPT    := {} ,;
+       laOPTV   := {} ,;
+       laPUT    := {} ,;
+       laDEF    := {} ,;
+       laDEFV   := {} ,;
+       laATI    := {} ,;
+       laATIV   := {} ,;
+       laINA    := {} ,;
+       laINAV   := {} ,;
+       laPUTV   := {} ,;
+       laFIELD  := {} as array
+
+
+local  jj    := 1  ,;
+       liPOS := 0  as int
+
+
+laDEF := {}
+laDEFV:= {}
+
+laATI := {}
+laATIV:= {}
+
+laINA := {}
+laINAV:= {}
+
+laPUT := {}
+laPUTV:= {}
+
+laFIELD := structtable(WSet("DB_ACTIVE"),'report',1,'A')
+liPOS   := ascan(laFIELD,'FL_ATIVO')
+
+if liPOS<>0
+   laFIELD:={'REPORT','NM_REPORT','FL_ATIVO'}
+  else
+   laFIELD:={'REPORT','NM_REPORT'}
+ endif
+
+if db_select(laFIELD,'report',,,{'NM_REPORT'}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+for jj := 2 to len(laRES)
+    if liPOS<>0
+       if laRES[jj,3] == 'D'
+          aadd(laDEF,laRES[jj,2])
+          aadd(laDEFV,laRES[jj,1])
+
+        elseif laRES[jj,3] == 'I'
+          aadd(laINA,laRES[jj,2])
+          aadd(laINAV,laRES[jj,1])
+
+        else
+          aadd(laATI,laRES[jj,2])
+          aadd(laATIV,laRES[jj,1])
+       endif
+    else
+       aadd(laATI,laRES[jj,2])
+       aadd(laATIV,laRES[jj,1])
+    endif
+next jj
+
+if len(laDEF) == 0
+   aadd(laDEF,'') // Adiciona uma linha vazia no inicio do combo, caso seja solicitado
+   aadd(laDEFV,'')
+endif
+
+for jj=1 to len(laDEF)
+    aadd(laPUT,laDEF[jj])
+    aadd(laPUTV,laDEFV[jj])
+next jj
+
+for jj=1 to len(laATI)
+    aadd(laPUT,laATI[jj])
+    aadd(laPUTV,laATIV[jj])
+next jj
+
+for jj=1 to len(laINA)
+    aadd(laPUT,'INATIVO - '+laINA[jj])
+    aadd(laPUTV,laINAV[jj])
+next jj
+
+
+WPut('REPORT.option',laPUT)
+WPut('REPORT.optionvalue',laPUTV)
+
+return(nil)
+
+
+************************
+static function diaexe()
+************************
+local  laPUT    := {} as array
+
+laPUT:={,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31}
+
+WPut('DIA_EXECUCAO.option',laPUT)
+WPut('DIA_EXECUCAO.optionvalue',laPUT)
+
+return(nil)
+
+************************
+static function horasexe()
+************************
+local  laPUT    := {} as array
+
+laPUT:={,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24}
+
+WPut('HORA_EXECUCAO.option',laPUT)
+WPut('HORA_EXECUCAO.optionvalue',laPUT)
+
+return(nil)
+
+*************************
+static function formato()
+*************************
+local  laPUT    := {} as array
+
+laPUT:={'','HTML','XLS','PDF','CSV'}
+
+WPut('FORMATO_SAIDA.option',laPUT)
+WPut('FORMATO_SAIDA.optionvalue',laPUT)
+
+return(nil)
+

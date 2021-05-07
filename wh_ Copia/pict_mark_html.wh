@@ -1,0 +1,40 @@
+/*
+
+Project      : gr5
+Program      : pict.mark.html
+Function     : pict_mark_html
+Created on   : 23-Sep-2004   17:35:20
+Descripition : Leitura de imagens/logos
+
+*/
+
+   local lcCONTENT  := '' ,;
+         lcIMG_NAME := alltrim(WGet('IMG_NAME','C')) as string
+
+   local lnTAM := 0 as int
+
+   local fHANDLE
+
+   if !empty(lcIMG_NAME)
+      //fHANDLE := fopen(alltrim(WSet('PATH_COMPONENTS')+WSet('PATH_LOGO')+'/'+lcIMG_NAME),0)
+      fHANDLE := fopen(alltrim(WSet('PATH_COMPONENTS')+'/logo/'+lcIMG_NAME),0)
+      if fHANDLE < 1
+         error_sys('Erro ao abrir arquivo: '+lcIMG_NAME+CRLF+'Erro Nr.: '+alltrim(str(ferror())))
+      endif
+      lnTAM     := fseek(fHANDLE,0,2)
+      lcCONTENT := space(lnTAM)
+      fseek(fHANDLE,0,0)
+      fread(fHANDLE,@lcCONTENT,lnTAM)
+      wouthttphead('image/jpg')
+      WOut(lcCONTENT)
+      fclose(fHANDLE)
+   endif
+return
+
+
+
+
+
+
+
+

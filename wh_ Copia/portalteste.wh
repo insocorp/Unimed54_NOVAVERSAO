@@ -1,0 +1,12 @@
+/*
+Project      : gr5
+Program      : portalteste
+Function     : portalteste
+Created on   : 04-Nov-2004   12:42:02
+Descripition : 
+*/
+   wPut("DYNAMICUI",xportal("TESTE"))
+   wSet("_USER_INTERFACE","dynamicui")
+            
+            
+            

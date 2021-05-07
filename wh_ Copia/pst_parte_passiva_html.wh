@@ -1,0 +1,20 @@
+/*
+
+Project      : gr5
+Program      : pst.parte_passiva.html
+Function     : pst_parte_passiva_html
+Created on   : 01-Mar-2004   14:31:20
+Descripition : Manutenção de Pasta - Sub-aba Parte Passiva
+
+*/
+   local lcNR_PASTA := '' as string
+   
+   lcNR_PASTA := wGet('NR_PASTA','C')
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   pst_cabec(lcNR_PASTA,wGet('TP_PASTA','C'),.F.) //Cabeçalho
+
+   mnt_pasta_html(lcNR_PASTA,'ALTER','parte_passiva')

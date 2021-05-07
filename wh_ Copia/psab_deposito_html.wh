@@ -1,0 +1,215 @@
+/*
+
+Project      : gr5
+Program      : psab.deposito.html
+Function     : psab_deposito_html
+Created on   : 06-Dec-2004   22:16:58
+Descripition :
+
+*/
+   private paAUTO        := {} ,;
+           paAUTO_LABELS := {}
+
+   local lcACTION      := '',;
+         lcWHERE       := '',;
+         lcTABLE       := '',;
+         lcNR_PASTA    := '',;
+         lcTP_PASTA    := '',;
+         lcNR_CONTROLE := '',;
+         lcNR_AUTOPROC := ''  as string
+
+   local laRESULT        := {} ,;
+         laSAVE          := {} ,;
+         laSAVE_AUX      := {} ,;
+         laFIELDS        := {} ,;
+         laLABELS        := {} ,;
+         laPOSICAO_PARTE := {} ,;
+         laPUT           := {} as array
+
+   local ii := 0 as int
+
+   lcACTION      := upper(alltrim(WGet('ACTION','C')))
+   lcNR_PASTA    := WGet('NR_PASTA','C')
+   lcNR_CONTROLE := alltrim(WGet('NR_CONTROLE','C'))
+   if upper(lcNR_CONTROLE) == 'NEW'
+      lcNR_CONTROLE := '0'
+   endif
+   lcNR_AUTOPROC := alltrim(WGet('NR_AUTOPROC','C'))
+   if empty(lcNR_AUTOPROC)
+      lcNR_AUTOPROC := '0'
+   endif
+   lcTP_PASTA   := WGet('TP_PASTA','C')
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   lcTABLE      := 'pasta_deposito'
+   lcWHERE      := 'pasta_deposito.NR_PASTA = '+lcNR_PASTA+;
+                   ' and pasta_deposito.NR_AUTOPROC='+lcNR_AUTOPROC+;
+                   ' and pasta_deposito.NR_CONTROLE='+DLAP+lcNR_CONTROLE+DLAP
+   laFIELDS     := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS     := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   init_reqfield(WSet('_USER_INTERFACE'))
+
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+   wPut('TP_PASTA',lcTP_PASTA)
+   carrega_cbox({{'deposito_status','FL_DEPOSITO','Y'},;
+                 {'tp_garantia_deposito','TP_GARANTIA','Y'}})
+
+   /* Combo filtrado pelo TP_PASTA */
+
+    carrega_cbox({{'tipo_deposito','TP_DEPOSITO','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+
+   if empty(lcACTION)
+      lcACTION = 'NEW'
+   endif
+
+   // Autos -----------------------------------------------------------------------------------------
+   if db_select({'NR_AUTOPROC','AUTOPROC','NUMERO_DOC'},'pasta_auto',,;
+                {'NR_PASTA='+lcNR_PASTA},{'AUTOPROC'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   paAUTO        := {''}
+   paAUTO_LABELS := {''}
+   aadd(paAUTO,'0')
+   aadd(paAUTO_LABELS,'Processo Principal')
+   for ii := 2 to len(laRESULT)
+      aadd(paAUTO,alltrim(str(laRESULT[ii,1])))
+      aadd(paAUTO_LABELS,laRESULT[ii,2]+' : '+laRESULT[ii,3])
+   next ii
+   WPut('NR_AUTOPROC.option',paAUTO_LABELS)
+   WPut('NR_AUTOPROC.optionvalue',paAUTO)
+   WPut('NR_AUTOPROC',lcNR_AUTOPROC)
+
+   if val(lcNR_AUTOPROC) > 0
+      if db_select({'FL_AUTO'},'pasta_auto',,{'NR_PASTA='+lcNR_PASTA+' and NR_AUTOPROC='+lcNR_AUTOPROC}) = -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if upper(laRESULT[1]) != 'ENCERRADO'
+            WPut('ifMNTFORM',.T.)
+         endif
+      endif
+   else
+      WPut('ifMNTFORM',.T.)
+   endif
+   // Autos -----------------------------------------------------------------------------------------
+
+   WPut('NR_CONTROLE','New')
+   if lcACTION = 'NEW' .and. gbWAC_CREATE
+//       wPut('TITLE',lcTP_PASTA+' - Inclusão de Depósito')
+   elseif lcACTION = 'ALTER' .and. gbWAC_READ
+
+      mkgedico(lcTABLE,lcNR_PASTA,lcNR_CONTROLE)
+
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      db2Put(laRES)
+
+      WPut('NR_AUTOPROC',alltrim(GetWPut('NR_AUTOPROC')))
+//       WPut('TITLE',lcTP_PASTA+' - Alteração do Depósito  '+getWPut('TP_RECURSO'))
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+      if ! verif_reqfield(WSet('_USER_INTERFACE'))
+         lst_deposito(lcNR_PASTA)
+         pasta_abas(lcTP_PASTA)
+         return(.f.)
+      endif
+
+      aadd(laSAVE,laFIELDS)
+      for ii := 1 to len(laFIELDS)
+         aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+      next ii
+      aadd(laSAVE,laSAVE_AUX)
+
+      psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Depósitos')
+
+      if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+//       wPut('TITLE',lcTP_PASTA+' - Inclusão de Depósito')
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+      psab_logdel(lcNR_PASTA,'NR_CONTROLE',lcNR_CONTROLE,,'Depósitos')
+
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+//       wPut('TITLE',lcTP_PASTA+' - Inclusão de Depósito')
+   endif
+   lst_deposito(lcNR_PASTA)
+   pasta_abas(lcTP_PASTA)
+return
+
+/*
+* Function..: lst_deposito()
+* Objetivo..: Gerar listagem de Partes
+* Parâmetros:
+*   fcNR_PASTA: Numero da pasta
+* Retorno...: nil
+*/
+static function lst_deposito(fcNR_PASTA)
+   local lcNR_AUTOPROC := '' as string
+   local laWHERE := {} ,;
+         laRES   := {} as array
+   local ii    := 0 ,;
+         lnPOS := 0 as int
+
+   lcNR_AUTOPROC := alltrim(WGet('NR_AUTOPROC','C'))
+   laWHERE       := {'pasta_deposito.NR_PASTA ='+fcNR_PASTA}
+
+   if ! empty(lcNR_AUTOPROC)
+      aadd(laWHERE,'pasta_deposito.NR_AUTOPROC ='+lcNR_AUTOPROC)
+   endif
+
+   if db_select({'NR_AUTOPROC',;
+                 'NR_CONTROLE',;
+                 'DT_DEPOSITO',;
+                 'LOCAL_DEPOSITO',;
+                 'VL_DEPOSITO',;
+                 'FL_DEPOSITO',;
+                 'VL_ATUAL',;
+                 'DT_LEVANTAMENTO',;
+                 'VL_LEVANTAMENTO'},;
+                 'pasta_deposito',;
+                 ,;
+                 laWHERE,{'NR_CONTROLE'}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 0
+      aadd(laRES[1],'AUTOPROC')
+      for ii := 2 to len(laRES)
+         lnPOS := laRES[ii,db_fetchncol(laRES,'NR_AUTOPROC')]
+         aadd(laRES[ii],paAUTO_LABELS[ascan(paAUTO,alltrim(lnPOS))])
+
+         lnPOS := db_fetchncol(laRES,'VL_DEPOSITO')
+         laRES[ii,lnPOS] := alltrim(str(laRES[ii,lnPOS])) //Converte o Valor em String para corrigir o problema do *****
+      next ii
+      wPut('lstDEPOSITO',laRES)
+   endif
+return(nil)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

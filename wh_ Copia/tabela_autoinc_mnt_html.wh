@@ -1,0 +1,73 @@
+/*
+
+Project      : gr5
+Program      : tabela_autoinc.mnt.html
+Function     : tabela_autoinc_mnt_html
+Created on   : 2010-03-03 16:10:52
+Descripition : Tabela de controle de sequences
+
+*/
+
+   local laPARAM        := {},;
+         laINPUT_OBJ    := {},;
+         laSELECT       := {} as array
+
+   laPARAM := {{'PROJECT'           ,''     ,'*'},;
+               {'WDB'               ,''     ,'*'},;
+               {'WTABLE'            ,''     ,'*'},;
+               {'WFIELDAUTOINC'     ,''     ,'*'},;
+               {'NOME_AUTO_PGS'     ,''     ,'*'},;
+               {'NOME_AUTO_ORA'     ,''     ,'*'},;
+               {'ACTION'            ,'ALTER',   }}
+               
+// {{'TP_PASTA',1, ,'Y',"loadcboxorder_build('pasta_config','TP_PASTA',.T.,{'TP_PASTA'})"},;
+
+   laINPUT_OBJ := {{'PROJECT',0, ,'Y',},;
+                   {          , , ,   ,},;
+                   {'WDB'     ,0, ,'Y',},;
+                   {          , , ,   ,},;
+                   {'WTABLE'     ,0, ,'Y',},;
+                   {          , , ,   ,},;
+                   {'WFIELDAUTOINC'     ,0, ,'Y',},;
+                   {          , , ,   ,},;
+                   {'NOME_AUTO_PGS'     ,0, ,'Y',},;
+                   {          , , ,   ,},;
+                   {'NOME_AUTO_ORA'  ,0, ,'Y',   } }
+
+   laSELECT := {'PROJECT','WDB','WTABLE','WFIELDAUTOINC','NOME_AUTO_PGS','NOME_AUTO_ORA'}
+
+
+   xbp2('tabela_autoincremento',;                                                         //Tabela alvo
+       ,;                                                                  //Joins
+       ,;                                                                  //Where
+       {'PROJECT','WDB','WTABLE'},;                                        			//Order by
+       ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+       ,;                                                                  //Group by
+       ,;                                                                  //Limit
+       ,;                                                                  //Banco de Dados
+       2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+       'gr5',;                                                             //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;                                           //Programa chamador
+       laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+       ,;                                                                  //Parâmetros para os botões das linhas do grid
+       'tabela_autoinc.mnt.html',;                                                 //Programa que os links/botoes do grid deverao chamar
+       'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+       ,;                                                                  //Retorno java (nil) - usado apenas para Search
+       ,;                                                                  //Campos usados na pesquisa rápida
+       ,;                                                                  //Campos Ocultos
+       laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+       laSELECT ,;                                                         //Campos exibidos no grid
+       laSELECT)                                                           //Campos usados no select
+return
+
+
+
+
+
+
+
+
+
+
+
+

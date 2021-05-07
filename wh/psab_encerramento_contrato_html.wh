@@ -1,0 +1,279 @@
+/*
+
+Project      : gr5
+Program      : psab.encerramento.contrato.html
+Function     : psab_encerramento_contrato_html
+Created on   : 01/09/2016 08:58:56
+Descripition : Aba Encerramento Contrato
+
+*/
+
+   local lcACTION     := '' ,;
+         lcWHERE      := '' ,;
+         lcTABLE      := '' ,;
+         lcNR_PASTA   := '' ,;
+         lcTP_PASTA   := '' ,;
+         lcProgram    := 'psab_encerramento_contrato_html' ,;
+         lcNR_ROW     := '' ,;
+         lcVAR        := '' ,;
+         lcUSUARIO    := '' ,;
+         lcCONTNOVO   := '' ,;
+         lcCONTALT    := '' ,;
+         lcWFIELD     := '' ,;
+         lcHORA       := '' ,;
+         lcABA        := '' ,;
+         lcINST       := '' as string
+         
+   local laFIELDS        := {} ,;
+         laFIELDS_AUX    := {} ,;
+         laPUT           := {} ,;
+         laRESULT        := {} ,;
+         laRES_CFG       := {} ,;
+         laSAVE          := {} ,;
+         laSAVE_AUX      := {} ,;
+         laSAVE1         := {} ,;
+         laFIELDS1       := {} ,;
+         laWICDO         := {} ,;
+         laCAMPOSENCERRA := {} ,;
+         laWHEREENCERRA  := {} ,;
+         laVL_INDICE     := {} ,;
+         laVALIDA        := {} as array
+
+   local ii          := 0 ,;
+         lnID_RESULT := 0 ,;         
+         xx          := 0 ,;
+         yy          := 0 ,;
+         lnPOS       := 0 as int
+
+   local llERROR := .f. as logical
+
+   plFL_SINISTRO := .f.
+   ifENCERRA     := .T.
+   ifATIVA       := .f.
+   lcACTION   := upper(alltrim(WGet('ACTION','C')))
+   lcTP_PASTA := wGet('TP_PASTA','C')
+   lcNR_PASTA := wGet('NR_PASTA','C')
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   
+   lcUSUARIO := wSet('LOGIN')
+   Wput('LOGIN',lcUSUARIO)
+   Wput('LOGIN_CADASTRO',lcUSUARIO)
+   Wput('DT_CADASTRO',DATE())
+
+   lcTABLE := 'pasta_encerramento_contrato'
+
+
+   WPut('DESC_MOTIVO_ROWS',5)
+   WPut('OBSERVACAO_ROWS',5)
+
+   carrega_cbox({{'multa_encerramento','MULTA_ENCERRAMENTO','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+   carrega_cbox({{'encerramento_contrato','ENCERRAMENTO_CONTRATO','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+   carrega_cbox({{'pasta_tp_baixa','TP_BAIXA','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+
+   //---------- Buscar Forma de Encerramento de Pasta.
+   if db_select({'ID_PAR_VL_RESULTADO'},'pasta_config',,{'TP_PASTA = '+DLAP+lcTP_PASTA+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRES_CFG   := db_fetchrow()
+   lnID_RESULT := laRES_CFG[1]
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+
+
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+
+   init_reqfield(WSet('_USER_INTERFACE'),{'ENCERRAMENTO_CONTRATO'})
+
+   laFIELDS     := {'NR_PASTA',;
+                    'LOGIN_CADASTRO',;
+                    'DT_CADASTRO',;
+                    'ENCERRAMENTO_CONTRATO',;
+                    'CIP_SOLICITANTE',;
+                    'MULTA_ENCERRAMENTO',;
+                    'VL_MULTA',;
+                    'DT_ENCERRAMENTO',;
+                    'TP_BAIXA',;
+                    'DESC_MOTIVO',;
+                    'OBSERVACAO'}
+                    
+  laFIELDS_AUX  := {'pasta_encerramento_contrato.NR_PASTA',;
+                    'pasta_encerramento_contrato.LOGIN_CADASTRO',;     
+                    'pasta_encerramento_contrato.DT_CADASTRO',;     
+                    'pasta_encerramento_contrato.ENCERRAMENTO_CONTRATO',;
+                    'pasta_encerramento_contrato.CIP_SOLICITANTE',;
+                    'pasta_encerramento_contrato.MULTA_ENCERRAMENTO',;
+                    'pasta_encerramento_contrato.VL_MULTA',;
+                    'pasta_encerramento_contrato.DT_ENCERRAMENTO',;
+                    'pasta_encerramento_contrato.TP_BAIXA',;
+                    'pasta_encerramento_contrato.DESC_MOTIVO',;
+                    'pasta_encerramento_contrato.OBSERVACAO'}
+
+
+   AbasPerfil(lcTP_PASTA,laFIELDS)
+
+   AbasPerfil(lcTP_PASTA,laFIELDS_AUX)
+
+   if lcACTION = 'SAVE' .and. gbWAC_WRITE
+
+       if WGet('FL_PASTA_ACTION') == 'E'
+         aadd(laVALIDA,'ENCERRAMENTO_CONTRATO')
+      endif
+
+      /* Salva campos na pasta */
+      if verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA) .and. !llERROR
+         laSAVE1 := {}
+         laSAVE1_AUX := {}
+         laFIELDS1 := {'FL_PASTA','DT_ENCERRAMENTO'}
+         aadd(laSAVE1,laFIELDS1)
+
+         for ii := 1 to len(laFIELDS1)
+            if laFIELDS1[ii] == 'FL_PASTA'
+               if WGet('FL_PASTA_ACTION','C') == 'A'
+                  if db_select({'FL_PASTA'},'pasta_status',,{'FL_PASTA_STATUS='+DLAP+'A'+DLAP+' and FL_DEFAULT='+DLAP+'S'+DLAP}) == -1
+                     error_sys(db_error())
+                  endif
+                  laRESULT := db_fetchrow()
+                  if len(laRESULT) > 0
+                     aadd(laSAVE1_AUX,laRESULT[1])
+                  else
+                     walert('Não existe um status padrão para "Ativo" cadastrado no sistema!\nA Pasta não pode ser ativada.')
+                     get2put()
+                     llERROR := .t.
+                     exit
+                  endif
+
+               elseif WGet('FL_PASTA_ACTION','C') == 'E'
+                  if db_select({'FL_PASTA'},'pasta_status',,{'FL_PASTA_STATUS='+DLAP+'E'+DLAP+' and FL_DEFAULT='+DLAP+'S'+DLAP}) == -1
+                     error_sys(db_error())
+                  endif
+                  laRESULT := db_fetchrow()
+                  if len(laRESULT) > 0
+                     aadd(laSAVE1_AUX,laRESULT[1])
+                  else
+                     walert('Não existe um status padrão para "Encerrado" cadastrado no sistema!\nA Pasta não pode ser encerrada.')
+                     get2put()
+                     llERROR := .t.
+                     exit
+                  endif
+               else
+                  aadd(laSAVE1_AUX,WGet(laFIELDS1[ii]))
+               endif
+
+            elseif laFIELDS1[ii] == 'DT_ENCERRAMENTO'
+               if WGet('FL_PASTA_ACTION','C') == 'A'
+                  aadd(laSAVE1_AUX,ctod(''))
+               elseif WGet('FL_PASTA_ACTION','C') == 'E'
+                  aadd(laSAVE1_AUX,date())
+               else
+                  aadd(laSAVE1_AUX,WGet(laFIELDS1[ii]))
+               endif
+
+            else
+               aadd(laSAVE1_AUX,WGet(laFIELDS1[ii]))
+            endif
+         next ii
+         aadd(laSAVE1,laSAVE1_AUX)
+
+         // Verifica se existe regras para encerramento da pasta
+ //        if !validaresult() .or. llERROR
+ //           llERROR := .t.
+ //        else
+ //           llERROR := .f.
+ //        endif
+           
+         if !llERROR
+            lcWHERE  := 'NR_PASTA='+lcNR_PASTA
+            psab_logs(laSAVE1,'pasta',lcWHERE,lcNR_PASTA,'Encerramento')
+            if db_update(laSAVE1,'pasta',{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+            
+         endif   
+      endif
+      aadd(laSAVE,laFIELDS)
+      for ii := 1 to len(laFIELDS)  
+         if laFIELDS[ii] == 'DT_CADASTRO'
+            aadd(laSAVE_AUX,date())
+         elseif laFIELDS[ii] ==  'LOGIN_CADASTRO'
+            aadd(laSAVE_AUX,lcUsuario)
+         else
+            aadd(laSAVE_AUX,Wget(laFIELDS[ii]))
+         endif
+      next ii
+      aadd(laSAVE,laSAVE_AUX)
+     
+         if (Lower(Wget('NR_CONTROLE')) == 'new') 
+             if db_insert(laSAVE,'pasta_encerramento_contrato') == -1
+                error_sys(db_error())
+             endif
+         else
+             if db_replace(laSAVE,lcTABLE,{'NR_PASTA='+WGet('NR_PASTA','C')}) == -1
+                error_sys(db_error())
+             endif
+         endif
+ 
+
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+         if db_delete(lcTABLE,'NR_CONTROLE = '+(Wget('NR_CONTROLE','C'))) == -1
+            error_sys(db_error())
+         endif
+
+   endif
+   lcWHERE  := 'NR_PASTA='+lcNR_PASTA
+
+   /* Dados da Pasta */
+
+   if db_select({'pasta.FL_PASTA','FL_PASTA_STATUS'},'pasta',{{2,'pasta_status','pasta_status.FL_PASTA=pasta.FL_PASTA and pasta_status.TP_PASTA=pasta.TP_PASTA'}},{'pasta.NR_PASTA='+lcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+
+   laRESULT := db_fetchall()
+
+   if len(laRESULT) > 1
+      // Verificação do status da pasta e habilitação dos botões correspondentes
+      lnPOS := ascan(laRESULT[1],'FL_PASTA_STATUS')
+      if lnPOS > 0
+         if upper(laRESULT[2,lnPOS]) == 'E'
+	         WPut('ifATIVA',.t.)
+	         WPut('ifENCERRA',.f.)
+     	   elseif upper(laRESULT[2,lnPOS]) == 'A'
+	         WPut('ifATIVA',.f.)
+	         WPut('ifENCERRA',.t.)
+         else
+	         WPut('ifATIVA',.f.)
+	         WPut('ifENCERRA',.f.)
+	       endif
+       endif
+  
+       db2Put(laRESULT)
+       
+   endif
+   
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2Put(laRESULT)
+         
+         laFOREIGN := {{'pfpj','PFPJ','CIP_SOLICITANTE_PFPJ','CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_SOLICITANTE')]+DLAP, empty(laRESULT[2,db_fetchncol(laRESULT,'CIP_SOLICITANTE')])}}
+
+         for ii := 1 to len(laFOREIGN)
+            if ! laFOREIGN[ii,5]
+               if db_select({laFOREIGN[ii,2]+' as '+laFOREIGN[ii,3]},laFOREIGN[ii,1],,{laFOREIGN[ii,4]}) == -1
+                  error_sys(db_error())
+               endif
+               db2Put(db_fetchall())
+            endif
+         next ii
+              
+      endif
+
+
+return
+
+
+

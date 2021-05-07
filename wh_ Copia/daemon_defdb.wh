@@ -1,0 +1,74 @@
+/*
+
+Project      : gr5
+Program      : daemon.defdb
+Function     : daemon_defdb
+Created on   : 15-Dec-2003   15:18:04
+Descripition : Source to include before database connection on module daemon
+
+*/
+
+/*
+
+Project      : gr5
+Module       : daemon
+Created on   : 11-Oct-2002
+Descripition : No Input/Output (Daemon)
+
+*/
+
+   parameters fcPAR01,fcPAR02,fcPAR03,fcPAR04,fcPAR05,fcPAR06,fcPAR07,fcPAR07,fcPAR09,fcPAR10
+   local iiD  := 0 as int
+   local lnRet := -1
+   local lcMacAddr := ""
+   lnRet := getmacaddr(@lcMacAddr)
+
+   if gmPAGE = 'xxx'
+     pgsinit()
+     mysinit()
+     //sybinit()
+   endif
+
+/*
+   if fcPAR01 = 'MACADDRESS'
+      ? upper(lcMacAddr)
+      ?
+      quit
+   endif
+   if upper(wSet('MACADDRESS')) != upper(lcMacAddr)
+      error_sys('Falha na validação da Licensa de uso : '+lcMacAddr)
+   endif
+*/
+
+   public gaPAR := {}
+
+   if pcount() < 1
+      ? "GR5 lawyer - Daemon - faltam parametros"
+      quit
+   endif
+
+   for iiD := 1 to pcount()
+       //aadd(gaPAR,upper(&('fcPAR'+strzero(iiD,2))))
+       aadd(gaPAR,&('fcPAR'+strzero(iiD,2)))
+   next iiD
+
+   gbWFL_AC := .f.
+
+   if empty(gmLANGUAGE)
+      gmLANGUAGE := 'pt_BR'
+   endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            

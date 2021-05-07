@@ -1,0 +1,208 @@
+/*
+
+Project      : isj_398
+Program      : carregaindicesvpar.html
+Function     : carregaindicesvpar_html
+Created on   : 03-Sep-2012   16:08:06
+Descripition :
+
+*/
+
+#define TAB chr(9)
+
+/* linha comentada por solicitação do Glauber
+#define CRLF chr(13)
+ */
+
+
+   local laINDICES := {},;
+         laCARGA   := {} as array
+   local lcARQ     := '',;
+         lcCONTENT := '',;
+         lcInd     := '',;
+         lcDELETE  := 'DELETE FROM mvt_indice WHERE ',;
+         lcINSERT  := "INSERT INTO mvt_indice (cd_indice,vl_indice,am_ref) VALUES (",;
+         lcWHERE   := '' as String
+//   local lcCRLF    := chr(13) as String
+   local lcCRLF    := chr(13) + chr(10) as String
+
+   lcARQ     := WGETFile('ARQUIVO_RELATORIO',"F")
+   lcCONTENT := TrataArq(WGETFile('ARQUIVO_RELATORIO',"V"))
+   if (! Empty(lcCONTENT))
+      // laCARGA := Str2Array(lcCONTENT,{TAB,lcCRLF})
+      laCARGA := Str2Array(lcCONTENT,{';',lcCRLF})
+      //lcIND   := RetIndice(lcARQ)
+      lcIND   := RetIndice(lcCONTENT)
+//      wout('<br><b>Indice utiizado:'+lcIND)
+
+      if (val(lcIND) > 0)
+//      debug2(lcIND)
+        db_query('BEBGIN TRAN')
+//debug2(laCARGA,,20)
+//wout('<b><br>len(laCARGA):'+str(len(laCARGA)))
+//return
+         set fixed on
+         set decimal to 9
+
+//         for ii := 1 to len(laCARGA)
+
+           iii := 1
+           while (iii <=  len(laCARGA))
+                 ii := iii
+//wout('<br>laCARGA[ii,1]:'+laCARGA[ii,1])
+//wout('<br>iii:'+str(iii))
+
+             if ! empty(alltrim(laCARGA[ii,1])) .and. (len(laCARGA[ii]) == 3)
+
+                 lcWHERE := 'CD_INDICE = ' + lcIND + ' and AM_REF = '+DLAP + StrTran(laCARGA[ii,1],chr(10),'') + StrTran(laCARGA[ii,2],chr(10) + chr(13), '') + DLAP
+//wout('<br>Where:'+lcWHERE)
+                 laSAVE := {{'CD_INDICE','VL_INDICE','AM_REF'}}
+                 aadd(laSAVE,{val(lcIND),round(val(laCARGA[ii,3]),9),StrTran(laCARGA[ii,1],chr(10),'') + strTran(laCARGA[ii,2],chr(10) + chr(13), '' )})
+//debug2(laSAVE,,20)
+//wout('<br><b>Valor a ser gravado:'+str(laSAVE[2,2]))
+
+                 // Primeiro excluir o indice
+
+                 if db_delete('mvt_indice', lcWHERE) == -1
+                    db_query('ROLLBACK')
+                    error_sys(db_error())
+                 endif
+                 // Agora gravar
+                 if db_insert(laSAVE,'mvt_indice') == -1
+                    db_query('ROLLBACK')
+                    error_sys(db_error())
+                 endif
+
+             endif
+             ++iii
+           enddo
+//         next ii
+         db_query('COMMIT')
+         set decimal to 2
+         Walert("Indice " + lcIND + " importado com sucesso.")
+      else
+         Walert("ERRO: Não foi encontrado o código do índice do arquivo que esta sendo importado.")
+      endif
+   else
+      if ! empty(lcARQ)
+         Walert("ERRO: O conteúdo do arquivo a ser importado esta vazio.")
+      endif
+   endif
+return
+
+/*
+* Function..: RetIndice(lcARQ)
+* Objetivo..: Retornar o código do indice de acordo com o nome do arquivo.
+* Parâmetros: lcARQ
+* Retorno...: Código do índice
+*/
+
+Static Function RetIndice(lcARQ)
+
+   local lcRet := '' as String
+   local lnPosIni := at('<CD_INDICE>',lcARQ),;
+         lnPosFin := at('</CD_INDICE>',lcARQ) as Int
+
+   if (lnPosIni > 0) .and. (lnPosFin > 0)
+      lcRet := substr(lcARQ,lnPosIni,(lnPosFin - lnPosIni) )
+      lcRet := strtran(lcRet,'<CD_INDICE>','')
+      lcRet := strtran(lcRet,'</CD_INDICE>','')
+      lcRet := alltrim(lcRet)
+   endif
+
+
+   return lcRet
+
+
+/*
+
+   local laIndices := {} as Array
+   local lnPos     := 0 as Int
+   local lcRet     := "0" as String
+
+
+   aadd(laIndices,{"02","igpm.txt"        ,"insert_igpm.sql"        ,"IGPM"           ,"igpm"                             })
+   aadd(laIndices,{"04","ufir.txt"        ,"insert_ufir.sql"        ,"UFIR"           ,"ufir"                             })
+   aadd(laIndices,{"05","tjsp.txt"        ,"insert_tjsp.sql"        ,"TJSP"           ,"tjsp"                             })
+   aadd(laIndices,{"10","tr.txt"          ,"insert_tr.sql"          ,"TR"             ,"tr"                               })
+   aadd(laIndices,{"11","dt.txt"	  ,"insert_dt.sql"	    ,"DT"	      ,"dt"                               })
+   aadd(laIndices,{"13","ortn_otn.txt"    ,"insert_ortn.sql"        ,"ORTN"           ,"ortn"        ,"selic_13.txt"      })
+   aadd(laIndices,{"14","trf3.txt"        ,"insert_trf3.sql"        ,"TRF3"           ,"trf3"        ,"selic_14.txt"      })
+   aadd(laIndices,{"17","ufm.txt"         ,"insert_ufm.sql"         ,"UFM"            ,"ufm"         ,"selic_17.txt"      })
+   aadd(laIndices,{"18","ufespsel.txt"    ,"insert_ufespsel.sql"    ,"UFESPSEL"       ,"ufespsel"    ,"selic_18.txt"      })
+   aadd(laIndices,{"19","selic_calc.txt"  ,"insert_selicalc.sql"    ,"SELICALC"       ,"selic_calc"                       })
+   aadd(laIndices,{"20","inpc.txt"        ,"insert_inpc.sql"        ,"INPC"           ,"inpc"                             })
+   aadd(laIndices,{"22","ufesp.txt"       ,"insert_ufesp.sql"       ,"UFESP"          ,"ufesp"                            })
+   aadd(laIndices,{"25","selic25.txt"     ,"insert_selic25.sql"     ,"SELIC25"        ,"selic25"     ,"selic_25.txt"      })
+   aadd(laIndices,{"25","selic25vpar.txt" ,"insert_selic25vpar.sql" ,"SELIC25VPAR"    ,"selic25vpar" ,"selic_25vpar.txt"  })
+   aadd(laIndices,{"26","selic26.txt"     ,"insert_selic26.sql"     ,"SELIC26"        ,"selic26"     ,"selic_26.txt"      })
+   aadd(laIndices,{"27","tjspdef.txt"     ,"insert_tjspdef.sql"     ,"TJSP DEF"       ,"tjspdef"                          })
+   aadd(laIndices,{"28","ufirdef.txt"     ,"insert_ufirdef.sql"     ,"UFIR DEF"       ,"ufirdef"                          })
+   aadd(laIndices,{"29","trdef.txt"       ,"insert_trdef.sql"       ,"TR DEF"         ,"trdef"                            })
+   aadd(laIndices,{"30","dtdef.txt"       ,"insert_dtdef.sql"       ,"DT DEF"         ,"dtdef"                            })
+   aadd(laIndices,{"31","ufespdef.txt"    ,"insert_ufespdef.sql"    ,"UFESP DEF"      ,"ufespdef"                         })
+   aadd(laIndices,{"32","tjrs.txt"        ,"insert_tjrs.sql"        ,"TJRS"           ,"tjrs"                             })
+   aadd(laIndices,{"33","tjmt.txt"        ,"insert_tjmt.sql"        ,"TJMT"           ,"tjmt"                             })
+   aadd(laIndices,{"34","tjmg.txt"        ,"insert_tjmg.sql"        ,"TJMG"           ,"tjmg"                             })
+   aadd(laIndices,{"35","tjes.txt"        ,"insert_tjes.sql"        ,"TJES"           ,"tjes"                             })
+   aadd(laIndices,{"36","tjrn.txt"        ,"insert_tjrn.sql"        ,"TJRN"           ,"tjrn"                             })
+   aadd(laIndices,{"38","ipcfipe.txt"     ,"insert_ipcfipe.sql"     ,"IPCFIPE"        ,"ipcfipe"                          })
+   aadd(laIndices,{"39","ipca.txt"        ,"insert_ipca.sql"        ,"IPCA"           ,"ipca"                             })
+   aadd(laIndices,{"41","igpmdef.txt"     ,"insert_igpmdef.sql"     ,"IGPMDEF"        ,"igpmdef"                          })
+   aadd(laIndices,{"42","inpcdef.txt"     ,"insert_inpcdef.sql"     ,"INPCDEF"        ,"inpcdef"                          })
+   aadd(laIndices,{"43","tjpe.txt"        ,"insert_tjpe.sql"        ,"TJPE"           ,"tjpe"                             })
+   aadd(laIndices,{"44","tjrj.txt"        ,"insert_tjrj.sql"        ,"TJRJ"           ,"tjrj"                             })
+   aadd(laIndices,{"45","dt6a.txt"        ,"insert_dt6a.sql"        ,"DT6A"           ,"dt6a"                             })
+   aadd(laIndices,{"46","dt5a.txt"        ,"insert_dt5a.sql"        ,"DT5A"           ,"dt5a"                             })
+   aadd(laIndices,{"47","tjsp_vill.txt"   ,"insert_tjsp_vill.sql"   ,"TJSP_VILL"      ,"tjsp_vill"                        })
+   aadd(laIndices,{"48","ipc_fgv.txt"     ,"insert_ipc_fgv.sql"     ,"IPC_FGV"        ,"ipc_fgv"                          })
+   aadd(laIndices,{"49","ipc_fgv_sj.txt"  ,"insert_ipc_fgv_sj.sql"  ,"IPC_FGV_SJ"     ,"ipc_fgv_sj"                       })
+   aadd(laIndices,{"50","selicldc.txt"    ,"insert_selicldc.sql"    ,"SELICLDC"       ,"selicldc"   ,"selic_ldc.txt"      })
+   aadd(laIndices,{"51","seliccapemi.txt" ,"insert_seliccapemi.sql" ,"SELICCAPEMI"    ,"seliccapemi"                      })
+   aadd(laIndices,{"55","dt_fibria.txt"     ,"insert_dt_fibria.sql"     ,"DT_FIBRIA"    ,"dt_fibria"                      })
+   aadd(laIndices,{"56","dgt_fibria.txt"    ,"insert_dgt_fibria.sql"    ,"DGT_FIBRIA"   ,"dgt_fibria"                     })
+   aadd(laIndices,{"57","drt_fibria.txt"    ,"insert_drt_fibria.sql"    ,"DRT_FIBRIA"   ,"drt_fibria"                     })
+   aadd(laIndices,{"58","tje_fibria.txt"    ,"insert_tje_fibria.sql"    ,"TJE_FIBRIA"   ,"tje_fibria"                     })
+   aadd(laIndices,{"59","dgc_fibria.txt"    ,"insert_dgc_fibria.sql"    ,"DGC_FIBRIA"   ,"dgc_fibria"                     })
+   aadd(laIndices,{"60","jfc_fibria.txt"    ,"insert_jfc_fibria.sql"    ,"JFC_FIBRIA"   ,"jfc_fibria"                     })
+   aadd(laIndices,{"61","dgc_fibria_jf.txt" ,"insert_dgc_fibria_jf.sql" ,"DGC_FIBRIA_JF","dgc_fibria_jf"                  })
+
+   lnPos := Ascan(laIndices, {|x|alltrim(x[2]) == alltrim(lcARQ)})
+
+   if (lnPos > 0)
+       lcRet := laIndices[lnPos,1]
+   endif
+
+return (lcRet)
+*/
+
+
+/*
+* Function..: TrataArq(fcCONTEUDO)
+* Objetivo..: Converter o meses que estão em letras em números
+* Parâmetros: fcCONTEUDO
+* Retorno...: Conteúdo convertido
+*/
+Static Function TrataArq(fcCONTEUDO)
+
+   local lcRet := Upper(fcCONTEUDO) as String
+   local ii    := 0 as Int
+
+   local laMESES  := {{"JAN","01"},;
+                      {"FEV","02"},;
+                      {"MAR","03"},;
+                      {"ABR","04"},;
+                      {"MAI","05"},;
+                      {"JUN","06"},;
+                      {"JUL","07"},;
+                      {"AGO","08"},;
+                      {"SET","09"},;
+                      {"OUT","10"},;
+                      {"NOV","11"},;
+                      {"DEZ","12"},;
+                      {",","."}}
+   for ii := 1 to len(laMESES)
+       lcRet := StrTran(lcret,laMESES[ii,1],laMESES[ii,2])
+   next ii
+
+   return lcRet

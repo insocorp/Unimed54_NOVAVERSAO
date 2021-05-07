@@ -1,0 +1,335 @@
+/*
+
+Project      : gr5
+Program      : sch.corp.servico.html
+Function     : sch_corp_servico_html
+Created on   : 22-Aug-2002   16:32:40
+Descripition : Pesquisa de Serviços para o timesheet corporativo
+
+*/
+
+
+   local lcACTION          := '' ,;
+         lcTABLE           := '' ,;
+         lcQUERY           := '' ,;
+         lcNM_MOEDA        := '' ,;
+         lcFL_TP_TIMESHEET := '' ,;
+         lcCD_TB_SERVICO   := ''as string
+
+   local laRES      := {} ,;
+         laTPFILTER := {} ,;
+         laFIELDLST := {} ,;
+         laLABELLST := {} as array
+
+   local ii                := 0 ,;
+         lnbEXEC           := 0 ,;
+         lnbEXEC2          := 0 ,;
+         lnCD_COBRANCA     := 0 ,;
+         lnCD_TB_HONORARIO := 0 ,;
+         lnCD_TB_SERVICO   := 0 ,;
+         lnCD_MOEDA        := 0 as int
+
+   local lnVL_UNIT := 0 as float
+
+   lcACTION   := upper(WGet('ACTION','C'))
+   if empty(lcACTION)
+       lcACTION :='EXECSEL'
+   endif
+   lcTABLE    := 'servico'
+   laFIELDLST := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+   laLABELLST := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'A')
+   laTPFILTER := {'Contendo',;
+                  'Igual',;
+                  'Intervalo',;
+                  'Não contém'}
+
+   wPut('TITLE','Localizar Serviços')
+   wPut('FDFILTER1','Serviço')
+   wPut('NR_PASTA',alltrim(WGet('NR_PASTA','C')))
+
+   for ii := 1 to 3
+       wPut('FDFILTER'+alltrim(str(ii))+'_OPT',laLABELLST) // Campos
+       wPut('TPFILTER'+alltrim(str(ii))+'_OPT',laTPFILTER) // Filtros
+       wPut('FDORDER'+alltrim(str(ii))+'_OPT',laLABELLST)  // Ordens
+   next ii
+
+   if lcACTION == 'EXECSEL'
+      /* Inicio: Obter Código da tabela de Serviços */
+      if len(db_findrec({'NR_PASTA'},'pasta','NR_PASTA='+WGet('NR_PASTA','C'))) = 0
+         walert('Pasta inexistente')
+         WSet('_USER_INTERFACE','close.wic')
+         return
+      else
+         if db_select({'CD_TB_SERVICO','CIP_EMPRESA','TP_PASTA'},'pasta',,{'NR_PASTA='+WGet('NR_PASTA','C')}) = -1
+            error_sys(db_error())
+         endif
+         laRES := db_fetchrow()
+         if len(db_findrec({'CD_TB_SERVICO'},'tabela_servico','CD_TB_SERVICO='+str(laRES[1]))) = 0
+            if db_select({'CD_TB_SERVICO'},'cobranca_cliente',,{'CIP_EMPRESA='+DLAP+laRES[2]+DLAP+' and TP_PASTA='+DLAP+laRES[3]+DLAP}) = -1
+               error_sys(db_error())
+            endif
+            laRES := db_fetchrow()
+            if len(laRES) > 0
+               if len(db_findrec({'CD_TB_SERVICO'},'tabela_servico','CD_TB_SERVICO='+str(laRES[1])))= 0
+                  walert('Não foi encontrada uma Tabela de Serviços válida')
+                  WSet('_USER_INTERFACE','close.wic')
+                  return
+               else
+                  lcCD_TB_SERVICO:=alltrim(str(laRES[1]))
+               endif
+            else
+               walert('Não foi encontrada uma Tabela de Serviços válida')
+               WSet('_USER_INTERFACE','close.wic')
+               return
+            endif
+         else
+            lcCD_TB_SERVICO:=alltrim(str(laRES[1]))
+         endif
+      endif
+      /* Final da Rotina */
+
+      if db_select({'pasta.CD_COBRANCA',;
+                    'cobranca.FL_TP_TIMESHEET',;
+                    'pasta.CD_TB_HONORARIO',;
+                    'pasta.CD_TB_SERVICO'},;
+                    'pasta',;
+                    {{2,'cobranca','cobranca.CD_COBRANCA=pasta.CD_COBRANCA'}},;
+                    {'pasta.NR_PASTA='+WGet('NR_PASTA','C')}) = -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchrow()
+
+      if len(laRES) > 0
+         lnCD_COBRANCA     := laRES[1]
+         lcFL_TP_TIMESHEET := laRES[2]
+         lnCD_TB_HONORARIO := laRES[3]
+         lnCD_TB_SERVICO   := laRES[4]
+      endif
+      if lnCD_COBRANCA == 0 .or. lnCD_TB_HONORARIO == 0 .or. lnCD_TB_SERVICO == 0
+         if db_select({'cobranca_cliente.CD_COBRANCA','cobranca.FL_TP_TIMESHEET','cobranca_cliente.CD_TB_HONORARIO','cobranca_cliente.CD_TB_SERVICO'},'pasta,cobranca_cliente,cobranca',,{'cobranca.CD_COBRANCA=cobranca_cliente.CD_COBRANCA  and cobranca_cliente.CIP_EMPRESA=pasta.CIP_EMPRESA and cobranca_cliente.TP_PASTA=pasta.TP_PASTA and pasta.NR_PASTA='+WGet('NR_PASTA','C')}) = -1
+            error_sys(db_error())
+         endif
+         laRES := db_fetchrow()
+         if len(laRES) > 0
+            if lnCD_COBRANCA = 0
+               lnCD_COBRANCA     := laRES[1]
+               lcFL_TP_TIMESHEET := laRES[2]
+            endif
+            if lnCD_TB_HONORARIO = 0
+               lnCD_TB_HONORARIO := laRES[3]
+            endif
+            if lnCD_TB_SERVICO = 0
+               lnCD_TB_SERVICO   := laRES[4]
+            endif
+         endif
+      endif
+
+      if len(laRES) > 0
+         lcQUERY := 'select '+lcTABLE+'.'+laFIELDLST[1]
+         for ii := 2 to len(laFIELDLST)
+            lcQUERY += ','+lcTABLE+'.'+laFIELDLST[ii]
+         next ii
+         if lcFL_TP_TIMESHEET='1'
+            lcQUERY += ',vl_tabela_servico.VL_UNIT,vl_tabela_servico.FL_APROVADO,tabela_servico.CD_MOEDA,moeda.NM_MOEDA '+;
+                       ' from vl_tabela_servico,tabela_servico,moeda,servico'+;
+                       ' where servico.CD_SERVICO=vl_tabela_servico.CD_SERVICO and'+;
+                       ' tabela_servico.CD_TB_SERVICO=vl_tabela_servico.CD_TB_SERVICO and'+;
+                       ' moeda.CD_MOEDA=tabela_servico.CD_MOEDA and'+;
+                       ' vl_tabela_servico.CD_TB_SERVICO ='+str(lnCD_TB_SERVICO)
+         elseif lcFL_TP_TIMESHEET='2'
+            if db_select({'vl_tabela_honorario.VL_UNIT'},'acuser,vl_tabela_honorario',,{'vl_tabela_honorario.CD_CARGO=acuser.CD_CARGO and vl_tabela_honorario.CD_TB_HONORARIO='+str(lnCD_TB_HONORARIO)+' and acuser.LOGIN='+DLAP+gcLOGIN+DLAP}) = -1
+               error_sys(db_error())
+            endif
+            laRES := db_fetchrow()
+            if len(laRES) > 0
+               lnVL_UNIT := laRES[1]
+            endif
+            if db_select({'tabela_honorario.CD_MOEDA','moeda.NM_MOEDA'},'tabela_honorario,moeda',,{'moeda.CD_MOEDA=tabela_honorario.CD_MOEDA and tabela_honorario.CD_TB_HONORARIO='+str(lnCD_TB_HONORARIO)}) = -1
+               error_sys(db_error())
+            endif
+            laRES := db_fetchrow()
+            if len(laRES) > 0
+               lnCD_MOEDA := laRES[1]
+               lcNM_MOEDA := laRES[2]
+            endif
+            lcQUERY += ','+str(lnVL_UNIT)+' as VL_UNIT,vl_tabela_servico.FL_APROVADO,'+str(lnCD_MOEDA)+' as CD_MOEDA, "'+lcNM_MOEDA+'" as NM_MOEDA '+;
+                       ' from vl_tabela_servico,tabela_servico,moeda,servico'+;
+                       ' where servico.CD_SERVICO=vl_tabela_servico.CD_SERVICO and'+;
+                       ' tabela_servico.CD_TB_SERVICO=vl_tabela_servico.CD_TB_SERVICO and'+;
+                       ' moeda.CD_MOEDA=tabela_servico.CD_MOEDA and'+;
+                       ' vl_tabela_servico.CD_TB_SERVICO ='+str(lnCD_TB_SERVICO)
+         elseif lcFL_TP_TIMESHEET='3'
+            lcQUERY += ' from vl_tabela_servico,tabela_servico,servico'+;
+                       ' where servico.CD_SERVICO=vl_tabela_servico.CD_SERVICO and'+;
+                       ' tabela_servico.CD_TB_SERVICO=vl_tabela_servico.CD_TB_SERVICO and'+;
+                       ' vl_tabela_servico.CD_TB_SERVICO ='+str(lnCD_TB_SERVICO)
+         else
+            walert('Cobrança não especificada')
+            WSet('_USER_INTERFACE','close.wic')
+            return .F.
+         endif
+/*
+         if laRES[1]='1'
+            lcQUERY += ',vl_tabela_servico.VL_UNIT,vl_tabela_servico.FL_APROVADO,tabela_servico.CD_MOEDA,moeda.NM_MOEDA '+;
+                       ' from vl_tabela_servico,tabela_servico,moeda,servico'+;
+                       ' where servico.CD_SERVICO=vl_tabela_servico.CD_SERVICO and'+;
+                       ' tabela_servico.CD_TB_SERVICO=vl_tabela_servico.CD_TB_SERVICO and'+;
+                       ' moeda.CD_MOEDA=tabela_servico.CD_MOEDA and'+;
+                       ' vl_tabela_servico.CD_TB_SERVICO ='+str(laRES[3])
+         elseif laRES[1]='2'
+            lcQUERY += ',vl_tabela_honorario.VL_UNIT,vl_tabela_servico.FL_APROVADO,tabela_servico.CD_MOEDA,moeda.NM_MOEDA '+;
+                       ' from vl_tabela_servico,tabela_servico,vl_tabela_honorario,tabela_honorario,moeda,servico'+;
+                       ' where servico.CD_SERVICO=vl_tabela_servico.CD_SERVICO and'+;
+                       ' tabela_servico.CD_TB_SERVICO=vl_tabela_servico.CD_TB_SERVICO and'+;
+                       ' moeda.CD_MOEDA=tabela_servico.CD_MOEDA and'+;
+                       ' vl_tabela_honorario.CD_TB_HONORARIO ='+str(laRES[3])
+         endif
+
+*/
+      else
+         walert('Cobrança não especificada')
+         WSet('_USER_INTERFACE','close.wic')
+         return .F.
+      endif
+
+      lnbEXEC  := 0
+      lnbEXEC2 := 0
+      ii := 1
+      do while .t.    // Filter
+         if WGet('FDFILTER'+alltrim(str(ii)),'B')
+            if ! empty(WGet('VLFILTER'+alltrim(str(ii)),'C')) .or. ! empty(WGet('VL2FILTER'+alltrim(str(ii)),'C'))
+               if lnbEXEC = 0
+                  lcQUERY += ' and '
+                  lnbEXEC := 1
+               endif
+               if lnbEXEC2 = 1
+                  lcQUERY += ' and '
+               else
+                  lnbEXEC2 := 1
+               endif
+               /*
+               if WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Igual'
+                  lcQUERY += laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' = ' +DLMT+WGet('VLFILTER'+alltrim(str(ii)),'C')+WGet('VL2FILTER'+alltrim(str(ii)),'C')+DLMT
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Intervalo'
+                  lnbEXEC2 := 0
+                  if ! empty(WGet('VLFILTER'+alltrim(str(ii)),'C'))
+                     lcQUERY += laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' > '+DLMT+WGet('VLFILTER'+alltrim(str(ii)),'C')+DLMT
+                     lnbEXEC2 := 1
+                  endif
+                  if ! empty(WGet('VL2FILTER'+alltrim(str(ii)),'C'))
+                     if lnbEXEC2 = 1
+                        lcQUERY += ' and '
+                     endif
+                     lcQUERY += laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' < '+DLMT+WGet('VL2FILTER'+alltrim(str(ii)),'C')+DLMT
+                  endif
+                  lnbEXEC2 := 1
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Não contém'
+                  lnbEXEC2 := 0
+                  if ! empty(WGet('VLFILTER'+alltrim(str(ii)),'C'))
+                     lcQUERY += ' not ('+laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' like '+DLMT+'%'+WGet('VLFILTER'+alltrim(str(ii)),'C')+'%'+DLMT+')'
+                     lnbEXEC2 := 1
+                  endif
+                  if ! empty(WGet('VL2FILTER'+alltrim(str(ii)),'C'))
+                     if lnbEXEC2 = 1
+                        lcQUERY += ' and '
+                     endif
+                     lcQUERY += ' not ('+laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' like '+DLMT+'%'+WGet('VL2FILTER'+alltrim(str(ii)),'C')+'%'+DLMT+')'
+                  endif
+                  lnbEXEC2 := 1
+               else  // Contendo
+                  lnbEXEC2 := 0
+                  if ! empty(WGet('VLFILTER'+alltrim(str(ii)),'C'))
+                     lcQUERY += laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' like '+DLMT+'%'+WGet('VLFILTER'+alltrim(str(ii)),'C')+'%'+DLMT
+                     lnbEXEC2 := 1
+                  endif
+                  if ! empty(WGet('VL2FILTER'+alltrim(str(ii)),'C'))
+                     if lnbEXEC2 = 1
+                        lcQUERY += ' and '
+                     endif
+                     lcQUERY += laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' like '+DLMT+'%'+WGet('VL2FILTER'+alltrim(str(ii)),'C')+'%'+DLMT
+                  endif
+                  lnbEXEC2 := 1
+               endif
+               */
+
+               if WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Igual'
+                  lcQUERY += mkwheresch({{'servico.'+laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')}},1)
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Intervalo'
+                  lnbEXEC2 := 0
+                  if ! empty(WGet('VLFILTER'+alltrim(str(ii)),'C'))
+                     lcQUERY += mkwheresch({{'servico.'+laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')}},2)
+                     lnbEXEC2 := 1
+                  endif
+                  if ! empty(WGet('VL2FILTER'+alltrim(str(ii)),'C'))
+                     if lnbEXEC2 = 1
+                        lcQUERY += ' and '
+                     endif
+                     lcQUERY += mkwheresch({{'servico.'+laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')}},2)
+                  endif
+                  lnbEXEC2 := 1
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Não contém'
+                  lnbEXEC2 := 0
+                  if ! empty(WGet('VLFILTER'+alltrim(str(ii)),'C'))
+                     lcQUERY += mkwheresch({{'servico.'+laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')}},3)
+                     lnbEXEC2 := 1
+                  endif
+                  if ! empty(WGet('VL2FILTER'+alltrim(str(ii)),'C'))
+                     if lnbEXEC2 = 1
+                        lcQUERY += ' and '
+                     endif
+                     lcQUERY += mkwheresch({{'servico.'+laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')}},3)
+                  endif
+                  lnbEXEC2 := 1
+               else  // Contendo
+                  lnbEXEC2 := 0
+                  if ! empty(WGet('VLFILTER'+alltrim(str(ii)),'C'))
+                     lcQUERY += mkwheresch({{'servico.'+laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')}},4)
+                     lnbEXEC2 := 1
+                  endif
+                  if ! empty(WGet('VL2FILTER'+alltrim(str(ii)),'C'))
+                     if lnbEXEC2 = 1
+                        lcQUERY += ' and '
+                     endif
+                     lcQUERY += mkwheresch({{'servico.'+laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')}},4)
+                  endif
+                  lnbEXEC2 := 1
+               endif
+            endif
+         else
+            exit
+         endif
+         ii ++
+      enddo
+
+      lnbEXEC  := 0
+      lnbEXEC2 := 0
+      ii := 1
+      do while .t.     // Order
+         if WGet('FDORDER'+alltrim(str(ii)),'B')
+            if ! empty(WGet('FDORDER'+alltrim(str(ii)),'C'))
+               if lnbEXEC2 = 1
+                  lcQUERY += ','
+               else
+                  lnbEXEC2 := 1
+               endif
+               if lnbEXEC = 0
+                  lcQUERY += ' order by '
+                  lnbEXEC := 1
+               endif
+               lcQUERY += laFIELDLST[ascan(laLABELLST,WGet('FDORDER'+alltrim(str(ii)),'C'))]
+            endif
+         else
+            exit
+         endif
+         ii ++
+      enddo
+
+      if db_query(lcQUERY) = -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      wPut('schSERVICO',laRES)
+   endif
+return
+
+

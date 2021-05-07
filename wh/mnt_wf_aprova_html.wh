@@ -1,0 +1,778 @@
+/*
+
+Project      : gr5
+Program      : mnt.wf.aprova.html
+Function     : mnt_wf_aprova_html
+Created on   : 12/03/2015 15:47:09
+Descripition : Aprovação de Contrato workflow
+
+*/
+
+
+
+
+local lcACTION      := '' ,;
+      lcTABLE       := '' ,;
+      lcWHERE       := '' ,;
+      lcANDA        := '' ,;
+      lcTMP1        := '' ,;
+      lcTMP2        := '' ,;
+      lcTMP3        := '' ,;
+      lcVIN         := '' ,;
+      lcQUERY       := '' as string
+
+
+local laRES        := {} ,;
+      laRESULT     := {} ,;
+      laLINHA_ATUAL:= {} ,;
+      laAUX        := {} ,;
+      laTMP        := {} ,;
+      laSAVE       := {} as array
+
+local ii           := 0 as int
+
+
+WPut('TITLE','Aprovação de Contrato workflow')
+
+lcNR_PASTA:= wget('NR_PASTA','C')
+lcACTION  := upper(Wget('ACTION'))
+
+init_reqfield(WSet('_USER_INTERFACE'))
+
+if lcACTION == 'SAVE' .and. gbWAC_WRITE
+
+   laRESULT     :={}
+
+   if WGet('APROVAR','C')<>''
+      laRESULT := str2array(WGet('APROVAR','C'),'|')
+
+      //db_begin() //Iniciando Transação
+
+      for ii := 1 to len(laRESULT)
+
+          laLINHA_ATUAL:={}
+          laAUX        :={}
+          laTMP        :={}
+
+          aadd(laTMP,str2array(laRESULT[ii],','))
+
+
+
+          laSAVE  := {'NR_PASTA',;
+                     'DT_ANDAMENTO',;
+                     'ANDAMENTO',;
+                     'FL_ANDAMENTO_CANCELADO',;
+                     'NR_PASTA_RECURSO',;
+                     'DT_CADASTRO',;
+                     'LOGIN_RESP',;
+                     'NR_AUTOPROC',;
+                     'TP_ANDAMENTO',;
+                     'FL_ANDAMENTO_EXTERNO',;
+                     'NR_ANDAMENTO_RELACAO',;
+                     'NR_ANDAMENTO_VINCULADO',;
+                     'FL_CRITICO',;
+                     'HR_CADASTRO',;
+                     'VINCULO'}
+
+          aadd(laLINHA_ATUAL,laSAVE)
+
+          lcANDA := strtran(alltrim(laTMP[1,3]),"'","")
+
+          lcTMP1 := strtran(alltrim(laTMP[1,6]),"'","")
+
+          lcTMP2 := strtran(alltrim(laTMP[1,7]),"'","")
+
+          lcTMP3 := strtran(alltrim(laTMP[1,9]),"'","")
+
+          if len(lcTMP1)>0 .and. lcTMP1<>'0'
+             lcVIN:='Aditivo : ' + lcTMP1
+             aadd(laLINHA_ATUAL[1],'NR_CONTRATO_ADITIVO')
+          endif
+
+          if len(lcTMP2)>0 .and. lcTMP2<>'0'
+             lcVIN:='Anexo : ' + lcTMP2
+             aadd(laLINHA_ATUAL[1],'NR_CONTRATO_ANEXO')
+          endif
+
+          if len(lcTMP3)>0 .and. lcTMP3<>'0'
+             lcVIN:='Ato : ' + lcTMP3
+             aadd(laLINHA_ATUAL[1],'NR_ATO')
+          endif
+
+          laSAVE  := {laTMP[1,1],;
+                     date(),;
+                     lcANDA,;
+                     'N',;
+                     0,;
+                     date(),;
+                     gcLOGIN,;
+                     laTMP[1,8],;
+                     laTMP[1,4],;
+                     'N',;
+                     0,;
+                     0,;
+                     'N',;
+                     time(),;
+                     lcVIN}
+
+          aadd(laLINHA_ATUAL,laSAVE)
+
+          if len(lcTMP1)>0 .and. lcTMP1<>'0'
+             aadd(laLINHA_ATUAL[2],lcTMP1)
+          endif
+
+          if len(lcTMP2)>0 .and. lcTMP2<>'0'
+             aadd(laLINHA_ATUAL[2],lcTMP2)
+          endif
+
+          if len(lcTMP3)>0 .and. lcTMP3<>'0'
+             aadd(laLINHA_ATUAL[2],lcTMP3)
+          endif
+//alterado por sonia - solicitante glauber - 06/11/2015 19:25:52        
+
+//debug2(laLINHA_ATUAL,,30)
+
+ConcluirTAuto(iif( valtype(laLINHA_ATUAL[2,1]) == 'C', val(laLINHA_ATUAL[2,1]), laLINHA_ATUAL[2,1]), laLINHA_ATUAL[2,9], '')
+
+          if db_insert(laLINHA_ATUAL,'pasta_andamento') == -1
+              //db_rollback()
+              error_sys(db_error())
+          endif
+
+          laSAVE := {'FL_APROVADO','DT_APROVACAO','LOGIN_APROVACAO'}
+
+          aadd(laAUX,laSAVE)
+
+          if val(laTMP[1,2])==1  //ID 1 do tp_andamento indica aprovação
+             laSAVE := {'S',date(),WSet('LOGIN')}
+            else
+             laSAVE := {'N',date(),WSet('LOGIN')}
+          endif
+
+          aadd(laAUX,laSAVE)
+
+          lcWHERE:= 'NR_PASTA='+laTMP[1,1]
+
+          if psab_logs(laAUX,'pasta',lcWHERE,laTMP[1,1],'Aprovação Workflow') == .f.
+             //db_rollback()
+          endif
+
+          if db_update(laAUX,'pasta',{lcWHERE}) == -1
+             //db_rollback()
+             error_sys(db_error())
+          endif
+
+      next ii
+
+      //db_commit()     //Efetivando alterações no Banco de Dados
+
+   endif
+endif
+
+alimenta_grid()
+
+WPut('lcACTION','')
+
+return(nil)
+
+*******************************************************************
+static function busca_extras(faAJAX,fcTP_PASTA,faPSTCONF,fnULTANDA)
+*******************************************************************
+local laPSTCONF     := {},;
+      laPUT         := {},;
+      laJOIN        := {},;
+      laJOINS       := {},;
+      laJOINE       := {},;
+      laFIELDS      := {},;
+      laFIELDE      := {},;
+      laLINHAS      := {},;
+      laRESULT      := {},;
+      laRES         := {},;
+      laGRID_EXTRA  := {},;
+      laGRID_FIELDS := {},;
+      laGRID_LABELS := {} as array
+
+local lcTABLE       := '' ,;
+      lcQUERY       := '' ,;
+      lcAJX_JOIN    := '' ,;
+      lcWHERE       := '' ,;
+      lcLINHAS      := '' ,;
+      lcAJX_FIELDS  := '' ,;
+      lcFIELD       := '' as string
+
+
+local ii    :=0 ,;
+      xx    :=0 ,;
+      lnPOS :=0 as int
+
+*** cria outros joins dos CIPS
+laAUX := pstcips()  //Retorna todos os CIPS de pasta.
+for ii := 1 to len(laAUX)
+   aadd(laJOINS,{2,'pasta_pfpj_'+alltrim(lower(substr(laAUX[ii],5))),'pasta_pfpj_'+alltrim(lower(substr(laAUX[ii],5)))+'.NR_PASTA=pasta.NR_PASTA'})
+next ii
+
+
+aadd(laJOINS,{2,'pasta_andamento','pasta_andamento.NR_PASTA=pasta.NR_PASTA and pasta_andamento.NR_ANDAMENTO = '+str(fnULTANDA)})
+aadd(laJOINS,{2,'pasta_contrato_aditivo','pasta_contrato_aditivo.NR_PASTA=pasta.NR_PASTA and pasta_contrato_aditivo.NR_CONTRATO_ADITIVO=pasta_andamento.NR_CONTRATO_ADITIVO'})
+aadd(laJOINS,{2,'pasta_contrato_anexo','pasta_contrato_anexo.NR_PASTA=pasta.NR_PASTA and pasta_contrato_anexo.NR_CONTRATO_ANEXO=pasta_andamento.NR_CONTRATO_ANEXO'})
+aadd(laJOINS,{2,'pasta_sct_ata','pasta_sct_ata.NR_PASTA=pasta.NR_PASTA and pasta_sct_ata.NR_ATO=pasta_andamento.NR_ATO'})
+
+aadd(laGRID_EXTRA,'pasta.NR_PASTA')
+aadd(laGRID_EXTRA,'pasta.TP_PASTA')
+aadd(laGRID_EXTRA,'pasta_andamento.NR_ANDAMENTO')
+aadd(laGRID_EXTRA,'pasta_andamento.NR_CONTRATO_ADITIVO')
+aadd(laGRID_EXTRA,'pasta_andamento.NR_CONTRATO_ANEXO')
+aadd(laGRID_EXTRA,'pasta_andamento.NR_ATO')
+
+if len(faPSTCONF) > 0
+
+   if ! empty(faPSTCONF[1])
+      laPUT      := str2array(faPSTCONF[1],',')
+      for ii := 1 to len(laPUT)
+         if wmd_fieldtype(substr(laPUT[ii],at('.',laPUT[ii])+1)) != 'TEXT' //Não inclue colunas tipo Text
+            aadd(laGRID_EXTRA,laPUT[ii])
+            aadd(laGRID_LABELS,lbltable(substr(laPUT[ii],1,at('.',laPUT[ii])-1))+;
+                               ' . . . '+;
+                               lblfscreen(substr(laPUT[ii],at('.',laPUT[ii])+1)))
+         endif
+      next ii
+   endif
+
+endif
+
+laFIELDE := aclone(laGRID_EXTRA)
+
+for ii := 1 to len(laFIELDE)
+   lcFIELD := substr(laFIELDE[ii],1, (at('.',laFIELDE[ii])-1) )
+
+   lnPOS   := ascan(laJOINS,{ | y | y[2]==lcFIELD })
+   if lnPOS > 0
+      *** Adiciona a tabela no JOIN caso ainda nao tenha sido incluido anteriormente
+      if ascan(laJOIN,{ | z | z[2]==lcFIELD}) = 0
+         aadd(laJOIN,laJOINS[lnPOS])
+      endif
+   endif
+next ii
+
+
+for ii := 1 to len(laFIELDE)
+   if laFIELDE[ii]<>'cfg_aprovacao.CIPS_APROV'
+      if at('.CIP',laFIELDE[ii]) > 0
+         laFIELDE[ii] += ' as CIP_'+upper(substr(substr(laFIELDE[ii],1, at('.',laFIELDE[ii])-1 ), 12))
+      endif
+
+      if at('.PFPJ',laFIELDE[ii]) > 0
+         laFIELDE[ii] += ' as '+upper(substr(substr(laFIELDE[ii],1, at('.',laFIELDE[ii])-1 ), 12))
+      endif
+   endif
+next ii
+
+for xx=1 to len(laJOIN)
+    lcAJX_JOIN += str(laJOIN[xx,1])+","+laJOIN[xx,2]+","+laJOIN[xx,3]
+    if xx<len(laJOIN)
+       lcAJX_JOIN +="|"
+    endif
+next xx
+
+lcAJX_FIELDS:=array2str(laFIELDE,',')
+
+aadd(faAJAX,{lcAJX_FIELDS,lcAJX_JOIN})
+
+return(faAJAX)
+
+
+
+*******************************
+static function alimenta_grid()
+*******************************
+
+local laJOIN        := {},;
+      laJOINS       := {},;
+      laFIELDS      := {},;
+      laRES         := {},;
+      laRESULT      := {},;
+      laAJAX        := {},;
+      laGRID_FIELDS := {},;
+      laGRID_LABELS := {} as array
+
+local lcTABLE       := '' ,;
+      lcQUERY       := '' ,;
+      lcNR_ROW      := '' ,;
+      lcCIPLOGIN    := '' ,;
+      lcREGRA       := '' ,;
+      lcSEGUE       := '' ,;
+      lcNR_PASTA    := '' ,;
+      lcTP_PASTA    := '' ,;
+      lcTMP1        := '' ,;
+      lcTMP2        := '' ,;
+      lcFIELD       := '' as string
+
+
+local ii        :=0 ,;
+      lnTAMANHO :=0 ,;
+      xx        :=0  as int
+
+public ppaRESULT, ppiX
+
+
+
+
+
+if db_select({'CIP'},'acuser',,{'LOGIN = '+DLAP+gcLOGIN+DLAP}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchrow()
+
+lcCIPLOGIN:=laRES[1]
+
+laGRID_FIELDS := {'pasta_andamento.NR_PASTA',;
+                  't2.ULTNRANDA',;
+                  'pasta_andamento.TP_ANDAMENTO',;
+                  'cfg_aprovacao.NR_CONTROLE',;
+                  'pasta.TP_PASTA',;
+                  'cfg_aprovacao.CMP_CIPAPROV',;
+                  'cfg_aprovacao.CIPS_APROV',;
+                  'cfg_aprovacao.TP_ANDAMENTO',;
+                  'cfg_aprovacao.TP_ANDAPROV',;
+                  'cfg_aprovacao.ANDAPROV',;
+                  'cfg_aprovacao.TP_ANDAREJ',;
+                  'cfg_aprovacao.ANDAREJ',;
+                  'cfg_aprovacao.GRID_APROV',;
+                  'cfg_aprovacao.REGRAS',;
+                  'pasta_pfpj_empresa.CIP',;
+                  'pasta_pfpj_empresa.PFPJ',;
+                  'pasta_pfpj_contratante.CIP',;
+                  'pasta_pfpj_contratante.PFPJ',;
+                  'pasta_pfpj_contratado.CIP',;
+                  'pasta_pfpj_contratado.PFPJ',;
+                  'pasta_pfpj_solicitante.CIP',;
+                  'pasta_pfpj_solicitante.PFPJ',;
+                  'pasta_andamento.NR_CONTRATO_ADITIVO',;
+                  'pasta_andamento.NR_CONTRATO_ANEXO',;
+                  'pasta_andamento.NR_AUTOPROC',;
+                  'pasta_andamento.NR_ATO'}
+
+for ii := 1 to len(laGRID_FIELDS)
+   aadd(laGRID_LABELS,lbltable(substr(laGRID_FIELDS[ii],1,at('.',laGRID_FIELDS[ii])-1))+;
+                      ' . . . '+;
+                      lblfscreen(substr(laGRID_FIELDS[ii],at('.',laGRID_FIELDS[ii])+1)))
+next
+
+
+*** join default
+aadd(laJOINS,{2,'pasta'                 ,"pasta.NR_PASTA                  =pasta_andamento.NR_PASTA and pasta.FL_PASTA='Ativa'"})
+aadd(laJOINS,{3,'cfg_aprovacao'         ,'cfg_aprovacao.TP_ANDAMENTO      =pasta_andamento.TP_ANDAMENTO and cfg_aprovacao.TP_PASTA=pasta.TP_PASTA'})
+aadd(laJOINS,{2,'pasta_cip'             ,'pasta_cip.NR_PASTA              =pasta_andamento.NR_PASTA and pasta_cip.WFIELD=cfg_aprovacao.CMP_CIPAPROV'})
+
+
+*** cria todos joins dos CIPS
+laAUX := pstcips()  //Retorna todos os CIPS de pasta.
+for ii := 1 to len(laAUX)
+   aadd(laJOINS,{2,'pasta_pfpj_'+alltrim(lower(substr(laAUX[ii],5))),'pasta_pfpj_'+alltrim(lower(substr(laAUX[ii],5)))+'.NR_PASTA=pasta.NR_PASTA'})
+next ii
+
+laFIELDS := aclone(laGRID_FIELDS)
+
+for ii := 1 to len(laFIELDS)
+   lcFIELD := substr(laFIELDS[ii],1, (at('.',laFIELDS[ii])-1))
+
+   lnPOS   := ascan(laJOINS,{ | y | y[2]==lcFIELD })
+
+   if lnPOS > 0
+      *** Adiciona a tabela no JOIN caso ainda nao tenha sido incluido anteriormente
+      if ascan(laJOINS,{ | z | z[2]==lcFIELD}) = 0
+         aadd(laJOINS,laJOINS[lnPOS])
+      endif
+   endif
+next ii
+
+
+for ii := 1 to len(laFIELDS)
+   if laFIELDS[ii]<>'cfg_aprovacao.CIPS_APROV'
+      if at('.CIP',laFIELDS[ii]) > 0
+         laFIELDS[ii] += ' as CIP_'+upper(substr(substr(laFIELDS[ii],1, at('.',laFIELDS[ii])-1 ), 12))
+      endif
+
+      if at('.PFPJ',laFIELDS[ii]) > 0
+         laFIELDS[ii] += ' as '+upper(substr(substr(laFIELDS[ii],1, at('.',laFIELDS[ii])-1 ), 12))
+      endif
+   endif
+next ii
+
+lcQUERY := 'SELECT '
+lcQUERY += array2str(laFIELDS,',')
+lcQUERY += ' from pasta_andamento'
+
+for ii=1 to len(laJOINS)
+    lcQUERY += ' left join '+alltrim(laJOINS[ii,2]) + ' on ' + alltrim(laJOINS[ii,3])
+next ii
+
+lcQUERY +=' right join('
+lcQUERY +=' select'
+lcQUERY +=' max(pasta_andamento.nr_andamento) as ULTNRANDA'
+lcQUERY +=' from pasta_andamento'
+lcQUERY +=" where pasta_andamento.FL_ANDAMENTO_CANCELADO='N'"
+lcQUERY +=' group by'
+lcQUERY +=' pasta_andamento.NR_PASTA,'
+lcQUERY +=' CASE'
+lcQUERY +='    WHEN len(pasta_andamento.NR_CONTRATO_ADITIVO)=0 THEN null'
+lcQUERY +="    WHEN pasta_andamento.NR_CONTRATO_ADITIVO='0' THEN null"
+lcQUERY +='    ELSE pasta_andamento.NR_CONTRATO_ADITIVO'
+lcQUERY +=' END,'
+lcQUERY +=' CASE'
+lcQUERY +='    WHEN len(pasta_andamento.NR_CONTRATO_ANEXO)=0 THEN null'
+lcQUERY +="   WHEN pasta_andamento.NR_CONTRATO_ANEXO='0' THEN null"
+lcQUERY +='    ELSE pasta_andamento.NR_CONTRATO_ANEXO'
+lcQUERY +=' END,'
+lcQUERY +=' pasta_andamento.NR_AUTOPROC,'
+lcQUERY +=' CASE'
+lcQUERY +='    WHEN len(pasta_andamento.NR_ATO)=0 THEN null'
+lcQUERY +="    WHEN pasta_andamento.NR_ATO='0' THEN null"
+lcQUERY +='    ELSE pasta_andamento.NR_ATO'
+lcQUERY +=' END'
+lcQUERY +=') t2 on t2.ULTNRANDA=pasta_andamento.NR_ANDAMENTO'
+
+lcQUERY += " where pasta_andamento.NR_PASTA is not null and (cfg_aprovacao.CIPS_APROV like '%"+gcLOGIN+"%' or pasta_cip.CIP="+lcCIPLOGIN+")"
+
+lcQUERY +=' order by'
+lcQUERY +=' pasta_andamento.NR_PASTA,'
+lcQUERY +='pasta_andamento.NR_ANDAMENTO'
+
+//debug2(lcQUERY,,9000)
+
+if db_query(lcQUERY) == -1
+   error_sys(db_error())
+endif
+ppaRESULT  := db_fetchall()
+
+if len(ppaRESULT )>1
+   aadd(ppaRESULT[1],'VAR_TP_ANDAMENTO')
+   aadd(ppaRESULT[1],'VAR_AUX_ANDAMENTO')
+   aadd(ppaRESULT[1],'VAR_ANDAMENTO')
+   aadd(ppaRESULT[1],'VAR_NR_PASTA')
+   aadd(ppaRESULT[1],'VAR_AJX_FIELDS')
+   aadd(ppaRESULT[1],'VAR_AJX_JOIN')
+   aadd(ppaRESULT[1],'VAR_TP_PASTA')
+   aadd(ppaRESULT[1],'VAR_DOCUMENTO')
+   aadd(ppaRESULT[1],'VAR_REGRAS')
+   aadd(ppaRESULT[1],'AJX_FIELDS')
+   aadd(ppaRESULT[1],'AJX_JOIN')
+   aadd(ppaRESULT[1],'VAR_NR_CONTRATO_ADITIVO')
+   aadd(ppaRESULT[1],'VAR_NR_CONTRATO_ANEXO')
+   aadd(ppaRESULT[1],'VAR_NR_AUTOPROC')
+   aadd(ppaRESULT[1],'VAR_NR_ATO')
+
+   aadd(laRESULT,ppaRESULT[1])
+
+   for ppiX =2 to len(ppaRESULT)
+
+       if len(ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'REGRAS')])>0
+
+          *wout('aditivo: '+ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'NR_CONTRATO_ADITIVO')])
+          *wout('Valor do contrato: '+str(wfdbRufus('VL_ADITIVO','pasta_contrato_aditivo','NR_PASTA = '+str(ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'NR_PASTA')])+' and NR_CONTRATO_ADITIVO = '+"'"+ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'NR_CONTRATO_ADITIVO')]+"'" ,'N')))
+
+          lcREGRA:=substr(ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'REGRAS')],2,len(ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'REGRAS')]))
+          *debug2(lcREGRA,,5000)
+
+          lcREGRA:=substr(lcREGRA,1,len(lcREGRA))
+          *debug2(lcREGRA,,5000)
+
+          lcSEGUE := eval({||&lcREGRA})
+
+         else
+          lcSEGUE :='T'
+       endif
+
+
+       **wout('Valor do contrato: '+str(wfdbRufus('VL_CONTRATO','pasta','NR_PASTA = '+str(ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'NR_PASTA')]),'N')))
+
+
+
+       *** modelo abaixo de regra
+       *** =iif((wfdbRufus('VL_CONTRATO','pasta','NR_PASTA = '+str(ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'NR_PASTA')]),'N') >= 500 .and. wfdbRufus('VL_CONTRATO','pasta','NR_PASTA = '+str(ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'NR_PASTA')]),'N') <2000), "T", "F")
+
+       if lcSEGUE='T'
+
+          xx:=xx+1
+          lcNR_ROW := alltrim(str(xx))
+
+          *** rufino 04/05/2015 10:40:46
+          *** Inserção do link do ged na grid *
+
+          lcNR_PASTA:=str(ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'NR_PASTA')])
+          lcTP_PASTA:=ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'TP_PASTA')]
+
+          lcTMP1 := "winged('open'," + DLAP + mkgedruf('pasta',{lcNR_PASTA,lcTP_PASTA,'','',''}) + DLAP + ',event)'
+          lcTMP1 := '<a href=javascript:void(0) onclick="'+lcTMP1+'">GED ('+totged(lcNR_PASTA)+')</a>'
+
+          ***
+
+          aadd(ppaRESULT[ppiX],'VAR_TP_ANDAMENTO'+lcNR_ROW)
+          aadd(ppaRESULT[ppiX],'VAR_AUX_ANDAMENTO'+lcNR_ROW)
+          aadd(ppaRESULT[ppiX],'VAR_ANDAMENTO'+lcNR_ROW)
+          aadd(ppaRESULT[ppiX],'VAR_NR_PASTA'+lcNR_ROW)
+          aadd(ppaRESULT[ppiX],'VAR_AJX_FIELDS'+lcNR_ROW)
+          aadd(ppaRESULT[ppiX],'VAR_AJX_JOIN'+lcNR_ROW)
+          aadd(ppaRESULT[ppiX],'VAR_TP_PASTA'+lcNR_ROW)
+
+          aadd(ppaRESULT[ppiX],lcTMP1)
+
+          aadd(ppaRESULT[ppiX],'VAR_REGRAS'+lcNR_ROW)
+
+          WPut('VAR_NR_PASTA'+lcNR_ROW,ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'NR_PASTA')])
+          WPut('VAR_TP_PASTA'+lcNR_ROW,ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'TP_PASTA')])
+          WPut('VAR_REGRAS'+lcNR_ROW,ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'REGRAS')])
+
+          laAJAX := {}
+
+          laAJAX := busca_extras(laAJAX,lcTP_PASTA,{ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'GRID_APROV')]},ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'ULTNRANDA')])
+
+          aadd(ppaRESULT[ppiX],laAJAX[1][1])
+          aadd(ppaRESULT[ppiX],laAJAX[1][2])
+
+          aadd(ppaRESULT[ppiX],'VAR_NR_CONTRATO_ADITIVO'+lcNR_ROW)
+          aadd(ppaRESULT[ppiX],'VAR_NR_CONTRATO_ANEXO'+lcNR_ROW)
+          aadd(ppaRESULT[ppiX],'VAR_NR_AUTOPROC'+lcNR_ROW)
+          aadd(ppaRESULT[ppiX],'VAR_NR_ATO'+lcNR_ROW)
+
+          WPut('VAR_NR_CONTRATO_ADITIVO'+lcNR_ROW,ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'NR_CONTRATO_ADITIVO')])
+          WPut('VAR_NR_CONTRATO_ANEXO'+lcNR_ROW,ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'NR_CONTRATO_ANEXO')])
+          WPut('VAR_NR_AUTOPROC'+lcNR_ROW,ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'NR_AUTOPROC')])
+          WPut('VAR_NR_ATO'+lcNR_ROW,ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'NR_ATO')])
+
+          WPut('VAR_TP_ANDAMENTO'+lcNR_ROW+'.option',{'',ppaRESULT[ppiX,9],ppaRESULT[ppiX,11]})
+          WPut('VAR_TP_ANDAMENTO'+lcNR_ROW+'.optionvalue',{'','1','2'})
+
+          WPut('VAR_AUX_ANDAMENTO'+lcNR_ROW+'.option',{'',ppaRESULT[ppiX,10],ppaRESULT[ppiX,12]})
+          WPut('VAR_AUX_ANDAMENTO'+lcNR_ROW+'.optionvalue',{'','1','2'})
+
+          aadd(laRESULT,ppaRESULT[ppiX])
+
+       endif
+
+
+   next ppiX
+
+   WPut('GRID_APROV',laRESULT)
+  else
+   walert('Não foi encontrada pasta para sua aprovação !')
+
+endif
+
+release ppaRESULT
+release ppiX
+
+return(nil)
+
+/*
+* Data......: 04/05/2015 10:58:27 - Rufino
+* Function..: mkgedruf(fcWTABLE, faValues)
+* Objetivo..: Verificar a existencia de configurções GED para uma determinada tabela e criar o link para o ícone do GED
+* Parâmetros:
+*   fcWTABLE: Nome da tabela
+*   faValues: Vetor com os valores para WFIELD1,WFIELD2..WFIELD5
+* Retorno...: Nenhum
+*/
+static function mkgedruf(fcWTABLE,faValues)
+   local lcPARAMS  := '' ,;
+         lcHTML    := '' ,;
+         lcCONTENT := '' as string
+
+   local laFIELDS := {} ,;
+         laRESULT := {} as array
+
+   local ii := 0 as int
+
+   if valtype(fcWTABLE) == 'U' .or. empty(fcWTABLE)
+      puterror('mkgedico: Tabela não definida')
+      return(nil)
+   endif
+
+   laFIELDS := {'WTABLE','CD_BUSINESS','WFIELD1','WFIELD2','WFIELD3','WFIELD4','WFIELD5'}
+   if db_select(laFIELDS,'gdrelacionamento',,{'WTABLE='+DLAP+fcWTABLE+DLAP}) == -1
+      puterror('mkgedico: ('+alltrim(str(procline()))+') '+db_error())
+      return(nil)
+   endif
+   laRESULT := db_fetchrow()
+
+   if len(laRESULT) > 0
+      if !empty(laRESULT[2]) .and. !empty(laRESULT[3])
+         lcPARAMS += 'WTABLE='+fcWTABLE
+         lcPARAMS += '&CD_BUSINESS='+alltrim(laRESULT[2])
+         for ii := 1 to 5
+             if !empty(laRESULT[ascan(laFIELDS,'WFIELD'+alltrim(str(ii)))])
+                //lcCONTENT := alltrim(getwput(laRESULT[ascan(laFIELDS,'WFIELD'+alltrim(str(ii)))],'C')) // Recupera dados da UI
+                lcCONTENT := faValues[ii]
+                if !empty(lcCONTENT)
+                   lcPARAMS += '&WFIELD'+alltrim(str(ii))+'='+alltrim(lcCONTENT)
+                else
+                   lcPARAMS += '&WFIELD'+alltrim(str(ii))+'=RELATIONEMPTY.'+laRESULT[ascan(laFIELDS,'WFIELD'+alltrim(str(ii)))]
+                endif
+             endif
+         next ii
+
+         lcPARAMS := wic_action('wicaction_workflow/ged.mgr.html')+'?'+lcPARAMS
+      endif
+    else
+      lcPARAMS := 'ERRO! Falta relacionamento no GED.'
+   endif
+return(lcPARAMS)
+
+
+*****************************************
+static function totged(fcNR_PASTA)
+*****************************************
+local laRESULT:={} as array
+
+if db_select({'count(*)'},'ged',,{'wtable="pasta"','REFERENCIA1='+fcNR_PASTA}) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchrow()
+
+return(alltrim(str(laRESULT[1])))
+
+/*
+* Function..: wfdbRufus(fcFIELD,fcTABLE,fcWHERE,fcTYPE)
+* Objetivo..: Buscar o conteudo de um campo em uma determinada tabela.
+* Parâmetros:
+*  fcFIELD: Campo a pesquisar
+*  fcTABLE: Tabela alvo
+*  fcWHERE: Condição de Pesquisa
+*  fcTYPE.: Tipo do retorno.
+*    Tipos suportados:
+*      C: Caracter
+*      N: Numérico
+*      D: Data
+*      L: Lógico
+* Retorno...:
+*    Conteúdo de fcFIELD em fcTABLE, convertido para fcTYPE se informado.
+*    Se não for encontrado nenhum registro, retorna vazio ('')
+*/
+
+
+
+*********************************************************
+function wfdbRufus(fcFIELD,fcTABLE,fcWHERE,fcTYPE)
+*********************************************************
+   local laRESULT := {} as array
+   local luRETURN // untyped variables
+   if valtype(fcTABLE) == 'U' .or. empty(fcTABLE)
+      puterror('wfdbgetvalue: Table not defined')
+      return('')
+   endif
+   if valtype(fcFIELD) == 'U' .or. empty(fcFIELD)
+      puterror('wfdbgetvalue: Field not defined')
+      return('')
+   endif
+   if valtype(fcWHERE) == 'U' .or. empty(fcWHERE)
+      puterror('wfdbgetvalue: Where condition not defined')
+      return('')
+   endif
+
+   if db_select({fcFIELD},fcTABLE,,{fcWHERE},,,,{1}) == -1
+      puterror('wfdbgetvalue: '+db_error())
+      return('')
+   endif
+   laRESULT := db_fetchrow()
+
+   if len(laRESULT) > 0
+      *if !empty(laRESULT[1])
+         if valtype(fcTYPE) != 'U' .or. !empty(fcTYPE)
+            do case
+               case fcTYPE == 'C'
+                 if valtype(laRESULT[1]) == 'N' .or. valtype(laRESULT[1]) == 'I'
+                    luRETURN := alltrim(str(laRESULT[1]))
+                 elseif valtype(laRESULT[1]) == 'D'
+                    luRETURN := dtoc(laRESULT[1])
+                 else
+                    luRETURN := alltrim(laRESULT[1])
+                 endif
+               case fcTYPE == 'N'
+
+                 if valtype(laRESULT[1]) == 'C'
+                    luRETURN := val(laRESULT[1])
+                 elseif valtype(laRESULT[1]) == 'D'
+                    luRETURN := ''
+                 else
+                    luRETURN := laRESULT[1]
+                 endif
+
+               case fcTYPE == 'D'
+                 if valtype(laRESULT[1]) == 'N' .or. valtype(laRESULT[1]) == 'I'
+                    luRETURN := ''
+                 elseif valtype(laRESULT[1]) == 'C'
+                    luRETURN := ctod(laRESULT[1])
+                 else
+                    luRETURN := laRESULT[1]
+                 endif
+               case fcTYPE == 'L'
+                 if valtype(laRESULT[1]) == 'N'
+                    if laRESULT[1] == 0
+                       luRETURN := .F.
+                    else
+                       luRETURN := .T.
+                    endif
+                 elseif valtype(laRESULT[1]) == 'C'
+                    if laRESULT[1] == 'S' .or. laRESULT[1] == 'Y'
+                       luRETURN := .T.
+                    else
+                       luRETURN := .F.
+                    endif
+                 endif
+            endcase
+         else
+            luRETURN := laRESULT[1]
+         endif
+      *else
+      *   luRETURN := ''
+      *endif
+   else
+      if valtype(fcTYPE) != 'U' .or. !empty(fcTYPE)
+         do case
+            case fcTYPE == 'C'
+            luRETURN := ''
+            case fcTYPE == 'N'
+            luRETURN := 0
+            case fcTYPE == 'D'
+            luRETURN := ctod('')
+            case fcTYPE == 'L'
+            luRETURN := ''
+         endcase
+      else
+         luRETURN := ''
+      endif
+   endif
+
+return(luRETURN)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

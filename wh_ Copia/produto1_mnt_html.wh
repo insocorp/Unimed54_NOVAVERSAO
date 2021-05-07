@@ -1,0 +1,224 @@
+/*
+
+Project      : gr5
+Program      : produto1.mnt.html
+Function     : produto1_mnt_html
+Created on   : 16/10/2015 15:45:29
+Descripition : Produto com vínculo 
+
+*/
+
+
+   local lcCD_PRODUTO    := '' ,;
+         lcWHERE          := '' ,;
+         lcTABLE          := '' ,;
+         lcFIELDS         := '' ,;
+         lcACTION         := ''  as string
+
+   local laFIELDS         := {},;
+         laLABELS         := {},;
+         laRESULT         := {},;
+         laRES            := {},;
+         laSAVE           := {},;
+         laSAVE_AUX       := {},;
+         laVALIDA         := {},;
+         laFIND_REC       := {},;
+         laWICDO          := {} as array
+
+   local llERRO := .F. as logical
+
+   local iiF             := 0 ,;
+         ii              := 0 ,;
+         xx              := 0  as int
+
+   lcACTION := upper(alltrim(WGet('ACTION','C')))
+
+
+   WPut('TITLE','Produtos com Vínculo')
+
+
+   lcWHERE  := 'CD_PRODUTO='+WGet('CD_PRODUTO')
+   lcTABLE  := 'produto1'
+
+   laFIELDS := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+   laLABELS := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'A')
+
+ 
+   WPut('FL_ATIVO.option',{'Ativo','Inativo', 'Default'})
+   WPut('FL_ATIVO.optionvalue',{'S', 'I', 'D'})
+   
+
+ if lcACTION = 'ALTER' .and. gbWAC_READ
+  lcWhere := 'CD_PRODUTO='+ DLAP+Wget('CD_PRODUTO','C')+DLAP 
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2Put(laRESULT)
+
+  
+         // Campos CIP
+
+         if db_select({'PFPJ'},'pfpj',,{'CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_EMPRESA')]+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laRES := db_fetchrow()
+         if len(laRES) > 0
+            WPut('CIP_EMPRESA_PFPJ',laRES[1])
+         endif
+
+      endif
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+
+  
+              aadd(laSAVE,laFIELDS)
+              for ii := 1 to len(laFIELDS)
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]) )
+              next ii
+              aadd(laSAVE,laSAVE_AUX)
+
+              lcWhere := 'CD_PRODUTO='+ DLAP+Wget('CD_PRODUTO','C')+DLAP
+
+              if db_replace(laSAVE,'produto1',{lcWhere}) == -1
+                 error_sys(db_error())
+              endif
+
+
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+      lcWhere := 'CD_PRODUTO='+ DLAP+Wget('CD_PRODUTO','C')+DLAP
+
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+    
+   endif
+
+   GridPaginada()
+   
+ return
+
+
+/*
+* Glauber - 12/2014
+*
+* Function..: GridPaginada()
+* Objetivo..: Monta a grid paginada com os dados.
+* Parâmetros:
+*
+*
+* Retorno...:
+*
+*
+*
+*/
+
+Static Function GridPaginada()
+
+
+    local lcTable         := 'produto1' as String
+
+    local laRESULT        := {},;
+          laPAGINAS       := {},;
+          laLIMIT         := {}  as Array
+
+    local lnCOUNT         := 0 as Int
+
+    local laFIELDS        := {lcTable+'.CD_PRODUTO',;
+                              lcTABLE+'.PRODUTO1',;
+                              lcTable+'.CIP_EMPRESA',;
+                              'pfpj.PFPJ',;
+                              lcTABLE+'.CD_PARCEIRO',;
+                              'parceiros1.PARCEIROS1',;
+                              lcTABLE+'.FL_ATIVO'} as Array
+
+    local laORDER         := {lcTable+'.PRODUTO1',lcTable+'.CD_PRODUTO'}
+
+    local laJoin          := {{2,'pfpj','pfpj.CIP = produto1.CIP_EMPRESA'},;
+                              {2,'parceiros1','parceiros1.CD_PARCEIRO = produto1.CD_PARCEIRO'}} as Array
+
+    local lcCODE          := '' as String
+
+    local xx              := 0,;
+          ii              := 0 as Int
+
+
+    local pcFILTRO        := '' as String
+    local lcWHERE         := '' as String
+
+    if Upper(Wget('ACTION')) == 'SEARCH'
+
+
+       if Wget('ID_PLATAFORMA','N') > 0
+          pcFILTRO := lcTable+'.PRODUTO1= ' + WGet('PRODUTO1','C')
+       endif
+
+       if ! Empty(WGet('PRODUTO1'))
+          pcFILTRO += iif(! Empty(pcFILTRO),' and ', '')
+          pcFILTRO := lcTable+'.PRODUTO1 LIKE ' + DLAP + '%' +WGet('PRODUTO1') + '%' + DLAP
+       endif
+
+    endif
+
+
+   // Rotina para executar paginação
+
+   if db_select({'count(*)'},lcTable) == -1
+      db_error()
+   endif
+   laRESULT  := db_fetchall()
+   lnCOUNT   := laRESULT[2,1]
+   if lnCOUNT > 0
+      laPAGINAS := paginacao(lnCOUNT,'','','produto1.mnt.html')
+      laLIMIT   := param_fetch(laPAGINAS,'LIMIT')
+      if empty(pcFILTRO)
+          if db_select(laFIELDS,lcTABLE,laJOIN,,laORDER,,,laLIMIT) == -1
+            error_sys(db_error())
+         endif
+      else
+          if db_select(laFIELDS,lcTABLE,laJOIN,{pcFILTRO},laORDER,,,laLIMIT) == -1
+             error_sys(db_error())
+          endif
+      endif
+      laRESULT := db_fetchall()
+      //Resumo da pesquisa
+       lcCODE := alltrim(str(laLIMIT[1]+1))+'-'
+       if ((len(laRESULT)-1) < (laLIMIT[2]-laLIMIT[1]))
+          lcCODE += alltrim(str(len(laRESULT)-1))
+       elseif param_fetch(laPAGINAS,'GOTO_PAGE') == param_fetch(laPAGINAS,'NR_PAGES') //lnNR_PAGES
+          lcCODE += alltrim(str(lnCOUNT))
+       else
+          lcCODE += alltrim(str(laLIMIT[1]+param_fetch(laPAGINAS,'ROWS_PAGE')))
+       endif
+       lcCODE += ' de '+alltrim(str(lnCOUNT))
+       if lnCOUNT > 1
+          lcCODE := ' Resultados '+lcCODE+' registros'
+       else
+          lcCODE := ' Resultado '+lcCODE+' registro'
+       endif
+       wput('RESUME_RESULTSET',lcCODE)
+
+      if len(laRESULT) > 0
+         aadd(laRESULT[1],'(row)')
+         for ii := 2 to len(laRESULT)
+            aadd(laRESULT[ii],'(row)'+wic_action('wicaction/produto1.mnt.html?ACTION=ALTER'+;
+                                                 '&CD_PRODUTO='+Alltrim(laRESULT[ii,ascan(laRESULT[1],'CD_PRODUTO')]) +;
+                                                 '&PRODUTO1='+Alltrim(laRESULT[ii,ascan(laRESULT[1],'PRODUTO1')]) +;
+                                                 '&CIP_EMPRESA='+Alltrim(laRESULT[ii,ascan(laRESULT[1],'CIP_EMPRESA')]) +;
+                                                '&PARCEIROS1='+laRESULT[ii,ascan(laRESULT[1],'PARCEIROS1')] +;
+                                                 '&FL_ATIVO='+laRESULT[ii,ascan(laRESULT[1],'FL_ATIVO')]  ))
+         next ii
+
+
+         WPut('GRID_LABEL',grid_create(laRESULT))
+      endif
+   endif
+
+
+
+return(nil)
+
+
+
+
+

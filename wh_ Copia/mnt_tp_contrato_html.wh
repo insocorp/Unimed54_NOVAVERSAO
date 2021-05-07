@@ -1,0 +1,70 @@
+/*
+
+Project      : gr5
+Program      : mnt.tp_contrato.html
+Function     : mnt_tp_contrato_html
+Created on   : 22-Nov-2001   18:09:38
+Descripition : Manutenção de Tipos de Contratos
+
+*/
+
+  local lcACTION   := '',;
+         lcWHERE   := '',;
+         lcTABLE   := '',;
+         lcTIPO_CONTRATO  := '' as string
+   local laRESULT := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laFIELDS   := {} as array
+   local ii := 0 as int
+
+   lcACTION        := upper(WGet('ACTION','C'))
+   lcTIPO_CONTRATO := WGet('FL_CONTRATO','C')
+   if lcTIPO_CONTRATO = 'New'
+      lcTIPO_CONTRATO := ''
+   endif
+   lcTABLE  := 'tipo_contrato'
+   lcWHERE  := 'FL_CONTRATO = '+DLAP+lcTIPO_CONTRATO+DLAP
+   laFIELDS := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+
+   if lcACTION = 'NEW' .and. gbWAC_CREATE
+      wPut('TITLE','Inclusão de novo Tipo de Contrato')
+   elseif lcACTION = 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchrow()
+      for ii := 1 to len(laFIELDS)
+         wPut(laFIELDS[ii],laRESULT[ii])
+      next ii
+     wPut('TITLE','Alteração do casdastro de Tipos de Contratos '+laRESULT[1])
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+      if len(alltrim(WGet('FL_CONTRATO','C'))) = 0
+         wPut('ERROR_MENS','A Tipo de Contrato é um campo obrigatório')
+         get2Put()
+         return(.f.)
+      endif
+      aadd(laSAVE,laFIELDS)
+      for ii := 1 to len(laFIELDS)
+         aadd(laSAVE_AUX,WGet (laFIELDS[ii]))
+      next ii
+      aadd(laSAVE,laSAVE_AUX)
+      if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+         error_sys(db_error())
+      endif
+      wSet('_USER_INTERFACE','lst.tp_contrato.html')
+      lst_tp_contrato_html()
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+      if db_delete(lcTABLE,lcWHERE) = -1
+         error_sys(db_error())
+      endif
+      wSet('_USER_INTERFACE','lst.tp_contrato.html')
+      lst_tp_contrato_html()
+   else
+      wSet('_USER_INTERFACE','lst.tp_contrato.html')
+      lst_tp_contrato_html()
+   endif
+return
+
+
+

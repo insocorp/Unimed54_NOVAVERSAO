@@ -1,0 +1,19 @@
+/*
+
+Project      : gr5
+Program      : sch.cor.html
+Function     : sch_cor_html
+Created on   : 31-May-2004   18:02:53
+Descripition : Palheta de cores
+
+*/
+
+   local lcNM_FIELD := '' as string
+   
+   lcNM_FIELD := wGet('NM_FIELD')
+   
+   if empty(lcNM_FIELD)
+      lcNM_FIELD := 'COLOR'
+   endif
+   wPut('NM_FIELD',lcNM_FIELD)
+   wPut('TITLE','Paleta de Cores')

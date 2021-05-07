@@ -1,0 +1,12 @@
+/*
+
+Project      : gr5
+Program      : pfpj.pre.html
+Function     : pfpj_pre_html
+Created on   : 25-Jan-2006   14:42:48
+Descripition : Aba Pré-Cadastro de Pessoa Fisica/Juridica
+
+*/
+
+   pfpj_mnt_html(,,.t.)
+return

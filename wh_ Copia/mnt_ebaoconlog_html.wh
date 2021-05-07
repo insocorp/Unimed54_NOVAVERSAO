@@ -1,0 +1,58 @@
+/*
+
+Project      : isj_45
+Program      : mnt.ebaoconlog.html
+Function     : mnt_ebaoconlog_html
+Created on   : 27-Apr-2016   15:33:04
+Descripition :
+
+*/
+
+   local laRESULT     := {} as Array
+   local lcACTION     := alltrim(upper(WGet('ACTION')))  as string
+   local ii           := 0 as int
+   local objLog  := EbaoLogNew() as Object
+
+   if lcACTION == 'SEARCH'
+
+       objLog:Data        := WGet('DATA')
+       objLog:Hora        := WGet('HORA')
+       objLog:Login       := WGet('LOGIN')
+       objLog:IdServico   := WGet('ID_SERVICO')
+       objLog:Requisicao  := WGet('REQUISICAO')
+       objLog:Retorno     := WGet('RETORNO')
+
+       objLog:GetAllLog()
+       laRESULT   := objLog:ToArray()
+
+       if (len(laRESULT) > 1)
+           laRESULT[1,3] := '(row)'
+
+           for ii := 2 to len(laRESULT)
+               laRESULT[ii,3] := '(row)'+wic_action('wicaction/mnt.ebaoconlog.html?'+;
+                                                   'NR_CONTROLE='+ALLTRIM(laRESULT[ii,1])+;
+                                                   '&ACTION=ALTER')
+           next ii
+
+           WPut('lstSEARCH', GRID_CREATE(laRESULT))
+       endif
+
+   elseif lcACTION == 'ALTER'
+          objLog:NrControle  := WGet('NR_CONTROLE')
+          objLog:GetLog()
+          WPut('NR_CONTROLE', objLog:NrControle)
+          WPut('DATA',        objLog:Data)
+          WPut('HORA',        objLog:Hora)
+          WPut('LOGIN',       objLog:Login)
+          WPut('ID_SERVICO',  objLog:IdServico)
+          WPut('REQUISICAO',  objLog:Requisicao)
+          WPut('RETORNO',     objLog:Retorno)
+
+   endif
+
+
+
+return
+
+
+

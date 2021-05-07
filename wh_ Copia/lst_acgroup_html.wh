@@ -1,0 +1,71 @@
+/*
+Project      : gr5
+Program      : lst.acgroup.html
+Function     : lst_acgroup_html
+Created on   : 05-Jun-2003   14:59:20
+Descripition : Listagem de Controle de Acesso - Grupos
+*/
+   local laPARAM  := {{'WGID' ,''     } ,;
+                     {'ACTION','ALTER'}},;
+         laBUTTON := {{'Exportar'                      ,{{'WGID',''}},1,'gr5','exp.perfil.html'        },;
+                      {'Clonar Perfil'                 ,{{'WGID',''}},2,'gr5','clo.perfil.html'        },;
+                      {'Importar Perfil'               ,{{'WGID',''}},2,'gr5','imp.perfil.html'        },;
+                      {'Usuários'                      ,{{'WGID',''}},6,'gr5','lst.acuser.html'        },;
+                      {'Filtro para Visualização'      ,{{'WGID',''}},7,'gr5','mnt.ftr.universal.html' },;
+                      {'Filtro para Inclusão/Alteração',{{'WGID',''}},8,'gr5','mnt.ftr.replace.html'   },;
+                      {'Redefinição Campos'            ,{{'WGID',''}},9,'gr5','ac.field.redef.html'    },;
+                      {'Programas'                     ,{{'WGID',''}},10,'gr5','mnt.acprogram.html'     },;
+                      {'Grupos de Programas'           ,{{'WGID',''}},11,'gr5','mnt.ac.grp_program.html'}} as array
+
+   local laWHERE  := {}
+
+   if ! empty(grpman_where('acgroup'))
+      aadd(laWHERE,grpman_where('acgroup'))
+   endif
+
+   WPut('TITLE','Perfil de Acesso')
+
+   make_lst_html(1,;                              //Modo de funcionamento [1]-Listagem [2]-Search
+                 'gr5',;                          //Modulo do programa chamador
+                 WSet('_USER_INTERFACE'),;        //Programa chamador
+                 laPARAM,;                        //Parametros para linhas clicáveis
+                 laBUTTON,;                       //Botoes (nil)
+                 'mnt.acgroup.html',;             //Programa chamado pelos links (linhas clicáveis)
+                 'gr5',;                          //Módulo do programa chamado pelos links
+                 ,;                               //Retorno java (nil) - usado apenas no search
+                 ,;                               //Campos usados na pesquisa rápida
+                 {'WGID','WGROUP','WFL_MASTER'},; //Campos mostratos no grid
+                 {'WGID','WGROUP','WFL_MASTER'},; //Campos usados no select
+                 'acgroup',;                      // Tabela Alvo
+                 ,;                               // Join
+                 laWHERE)                         // Condição Where
+return
+/*
+ pnMODE,
+ pcTARGET_SRC,
+ pcPROG_SRC,
+ paONCLICK,
+ paBUTTON,
+ pcPROGRAM,
+ pcTARGET_MOD,
+ paFLD_JAVA,
+ paQUICK_SCH,
+ paFLDS_GRID,
+ paFLDS_DB,
+ pcTABLE,
+ paJOIN,
+ paWHERE,
+ paORDERBY,
+ pcSORT,
+ paGROUPBY,
+ paLIMIT,
+ pcDBNAME
+
+*/
+
+
+
+
+
+
+

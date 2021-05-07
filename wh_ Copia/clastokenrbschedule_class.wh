@@ -1,0 +1,433 @@
+/*
+
+Project      : isj_45
+Program      : clastokenrbschedule.class
+Function     : clastokenrbschedule_class
+Created on   : 24-Feb-2017   09:27:33
+Descripition :
+
+*/
+
+
+//
+// Glauber - Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+*
+* Glauber - 02/2017
+*
+* Classe...........: TokenRbSchedule
+*
+* Objetivo.........: Classe que realiza a presistência da tabela TokenRbSchedule.
+*
+* Atributos........:
+*
+*    EXPORT PkTokenRbSchedule
+*    EXPORT NomeAgendamento
+*    EXPORT Descricao
+*    EXPORT DiaExecucao
+*    EXPORT HoraExecucao
+*    EXPORT Report
+*
+*
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD Salvar()
+*    METHOD Valida()
+*    METHOD Apagar()
+*    METHOD FindByPk()
+*    METHOD Filtrar()
+*    METHOD ToList()
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS TokenRbSchedule
+
+    // Atributos publico
+
+    EXPORT PkTokenRbSchedule
+    EXPORT Token
+    EXPORT RbSchedule
+    EXPORT Report
+    EXPORT DataGeracao
+    EXPORT HoraGeracao
+    EXPORT FileName
+    EXPORT FlAtivo
+
+    // Atributos privado
+
+    INSTANCE Filter
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()     CLASS TokenRbSchedule
+    PROTOTYPE METHOD Destroy()  CLASS TokenRbSchedule
+    PROTOTYPE METHOD Salvar()   CLASS TokenRbSchedule
+    PROTOTYPE METHOD Valida()   CLASS TokenRbSchedule
+    PROTOTYPE METHOD Apagar()   CLASS TokenRbSchedule
+    PROTOTYPE METHOD FindByPk() CLASS TokenRbSchedule
+    PROTOTYPE METHOD Filtrar()  CLASS TokenRbSchedule
+    PROTOTYPE METHOD ToList()   CLASS TokenRbSchedule
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS TokenRbSchedule
+
+
+    self:PkTokenRbSchedule     := 0
+    self:Token                 := ''
+    self:RbSchedule            := 0
+    self:Report                := ''
+    self:DataGeracao           := Date()
+    self:HoraGeracao           := Time()
+    self:FileName              := ''
+    self:Filter                := {}
+
+
+
+return(self)
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS TokenRbSchedule
+
+    self:PkTokenRbSchedule     := nil
+    self:Token                 := nil
+    self:RbSchedule            := nil
+    self:Report                := nil
+    self:DataGeracao           := nil
+    self:HoraGeracao           := nil
+    self:FileName              := nil
+    self:Filter                := nil
+
+
+return(nil)
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Salvar()
+* Objetivo..: Salva um registro.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD Salvar() CLASS TokenRbSchedule
+
+
+   local laSAVE     := {},;
+         laSAVEAUX  := {} as Array
+
+   local lcWhere    := '',;
+         lcTmp      := '' as String
+
+
+
+
+
+   if self:Valida() == .F.
+      return(self)
+   endif
+
+
+   laSAVE := {{ 'PK_RBSCHEDULETOKEN',;
+                'TOKEN',;
+                'RBSCHEDULE',;
+                'REPORT',;
+                'DATA_GERACAO',;
+                'HORA_GERACAO',;
+                'FILENAME'}}
+
+
+   aadd(laSAVE, {self:PkTokenRbSchedule,;
+                 self:Token,;
+                 self:RbSchedule,;
+                 self:Report,;
+                 self:DataGeracao,;
+                 self:HoraGeracao,;
+                 self:FileName})
+
+
+
+    lcWhere := 'PK_RBSCHEDULETOKEN= ' + alltrim(self:PkTokenRbSchedule)
+
+
+    if db_replace(laSAVE, 'rbscheduletoken', {lcWhere}) == -1
+       error_sys(db_error())
+    endif
+
+return(self)
+
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Apagar()
+* Objetivo..: Apaga um registro.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD Apagar() CLASS TokenRbSchedule
+
+   local lcWhere := '' as String
+
+
+    lcWhere := 'PK_RBSCHEDULETOKEN= ' + alltrim(self:PkTokenRbSchedule)
+
+    if self:PkTokenRbSchedule > 0
+       if db_delete('rbscheduletoken', lcWHERE) == -1
+          error_sys(db_error())
+       endif
+    endif
+
+return(self)
+
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: FindByPk()
+* Objetivo..: Pesquisa um registro pela chave primaria retornando um objeto.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD FindByPk() CLASS TokenRbSchedule
+
+
+   local laRES      := {} AS Array
+
+   local lcWhere    := '' as String
+
+
+    lcWhere := 'PK_TokenRbSchedule = ' + alltrim(self:PkTokenRbSchedule)
+
+
+    if db_select({'TOKEN','RBSCHEDULE','REPORT','DATA_GERACAO','HORA_GERACAO','FILENAME'}, 'rbscheduletoken',,{lcWhere}) == -1
+       error_sys(db_error())
+    endif
+
+    laRES := db_fetchall()
+
+    if len(laRES) > 1
+       self:Token       := laRES[2,1]
+       self:RbSchedule  := laRES[2,2]
+       self:Report      := laRES[2,3]
+       self:DataGeracao := laRES[2,4]
+       self:HoraGeracao := laRES[2,5]
+       self:FileName    := laRES[2,6]
+    endif
+
+
+return(self)
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Filtrar()
+* Objetivo..: Pesquisa registros com base nos campos preenchido do objeto corrente.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD Filtrar() CLASS TokenRbSchedule
+
+
+   local laWHERE    := {} as Array
+
+    if (! empty(self:Token))
+       aadd(laWHERE, 'TOKEN=' + DLAP + self:Token + DLAP)
+    endif
+
+    if (self:RbSchedule > 0)
+       aadd(laWHERE, 'RBSCHEDULE=' + AllTrim(self:RbSchedule))
+    endif
+
+    if (! empty(self:Report))
+       aadd(laWHERE, 'REPORT=' + DLAP + self:Report+ DLAP)
+    endif
+
+    if (empty(DTOS(self:DataGeracao)))
+       aadd(laWHERE, 'DATA_GERACAO='+DLAP + DTOS(self:DataGeracao) + DLAP)
+    endif
+
+    if (! empty(self:HoraGeracao))
+       aadd(laWHERE, 'HORA_GERACAO='+DLAP + self:HoraGeracao + DLAP)
+    endif
+
+
+    if db_select({'PK_RBSCHEDULETOKEN','TOKEN','RBSCHEDULE','REPORT','DATA_GERACAO','HORA_GERACAO','FILENAME'}, 'rbscheduletoken',,laWHERE) == -1
+       error_sys(db_error())
+    endif
+
+    self:Filter := db_fetchall()
+
+
+return(self)
+
+
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: ToList()
+* Objetivo..: Retorna um array FlagShip / Wictrix resultado do processamento do metodo Filter.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD ToList() CLASS TokenRbSchedule
+
+
+    return(self:Filter)
+
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Valida()
+* Objetivo..: Faz a validação e crítica do campos necessário.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD Valida() CLASS TokenRbSchedule
+
+
+    if (empty(self:Token))
+       Alert('O campo ' + lblfscreen('TOKEN') + ' é obrigatório.')
+       return .F.
+    endif
+
+    if (self:RbSchedule == 0)
+       Alert('O campo ' + lblfscreen('RBSCHEDULE') + ' é obrigatório.')
+       return .F.
+    endif
+
+    if (empty(self:Report))
+       Alert('O campo ' + lblfscreen('REPORT') + ' é obrigatório.')
+       return .F.
+    endif
+
+    if (empty(DTOS(self:DataGeracao)))
+       Alert('O campo ' + lblfscreen('DATA_GERACAO') + ' é obrigatório.')
+       return .F.
+    endif
+
+    if (! empty(self:HoraGeracao))
+       Alert('O campo ' + lblfscreen('HORA_GERACAO') + ' é obrigatório.')
+       return .F.
+    endif
+
+
+
+return  .T.
+
+
+
+
+
+
+
+

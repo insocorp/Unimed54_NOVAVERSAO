@@ -1,0 +1,894 @@
+/*
+
+Project      : gr5
+Program      : func.calculo.wic
+Function     : func_calculo_wic
+Created on   : 05-Jul-2004   16:14:49
+Descripition : Funções de Cálculo
+
+*/
+
+/*
+* Function..: cvaip(<expD1>,<expD2>,<expC1>,<expC2>,<expC3>,<expC4>,<expC5>)
+* Objetivo..: Calcula o indice acumulado em uma determinada em tabela parametrizada
+* Parâmetros:
+*    expD1: Data inicial dos cálculo
+*    expD2: Data final dos cálculos
+*    expC1: Codigo a ser pesquisado
+*    expC2: Tabela para pesquisa
+*    expC3: Campo que contem o código do indice
+*    expC4: Campo que contem a data da variação do indice
+*    expC5: Campo que contem o indice
+* Retorno...: float: variação acumulada
+*/
+function cvaip(fdINI,fdFIM,fcCODIGO,fcTABLE,fcFD_COD,fcFD_DT,fcFD_INDICE)
+   local laRESULT  := {} as array
+
+   local ii        := 0 ,;
+         lnINDACUM := 0 as int
+
+   if db_select({fcFD_INDICE},fcTABLE,,;
+                {fcFD_DT+'>='+DLAP+dtos(fdINI)+DLAP+' and '+;
+                 fcFD_DT+'<='+DLAP+dtos(fdFIM)+DLAP+' and '+;
+                 fcFD_COD+'='+fcCODIGO}) == -1
+      error_sys('cvaip: ('+alltrim(str(procline()))+') - '+db_error())
+   endif
+   laRESULT  := db_fetchall()
+   lnINDACUM := 1
+   for ii := 2 to len(laRESULT)
+       lnINDACUM += round(lnINDACUM*(1+(laRESULT[ii,1]/100)),4)
+   next ii
+return(lnINDACUM)
+
+/*
+* Function..: cvai(<expD1>,<expD2>,<expC1>)
+* Objetivo..: Calcula a variaçao acumulada de um indice
+* Parâmetros:
+*    expD1: Data inicial dos cálculo
+*    expD2: Data final dos cálculos
+*    expC1: Codigo a ser pesquisado
+* Retorno...: float: variação acumulada
+*/
+function cvai(fdINI,fdFIM,fcCODIGO)
+return(cvaip(fdINI,fdFIM,fcCODIGO,'mvt_indice','CD_INDICE','DT_REF','VL_INDICE'))
+
+/*
+* Function..: cvam(<expD1>,<expD2>,<expC1>)
+* Objetivo..: calcula a variaçao acumulada de uma moeda
+* Parâmetros:
+*    expD1: Data inicial dos cálculo
+*    expD2: Data final dos cálculos
+*    expC1: Codigo a ser pesquisado
+* Retorno...: float: variação acumulada
+*/
+function cvam(fdINI,fdFIM,fcCODIGO)
+return(cvaip(fdINI,fdFIM ,fcCODIGO,'mvt_moeda','CD_MOEDA' ,'DT_REF','VL_MOEDA'))
+
+/*
+* Function..: cvam(<expD1>,<expD2>,<expC1>)
+* Objetivo..: checar valor digitado
+* Parâmetros:
+*    expD1: Data inicial dos cálculo
+*    expD2: Data final dos cálculos
+*    expC1: Codigo a ser pesquisado
+* Retorno...: float: variação acumulada
+*/
+function vlnullman(lnVL_RESULTADO,lcFL_VLNULL)
+      if lnVL_RESULTADO < 0.00
+        walert('O valor nao foi digitado!')
+      endif
+      if lnVL_RESULTADO >= 0.00
+        walert('O valor foi digitado!')
+      endif
+
+
+return(.t.)
+
+
+/*
+* Function..: mkprovisao(<expD1>,<expD2>,<expC1>>,<expC2>>,<expC3>>,<expC4>>,<expC5>>,<expC6>) - Denis
+* Objetivo..: seleciona os  dados para os calculos estatiscos para provisao
+* Parâmetros:
+*    expD1: Data inicial dos cálculo
+*    expD2: Data final dos cálculos
+*    expC1: Codigo do indice
+*    expC2: Status da pasta
+*    expC3: Data Correcao AAAAMM
+*    expC4: Tipo de pasta
+*    expC5: Tipo de pasta
+*    expC6: Tipo de pasta
+* Retorno...: .t. Em caso de sucesso
+*             .f. Em caso de erro
+*/
+function mkprovisao(fdPERIODO_DE,lcPERIODO_ATE,lnCD_INDICE,lcFL_PASTA,lcCORRECAO,lcTIPO_PASTA_1,lpTIPO_PASTA_2,ldTIPO_PASTA_3)
+   local lcALERT:= '' as string
+   local lcQUERY:= "SELECT pasta.nr_pasta, pasta.fl_pasta,pasta.tp_pasta,pasta.uf,pasta_anal_coluna.item1,"
+         lcQUERY+= "pasta_anal_coluna.item2,pasta_anal_coluna.item3,pasta_anal_coluna.item4,"
+         lcQUERY+= "classificacao_causa.classificacao_causa,pasta.vl_resultado "
+         lcQUERY+= "FROM pasta "
+         lcQUERY+= "LEFT JOIN pasta_anal_coluna ON pasta.nr_pasta = pasta_anal_coluna.nr_pasta "
+         lcQUERY+= "LEFT JOIN classificacao_causa ON (classificacao_causa.nome_causa = pasta_anal_coluna.item2 AND pasta_anal_coluna.item3 = '') "
+         lcQUERY+= "OR (classificacao_causa.nome_causa = pasta_anal_coluna.item3 AND pasta_anal_coluna.item4 = '') "
+         lcQUERY+= "OR classificacao_causa.nome_causa = pasta_anal_coluna.item4"
+//         lcQUERY+= "LEFT JOIN markup_dt_encerramento ON markup_dt_encerramento.nr_pasta = pasta.nr_pasta AND markup_dt_encerramento.am_ref = "
+//         lcQUERY+= +DLAP+lcCORRECAO+DLAP
+//         lcQUERY+= " AND markup_dt_encerramento.cd_indice = "
+//         lcQUERY+= +DLAP+alltrim(str(lnCD_INDICE))+DLAP
+//         lcQUERY+= " OR markup_dt_encerramento.cd_indice = ''"
+         lcQUERY+= " WHERE pasta.dt_encerramento >= "
+         lcQUERY+= +DLAP+str(year(fdPERIODO_DE),4)+"-"+strzero(month(fdPERIODO_DE),2)+"-"+strzero(day(fdPERIODO_DE),2)+DLAP
+         lcQUERY+= " "
+         lcQUERY+= "AND pasta.dt_encerramento <= "
+         lcQUERY+= +DLAP+str(year(lcPERIODO_ATE),4)+"-"+strzero(month(lcPERIODO_ATE),2)+"-"+strzero(day(lcPERIODO_ATE),2)+DLAP
+         lcQUERY+=  " "
+         lcQUERY+= "AND pasta_anal_coluna.item1 = 'Com Razão' AND pasta.vl_resultado >= 0 "
+         lcQUERY+= "AND (pasta.tp_pasta = "
+         lcQUERY+= +DLAP+lcTIPO_PASTA_1+DLAP
+         if lpTIPO_PASTA_2 <> ''
+            lcQUERY+= " OR pasta.tp_pasta = "
+            lcQUERY+= +DLAP+lpTIPO_PASTA_2+DLAP
+         endif
+         if ldTIPO_PASTA_3 <> ''
+            lcQUERY+= " OR pasta.tp_pasta = "
+            lcQUERY+= +DLAP+ldTIPO_PASTA_3+DLAP
+         endif
+         lcQUERY+=  ") "
+         lcQUERY+= "AND pasta.fl_pasta = "
+         lcQUERY+= +DLAP+lcFL_PASTA+DLAP
+         lcQUERY+= " "
+         lcQUERY+= "GROUP BY pasta.nr_pasta,pasta.fl_pasta,pasta.tp_pasta,pasta.uf,pasta_anal_coluna.item1,pasta_anal_coluna.item2,pasta_anal_coluna.item3,pasta_anal_coluna.item4,classificacao_causa.classificacao_causa,pasta.vl_resultado "
+         lcQUERY+= "ORDER BY pasta.nr_pasta,pasta.fl_pasta,pasta.tp_pasta,pasta.uf,pasta_anal_coluna.item1,pasta_anal_coluna.item2,pasta_anal_coluna.item3,pasta_anal_coluna.item4,classificacao_causa.classificacao_causa,pasta.vl_resultado"
+
+   local laAUX       := {} ,;
+         laRESULT    := {} ,;
+         laFLD_HIST  := {} ,;
+         laSAVE_HIST := {} ,;
+         laSAVE_AUX  := {} as array
+
+
+ if db_update({{'PERIODO_DE','PERIODO_ATE','CD_INDICE','FL_PASTA','DATA_CORRECAO','TIPO_PASTA_1','TIPO_PASTA_2','TIPO_PASTA_3'},{fdPERIODO_DE,lcPERIODO_ATE,lnCD_INDICE,lcFL_PASTA,lcCORRECAO,lcTIPO_PASTA_1,lpTIPO_PASTA_2,ldTIPO_PASTA_3}},'dados_provisao',{}) == -1
+    error_sys(db_error())
+    endif
+
+
+ if db_delete('markup_provisao','NR_PASTA > 0') == -1
+    PutError(db_error())
+    return (.f.)
+ endif
+
+ //   Walert(lcQUERY)
+    if db_query(lcQUERY) == -1
+        error_sys(db_error())
+    endif
+      laRESULT := db_fetchall()
+
+    if len(laRESULT) > 0
+      laFLD_HIST := structtable(WSet("DB_ACTIVE"),'markup_provisao',1,'A')
+      aadd(laSAVE_HIST,laFLD_HIST)
+      for ii := 2 to len(laRESULT)
+          for iiC := 1 to len(laFLD_HIST)
+              do case
+                 case laFLD_HIST[iiC] == 'NR_PASTA'
+                    aadd(laSAVE_AUX,laRESULT[ii,1])
+                 case laFLD_HIST[iiC] == 'TP_PASTA'
+                    aadd(laSAVE_AUX,laRESULT[ii,3])
+                 case laFLD_HIST[iiC] == 'UF'
+                    aadd(laSAVE_AUX,laRESULT[ii,4])
+                 case laFLD_HIST[iiC] == 'ANALISE_PRIMEIRO_NIVEL'
+                    aadd(laSAVE_AUX,laRESULT[ii,5])
+                 case laFLD_HIST[iiC] == 'ANALISE_ULTIMO_NIVEL'
+                      if laRESULT[ii,7] == ''
+                         aadd(laSAVE_AUX,laRESULT[ii,6])
+                         elseif laRESULT[ii,8] == ''
+                         aadd(laSAVE_AUX,laRESULT[ii,7])
+                         else
+                         aadd(laSAVE_AUX,laRESULT[ii,8])
+                       endif
+                 case laFLD_HIST[iiC] == 'CLASSIFICACAO_CAUSA'
+                     aadd(laSAVE_AUX,laRESULT[ii,9])
+          /*     case laFLD_HIST[iiC] == 'MARKUP'
+                    aadd(laSAVE_AUX,laRESULT[ii,10])
+                 case laFLD_HIST[iiC] == 'MARKUP_PC_CORRECAO'
+                    aadd(laSAVE_AUX,laRESULT[ii,11])
+                 case laFLD_HIST[iiC] == 'CD_INDICE'
+                    aadd(laSAVE_AUX,laRESULT[ii,13])          */
+                 case laFLD_HIST[iiC] == 'VL_RESULTADO'
+                    aadd(laSAVE_AUX,laRESULT[ii,10])
+           /*    case laFLD_HIST[iiC] == 'VL_CORRIGIDO'
+                    aadd(laSAVE_AUX,laRESULT[ii,17])          */
+                   otherwise
+                    aadd(laSAVE_AUX,nil)
+              endcase
+          next iiC
+          aadd(laSAVE_HIST,laSAVE_AUX)
+          laSAVE_AUX := {}
+      next ii
+//          Walert(laSAVE_HIST[2,4])
+      if db_insert(laSAVE_HIST,'markup_provisao') == -1
+         PutError(db_error())
+         return(.f.)
+      endif
+     else
+         Walert('Calculo nao realizado!')
+         return(.f.)
+   endif
+
+ if db_delete('provisao','VALOR_MEDIO >= 0') == -1
+    PutError(db_error())
+    return (.f.)
+ endif
+return(.t.)
+
+
+/*
+* Function..: poppro() - Denis
+* Objetivo..: popula a tabela provisao com os calculos estatisticos
+* Parâmetros:
+* Retorno...: .t. Em caso de sucesso
+*             .f. Em caso de erro
+*/
+function poppro()
+   local lcQUERYP:= "SELECT tp_pasta,uf,analise_primeiro_nivel,"
+         lcQUERYP+= "analise_ultimo_nivel,"
+         lcQUERYP+= "COUNT(*) AS quant_vl_resultado,"
+         lcQUERYP+= "AVG(vl_resultado) AS media_vl_resultado,"
+         lcQUERYP+= "classificacao_causa "
+         lcQUERYP+= "FROM markup_provisao "
+         lcQUERYP+= "GROUP BY tp_pasta,uf,analise_primeiro_nivel,analise_ultimo_nivel,classificacao_causa "
+         lcQUERYP+= "ORDER BY tp_pasta,uf,analise_primeiro_nivel,analise_ultimo_nivel,classificacao_causa"
+
+
+   local laAUXPROV       := {} ,;
+         lmRESULTPROV    := {} ,;
+         laRESULUP       := {} ,;
+         lmFLD_HISTPROV  := {} ,;
+         lmSAVE_HISTPROV := {} ,;
+         lmSAVE_AUXPROV  := {} as array
+
+//   Walert(lcQUERYP)
+    if db_query(lcQUERYP) == -1
+        error_sys(db_error())
+    endif
+    lmRESULTPROV := db_fetchall()
+
+//    Walert(str(len(lmRESULTPROV)))
+    if len(lmRESULTPROV) == 1
+        Walert('Nenhum registro foi encontrado!')
+    endif
+
+if len(lmRESULTPROV) > 0
+      lmFLD_HISTPROV := structtable(WSet("DB_ACTIVE"),'provisao',1,'A')
+      aadd(lmSAVE_HISTPROV,lmFLD_HISTPROV)
+      for iid := 2 to len(lmRESULTPROV)
+          for iip := 1 to len(lmFLD_HISTPROV)
+              do case
+                 case lmFLD_HISTPROV[iip] == 'TP_PASTA'
+                    aadd(lmSAVE_AUXPROV,lmRESULTPROV[iid,1])
+                 case lmFLD_HISTPROV[iip] == 'UF'
+                    aadd(lmSAVE_AUXPROV,lmRESULTPROV[iid,2])
+                 case lmFLD_HISTPROV[iip] == 'ANALISE_PRIMEIRO_NIVEL'
+                    aadd(lmSAVE_AUXPROV,lmRESULTPROV[iid,3])
+                 case lmFLD_HISTPROV[iip] == 'ANALISE_ULTIMO_NIVEL'
+                    aadd(lmSAVE_AUXPROV,lmRESULTPROV[iid,4])
+                 case lmFLD_HISTPROV[iip] == 'QTDE_PROCESSOS'
+                    aadd(lmSAVE_AUXPROV,lmRESULTPROV[iid,5])
+                 case lmFLD_HISTPROV[iip] == 'VALOR_MEDIO'
+                    aadd(lmSAVE_AUXPROV,lmRESULTPROV[iid,6])
+                 case lmFLD_HISTPROV[iip] == 'CLASSIFICACAO_CAUSA'
+                    aadd(lmSAVE_AUXPROV,lmRESULTPROV[iid,7])
+                 otherwise
+                    aadd(lmSAVE_AUXPROV,nil)
+              endcase
+          next iip
+          aadd(lmSAVE_HISTPROV,lmSAVE_AUXPROV)
+          lmSAVE_AUXPROV := {}
+      next iid
+  //       Walert(lmSAVE_HISTPROV[2,2])
+         if db_insert(lmSAVE_HISTPROV,'provisao') == -1
+            PutError(db_error())
+            return(.f.)
+         endif
+         else
+         Walert('Cálculo não realizado!')
+         return(.f.)
+
+endif
+         if db_query('SELECT avg(valor_medio) as media FROM provisao') == -1
+             error_sys(db_error())
+         endif
+           laRESULTUP := db_fetchall()
+           lcALERT := str(laRESULTUP[2,1])
+
+ //  Walert(lcALERT)
+      if db_update({{'VALOR_MEDIO'},{laRESULTUP[2,1]}},'provisao',{'VALOR_MEDIO=0.00'}) == -1
+         error_sys(db_error())
+      endif
+
+    if len(lmRESULTPROV) > 1
+        Walert('Cálculo realizado com sucesso!')
+    endif
+
+return(.t.)
+
+
+/*
+* Function..: mkmarkup(fnCD_INDICE,fcAM_REF,flRECALCULO)
+* Objetivo..: Calcular/Recalcular markups
+* Parâmetros:
+*    fnCD_INDICE: Código do indice de reajsute
+*    fcAM_REF...: Ano mes referencia
+*    flRECALCULO: Calculo/Recalculo [.T.] [.F.]
+*
+* Retorno...: .t. Em caso de sucesso
+*             .f. Em caso de erro
+*/
+function mkmarkup(fnCD_INDICE,fcAM_REF)
+  local lcAUX  := '' ,;
+        lcAUX2 := '' as string
+
+  local laINDICES := {} ,;
+        laMARKUP  := {} ,;
+        laMARKJUR := {} ,;
+        laJUROS   := {} as array
+
+  local ii    := 0 ,;
+        jj    := 0 ,;
+        xx    := 0 ,;
+        lnPOS := 0 as int
+
+  local lnINDACUM  := 0.00 ,;
+        lnINDICE   := 0.00 ,;
+        lnJUROS    := 0.00 ,;
+        lnJUROSCOM := 0.00 ,;
+        lnAUX      := 0.00 as numeric
+
+  /* Seleciona os Índices com Data até o AM_REF */
+  if db_select({'CD_INDICE','AM_REF','VL_INDICE'},'mvt_indice',,;
+               {'CD_INDICE='+str(fnCD_INDICE)+' and AM_REF <= '+DLAP+fcAM_REF+DLAP},{'CD_INDICE','AM_REF'}) == -1
+     PutError(db_error())
+     return (.f.)
+  endif
+  laINDICES := db_fetchall()
+
+  /* Seleciona os Juros */
+  if db_select({'AM_INICIO','AM_FIM','FL_JUROS','PC_JUROS'},'mvt_indice_juros',,;
+               {'CD_INDICE='+str(fnCD_INDICE)+' and (AM_FIM <= '+fcAM_REF+' or AM_FIM = '+DLAP+DLAP+')'}) == -1
+     PutError(db_error())
+     return (.f.)
+  endif
+  laJUROS := db_fetchall()
+
+  if db_delete('markup','CD_INDICE='+alltrim(str(fnCD_INDICE))+' and AM_REF='+DLAP+fcAM_REF+DLAP) == -1
+     PutError(db_error())
+     return (.f.)
+  endif
+  if db_delete('markup_juros','CD_INDICE='+alltrim(str(fnCD_INDICE))+' and AM_REF='+DLAP+fcAM_REF+DLAP) == -1
+     PutError(db_error())
+     return (.f.)
+  endif
+
+  laMARKUP := {{'CD_INDICE','AM_REF','AM_BASE','MARKUP','PC_INDICE','PC_JUROS'}}
+  laMARKJUR := {{'CD_INDICE','AM_REF','AM_BASE','MARKUP_JUROS'}}
+
+  for jj := 2 to len(laINDICES)
+      if val(laINDICES[jj,2]) > val(fcAM_REF)
+         exit
+      endif
+
+      /* Calcula Iniciando do AM_REF mais antigo eté o AM_REF atual */
+      lcAUX      := laINDICES[jj,2]
+      lnINDACUM  := 1   //Indice Acumulado com Juros Simples e composto
+      lnINDICE   := 1   //Indice Acumulado
+      lnJUROS    := 0   //Juros Simples
+      lnJUROSCOM := 1   //Juros Composto
+      lnPOS      := ascan(laINDICES,{|x| x[2] == lcAUX})
+
+      for ii := len(laINDICES) to lnPOS step -1
+         lnAUX   := 0   //Variavel auxiliar, para incrementar o Juro Composto
+         if ii > lnPOS  //Não calcula o AM_BASE
+            if len(laJUROS) > 1 //Calculo de Juros
+               for xx := 2 to len(laJUROS)
+                  if laINDICES[ii,2] >= laJUROS[xx,db_fetchncol(laJUROS,'AM_INICIO')] .and.;
+                     laINDICES[ii,2] <=  if (empty(laJUROS[xx,db_fetchncol(laJUROS,'AM_FIM')]),'999999',laJUROS[xx,db_fetchncol(laJUROS,'AM_FIM')])
+                     if laJUROS[xx,db_fetchncol(laJUROS,'FL_JUROS')] == 'S'
+                        lnJUROS += laJUROS[xx,db_fetchncol(laJUROS,'PC_JUROS')] //Juros simples
+                     else
+                        lnAUX += laJUROS[xx,db_fetchncol(laJUROS,'PC_JUROS')]   //Composto
+                     endif
+                     exit  //Sai do laço
+                  endif
+               next xx
+            endif
+            lnINDICE   := (((laINDICES[ii,3])/100)+1) * lnINDICE // calcula markup p/ cada iteracao do laco 2
+            lnJUROSCOM := lnJUROSCOM * ((lnAUX/100)+1) // aplica juros composto no próprio juros composto
+         endif
+      next ii
+
+      lnJUROS   := lnJUROSCOM * ((lnJUROS/100)+1) //Aplica Juro Simples ao Juro Composto
+      aadd(laMARKUP,{fnCD_INDICE,;                //Codigo do indice
+                   fcAM_REF,;                   //Ano Mes referencia
+                   laINDICES[jj,2],;           //Ano Mes base
+                   round(lnINDICE,9),,})			  //Markup acumulado no Ano Mes
+                   //round(lnINDICE,3),;
+                   //round(lnJUROS,3)})
+      aadd(laMARKJUR,{fnCD_INDICE,;                //Codigo do indice
+                   fcAM_REF,;                   //Ano Mes referencia
+                   laINDICES[jj,2],;            //Ano Mes base
+                   round(lnJUROS,9)})         //Markup acumulado no Ano Mes
+  next jj
+
+  if len(laMARKUP) > 1
+     if db_insert(laMARKUP,'markup') == -1
+        PutError(db_error())
+        return (.f.)
+     endif
+  endif
+  if len(laMARKJUR) > 1
+     if db_insert(laMARKJUR,'markup_juros') == -1
+        PutError(db_error())
+        return (.f.)
+     endif
+ endif
+return(.t.)
+
+/*
+* Data Criação.: 02/01/2005
+* Function.....: getmarkup(fnCD_INDICE,fcAM_REF,fcAM_BASE)
+* Objetivo.....: Retornar o valor de um markup
+* Parâmetros...:
+*    fnCD_INDICE: Código do Índice
+*    fcAM_REF...: Ano Mes referencia
+*    fcAM_BASE..: Ano Mes base
+* Retorno.....:
+*   array: {nMARKUP,    //Markup
+*           cAM_REF}    //Ano Mes solicitado no markup, caso não encontre, retorna o ultimo calculado
+*/
+function getmarkup(fnCD_INDICE,fcAM_REF,fcAM_BASE)
+  local laRESULT := {} as array
+  local laMARKUP := 0
+
+  if ! empty(alltrim(fcAM_BASE))
+     if db_query('select markup,am_ref from markup where cd_indice='+alltrim(str(fnCD_INDICE))+' and am_ref<='+DLAP+fcAM_REF+DLAP+' and am_base>='+DLAP+fcAM_BASE+DLAP+' order by am_ref desc, am_base asc') == -1
+     /*if db_select({'MARKUP','AM_REF'},'markup',,;
+                  {'CD_INDICE='+alltrim(str(fnCD_INDICE))+' and AM_REF<='+DLAP+fcAM_REF+DLAP+' and AM_BASE='+DLAP+fcAM_BASE+DLAP},;
+                  {'AM_REF'},'D',,{1}) == -1*/
+        error_sys('mkmarkup: '+db_error())
+     endif
+     laRESULT := db_fetchrow()
+
+     if len(laRESULT) > 0
+        laMARKUP := laRESULT
+     else
+        laMARKUP := {1,''}
+     endif
+  else
+     laMARKUP := {1,''}
+  endif
+return(laMARKUP)
+
+/*
+* Data Criação.: 01/08/2007
+* Function.....: getmarkup_juros(fnCD_INDICE,fcAM_REF,fcAM_BASE)
+* Objetivo.....: Retornar o valor de um markup Juros
+* Parâmetros...:
+*    fnCD_INDICE: Código do Índice
+*    fcAM_REF...: Ano Mes referencia
+*    fcAM_BASE..: Ano Mes base
+* Retorno.....:
+*   array: {nMARKUP_JUROS,    //Markup
+*           cAM_REF}          //Ano Mes solicitado no markup, caso não encontre, retorna o ultimo calculado
+*/
+function getmarkup_juros(fnCD_INDICE,fcAM_REF,fcAM_BASE)
+  local laRESULT := {} as array
+  local laMARKUP := 0
+
+  if ! empty(alltrim(fcAM_BASE))
+     if db_query('select markup_juros,am_ref from markup_juros where cd_indice='+alltrim(str(fnCD_INDICE))+' and am_ref<='+DLAP+fcAM_REF+DLAP+' and am_base>='+DLAP+fcAM_BASE+DLAP+' order by am_ref desc, am_base asc') == -1
+     /*if db_select({'MARKUP_JUROS','AM_REF'},'markup_juros',,;
+                  {'CD_INDICE='+alltrim(str(fnCD_INDICE))+' and AM_REF<='+DLAP+fcAM_REF+DLAP+' and AM_BASE='+DLAP+fcAM_BASE+DLAP},;
+                  {'AM_REF'},'D',,{1}) == -1*/
+        error_sys('mkmarkup_juros: '+db_error())
+     endif
+     laRESULT := db_fetchrow()
+
+     if len(laRESULT) > 0
+        laMARKUP := laRESULT
+     else
+        laMARKUP := {0,''}
+     endif
+  else
+     laMARKUP := {0,''}
+  endif
+return(laMARKUP)
+
+/*
+* Data.Criação: 25.07.2006 - Eduardo
+* Function....: ps_valores()
+* Objetivo....: Gera Grid com Valores Atualizados da pasta
+* Parâmetros..:
+*    fcNR_PASTA.: Número da Pasta
+*    fcTP_PASTA.: Tipo de Pasta
+*
+* Retorno.....: Nenhum
+*/
+function ps_valores(fcNR_PASTA,fcTP_PASTA)
+   local lcCD_INDICE := '' ,;
+         lcNM_INDICE := '' ,;
+         lcERRO      := '' ,;
+         lcDATE      := '' ,;
+         lcMENS      := '' ,;
+         lcPC_INDICE := '' ,;
+         lcHTML      := '' ,;
+         lcAM_REF    := '' as string
+
+   local laFIELDS := {} ,;
+         laRESULT := {} ,;
+         laAUX    := {} ,;
+         laPASTA  := {} as array
+         //lnMARKJUR:= {} ,;
+         //laMARKUP := {} as array
+
+   local ii := 0 ,;
+         xx := 0 as int
+
+   local lnVL_CORRIGIDO := 0.00 ,;
+         lnPC_INDICE    := 0.00 ,;
+         lnMARKUP       := 0.00 ,;
+         lnVL_CORRECAO  := 0.00 ,;
+         lnVL_JUROS     := 0.00 as numeric
+
+   local llNO_MARKUP := .f. as logical
+
+   local luDATE
+   local luVALOR
+
+   /* Selecionando os Campos configurados */
+   if db_select({'pasta_config_valores.WFIELD_VALOR',;
+                 'pasta_config_valores.WFIELD_DATABASE',;
+                 'pasta_config_valores.WFIELD_DATABASE_JUROS',;
+                 'pasta_config_valores.FL_INDICECALC',;
+                 'pasta_config_valores.CD_INDICE',;
+                 'indice_reajuste.NM_INDICE'},;
+                 'pasta_config_valores',;
+                 {{2,'indice_reajuste','indice_reajuste.CD_INDICE=pasta_config_valores.CD_INDICE'}},;
+                 {'pasta_config_valores.TP_PASTA='+DLAP+fcTP_PASTA+DLAP},;
+                 {'pasta_config_valores.NR_CONTROLE,pasta_config_valores.WFIELD_VALOR'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      /* Selecionando dados da Pasta ---------------------------------------------------------------------------------------------*/
+      aadd(laFIELDS,'pasta.CD_INDICE')
+      aadd(laFIELDS,'indice_reajuste.NM_INDICE')
+      for ii := 2 to len(laRESULT)
+         aadd(laFIELDS,'pasta.'+laRESULT[ii,db_fetchncol(laRESULT,'WFIELD_VALOR')])
+         aadd(laFIELDS,'pasta.'+laRESULT[ii,db_fetchncol(laRESULT,'WFIELD_DATABASE')])
+         aadd(laFIELDS,'pasta.'+laRESULT[ii,db_fetchncol(laRESULT,'WFIELD_DATABASE_JUROS')])
+      next ii
+      if db_select(laFIELDS,'pasta',{{2,'indice_reajuste','indice_reajuste.CD_INDICE=pasta.CD_INDICE'}},{'NR_PASTA='+fcNR_PASTA}) == -1
+         lcERRO := db_error()
+         WPut('GRID_VALORES','<div style="padding:40px;"><font color="red">Houve uma falha ao exibir os Cálculos Atualizados.<br>'+;
+                             'Verifique as Configurações de Valores.<br><br>'+;
+                             'Mensagem de erro retornada:<br><br>'+lcERRO+'</font></div>')
+         PutError(lcERRO)
+         return (.f.)
+      endif
+      laPASTA := db_fetchall()
+      /*--------------------------------------------------------------------------------------------------------------------------*/
+
+      laAUX := {{'WFIELD_VALOR','CD_INDICE','WFIELD_DATABASE','WFIELD_DATABASE_JUROS','[Indice (%)]','[Valor Original]','VL_CORRECAO','VL_JUROS','[Valor Corrigido]'}}
+      for ii := 2 to len(laRESULT)
+         if laRESULT[ii,db_fetchncol(laRESULT,'FL_INDICECALC')] == 'C'
+            lcCD_INDICE := alltrim(laRESULT[ii,db_fetchncol(laRESULT,'CD_INDICE')])
+            lcNM_INDICE := laRESULT[ii,db_fetchncol(laRESULT,'NM_INDICE')]
+         else
+            lcCD_INDICE := alltrim(laPASTA[2,db_fetchncol(laPASTA,'CD_INDICE')])
+            lcNM_INDICE := laPASTA[2,db_fetchncol(laPASTA,'NM_INDICE')]
+         endif
+
+         luDATE := laPASTA[2,db_fetchncol(laPASTA,laRESULT[ii,db_fetchncol(laRESULT,'WFIELD_DATABASE')])]
+         if valtype(luDATE) == 'D'
+            lcDATE := dtoc(luDATE)
+         else
+            WPut('GRID_VALORES','<div style="padding:40px;"><font color="red">Houve uma falha ao exibir os Cálculos Atualizados.<br>'+;
+                                'Verifique as Configurações de Valores.<br><br>'+;
+                                'Causa do erro:<br><br>O Campo ['+laRESULT[ii,db_fetchncol(laRESULT,'WFIELD_DATABASE')]+'] não é uma Data válida</font></div>')
+            return (.f.)
+         endif
+
+         luDATEJUROS := laPASTA[2,db_fetchncol(laPASTA,laRESULT[ii,db_fetchncol(laRESULT,'WFIELD_DATABASE_JUROS')])]
+         if valtype(luDATE) == 'D'
+            lcDATEJUROS := dtoc(luDATEJUROS)
+         else
+            WPut('GRID_VALORES','<div style="padding:40px;"><font color="red">Houve uma falha ao exibir os Cálculos Atualizados.<br>'+;
+                                'Verifique as Configurações de Valores.<br><br>'+;
+                                'Causa do erro:<br><br>O Campo ['+laRESULT[ii,db_fetchncol(laRESULT,'WFIELD_DATABASE_JUROS')]+'] não é uma Data válida</font></div>')
+            return (.f.)
+         endif
+
+         luVALOR := laPASTA[2,db_fetchncol(laPASTA,laRESULT[ii,db_fetchncol(laRESULT,'WFIELD_VALOR')])]
+         if valtype(luVALOR) != 'N'
+            WPut('GRID_VALORES','<div style="padding:40px;"><font color="red">Houve uma falha ao exibir os Cálculos Atualizados.<br>'+;
+                                'Verifique as Configurações de Valores.<br><br>'+;
+                                'Causa do erro:<br><br>O Campo ['+laRESULT[ii,db_fetchncol(laRESULT,'WFIELD_VALOR')]+'] não é um Valor válido</font></div>')
+            return (.f.)
+         endif
+         laMARKUP      := getmarkup(val(lcCD_INDICE),date2ym(date()),date2ym(luDATE))
+         lnMARKUP      := laMARKUP[1]
+         lcAM_REF      := laMARKUP[2]
+         laMARKJUR     := getmarkup_juros(val(lcCD_INDICE),date2ym(date()),date2ym(luDATEJUROS))
+
+         lnVL_CORRECAO :=  luVALOR * (((lnMARKUP*100)-100)/100)
+
+         *** rufino 04/01/2017 10:17:34
+         if laMARKJUR[1] != 0
+	          lnVL_JUROS    := (luVALOR + lnVL_CORRECAO) * (((laMARKJUR[1]*100)-100)/100)
+           else
+            lnVL_JUROS    := 0
+         endif
+
+         if lnMARKUP == 0
+         	if val(lcCD_INDICE) != 0
+            	llNO_MARKUP := .t.
+         	endif
+            lnMARKUP := 1
+      	endif
+
+         lnVL_CORRIGIDO := (luVALOR * lnMARKUP)+lnVL_JUROS
+
+         *** rufino 04/01/2017 10:17:34
+         if laMARKJUR[1] != 0
+            lnPC_INDICE    := (((lnMARKUP * laMARKJUR[1])*100)-100)
+           else
+            lnPC_INDICE    := ((lnMARKUP * 100)-100)
+         endif
+
+         if llNO_MARKUP
+            lcPC_INDICE    := '<font color="red">Nenhum Markup foi encontrado.</font>'
+         else
+            lcPC_INDICE    := wpictrans('VL_INDICE',lnPC_INDICE)
+
+            //Se o markup retornado não é do mes atual, é exibido ao usuário
+            //sua respecitiva Data no formato MM/AAAA
+            if ! empty(lcAM_REF) .and. lcAM_REF != date2ym(date())
+               lcPC_INDICE += '<font color="red"> (Markup de: '+substr(lcAM_REF,5,2)+'/'+substr(lcAM_REF,1,4)+')</font>'
+            endif
+         endif
+
+         llNO_MARKUP := .f. //Volta a variavel no estado original para o proximo indice do laço.
+
+         aadd(laAUX,{lblfscreen(laRESULT[ii,db_fetchncol(laRESULT,'WFIELD_VALOR')]),;
+                     lcCD_INDICE+if(!empty(lcNM_INDICE),'-','')+lcNM_INDICE,;
+                     lblfscreen(laRESULT[ii,db_fetchncol(laRESULT,'WFIELD_DATABASE')])+':'+lcDATE,;
+                     lblfscreen(laRESULT[ii,db_fetchncol(laRESULT,'WFIELD_DATABASE_JUROS')])+':'+lcDATEJUROS,;
+                     lcPC_INDICE,;
+                     wpictrans(laRESULT[ii,db_fetchncol(laRESULT,'WFIELD_VALOR')],laPASTA[2,db_fetchncol(laPASTA,laRESULT[ii,db_fetchncol(laRESULT,'WFIELD_VALOR')])]),;
+                     wpictrans('VL_CORRECAO',lnVL_CORRECAO),;
+                     wpictrans('VL_JUROS',lnVL_JUROS),;
+                     wpictrans(laRESULT[ii,db_fetchncol(laRESULT,'WFIELD_VALOR')],lnVL_CORRIGIDO)})
+      next ii
+
+      //Monta Grid
+      if len(laAUX) > 1
+         lcHTML := '<table cellpadding="1" cellspacing="1" border="0" width="100%">'
+         lcHTML += '<tr class="wgridheader">'
+         for ii := 1 to len(laAUX[1])
+            lcHTML += '<td>'
+            if at('[',laAUX[1,ii]) == 0
+               lcHTML += lblfscreen(laAUX[1,ii])
+            else
+               lcHTML += substr(laAUX[1,ii],2,len(laAUX[1,ii])-2)
+            endif
+            lcHTML += '</td>'
+         next ii
+         lcHTML += '</tr>'
+
+         for xx := 2 to len(laAUX)
+            lcHTML += '<tr class="wgridrow">'
+            for ii := 1 to len(laAUX[xx])
+               if ii >= 4 //alinha as colunas de valores
+                  lcHTML += '<td align="right">'
+               else
+                  lcHTML += '<td>'
+               endif
+               lcHTML += laAUX[xx,ii]
+               lcHTML += '</td>'
+
+            next ii
+            lcHTML += '</tr>'
+         next xx
+
+         lcHTML += '</table>'
+      endif
+      WPut('GRID_VALORES',lcHTML)
+   else
+      WPut('GRID_VALORES','<center><font color="red">Não há Valores Configurados para essa Pasta.</font></center>')
+   endif
+return (nil)
+
+
+/*
+* Data Criação.: 04/02/2005
+* Function.....: date2ym(fdDATE)
+* Objetivo.....: Converter uma Data XBase para o formato AAAAMM
+* Parâmetros...:
+*    fdDATE: Data no formato XBase
+* Retorno.....:
+*    String: Data no formato AAAMM
+*/
+function date2ym(fdDATE)
+   local lcDATE := '' as string
+   if valtype(fdDATE) == 'D'
+      lcDATE := substr(dtoc(fdDATE),7,4)+substr(dtoc(fdDATE),4,2)
+   endif
+return lcDATE
+
+/*
+* Data.Criação: 26.07.2006 - Eduardo
+* Function....: getvlmarkup()
+* Objetivo....: Retorna indice de reajuste para determinado campo configurado no Markup
+* Parâmetros..:
+*    fcNR_PASTA.....: Número da Pasta
+*    fcTP_PASTA.....: Tipo de Pasta
+*    fcWFIELD_VALOR.: Nome do Campo
+*
+* Retorno.....: Vetor de 3 posições {MARKUP, JUROS, 'Mensagem Erro/Alerta'}
+*/
+function getvlmarkup(fcNR_PASTA,fcTP_PASTA,fcWFIELD_VALOR)
+   local lcCD_INDICE := '' ,;
+         lcNM_INDICE := '' ,;
+         lcERRO      := '' ,;
+         lcDATE      := '' ,;
+         lcMENS      := '' ,;
+         lcPC_INDICE := '' ,;
+         lcHTML      := '' ,;
+         lcAM_REF    := '' as string
+
+   local laMARKUP   := {} ,;
+         laJUROS  := {} ,;
+   		laFIELDS   := {} ,;
+         laRESULT   := {} ,;
+         laRETURN   := {} as array
+
+         //laAUX    := {} as array
+   local ii := 0 ,;
+         xx := 0 as int
+
+   local lnVL_CORRIGIDO := 0 ,;
+         lnMARKJUR      := 0 ,;
+         lnPC_INDICE    := 0 ,;
+         lnCDINDP       := 0 ,;
+         lnCDINDV       := 0 ,;
+         lnVL_CORRECAO  := 0 as numeric
+
+   local llNO_MARKUP := .f. as logical
+
+   local luDATE, luDATE_JUROS
+
+   /* Selecionando os Campos configurados */
+   if db_select({'pasta_config_valores.WFIELD_VALOR',;
+                 'pasta_config_valores.WFIELD_DATABASE',;
+                 'pasta_config_valores.WFIELD_DATABASE_JUROS',;
+                 'pasta_config_valores.FL_INDICECALC',;
+                 'pasta_config_valores.CD_INDICE',;
+                 'indice_reajuste.NM_INDICE'},;
+                 'pasta_config_valores',;
+                 {{2,'indice_reajuste','indice_reajuste.CD_INDICE=pasta_config_valores.CD_INDICE'}},;
+                 {'pasta_config_valores.TP_PASTA='+DLAP+fcTP_PASTA+DLAP,;
+                  'pasta_config_valores.WFIELD_VALOR='+DLAP+fcWFIELD_VALOR+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   if len(laRESULT) > 1
+      /* Selecionando dados da Pasta ---------------------------------------------------------------------------------------------*/
+      aadd(laFIELDS,'pasta.CD_INDICE')
+      aadd(laFIELDS,'indice_reajuste.NM_INDICE')
+      for ii := 2 to len(laRESULT)
+         aadd(laFIELDS,'pasta.'+laRESULT[ii,db_fetchncol(laRESULT,'WFIELD_VALOR')])
+         aadd(laFIELDS,'pasta.'+laRESULT[ii,db_fetchncol(laRESULT,'WFIELD_DATABASE')])
+         aadd(laFIELDS,'pasta.'+laRESULT[ii,db_fetchncol(laRESULT,'WFIELD_DATABASE_JUROS')])
+      next ii
+
+      if db_select(laFIELDS,'pasta',{{2,'indice_reajuste','indice_reajuste.CD_INDICE=pasta.CD_INDICE'}},{'NR_PASTA='+fcNR_PASTA}) == -1
+         lcERRO := db_error()
+         PutError(lcERRO)
+         laRETURN := {1,1,'* Houve uma falha ao exibir os Cálculos Atualizados.<br>'+;
+                        'Verifique as Configurações de Valores.<br><br>'+;
+                        'Mensagem de erro retornada:<br><br>'+lcERRO}
+         return laRETURN
+      endif
+      laPASTA := db_fetchall()
+
+      /*--------------------------------------------------------------------------------------------------------------------------*/
+
+      lnCDINDP := laPASTA[2,db_fetchncol(laPASTA,'CD_INDICE')]
+
+      for ii := 2 to len(laRESULT)
+
+          lnCDINDV :=laRESULT[ii,db_fetchncol(laRESULT,'CD_INDICE')]
+
+          *** roda tabela valores ate encontrar o mesmo indice, se tiver 2 sempre vai pegar o primeiro
+          if lnCDINDP == lnCDINDV
+
+              *** aqui sempre pega indice na pasta
+              lcCD_INDICE := alltrim(laPASTA[2,db_fetchncol(laPASTA,'CD_INDICE')])
+              lcNM_INDICE := laPASTA[2,db_fetchncol(laPASTA,'NM_INDICE')]
+
+              *** aqui pega conteudo dos campos apontados como WFIELD_ na tabela valores
+              luDATE       := laPASTA[2,db_fetchncol(laPASTA,laRESULT[ii,db_fetchncol(laRESULT,'WFIELD_DATABASE')])]
+              luDATE_JUROS := laPASTA[2,db_fetchncol(laPASTA,laRESULT[ii,db_fetchncol(laRESULT,'WFIELD_DATABASE_JUROS')])]
+              luVALOR      := laPASTA[2,db_fetchncol(laPASTA,laRESULT[ii,db_fetchncol(laRESULT,'WFIELD_VALOR')])]
+
+              exit
+          endif
+      next ii
+
+
+      if valtype(luVALOR) != 'N'
+         laRETURN := {1,1,'* Houve uma falha ao exibir os Cálculos Atualizados.<br>'+;
+                        'Verifique as Configurações de Valores.<br><br>'+;
+                        'Causa do erro:<br><br>O Campo ['+laRESULT[2,db_fetchncol(laRESULT,'WFIELD_VALOR')]+'] não é um Valor válido.'}
+         return laRETURN
+      endif
+
+      laMARKUP      := getmarkup(val(lcCD_INDICE),date2ym(date()),date2ym(luDATE))
+      laJUROS       := getmarkup_juros(val(lcCD_INDICE),date2ym(date()),date2ym(luDATE_JUROS))
+      lnMARKJUR     := laMARKUP[1] * laJUROS[1]
+      lcAM_REF      := laMARKUP[2]
+
+      if lnMARKJUR == 0
+         if val(lcCD_INDICE) != 0
+            llNO_MARKUP := .t.
+         endif
+         lnMARKJUR := 1
+      endif
+
+      laRETURN := {lnMARKJUR, laJUROS[1],''}
+
+      if llNO_MARKUP
+         laRETURN := {1,1,'* Nenhum Markup foi encontrado.'}
+      else
+         if ! empty(lcAM_REF) .and. lcAM_REF != date2ym(date())
+            laRETURN := {lnMARKJUR,laJUROS[1],'* Markup de: '+substr(lcAM_REF,5,2)+'/'+substr(lcAM_REF,1,4)}
+         endif
+      endif
+   else
+      laRETURN := {1,1,'* Não há Configuração definida para o campo ['+lblfscreen(fcWFIELD_VALOR)+']'}
+   endif
+
+
+return laRETURN
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

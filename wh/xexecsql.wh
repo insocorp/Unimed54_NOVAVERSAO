@@ -1,0 +1,150 @@
+/*
+
+Project      : gr5
+Program      : xexecsql
+Function     : xexecsql
+Created on   : 12-Jul-2005   17:43:16
+Descripition : Interface para executar Scripts SQL.
+
+*/
+
+   local lcSQLSCRIPT  := '' ,;
+         lcACTION     := '' ,;
+         lcWRESULT    := '' ,;
+         lcFL_EXECSQL := '' ,;
+         lcSQLRESULT  := '' ,;
+         lcBR         := '<br>'+CRLF as string
+
+   local laSQLSCRIPT := {} ,;
+         laRESULT    := {} as array
+
+   local liNR_CONTROLE := 0 ,;
+         liNR_ITEM     := 0 ,;
+         ii            := 0 as int
+
+   lcACTION    := alltrim(upper(WGet('ACTION','C')))
+   WPut('TITLE','Executar SQL')
+
+   if WSet('WFL_MASTER') == 'Y'
+      WPut('DT_EVENTO',date())
+      WPut('HR_EVENTO',time())
+      WPut('WREMOTE_ADDR',WGetEnv('REMOTE_ADDR'))
+      WPut('WHTTP_USER_AGENT',WGetEnv('HTTP_USER_AGENT'))
+      WPut('LOGIN',WSet('LOGIN'))
+
+      if lcACTION == 'EXEC'
+         lcSQLSCRIPT := WGetFile('SQLSCRIPT','V')      //Lê conteudo do arquivo.
+
+         lcWRESULT   := '<b>Arquivo: '+WGetFile('SQLSCRIPT','F')+'</b>'+lcBR
+         if len(alltrim(lcSQLSCRIPT)) == 0
+            walert('Arquivo vazio!')
+            return (.f.)
+         endif
+
+         laSQLSCRIPT := str2array(lcSQLSCRIPT,'@go;')            //Divide o Script em várias queries.
+
+         if len(laSQLSCRIPT) > 0
+            /* Gravando Log */
+            if db_insert({{'SQLSCRIPT',;
+                           'LOGIN',;
+                           'DT_EVENTO',;
+                           'HR_EVENTO',;
+                           'WREMOTE_ADDR',;
+                           'WHTTP_USER_AGENT'},;
+                          {lcSQLSCRIPT,;
+                           WSet('LOGIN'),;
+                           date(),;
+                           time(),;
+                           WGetEnv('REMOTE_ADDR'),;
+                           WGetEnv('HTTP_USER_AGENT')}},'logexecsql') == -1
+               error_sys(db_error())
+            endif
+
+            liNR_CONTROLE := db_insert_id()
+            liNR_ITEM     := 1
+
+            for ii := 1 to len(laSQLSCRIPT)
+               //if ! empty(alltrim(strtran(strtran(strtran(laSQLSCRIPT[ii],chr(10)),chr(13))),chr(9)))
+               if ! empty(alltrim( strtran(strtran(laSQLSCRIPT[ii],chr(10)),chr(13))))
+                  lcWRESULT += '<b>'+alltrim(str(liNR_ITEM))+':</b> '
+                  lcWRESULT += laSQLSCRIPT[ii]
+
+                  /* Executando a Query */
+                  if db_query(laSQLSCRIPT[ii]) == -1
+                     lcSQLRESULT  := wnbsp(5)+'<font color="#FF0000">'+db_error()+'</font>'+lcBR
+                     lcFL_EXECSQL := 'Erro'
+                  else
+                     laRESULT := db_fetchall()
+                     if len(laRESULT) > 1
+                        lcSQLRESULT := xexec_grid(laRESULT)
+                     else
+                        lcSQLRESULT := ''
+                     endif
+                     lcFL_EXECSQL := 'Ok'
+                  endif
+                  lcWRESULT += wnbsp(5)
+                  if lcFL_EXECSQL == 'Erro'
+                     lcWRESULT += '<font color="#FF0000">'
+                  else
+                     lcWRESULT += '<font color="#0000FF">'
+                  endif
+                  lcWRESULT += '['+lcFL_EXECSQL+'] '
+                  lcWRESULT += '</font>'+lcBR
+                  lcWRESULT += lcSQLRESULT
+                  lcWRESULT += lcBR
+
+                  /* Gravando Log */
+                  if db_insert({{'NR_CONTROLE',;
+                                 'NR_ITEM',;
+                                 'FL_EXECSQL',;
+                                 'SQLROW',;
+                                 'SQLRESULT'},;
+                                {liNR_CONTROLE,;
+                                 liNR_ITEM,;
+                                 lcFL_EXECSQL,;
+                                 laSQLSCRIPT[ii],;
+                                 substr(lcSQLRESULT,1,250)}},'logexecsqlrow') == -1
+                     error_sys(db_error())
+                  endif
+               endif
+               liNR_ITEM++
+            next ii
+            WPut('ifWRESULT',.t.)
+            WPut('WRESULT',lcWRESULT)
+         endif
+      endif
+   else
+      error_sys('Acesso Negado: Sem permissão para executar este programa!')
+   endif
+return
+
+static function xexec_grid(faCOLUMNS)
+   local lcHTML := '' ,;
+         lcAUX  := '' as string
+   local lnROW := 0 ,;
+         lnCOL := 0 as int
+
+   lcHTML += '<div style="width:100%;height:200px;overflow:auto;border:1px solid #CCCCCC;">'+CRLF
+   lcHTML += '<table cellpadding="1" cellspacing="1" border="0" width="100%">'+CRLF
+   for lnROW := 1 to len(faCOLUMNS)
+      lcHTML += '<tr class="'+iif(lnROW==1,'wgridheader','wgridrow')+'">'+CRLF
+      for lnCOL := 1 to len(faCOLUMNS[lnROW])
+         if lnROW == 1
+            lcHTML += '<td nowrap>'
+            lcHTML += faCOLUMNS[1,lnCOL]
+            lcHTML += '</td>'+CRLF
+         else
+            lcAUX := transform(faCOLUMNS[lnROW,lnCOL])
+            if wmd_wfieldtype(faCOLUMNS[1,lnCOL]) == 'TEXT'
+               lcAUX := formata_memo(lcAUX,50,'<br>')
+            endif
+            lcHTML += '<td>'
+            lcHTML += lcAUX
+            lcHTML += '</td>'+CRLF
+         endif
+      next lnCOL
+      lcHTML += '</tr>'+CRLF
+   next lnROW
+   lcHTML += '</table>'+CRLF
+   lcHTML += '</div>'+CRLF
+return(lcHTML)

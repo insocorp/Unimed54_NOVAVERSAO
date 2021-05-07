@@ -1,0 +1,103 @@
+/*
+
+Project      : gr5
+Program      : psab.ra.recupera.html
+Function     : psab_ra_recupera_html
+Created on   : 06-Jul-2005   09:11:10
+Descripition : Aba Recupera da Pasta Recuperação de Ativos.
+
+*/
+
+   local lcNR_PASTA         := WGet('NR_PASTA','C') ,;
+         lcTP_PASTA         := WGet('TP_PASTA','C') ,;
+         lcWACTION_RECUPERA := '' ,;
+         lcAUX              := '' as string
+   local laRESULT := {} ,;
+         laFIELDS := {} ,;
+         laAUX    := {} ,;
+         laPUT    := {} ,;
+         laJOIN   := {} as array
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   pasta_abas(lcTP_PASTA)
+
+   if db_select({'WACTION_RECUPERA'},'empresa_usuaria',,{'CD_EMPRESA='+DLAP+'1'+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchrow()
+   if len(laRESULT) > 0
+      lcWACTION_RECUPERA := laRESULT[1]
+   endif
+
+   if db_select({'LAYOUT_PASTA'},'pasta_config',,{'TP_PASTA='+DLAP+lcTP_PASTA+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchrow()
+   if len(laRESULT) > 0
+      laAUX    := wmd_program('mnt.pasta.'+lower(laRESULT[1])+'.html')
+      if len(laAUX) > 0
+         laPUT := str2array(laAUX[10],',')
+      else
+         error_sys('mnt_pasta_html: Template '+pcLAYOUT_PASTA+' não encontrado na tabela wprogram. Template inexistente ou tabela wprogram inválida.')
+      endif
+      for ii := 1 to len(laPUT)
+         if substr(laPUT[ii],1,at('.',laPUT[ii])-1) == 'pasta'
+            aadd(laFIELDS,laPUT[ii])
+         endif
+      next ii
+
+      //Adicionando pessoas
+      aadd(laFIELDS,'pasta_pfpj_devedor.CIP as CIP_DEVEDOR')
+      aadd(laFIELDS,'pasta_pfpj_devedor.PFPJ as CIP_DEVEDOR_PFPJ')
+      aadd(laJOIN,{2,'pasta_pfpj_devedor','pasta_pfpj_devedor.NR_PASTA=pasta.NR_PASTA'})
+
+      aadd(laFIELDS,'pasta_pfpj_empresa.CIP as CIP_EMPRESA')
+      aadd(laFIELDS,'pasta_pfpj_empresa.PFPJ as CIP_EMPRESA_PFPJ')
+      aadd(laJOIN,{2,'pasta_pfpj_empresa','pasta_pfpj_empresa.NR_PASTA=pasta.NR_PASTA'})
+
+      aadd(laFIELDS,'pasta_pfpj_filial.CIP as CIP_FILIAL')
+      aadd(laFIELDS,'pasta_pfpj_filial.PFPJ as CIP_FILIAL_PFPJ')
+      aadd(laJOIN,{2,'pasta_pfpj_filial','pasta_pfpj_filial.NR_PASTA=pasta.NR_PASTA'})
+
+      aadd(laFIELDS,'pasta_pfpj_advogado_interno.CIP as CIP_ADVOGADO_INTERNO')
+      aadd(laFIELDS,'pasta_pfpj_advogado_interno.PFPJ as CIP_ADVOGADO_INTERNO_PFPJ')
+      aadd(laJOIN,{2,'pasta_pfpj_advogado_interno','pasta_pfpj_advogado_interno.NR_PASTA=pasta.NR_PASTA'})
+
+      aadd(laFIELDS,'pasta_pfpj_escritorio.CIP as CIP_ESCRITORIO')
+      aadd(laFIELDS,'pasta_pfpj_escritorio.PFPJ as CIP_ESCRITORIO_PFPJ')
+      aadd(laJOIN,{2,'pasta_pfpj_escritorio','pasta_pfpj_advogado_interno.NR_PASTA=pasta.NR_PASTA'})
+
+      aadd(laFIELDS,'pasta_pfpj_advogado_externo.CIP as CIP_ADVOGADO_EXTERNO')
+      aadd(laFIELDS,'pasta_pfpj_advogado_externo.PFPJ as CIP_ADVOGADO_EXTERNO_PFPJ')
+      aadd(laJOIN,{2,'pasta_pfpj_advogado_externo','pasta_pfpj_advogado_externo.NR_PASTA=pasta.NR_PASTA'})
+
+      aadd(laFIELDS,'pasta_pfpj_comprador.CIP as CIP_COMPRADOR')
+      aadd(laFIELDS,'pasta_pfpj_comprador.PFPJ as CIP_COMPRADOR_PFPJ')
+      aadd(laJOIN,{2,'pasta_pfpj_comprador','pasta_pfpj_comprador.NR_PASTA=pasta.NR_PASTA'})
+
+      aadd(laFIELDS,'pasta_pfpj_cartorio.CIP as CIP_CARTORIO')
+      aadd(laFIELDS,'pasta_pfpj_cartorio.PFPJ as CIP_CARTORIO_PFPJ')
+      aadd(laJOIN,{2,'pasta_pfpj_cartorio','pasta_pfpj_cartorio.NR_PASTA=pasta.NR_PASTA'})
+      // Glauber 06/01/2011
+      AbasPerfil(lcTP_PASTA,laFIELDS)
+
+      if db_select(laFIELDS,'pasta',laJOIN,{'pasta.NR_PASTA='+lcNR_PASTA}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 0
+         lcWACTION_RECUPERA := strparser(lcWACTION_RECUPERA,'[]',laRESULT)
+         if substr(lcWACTION_RECUPERA,1,1) == '='
+            lcAUX := substr(lcWACTION_RECUPERA,2)
+            lcWACTION_RECUPERA := eval({|| &lcAUX})
+         endif
+         WPut('WACTION_RECUPERA',lcWACTION_RECUPERA)
+      endif
+
+   endif
+return
+
+
+
+
+

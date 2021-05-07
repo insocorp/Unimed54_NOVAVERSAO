@@ -1,0 +1,56 @@
+/*
+
+Project      : isj_395
+Program      : mnt.combinacao_poder.html
+Function     : mnt_combinacao_poder_html
+Created on   : 13-Oct-2010   20:50:03
+Descripition : Combinaç&#227;o de poderes para o template procuraç&#227;o 2
+
+*/
+
+local laPARAM        := {} ,;
+      laINPUT_OBJ    := {} ,;
+      laSELECT       := {} as array
+
+laPARAM := {{'COMBINACAO_PODER',''     ,'*'},;
+            {'FL_ATIVO','',},;
+            {'ACTION'       ,'ALTER',   }}
+
+laINPUT_OBJ := {{'COMBINACAO_PODER'   ,0,   ,'Y' , } ,;
+                { , , , , },;
+                {'FL_ATIVO',1,,'Y','{"S","I","D"}' }}
+
+laSELECT := {'COMBINACAO_PODER','FL_ATIVO'}
+
+
+xbp('combinacao_poder',;                                          //Tabela alvo
+    ,;                                                                  //Joins
+    ,;                                                                  //Where
+    {'COMBINACAO_PODER'},;                                        //Order by
+    ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+    ,;                                                                  //Group by
+    ,;                                                                  //Limit
+    ,;                                                                  //Banco de Dados
+    2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+    'gr5',;                                                             //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                                           //Programa chamador
+    laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+    ,;                                                                  //Parâmetros para os botões das linhas do grid
+    'mnt.combinacao_poder.html',;                                            //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+    ,;                                                                  //Retorno java (nil) - usado apenas para Search
+    ,;                                                                  //Campos usados na pesquisa rápida
+    ,;                                                                  //Campos Ocultos
+    laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+    laSELECT,;                                                          //Campos exibidos no grid
+    laSELECT)                                                           //Campos usados no select
+return
+
+
+
+
+
+
+
+
+

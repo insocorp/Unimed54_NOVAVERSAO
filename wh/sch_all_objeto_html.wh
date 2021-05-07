@@ -1,0 +1,150 @@
+/*
+Project      : gr5
+Program      : sch.all.objeto.html
+Function     : sch_all_objeto_html
+Created on   : 24-Sep-2003   15:47:53
+Descripition : Pesquisa de Objetos com multi-seleção.
+*/
+
+   local lcACTION   := '' ,;
+         lcTABLE    := '' ,;
+         lcQUERY    := '' ,;
+         lcNM_FIELD := '' ,;
+         lcPASTAS   := '' ,;
+         lcWSCRIPT  := '' ,;
+         lcITEM     := '' ,;
+         lcCHECKLST := '' as string
+   local laRES       := {} ,;
+         laCOND      := {} ,;
+         laFIELDLST  := {} ,;
+         laLABELLST  := {} ,;
+         laTP_FILTER := {} ,;
+         laORDERBY   := {} ,;
+         laWHERE     := {} ,;
+         laRESULTS   := {} ,;
+         laCHECKLST  := {} ,;
+         laPROFILE   := {} as array
+   local ii       := 0 ,;
+         lnbEXEC  := 0 ,;
+         lnbEXEC2 := 0 ,;
+         lnPOS    := 0 as int
+
+   lcACTION   := alltrim(upper(WGet('ACTION','C')))
+   lcTP_PASTA  := WGet('TP_PASTA','C')
+   lcTABLE    := 'pasta_objeto'
+   lcNM_FIELD := alltrim(WGet('NM_FIELD','C'))
+   laFIELDLST := structtable(WSet('DB_ACTIVE'),lcTABLE,1,'A')
+   laLABELLST := structtable(WSet('DB_ACTIVE'),lcTABLE,11,'A')
+   laWHERE    := {'TP_PASTA='+DLAP+lcTP_PASTA+DLAP}
+   laTPFILTER := {'Contendo',;
+                  'Igual',;
+                  'Intervalo',;
+                  'Não contém'}
+   wPut('TITLE','Localizar Objeto')
+   wPut('NM_FIELD',lcNM_FIELD)
+   wPut('TP_PASTA',lcTP_PASTA)
+   wPut('FDFILTER1_OPT',laLABELLST)
+   wPut('TPFILTER1_OPT',laTPFILTER)
+   wPut('FDORDER1_OPT',laLABELLST)
+   if empty(lcNM_FIELD)
+      lcNM_FIELD := 'OBJETO'
+   endif
+
+   if empty(lcACTION)
+      lcACTION:= 'EXECSEL'
+   endif
+   if lcACTION = 'EXECSEL'
+      ii := 1
+      do while .t.    // Filter
+         if WGet('FDFILTER'+alltrim(str(ii)),'B')
+            if ! empty(WGet('VLFILTER'+alltrim(str(ii)),'C')) .or. ! empty(WGet('VL2FILTER'+alltrim(str(ii)),'C'))
+               laCOND := {}
+               if WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Igual'
+                  aadd(laWHERE,mkwheresch({{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')}},1))
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Intervalo'
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laWHERE,mkwheresch(laCOND,2))
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Não contém'
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laWHERE,mkwheresch(laCOND,3))
+               else  // Contendo
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laWHERE,mkwheresch(laCOND,4))
+               endif
+            endif
+         else
+            exit
+         endif
+         aadd(laPROFILE,'FDFILTER'+alltrim(str(ii)))
+         aadd(laPROFILE,'TPFILTER'+alltrim(str(ii)))
+         aadd(laPROFILE,'VLFILTER'+alltrim(str(ii)))
+         aadd(laPROFILE,'VL2FILTER'+alltrim(str(ii)))
+         ii ++
+      enddo
+      ii := 1
+      do while .t.     // Order
+         if WGet('FDORDER'+alltrim(str(ii)),'B')
+            if ! empty(WGet('FDORDER'+alltrim(str(ii)),'C'))
+               aadd(laORDERBY,laFIELDLST[ascan(laLABELLST,WGet('FDORDER'+alltrim(str(ii)),'C'))])
+            endif
+         else
+            exit
+         endif
+         aadd(laPROFILE,'FDORDER'+alltrim(str(ii)))
+         ii ++
+      enddo
+      if db_select(laFIELDLST,lcTABLE,,laWHERE,laORDERBY) = -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      if len(laRES) > 0
+         lnPOS := db_fetchncol(laRES,'OBJETO')
+
+         aadd(laRES[1],'VAR_OBJETO')
+         aadd(laRES[1],'VAR_CTR')  // Campo para controle
+         for ii:= 2 to len(laRES)
+            lcITEM := alltrim(str(ii-1))
+            aadd(laRES[ii],'VAR_OBJETO_'+lcITEM)
+            aadd(laRES[ii],'VAR_CTR_'+lcITEM)
+            wPut('VAR_OBJETO_'+lcITEM+'_OPT',laRES[ii,lnPOS])
+            wPut('VAR_CTR_'+lcITEM,laRES[ii,lnPOS])
+         next ii
+         wPut('schOBJETO',laRES)
+      endif
+      if len(laPROFILE) > 0
+         SaveWEnv('sch.all.objeto.html',laPROFILE)
+      endif
+   elseif lcACTION = 'EXECSEND'
+      ii     := 1
+      lcITEM := '_'+alltrim(str(ii))
+      do while WGet('VAR_CTR'+lcITEM,'B')
+         if ! empty(alltrim(WGet('VAR_OBJETO'+lcITEM,'C')))
+            aadd(laCHECKLST,WGet('VAR_OBJETO'+lcITEM,'C'))
+         endif
+         ii ++
+         lcITEM := '_'+alltrim(str(ii))
+      enddo
+      if len(laCHECKLST) > 0
+         lcCHECKLST := strtran(array2str(laCHECKLST,', '),CRLF,' ')
+         lcWSCRIPT  := 'if (opener.document.mntform.'+lcNM_FIELD+'.value.length==0) {'+;
+                       '   opener.document.mntform.'+lcNM_FIELD+'.value="'+lcCHECKLST+'";}'+;
+                       'else {'+;
+                       '   opener.document.mntform.'+lcNM_FIELD+'.value+=", '+lcCHECKLST+'"}'
+         wPut('WSCRIPT',lcWSCRIPT)
+         WSet('_USER_INTERFACE','close.wic')
+      else
+         wPut('ERROR_MENS','Nenhum registro foi selecionado')
+      endif
+   endif
+   ReadWEnv('sch.all.objeto.html')
+return
+
+
+
+
+
+
+

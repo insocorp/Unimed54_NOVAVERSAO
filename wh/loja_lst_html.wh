@@ -1,0 +1,55 @@
+/*
+
+Project      : gr5
+Program      : loja.lst.html
+Function     : loja_lst_html
+Created on   : 2/7/2008 22:37:19
+Descripition :
+
+*/
+local laPARAM        := {} ,;
+      laINPUT_OBJ    := {} ,;
+      laSELECT       := {} ,;
+      laQUICK_SEARCH := {} ,;
+      laBUTTON       := {}  as array
+
+laPARAM        := {{'ID_LOJA',''},;
+                   {'ACTION'  ,'ALTER',   }}
+
+   laSELECT       := {'ID_LOJA','SIGLA_LOJA','NR_LOJA','REGIONAL','CANAL','NM_LOJA','ID_CANAL'}
+
+   laQUICK_SEARCH := {'ID_LOJA','SIGLA_LOJA','REGIONAL','CANAL','NM_LOJA'}
+
+   xbp('lojas',;                                      //Tabela alvo
+       ,;                                             //Joins
+       ,;                                             //Where
+       ,;                                             //Order by
+       ,;                                             //Sort [A]-Ascendente [D]-Descentende
+       ,;                                             //Group by
+       ,;                                             //Limit
+       ,;                                             //Banco de Dados
+       1,;                                            //Tipo do programa 1-Listagem/Manuten�o, 2-Ambos, 3-Search, 4-Listagem
+       'gr5',;                                        //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;                      //Programa chamador
+       laPARAM,;                                      //Parametros das linhas clicaveis do grid
+       ,;                                             //Par�etros para os bot�s das linhas do grid
+       'loja.mnt.html',;                              //Programa que os links/botoes do grid deverao chamar
+       'gr5',;                                        //M�ulo do programa chamado pelos links/botoes do grid
+       ,;                                             //Retorno java (nil) - usado apenas para Search
+       laQUICK_SEARCH,;                               //Campos usados na pesquisa r�ida
+       ,;                                             //Campos Ocultos
+       ,;                                             //Campos da �ea de manuten�o/entrada de dados
+       laSELECT,;                                     //Campos exibidos no grid
+       laSELECT)                                      //Campos usados no select
+
+
+return
+
+
+
+
+
+
+
+
+

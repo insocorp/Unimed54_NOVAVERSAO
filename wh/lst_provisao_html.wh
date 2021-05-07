@@ -1,0 +1,43 @@
+/*      
+Project      : gr5
+Program      : lst.provisao.html
+Function     : lst_provisao_html
+Created on   : 05-Apr-2005   08:39:21
+Descripition : Lista de cadastros realizados no calculo estatistico para provisao
+*/
+
+   local laPARAM     := {},;
+   laINPUT_OBJ := {} as array
+
+   laPARAM := {{'TP_PASTA',''     ,'*'},;
+               {'UF','ANALISE_PRIMEIRO_NIVEL',''     ,'*'},;
+               {'ACTION'  ,'ALTER',   }}
+
+   laINPUT_OBJ := {{'TP_PASTA'         ,0,   ,'Y',"loadcbox_build('provisao','TP_PASTA',.F.)"};}
+   if upper(alltrim(WGet('ACTIONBP'))) == 'ALTER'
+      mkgedico('provisao',WGet('TP_PASTA','C'))
+   endif
+
+   xbp('provisao',;                           //Tabela alvo
+       ,;                                     //Joins
+       ,;                                     //Where
+       {'TP_PASTA'},;                         //Order by
+       ,;                                     //Sort [A]-Ascendente [D]-Descentende
+       ,;                                     //Group by
+       ,;                                     //Limit
+       ,;                                     //Banco de Dados
+       1,;                                    //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+       'gr5',;                                //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;              //Programa chamador
+/*    laPARAM*/,;                             //Parametros das linhas clicaveis do grid
+       ,;                                     //Parâmetros para os botões das linhas do grid
+       'mnt.provisao.html',;                  //Programa que os links/botoes do grid deverao chamar
+       'gr5',;                                //Módulo do programa chamado pelos links/botoes do grid
+       ,;                                     //Retorno java (nil) - usado apenas para Search
+       {'TP_PASTA','UF'},;                    //Campos usados na pesquisa rápida
+       ,;                                     //Campos Ocultos
+/*laINPUT_OBJ*/,;                          //Campos da área de manutenção/entrada de dados
+       {'TP_PASTA','UF','ANALISE_PRIMEIRO_NIVEL','ANALISE_ULTIMO_NIVEL','QTDE_PROCESSOS','VALOR_MEDIO','CLASSIFICACAO_CAUSA'} ,;                        //Campos exibidos no grid
+       {'TP_PASTA','UF','ANALISE_PRIMEIRO_NIVEL','ANALISE_ULTIMO_NIVEL','QTDE_PROCESSOS','VALOR_MEDIO','CLASSIFICACAO_CAUSA'})                          //Campos usados no select
+return
+

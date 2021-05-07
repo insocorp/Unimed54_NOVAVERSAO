@@ -1,0 +1,196 @@
+/* 
+Project      : isj_398
+Program      : psab.consultor_interno.html
+Function     : psab_consultor_interno_html
+Created on   : 24-Jun-2012   23:17:13
+Descripition :
+*/
+
+local lcACTION    := '' ,;
+      lcNR_PASTA  := '' ,;
+      lcTABLE     := '' ,;
+      lcWHERE     := '' ,;
+      lcWHERE2    := '' ,;
+      lcTP_PASTA  := '' as string
+      
+local laRESULTPAS := {} ,;
+      laFIELDS    := {} ,;
+      laFIELDS_AUX:= {} ,;
+      laSAVE      := {} ,; 
+      laJOIN      := {} ,;     
+      laRESULTCON := {} as array 
+      
+local llERROR     := .f. as logical       
+
+
+
+lcACTION   := upper(Wget('ACTION'))
+lcNR_PASTA := Wget('NR_PASTA','C')
+lcTP_PASTA := Wget('TP_PASTA','C')
+lcTABLE    := 'consultor_interno'
+lcWHERE    := 'NR_PASTA = '+lcNR_PASTA
+
+laJOIN       := {{2,'pfpj','pfpj.CIP=consultor_interno.CIP_CONSULTOR_INTERNO'}}
+
+
+wput('NR_PASTA',lcNR_PASTA)
+wput('TP_PASTA',lcTP_PASTA)
+
+*** marca em vermelho campos obrigatorios
+init_reqfield(WSet('_USER_INTERFACE'))
+
+***make_psthead(lcNR_PASTA,lcTP_PASTA)
+pasta_abas(lcTP_PASTA)
+
+
+if db_select({'consultor_interno.*','pfpj.PFPJ'},lcTABLE,laJOIN,{lcWHERE}) == -1
+   error_sys(db_error())
+endif
+laRESULTCON := db_fetchall()
+
+if empty(lcACTION)
+   if len(laRESULTCON)>1
+      lcACTION := 'ALTER'   
+   else
+      if empty(lcACTION)
+         lcACTION := 'NEW'
+      endif
+   endif
+endif
+
+if db_select({'FL_PASTA','LOGIN_CADASTRO','DT_CADASTRO','HR_CADASTRO'},'pasta',,{lcWHERE}) == -1
+   error_sys(db_error())
+endif
+laRESULTPAS := db_fetchrow() 
+
+wput('FL_PASTA',laRESULTPAS[1]) 
+
+
+carrega_cbox({{'empresa_area_solicitada','AREA_SOLICITADA','Y'}})
+carrega_cbox({{'empresa_area_solicitante','AREA_SOLICITANTE','Y'}})
+carrega_cbox({{'complexidade','COMPLEXIDADE','Y'}})
+carrega_cbox({{'situacao_consulta','FL_CONSULTA','Y'}})
+***carrega_cbox({{'forma_contato','FORMA_CONTATO_PERGUNTA','Y'}})
+***carrega_cbox({{'forma_contato','FORMA_CONTATO_RESPOSTA','Y'}})
+carrega_cbox({{'prioridade','PRIORIDADE','Y'}})
+carrega_cbox({{'tipo_consulta','TP_CONSULTA','Y'}})
+carrega_cbox({{'pasta_tb_assunto','ASSUNTO','Y'}})
+carrega_cbox({{'produto','CD_PRODUTO','Y'}})
+carrega_cbox({{'envio','ENVIO','Y'}})
+carrega_cbox({{'parecer','PARECER','Y'}})
+
+
+
+if lcACTION == 'NEW' .and. gbWAC_CREATE
+    wput('ifWAC_WRITE' ,.t.)
+    wput('ifWAC_DELETE',.f.)
+    
+    wput('EMENTA_CONSULTA',gcLOGIN)
+    
+    wput('LOGIN_CADASTRO',gcLOGIN)
+
+elseif lcACTION = 'ALTER' .and. gbWAC_READ
+    wput('ifWAC_WRITE' ,.t.)
+    wput('ifWAC_DELETE',.t.)      
+
+    db2put(laRESULTCON) //sobe os dados encontrados para tela
+   
+    wput('CIP_CONSULTOR_INTERNO_PFPJ',laRESULTCON[2,ascan(laRESULTCON[1],'PFPJ')])     
+
+elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+
+    psab_logdel(lcNR_PASTA,'NR_PASTA',lcNR_PASTA,,'Consultor Interno')
+    if db_delete(lcTABLE,lcWHERE) == -1
+       error_sys(db_error())
+    endif 
+
+elseif lcACTION == 'SAVE'
+
+    wput('ifWAC_WRITE' ,.t.)
+    wput('ifWAC_DELETE',.t.)
+
+    llERRO := .f.
+        
+    *** verifica se campos obrigatorios estão com dados
+    if ! verif_reqfield(WSet('_USER_INTERFACE'))
+       llERRO := .t.
+    endif
+
+    if ! llERRO
+    
+       laFIELDS := {}             
+       for lnXX := 1 to len(laRESULTCON[1])
+           if laRESULTCON[1,lnXX] <> 'PFPJ' //não grava pfpj           
+              aadd(laFIELDS,laRESULTCON[1,lnXX])
+           endif   
+       next lnXX            
+            
+       laFIELDS_AUX := {}
+       for lnXX := 1 to len(laRESULTCON[1])        
+           if laRESULTCON[1,lnXX] == 'DT_CADASTRO'
+               aadd(laFIELDS_AUX,DATE())
+           elseif laRESULTCON[1,lnXX] == 'HR_CADASTRO'
+               aadd(laFIELDS_AUX,time())  
+           elseif laRESULTCON[1,lnXX] == 'LOGIN_CADASTRO'
+               aadd(laFIELDS_AUX,gcLOGIN)  
+           elseif laRESULTCON[1,lnXX] == 'PFPJ'                                                                  
+           else       
+               aadd(laFIELDS_AUX,wGet(laRESULTCON[1,lnXX]))
+           endif
+               
+       next lnXX
+       
+       laSAVE      := {}     
+       aadd(laSAVE,laFIELDS)
+       aadd(laSAVE,laFIELDS_AUX)
+
+       psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Consultor Interno') 
+
+       if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+           error_sys(db_error())
+       endif
+       
+
+
+       *** atualiza cip consultor 
+       laFIELDS := {} 
+       laFIELDS := {'NR_PASTA','WFIELD','CIP'} 
+       
+       laFIELDS_AUX := {}        
+       aadd(laFIELDS_AUX,lcNR_PASTA)
+       aadd(laFIELDS_AUX,'CIP_CONSULTOR_INTERNO') 
+       aadd(laFIELDS_AUX,wGet('CIP_CONSULTOR_INTERNO','C'))
+       
+       laSAVE := {}
+       aadd(laSAVE,laFIELDS) 
+
+       aadd(laSAVE,{val(lcNR_PASTA),;
+                    'CIP_CONSULTOR_INTERNO',;
+                     WGet('CIP_CONSULTOR_INTERNO','C')})
+
+       lcWHERE2:= 'NR_PASTA='+lcNR_PASTA+' and WFIELD='+DLAP+'CIP_CONSULTOR_INTERNO'+DLAP
+
+       psab_logs(laSAVE,'pasta_cip',lcWHERE2,lcNR_PASTA,'Consultor Interno') //Gravar log de alterações da pasta
+
+       if db_replace(laSAVE,'pasta_cip',{lcWHERE2}) == -1
+          error_sys(db_error())
+       endif       
+ 
+
+       get2put()
+       
+       lcACTION := ''
+       
+    endif
+    
+endif
+
+return
+
+
+
+
+
+
+
+

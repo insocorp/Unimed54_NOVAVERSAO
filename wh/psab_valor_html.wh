@@ -1,0 +1,501 @@
+/*
+
+Project      : gr5
+Program      : psab.valor.html
+Function     : psab_valor_html
+Created on   : 21-Jul-2006   15:12:50
+Descripition : Aba Valores
+
+*/
+
+   local lcNR_PASTA     := WGet('NR_PASTA','C') ,;
+         lcTP_PASTA     := WGet('TP_PASTA','C') ,;
+         lcACTION       := upper(WGet('ACTION','C')) ,;
+         lcTABLE        := 'pasta' ,;
+         lcWHERE        := '' ,;
+         lcAUX          := '' ,;
+         lcAUX2         := '' ,;
+         lcNR_ROW       := '' ,;
+         lcVAR          := '' ,;
+         lcPC_RISCO     := '' as string
+
+   local laFIELDS       := {} ,;
+         laRESULT       := {} ,;
+         laRESULT2      := {} ,;
+         laSAVE         := {} ,;
+         laSAVE_AUX     := {} ,;
+         laFOREIGN      := {} ,;
+         laFIRST_FIELDS := {} ,;
+         laMARKUP       := {} ,;
+         laMARKUP_JUROS := {} as array
+
+   local ii         := 0 ,;
+         lnPOS      := 0 as int
+
+   local lnRT       := 0.00 ,; //VL_RISCO - Totalização da Grid
+         lnR2T      := 0.00 ,; //VL_RISCO2 - Totalização da Grid
+         lnRC       := 0.00 ,; //VL_RISCO_CALC
+         lnRC2      := 0.00 ,; //VL_RISCO2_CALC
+         lnRCT      := 0.00 ,; //VL_RISCO_CALC - Totalização da Grid
+         lnRC2T     := 0.00 ,; //VL_RISCO2_CALC - Totalização da Grid
+         lnRF       := 0.00 ,; //VL_RISCO_FINANCEIRO
+         lnRFT      := 0.00 ,; //VL_RISCO_FINANCEIRO - Totalização da Grid
+         lnRFA      := 0.00 ,; //VL_RISCO_FINANCEIRO_ATUAL
+         lnRFTA     := 0.00 ,; //VL_RISCO_FINANCEIRO_ATUAL - Totalização da Grid
+         lnVLC      := 0.00 ,; //Valor da Correção
+         lnVLCT     := 0.00 ,; //Valor da Correção - Totalização da Grid
+         lnVLJ      := 0.00 ,; //Valor dos Juros
+         lnVLJT     := 0.00 ,; //Valor dos Juros - Totalização da Grid
+         lnVL_PEDIDO:= 0.00 ,; // Valor total dos pedidos
+         lnPC_RISCO := 0.00 as numeric
+
+   local llAUX   := .t. ,;
+         llERROR := .f. as logical
+
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   init_reqfield(WSet('_USER_INTERFACE'))
+   pedproc_valor(val(lcNR_PASTA))
+
+   laFIELDS := {'PC_RISCO',;
+                'CD_MOEDA',;
+                'VL_CAUSA',;
+                'VL_ACAO',;
+                'VL_RISCO_HONORARIO',;
+                'VL_RESERVA',;
+                'VL_MULTA',;
+                'VL_RISCO_ADVEXT',;
+                'PC_RISCO_ADVEXT',;
+                'VL_RISCO2_ADVEXT',;
+                'PC_RISCO2_ADVEXT',;
+                'VL_AUTOR',;
+                'CD_INDICE',;
+                'DT_ATUALIZACAO',;
+                'VL_PEDIDO'}
+
+//   laFOREIGN := {{'PC_RISCO','PC_RISCO','exito_riscoperda','RISCOPERDA as PC_RISCO_RISCOPERDA'},;
+//                 {'PC_RISCO_ADVEXT','PC_RISCO','exito_riscoperda','RISCOPERDA as PC_RISCO_ADVEXT_RISCOPERDA'},;
+//                 {'PC_RISCO2_ADVEXT','PC_RISCO','exito_riscoperda','RISCOPERDA as PC_RISCO2_ADVEXT_RISCOPERDA'},;
+//                 {'CD_MOEDA','CD_MOEDA','moeda','NM_MOEDA'},;
+//                 {'CD_INDICE','CD_INDICE','indice_reajuste','NM_INDICE'}}
+   laFOREIGN := {{'CD_MOEDA','CD_MOEDA','moeda','NM_MOEDA'},;
+                 {'CD_INDICE','CD_INDICE','indice_reajuste','NM_INDICE'}}
+   // Glauber 06/01/2011
+   AbasPerfil(lcTP_PASTA,laFIELDS)
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      if verif_reqfield(WSet('_USER_INTERFACE'))
+         /* Pedidos */
+         ii       := 1
+         lcNR_ROW := '1'
+         lcVAR    := 'VAR_PEDIDO_PROCESSO_1'
+         lnRT     := 0 //VL_RISCO Total
+         lnR2T    := 0 //VL_RISCO2 Total
+         do while WGet(lcVAR,'B')
+            lnRT  += WGet('VAR_VL_RISCO_'+lcNR_ROW,'N')
+            lnR2T += WGet('VAR_VL_RISCO2_'+lcNR_ROW,'N')
+            laSAVE := {{'DT_RISCO',;
+                        'VL_RISCO',;
+                        'PC_RISCO',;
+                        'VL_RISCO_CALC',;
+                        'DT_RISCO2',;
+                        'VL_RISCO2',;
+                        'PC_RISCO2',;
+                        'VL_RISCO_FINANCEIRO',;
+                        'VL_RISCO_FINANCEIRO_ATUAL',;
+                        'VL_CORRECAO',;
+                        'VL_JUROS',;
+                        'VL_PEDIDO'}}
+
+            aadd(laSAVE,{WGet('VAR_DT_RISCO_'+lcNR_ROW,'D'),;
+                         WGet('VAR_VL_RISCO_'+lcNR_ROW,'N'),;
+                         WGet('VAR_PC_RISCO_'+lcNR_ROW,'N'),;
+                         WGet('VAR_VL_RISCO_CALC_'+lcNR_ROW,'N'),;
+                         WGet('VAR_DT_RISCO2_'+lcNR_ROW,'D'),;
+                         WGet('VAR_VL_RISCO2_'+lcNR_ROW,'N'),;
+                         WGet('VAR_PC_RISCO2_'+lcNR_ROW,'N'),;
+                         WGet('VAR_VL_RISCO_FINANCEIRO_'+lcNR_ROW,'N'),;
+                         WGet('VAR_VL_RISCO_FINANCEIRO_ATUAL_'+lcNR_ROW,'N'),;
+                         WGet('VAR_VL_CORRECAO_'+lcNR_ROW,'N'),;
+                         WGet('VAR_VL_JUROS_'+lcNR_ROW,'N'),;
+                         WGet('VAR_VL_PEDIDO_'+lcNR_ROW,'N')})
+
+            lcWHERE := 'NR_PASTA='+lcNR_PASTA+' and PEDIDO_PROCESSO='+DLAP+WGet('VAR_PEDIDO_PROCESSO_'+lcNR_ROW,'C')+DLAP
+            lnVL_PEDIDO += WGet('VAR_VL_PEDIDO_'+lcNR_ROW,'N')
+            psab_logs(laSAVE,'pasta_valor_pedidos',lcWHERE,lcNR_PASTA,'Valor')
+
+            if db_update(laSAVE,'pasta_valor_pedidos',{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+
+            ii++
+	            lcNR_ROW := alltrim(str(ii))
+            lcVAR    := 'VAR_PEDIDO_PROCESSO_'+lcNR_ROW
+         enddo
+
+         /* Dados da Pasta */
+         laSAVE     := {}
+         laSAVE_AUX := {}
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            if laFIELDS[ii] == 'VL_RISCO'
+               aadd(laSAVE_AUX,lnRT)
+            elseif laFIELDS[ii] == 'VL_RISCO2'
+               aadd(laSAVE_AUX,lnR2T)
+            elseif laFIELDS[ii] == 'VL_PEDIDO'
+               aadd(laSAVE_AUX,lnVL_PEDIDO)
+            else
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+            endif
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+
+         psab_logs(laSAVE,lcTABLE,'NR_PASTA='+lcNR_PASTA,lcNR_PASTA,'Valor')
+
+         if db_update(laSAVE,lcTABLE,{'NR_PASTA='+lcNR_PASTA}) == -1
+            error_sys(db_error())
+         endif
+
+         laFIRST_FIELDS := {'OBJETO',;
+                            'PC_RISCO',;
+                            'VL_ACAO',;
+                            'VL_CAUSA',;
+                            'VL_RISCO_HONORARIO',;
+                            'VL_RESERVA',;
+                            'VL_MULTA',;
+                            'VL_RISCO_ADVEXT',;
+                            'VL_RISCO2_ADVEXT',;
+                            'PC_RISCO_ADVEXT',;
+                            'PC_RISCO2_ADVEXT',;
+                            'VL_AUTOR',;
+                            'VL_PEDIDO'}
+
+         first_class(laFIRST_FIELDS,lcTABLE,'NR_PASTA='+lcNR_PASTA)
+
+         lnRT  := 0.00
+         lnR2T := 0.00
+      else
+         llERROR := .t.
+      endif
+   endif
+
+   if gbWAC_READ
+      laFIELDS := {'PC_RISCO',;
+                   'CD_MOEDA',;
+                   'VL_CAUSA',;
+                   'VL_ACAO',;
+                   'VL_RISCO',;
+                   'VL_RISCO2',;
+                   'VL_RISCO_HONORARIO',;
+                   'VL_RISCO_FINANCEIRO',;
+                   'VL_RISCO_FINANCEIRO_ATUAL',;
+                   'VL_RESERVA_PROVISAO',;
+                   'VL_RESERVA_PROVISAO_ATUAL',;
+                   'VL_RESERVA',;
+                   'VL_MULTA',;
+                   'VL_RISCO_ADVEXT',;
+                   'PC_RISCO_ADVEXT',;
+                   'VL_RISCO2_ADVEXT',;
+                   'PC_RISCO2_ADVEXT',;
+                   'VL_AUTOR',;
+                   'CD_INDICE',;
+                   'DT_ATUALIZACAO',;
+                   'VL_PEDIDO'}
+
+      if db_select(laFIELDS,lcTABLE,,{'NR_PASTA='+lcNR_PASTA}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2Put(laRESULT)
+         // Alimenta a descrição dos campos de risco
+         lcPC_RISCO := str(laRESULT[2,ascan(laRESULT[1],'PC_RISCO')])
+         if db_select({'NM_EXITO'},'exito_riscoperda',,{'PC_RISCO='+lcPC_RISCO}) == -1
+            error_sys(db_error())
+         endif
+         laRESULT2 := db_fetchall()
+         if len(laRESULT2) > 1
+            WPut('PC_RISCO_RISCOPERDA',laRESULT2[2,1])
+         endif
+         lcPC_RISCO := str(laRESULT[2,ascan(laRESULT[1],'PC_RISCO_ADVEXT')])
+         if db_select({'NM_EXITO'},'exito_riscoperda',,{'PC_RISCO='+lcPC_RISCO}) == -1
+            error_sys(db_error())
+         endif
+         laRESULT2 := db_fetchall()
+         if len(laRESULT2) > 1
+            WPut('PC_RISCO_ADVEXT_RISCOPERDA',laRESULT2[2,1])
+         endif
+         lcPC_RISCO := str(laRESULT[2,ascan(laRESULT[1],'PC_RISCO2_ADVEXT')])
+         if db_select({'NM_EXITO'},'exito_riscoperda',,{'PC_RISCO='+lcPC_RISCO}) == -1
+            error_sys(db_error())
+         endif
+         laRESULT2 := db_fetchall()
+         if len(laRESULT2) > 1
+            WPut('PC_RISCO2_ADVEXT_RISCOPERDA',laRESULT2[2,1])
+         endif
+
+         lnPC_RISCO := pc_risco(laRESULT[2,db_fetchncol(laRESULT,'PC_RISCO')])
+         /* Selecionando Relacionamentos */
+         for ii := 1 to len(laFOREIGN)
+            lnPOS := ascan(laRESULT[1],laFOREIGN[ii,1])
+            if lnPOS > 0
+               if valtype(laRESULT[2,lnPOS]) == 'N'
+                  if laRESULT[2,lnPOS] == 0
+                     llAUX := .f.
+                  else
+                     lcAUX := laFOREIGN[ii,2]+'='+str(laRESULT[2,lnPOS])
+                     llAUX := .t.
+                  endif
+               else
+                  if empty(alltrim(laRESULT[2,lnPOS]))
+                     llAUX := .f.
+                  else
+                     lcAUX := laFOREIGN[ii,2]+'='+DLAP+laRESULT[2,lnPOS]+DLAP
+                     llAUX := .t.
+                  endif
+               endif
+
+               if llAUX
+                  if db_select({laFOREIGN[ii,4]},laFOREIGN[ii,3],,{lcAUX}) == -1
+                     error_sys(db_error())
+                  endif
+                  db2Put(db_fetchall())
+               endif
+            endif
+         next ii
+
+         /* Selecionando os Riscos */
+         //if db_select({'PC_RISCO','RISCOPERDA'},'exito_riscoperda') == -1
+         //   error_sys(db_error())
+         //endif
+         //laRISCOPERDA := db_fetchall()
+
+         /* Selecionando os pedidos */
+         if db_select({'pasta_valor_pedidos.PEDIDO_PROCESSO',;
+                       'pasta_valor_pedidos.DT_RISCO',;
+                       'pasta_valor_pedidos.VL_RISCO',;
+                       'pasta_valor_pedidos.PC_RISCO',;
+                       'pasta_valor_pedidos.VL_RISCO_CALC',;
+                       'pasta_valor_pedidos.DT_RISCO2',;
+                       'pasta_valor_pedidos.VL_RISCO2',;
+                       'pasta_valor_pedidos.PC_RISCO2',;
+                       'pasta_valor_pedidos.VL_RISCO2_CALC',;
+                       'pasta_valor_pedidos.VL_RISCO_FINANCEIRO',;
+                       'pasta_valor_pedidos.VL_CORRECAO',;
+                       'pasta_valor_pedidos.VL_JUROS',;
+                       'pasta_valor_pedidos.VL_PEDIDO'},;
+                       'pasta_valor_pedidos',,;
+                       {'pasta_valor_pedidos.NR_PASTA='+lcNR_PASTA}) == -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchall()
+         if len(laRESULT) > 1
+            laWICDO     := {{'VAR_PEDIDO_PROCESSO',;
+                             'VAR_DT_RISCO',;
+                             'VAR_VL_RISCO',;
+                             'VAR_PC_RISCO',;
+                             'VAR_VL_RISCO_CALC',;
+                             'VAR_DT_RISCO2',;
+                             'VAR_VL_RISCO2',;
+                             'VAR_PC_RISCO2',;
+                             'VAR_VL_RISCO2_CALC',;
+                             'VAR_VL_RISCO_FINANCEIRO',;
+                             'VAR_VL_CORRECAO',;
+                             'VAR_VL_JUROS',;
+                             'VAR_VL_RISCO_FINANCEIRO_ATUAL',;
+                             'VAR_VL_PEDIDO',;
+                             'PEDIDO_PROCESSO',;
+                             'PC_RISCO_RISCOPERDA',;
+                             'PC_RISCO2_RISCOPERDA'}}
+
+            laMARKUP_JUROS := getvlmarkup(lcNR_PASTA,lcTP_PASTA,'VL_RISCO')
+            lnVL_PEDIDO := 0
+            for ii := 2 to len(laRESULT)
+               /* Valores Atualizados */
+               laMARKUP := getmarkup(GetWPut('CD_INDICE'),date2ym(date()),date2ym(laRESULT[ii,db_fetchncol(laRESULT,'DT_RISCO')]))
+               lnMARKUP := laMARKUP[1] * laMARKUP_JUROS[2]
+               lcNR_ROW := alltrim(str(ii-1))
+
+               /* PC_RISCO */
+               lcPC_RISCO := alltrim(str(laRESULT[ii,db_fetchncol(laRESULT,'PC_RISCO')]))
+               //lnPOS := ascan(laRISCOPERDA,{ | y | alltrim(str(y[1]))==lcPC_RISCO })
+               //if lnPOS > 1
+               //   lcAUX := laRISCOPERDA[lnPOS,2]
+               //else
+                  lcAUX := ''
+               //endif
+
+               /* PC_RISCO2 */
+               lcPC_RISCO := alltrim(str(laRESULT[ii,db_fetchncol(laRESULT,'PC_RISCO2')]))
+               //lnPOS := ascan(laRISCOPERDA,{ | y | alltrim(str(y[1]))==lcPC_RISCO })
+               //if lnPOS > 1
+               //   lcAUX2 := laRISCOPERDA[lnPOS,2]
+               //else
+                  lcAUX2 := ''
+               //endif
+
+               /* TOTAL DOS PEDIDOS */
+               lnVL_PEDIDO += laRESULT[ii,ascan(laRESULT[1],'VL_PEDIDO')]
+
+               aadd(laWICDO,{'VAR_PEDIDO_PROCESSO_'+lcNR_ROW,;
+                             'VAR_DT_RISCO_'+lcNR_ROW,;
+                             'VAR_VL_RISCO_'+lcNR_ROW,;
+                             'VAR_PC_RISCO_'+lcNR_ROW,;
+                             'VAR_VL_RISCO_CALC_'+lcNR_ROW,;
+                             'VAR_DT_RISCO2_'+lcNR_ROW,;
+                             'VAR_VL_RISCO2_'+lcNR_ROW,;
+                             'VAR_PC_RISCO2_'+lcNR_ROW,;
+                             'VAR_VL_RISCO2_CALC_'+lcNR_ROW,;
+                             'VAR_VL_RISCO_FINANCEIRO_'+lcNR_ROW,;
+                             'VAR_VL_CORRECAO_'+lcNR_ROW,;
+                             'VAR_VL_JUROS_'+lcNR_ROW,;
+                             'VAR_VL_RISCO_FINANCEIRO_ATUAL_'+lcNR_ROW,;
+                             'VAR_VL_PEDIDO_'+lcNR_ROW,;
+                             formata_memo(laRESULT[ii,db_fetchncol(laRESULT,'PEDIDO_PROCESSO')],50,'<br>'),;
+                             lcAUX,;
+                             lcAUX2})
+
+               lnRC  := laRESULT[ii,db_fetchncol(laRESULT,'VL_RISCO')] * (pc_risco(laRESULT[ii,db_fetchncol(laRESULT,'PC_RISCO')])/100)
+               lnRC2 := laRESULT[ii,db_fetchncol(laRESULT,'VL_RISCO2')] * (pc_risco(laRESULT[ii,db_fetchncol(laRESULT,'PC_RISCO2')])/100)
+               lnRF  := lnRC + lnRC2
+               lnRT  += laRESULT[ii,db_fetchncol(laRESULT,'VL_RISCO')]
+               lnR2T += laRESULT[ii,db_fetchncol(laRESULT,'VL_RISCO2')]
+               lnRFT += lnRF
+               lnRCT += lnRC
+               lnRC2T+= lnRC2
+
+               WPut('VAR_PEDIDO_PROCESSO_'+lcNR_ROW     ,laRESULT[ii,db_fetchncol(laRESULT,'PEDIDO_PROCESSO')])
+               WPut('VAR_DT_RISCO_'+lcNR_ROW            ,laRESULT[ii,db_fetchncol(laRESULT,'DT_RISCO')])
+               WPut('VAR_VL_RISCO_'+lcNR_ROW            ,wpictrans('VL_RISCO',laRESULT[ii,db_fetchncol(laRESULT,'VL_RISCO')]))
+               WPut('VAR_PC_RISCO_'+lcNR_ROW            ,laRESULT[ii,db_fetchncol(laRESULT,'PC_RISCO')])
+               WPut('VAR_VL_RISCO_CALC_'+lcNR_ROW       ,wpictrans('VL_RISCO',lnRC))
+               WPut('VAR_DT_RISCO2_'+lcNR_ROW           ,laRESULT[ii,db_fetchncol(laRESULT,'DT_RISCO2')])
+               WPut('VAR_VL_RISCO2_'+lcNR_ROW           ,wpictrans('VL_RISCO2',laRESULT[ii,db_fetchncol(laRESULT,'VL_RISCO2')]))
+               WPut('VAR_PC_RISCO2_'+lcNR_ROW           ,laRESULT[ii,db_fetchncol(laRESULT,'PC_RISCO2')])
+               WPut('VAR_VL_RISCO2_CALC_'+lcNR_ROW      ,wpictrans('VL_RISCO2',lnRC2))
+               WPut('VAR_VL_RISCO_FINANCEIRO_'+lcNR_ROW ,wpictrans('VL_RISCO_FINANCEIRO',lnRF))
+               lnVLC  := round(lnRF * (laMARKUP[1]-1),2)
+               lnVLCT += lnVLC
+               lnVLJ  := round((lnRF+lnVLC) * (laMARKUP_JUROS[2]-1),2)
+               lnVLJT += lnVLJ
+               lnRFA  := lnRF+lnVLC+lnVLJ
+               lnRFTA += lnRFA
+               WPut('VAR_VL_CORRECAO_'+lcNR_ROW ,wpictrans('VL_CORRECAO',lnVLC))
+               WPut('VAR_VL_JUROS_'+lcNR_ROW ,wpictrans('VL_JUROS', lnVLJ))
+               WPut('VAR_VL_RISCO_FINANCEIRO_ATUAL_'+lcNR_ROW ,wpictrans('VL_RISCO_FINANCEIRO_ATUAL',lnRFA))
+               WPut('VAR_VL_PEDIDO_'+lcNR_ROW ,wpictrans('VL_PEDIDO',laRESULT[ii,db_fetchncol(laRESULT,'VL_PEDIDO')]))
+            next ii
+            WPut('VL_PEDIDO',lnVL_PEDIDO)
+            WPut('VL_RISCO',lnRT)
+            WPut('VL_RISCO2',lnR2T)
+            WPut('VL_RISCO_CALC',lnRCT)
+            WPut('VL_RISCO2_CALC',lnRC2T)
+            WPut('VL_RISCO_FINANCEIRO',lnRFT)
+            WPut('VL_RISCO_FINANCEIRO_ATUAL',lnRFTA)
+
+            WPut('VL_CORRECAO',lnVLCT)
+            WPut('VL_JUROS',lnVLJT)
+            WPut('VL_JUROS',lnVLJT)
+
+            WPut('VL_RESERVA_PROVISAO',lnRFT*(lnPC_RISCO/100))
+            WPut('VL_RESERVA_PROVISAO_ATUAL',lnRFTA*(lnPC_RISCO/100))
+
+            WPut('lstPEDIDO',laWICDO)
+
+            if lcACTION == 'SAVE'
+               if ! llERROR
+                  laSAVE := {{'VL_RISCO',;
+                              'VL_RISCO2',;
+                              'VL_RISCO_FINANCEIRO',;
+                              'VL_RISCO_FINANCEIRO_ATUAL',;
+                              'VL_RESERVA_PROVISAO',;
+                              'VL_RESERVA_PROVISAO_ATUAL'}}
+                  aadd(laSAVE,{lnRT,;
+                               lnR2T,;
+                               lnRFT,;
+                               lnRFTA,;
+                               lnRFT*(lnPC_RISCO/100),;
+                               lnRFTA*(lnPC_RISCO/100)})
+
+                  psab_logs(laSAVE,lcTABLE,'NR_PASTA='+lcNR_PASTA,lcNR_PASTA,'Valor')
+                  if db_update(laSAVE,'pasta',{'NR_PASTA='+lcNR_PASTA}) == -1
+                     error_sys(db_error())
+                  endif
+                  first_class({'VL_RISCO',;
+                               'VL_RISCO2',;
+                               'VL_RISCO_FINANCEIRO',;
+                               'VL_RISCO_FINANCEIRO_ATUAL'},lcTABLE,'NR_PASTA='+lcNR_PASTA)
+
+               endif
+            endif
+         endif
+      endif
+   endif
+   pasta_abas(lcTP_PASTA)
+   ps_valores(lcNR_PASTA,lcTP_PASTA)
+return
+
+/*
+* Data.Criação.: 27.07.2006 - Eduardo
+* Function.....: first_class(faFIELDS,fcTABLE,fcWHERE)
+* Objetivo.....: Grava a primeira classificação de determinado registro.
+* Parâmetros...:
+*    faFIELDS..: Lista de campos que deseja gravar a primeira classificação.
+*    fcTABLE...: Tabela utilizada no db_replace() ou db_insert()
+*    fcWHERE...: Condição utilizada para localizar o registro.
+* Retorno......: Nenhum
+*/
+static function first_class(faFIELDS,fcTABLE,fcWHERE)
+   local llEMPTY  := .t. as logical
+   local laFIELDS := {} ,;
+         laSAVE   := {} ,;
+         laAUX    := {} ,;
+         laAUX2   := {} as array
+
+   for ii := 1 to len(faFIELDS)
+      aadd(laFIELDS,faFIELDS[ii])     //Campo original
+      aadd(laFIELDS,faFIELDS[ii]+'1') //Primeira Classificação
+   next ii
+
+   if db_select(laFIELDS,fcTABLE,,{fcWHERE}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   if len(laRESULT) > 1
+      for ii := 1 to len(laFIELDS)
+         if substr(laFIELDS[ii],len(laFIELDS[ii])) == '1'
+
+            if valtype(laRESULT[2,ii]) == 'N'
+               llEMPTY := laRESULT[2,ii] == 0
+            else
+               llEMPTY := empty(alltrim(laRESULT[2,ii]))
+            endif
+
+            if llEMPTY
+               aadd(laAUX, laRESULT[1,ii])
+               aadd(laAUX2,laRESULT[2,ascan(laRESULT[1],substr(laRESULT[1,ii],1,len(laRESULT[1,ii])-1))])
+            endif
+         endif
+      next ii
+
+      aadd(laSAVE,laAUX)
+      aadd(laSAVE,laAUX2)
+
+      if len(laSAVE[1]) > 0
+         if db_update(laSAVE,fcTABLE,{fcWHERE}) == -1
+            error_sys(db_error())
+         endif
+      endif
+   else
+      return (nil)
+   endif
+return (nil)
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,49 @@
+/*
+
+Project      : gr5
+Program      : fat.lst.revisa.html
+Function     : fat_lst_revisa_html
+Created on   : 28-Oct-2002   15:54:06
+Descripition : Listagem de Revisão de Faturas
+
+*/
+
+   local laFIELDS := {} ,;
+         laWHERE  := {} ,;
+         laJOIN   := {} ,;
+         laPARAM  := {{'NR_FATURA',''}} as array
+
+   laFIELDS  := {'fatura.NR_FATURA',;
+                 'fatura.DT_FATURA',;
+                 'fatura.DT_VENCTO',;
+                 'fatura.CIP_EMPRESA',;
+                 'pfpj.PFPJ',;
+                 'fatura.VL_TOTAL'}
+   laWHERE := {'fatura.FL_PRINT <> '+DLAP+'S'+DLAP}
+
+   laJOIN := {{0,'fatura','pfpj.CIP=fatura.CIP_EMPRESA'}}
+
+
+   xbp('pfpj',;                                                  //Tabela alvo
+       laJOIN,;                                                    //Joins
+       laWHERE,;                                                   //Where
+       ,;                                                          //Order by
+       ,;                                                          //Sort [A]-Ascendente [D]-Descentende
+       ,;                                                          //Group by
+       ,;                                                          //Limit
+       ,;                                                          //Banco de Dados
+       4,;                                                         //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search, 4-Listagem apenas
+       'gr5',;                                                     //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;                                   //Programa chamador
+       laPARAM,;                                                   //Parametros das linhas clicaveis do grid
+       ,;                                                          //Parâmetros para os botões das linhas do grid
+       'fat.revisa.html',;                                         //Programa que os links/botoes do grid deverao chamar
+       'gr5',;                                                     //Módulo do programa chamado pelos links/botoes do grid
+       ,;                                                          //Retorno java (nil) - usado apenas para Search
+       {'PFPJ','NM_FANTASIA'},;                                    //Campos usados na pesquisa rápida
+       ,;                                                          //Campos Ocultos
+       ,;                                                          //Campos da área de manutenção/entrada de dados
+       laFIELDS,;                                                  //Campos exibidos no grid
+       laFIELDS)                                                   //Campos usados no select
+   WPut('TITLE','Relação de Faturas')
+return

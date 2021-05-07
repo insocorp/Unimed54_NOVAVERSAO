@@ -1,0 +1,114 @@
+/*
+
+Project      : gr5
+Program      : ps.otgantes.html
+Function     : ps_otgantes_html
+Created on   : 29-Jan-2004   14:28:04
+Descripition : Cadastro de Outorgantes
+
+*/
+
+   local lcACTION     := '' ,;
+         lcTP_PASTA   := '' ,;
+         lcTABLE      := '' ,;
+         lcNR_PASTA   := '' as string
+   local laRESULT   := {} ,;
+         laRES      := {} ,;
+         laPUT      := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laWHERE    := {} ,;
+         laFIELDS   := {} ,;
+         laLABELS   := {} ,;
+         laVALIDA   := {} as array
+   local ii := 0 as int
+   local llERRO := .F. as logical
+
+   lcACTION   := upper(alltrim(WGet('ACTION','C')))
+   lcTP_PASTA  := WGet('TP_PASTA','C')
+   lcNR_PASTA := WGet('NR_PASTA','C')
+   lcTABLE    := 'pasta_prc_outorgante'
+   laWHERE    := {'NR_PASTA='+lcNR_PASTA+' and OUTORGANTE='+DLAP+wGet('OUTORGANTE','C')+DLAP}
+   laFIELDS   := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS   := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   laVALIDA   := {'OUTORGANTE'}
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   make_psthead(lcNR_PASTA,lcTP_PASTA) //Cabeçalho
+
+   if empty(lcACTION)
+      lcACTION = 'NEW'
+   endif
+
+   wPut('TP_PASTA',lcTP_PASTA)
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+   if lcACTION == 'NEW' .and. gbWAC_CREATE
+      wPut('TITLE','Inclusão de novo Outorgante')
+      wPut('ifREADWRITE',.T.)
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,laWHERE) = -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      db2put(laRESULT)
+      wPut('TITLE','Alteração do Outorgante '+getWPut('OUTORGANTE'))
+
+      if db_select({'PFPJ_NATUREZA'},'pfpj',,{'PFPJ='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'OUTORGANTE')]+DLAP}) = -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] == 'Fisica'
+            wPut('ifREADONLY',.T.)
+         else
+            wPut('ifREADWRITE',.T.)
+         endif
+      endif
+
+   elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+      for ii := 1 to len(laVALIDA)
+          if empty(alltrim(WGet(laVALIDA[ii],'C')))
+             wPut('ERROR_MENS',laLABELS[ascan(laFIELDS,laVALIDA[ii])]+' é um campo obrigatório!')
+             get2Put()
+             llERRO := .T.
+             exit
+          endif
+      next ii
+      if ! llERRO
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+         if db_replace(laSAVE,lcTABLE,laWHERE) = -1
+            error_sys(db_error())
+         endif
+         wPut('TITLE','Inclusão de novo Outorgante')
+      endif
+      wPut('ifREADWRITE',.T.)
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      if db_delete(lcTABLE,laWHERE[1]) = -1
+         error_sys(db_error())
+      endif
+      wPut('TITLE','Inclusão de novo Outorgante')
+      wPut('ifREADWRITE',.T.)
+   endif
+
+   if db_select(laFIELDS,lcTABLE,,{'NR_PASTA='+lcNR_PASTA}) = -1
+      error_sys(db_error())
+   endif
+   wPut('lstOUTORGANTES',db_fetchall())
+   pasta_abas(lcTP_PASTA)
+return
+
+
+
+
+
+
+

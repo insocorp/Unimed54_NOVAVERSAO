@@ -1,0 +1,227 @@
+/*
+
+Project      : ISJ 3.9.2
+Program      : gem_export.html
+Function     : gem_export_html
+Created on   : 5/8/2009 11:36:35 Helio
+Descripition : Exportação GEM Consist
+
+*/
+
+    WSet('_USER_INTERFACE','none.wic')
+  
+    local lcFILEOUT   := ''  ,; 
+          lcTABLE     := ''  ,;
+          lcWHERE     := ''  ,;
+          lcmonta     := ''  ,;
+          lcDTLanc    := ''  ,;
+          lcStatus    := '3' ,;
+          lcHORAINI   := time() ,;      
+          lcTABLEINT  := 'seq_interfaces',;
+          lcRAMO      := ''  as string
+          
+    local ii          := 0 ,;
+          jj          := 0 ,;
+          lnHAND      := 0 ,;
+          lnVALOR     := 0 ,;
+          lnSEQ       := 0 ,;
+          lnRegSeq    := 0  as int
+          
+    local ldDIAINI    := date() as date
+    
+    local laMonta     := {} ,;
+          laFIELDS    := {} ,;
+          laJOIN      := {} ,;
+          laFIELDSINT := {} ,;
+          laSAVEINT   := {} ,;
+          laWHEREINT  := {} ,;
+          laRES_INT   := {} ,;
+          laRESULT    := {} as array
+          
+    lcTABLE   := 'mvt_contabil'
+  
+    laJOIN    := {{2,'pasta_pedidos','pasta_pedidos.NR_PASTA = mvt_contabil.WPKEY_NUM'},;
+                  {2,'pasta_seguro' ,'pasta_seguro.NR_PASTA  = mvt_contabil.WPKEY_NUM AND pasta_seguro.NR_CONTROLE = mvt_contabil.WPKEY_NUM2'},;
+                  {2,'pasta'        ,'pasta.NR_PASTA         = mvt_contabil.WPKEY_NUM'},;
+                  {2,'pfpj'         ,'pfpj.NR_CONTROLE       = mvt_contabil.WPKEY_NUM2'},;
+                  {2,'mvt_despesa'  ,'mvt_despesa.NR_PASTA   = mvt_contabil.WPKEY_NUM'}}
+
+    laFIELDS  := {'DISTINCT mvt_contabil.CD_PLCT_CREDITO'     ,;
+                  'mvt_contabil.CD_PLCT_DEBITO'      ,;
+                  'mvt_contabil.VL_LANCAMENTO'       ,;
+                  'mvt_contabil.DT_LANCAMENTO'       ,;
+                  'mvt_contabil.HISTORICO'           ,;
+                  'pasta_pedidos.NR_CONTROLE_SEGURO' ,;
+                  'CASE '+;
+                    'WHEN pasta_seguro.CD_RAMOSRSN IN ('+DLMT+'77'+DLMT+', '+DLMT+'81'+DLMT+', '+DLMT+'82'+DLMT+', '+DLMT+'90'+DLMT+', '+DLMT+'93'+DLMT+','+DLMT+'99'+DLMT+') THEN '+DLMT+'EVIDA'+DLMT+;
+                    'WHEN pasta_seguro.CD_RAMOSRSN IN ('+DLMT+'86'+DLMT+', '+DLMT+'87'+DLMT+') THEN '+DLMT+'TOP'+DLMT +;
+                    'ELSE '+DLMT+'   '+DLMT+;
+                  'END AS SIS_RAMO',;
+                  'pasta_seguro.CD_RAMOSRSN'         ,;
+                  'pasta_seguro.CD_CCUSTO'           ,;
+                  'pasta_seguro.CD_PRODUTO'          ,;
+                  'pasta_seguro.CIP_EMPRESACONGENERE',;
+                  'pfpj.CD_LEGADO'                   ,;
+                  'mvt_despesa.NR_DOCFISCAL'}
+
+// Buscando os Dados contábeis a serem exportados.
+    lcWHERE := ' mvt_contabil.WTABLE      ='+DLMT+'pasta'+DLMT
+    lcWHERE += ' AND mvt_contabil.WTABLE2 ='+DLMT+'pasta_seguro'+DLMT
+    lcWHERE += ' AND ( mvt_contabil.FL_CONTABILIZADO ='+DLMT+'N'+DLMT
+    lcWHERE += ' OR mvt_contabil.FL_CONTABILIZADO IS NULL )'
+    lcWHERE += " AND ( mvt_contabil.CD_PLCT_CREDITO <> '' "
+    lcWHERE += "  OR mvt_contabil.CD_PLCT_DEBITO <> '' )"
+
+    
+// Filtra somente os não(N) contabilizados.
+   if db_select(laFIELDS, lcTABLE, laJOIN, {lcWHERE}, {'SIS_RAMO','mvt_contabil.DT_LANCAMENTO'}) == -1
+       db_error()
+   endif
+   
+   laRESULT := db_fetchall()
+   
+   //Pega apenas a seguencia para o nome de arquivo (seq_interfaces)
+   laFIELDSINT := structtable(WSet("DB_ACTIVE"),lcTABLEINT,1,'N')
+   laWHEREINT  := {"PROGRAM = 'gem_export_html'"}
+   if db_select(laFIELDSINT, lcTABLEINT,,laWHEREINT) == -1
+      error_sys(db_error())
+   endif
+   laRES_INT := db_fetchrow()
+   lnSEQ     := laRES_INT[2] + 1
+
+   if len(laRESULT) > 1
+
+       For jj := 1 to 2
+
+          lcWHERE := lcmonta := ''
+          lcRAMO  := If(jj == 1, 'EVIDA', 'TOP')
+          laMonta := {}
+          ii      := 0
+          
+          lcFILEOUT := 'ISJUR' + lcRAMO + dtos(Date()) + StrZero(lnSEQ,3) + '.TXT' //'/home/wproject/wictrix/andamentos/' + lcFILEOUT + '.TXT'
+          
+          for ii := 2 to len(laRESULT)
+
+             if laRESULT[ii,db_fetchncol(laRESULT,'NR_CONTROLE_SEGURO')] == 0
+
+                If lcRAMO != laRESULT[ii,db_fetchncol(laRESULT,'SIS_RAMO')]
+                   Loop
+                Endif
+
+                While .T.
+
+                   lcmonta += 'GL    '                                                               //Tipo de Lote
+                   lcmonta += Alltrim(laRESULT[ii,db_fetchncol(laRESULT,'CD_LEGADO')]) + " "         //Companhia
+                   lcmonta += substr(dtos(laRESULT[ii,db_fetchncol(laRESULT,'DT_LANCAMENTO')]),1,4)  //Exercício(ano fiscal)
+                   lcmonta += substr(dtos(laRESULT[ii,db_fetchncol(laRESULT,'DT_LANCAMENTO')]),5,2)  //Período(Nº do mês)
+                   lcmonta += lcFILEOUT                                                              //Identificação do Lote
+                   lcmonta += 'GLD001'                                                               //Tipo de Processo
+
+                   if lcDTLanc != dtos(laRESULT[ii,db_fetchncol(laRESULT,'DT_LANCAMENTO')])
+                      lnRegSeq := 0
+
+                      lcmonta += StrZero(lnRegSeq, 06)                                              //Sequência
+                      lcmonta += 'INTERF'                                                           //Grupo do Evento Padronizado
+                      lcmonta += 'CAPA  '                                                           //Identificação do Evento Padronizado Capa
+                      lcmonta += dtos(laRESULT[ii,db_fetchncol(laRESULT,'DT_LANCAMENTO')]) + '@'    //Data do Lote
+                      lcmonta += laRESULT[ii,db_fetchncol(laRESULT,'SIS_RAMO')]            + '@'    //Descrição do Lote
+
+                      lcDTLanc := dtos(laRESULT[ii,db_fetchncol(laRESULT,'DT_LANCAMENTO')])
+
+                      aadd(laMonta, lcmonta)
+                      //wout(lcmonta)
+                      lcmonta := ''
+
+                      Loop
+                   else
+
+                      lnRegSeq := lnRegSeq + 1
+                      lnvalor  := laRESULT[ii,db_fetchncol(laRESULT,'VL_LANCAMENTO')]
+
+                      lcmonta += StrZero(lnRegSeq, 06)                                                     //Sequência
+                      lcmonta += 'INTERF'                                                                  //Grupo do Evento Padronizado
+                      lcmonta += 'INTTRA'                                                                  //Identificação do Evento Transação
+                      lcmonta += left(laRESULT[ii,db_fetchncol(laRESULT,'CD_LEGADO')],03)            + '@' //Empresa (Companhia)
+                      lcmonta += dtos(laRESULT[ii,db_fetchncol(laRESULT,'DT_LANCAMENTO')])           + '@' //Data da Transação
+                      lcmonta += left(laRESULT[ii,db_fetchncol(laRESULT,'CD_PLCT_DEBITO')] ,13)      + '@' //Conta Débito
+                      lcmonta += left(laRESULT[ii,db_fetchncol(laRESULT,'CD_PLCT_CREDITO')],13)      + '@' //Conta Crédito
+                      lcmonta += left(laRESULT[ii,db_fetchncol(laRESULT,'CD_RAMOSRSN')],04)          + '@' //Ramo
+                      lcmonta += left(laRESULT[ii,db_fetchncol(laRESULT,'CD_CCUSTO')],07)            + '@' //Centro Responsabilidade
+                      lcmonta += left(laRESULT[ii,db_fetchncol(laRESULT,'CD_PRODUTO')],04)           + '@' //Produto
+                      lcmonta += left(laRESULT[ii,db_fetchncol(laRESULT,'CIP_EMPRESACONGENERE')],12) + '@' //Congênere
+                      lcmonta += left(laRESULT[ii,db_fetchncol(laRESULT,'NR_DOCFISCAL')],20)         + '@' //Documento
+                      lcmonta += '@'                                                                 + '@' //Código Histórico
+                      lcmonta += left(laRESULT[ii,db_fetchncol(laRESULT,'HISTORICO')],160)           + '@' //Histórico (Descrição)
+
+                      if lnvalor > 0 // crédito
+                         lcmonta += substr(strzero(laRESULT[ii,db_fetchncol(laRESULT,'VL_LANCAMENTO')],19,3),1,15)       //Valor do Lançamento
+                         lcmonta += substr(strzero(laRESULT[ii,db_fetchncol(laRESULT,'VL_LANCAMENTO')],19,3),17,3) + '@' //
+                      else           // débito
+                         lnvalor := laRESULT[ii,db_fetchncol(laRESULT,'VL_LANCAMENTO')]*-1
+                         lcmonta += substr(strzero(lnvalor,19,3),1,15)       //Valor do Lançamento
+                         lcmonta += substr(strzero(lnvalor,19,3),17,3) + '@' //
+                      endif
+                   endif
+
+                   //lcmonta += Space(250)       //Conteúdo da variável 2 do Eevento
+                   //lcmonta += Space(250)       //Conteúdo da variável 3 do Eevento
+
+                   aadd(laMonta, lcmonta)
+                   //wout(lcmonta)
+                   lcmonta := ''
+
+                   Exit
+                End
+                
+             endif           // termino checagem do sinistro
+             
+          next ii
+
+          lnHAND   := fcreate(lcFILEOUT, 0)
+          if lnHAND > 0
+             for ii := 1 to len(laMonta)
+                if !dispmess(laMonta[ii], lnHAND , 0, 0)
+                    return(nil)
+                endif
+             next ii
+             fclose(lnHAND)
+
+             lcStatus := '1'  //Atualiza seq_interfaces - processo OK
+          else
+
+             wout("Problemas na criação do arquivo: " + lcFILEOUT)
+
+             lcStatus := '2'  //Atualiza seq_interfaces - erro no processo
+          endif
+
+          // Fazendo o Update nos registros de movimento contabil
+          /*
+          if db_update({{"FL_CONTABILIZADO"},{'S'}},'mvt_contabil',{lcWHERE}) == -1
+             wout("Erro Update -> "+db_error())
+          endif
+          */
+
+       Next jj
+   else
+
+      wout("Não há resultado para Exportação GEM Consist")
+
+      lcStatus := '2'  //Atualiza seq_interfaces - erro no processo
+   endif
+
+   //Atualizar Interfaces - seq_interfaces
+
+   laFIELDSINT := structtable(WSet("DB_ACTIVE"),lcTABLEINT,1,'N')
+   laWHEREINT  := {'PROGRAM = '+DLMT+'gem_export_html'+DLMT}
+   if db_select(laFIELDSINT, lcTABLEINT,,laWHEREINT) == -1
+      error_sys(db_error())
+   endif
+   laRES_INT := db_fetchrow()
+   lnSEQ     := laRES_INT[2] + 1
+   aadd(laSAVEINT,laFIELDSINT)
+   aadd(laSAVEINT,{laRES_INT[1],lnSEQ, ldDIAINI, lcHORAINI, date(), time(), lcStatus})
+   if db_replace(laSAVEINT,lcTABLEINT,laWHEREINT) == -1
+      error_sys(db_error())
+   endif
+
+return

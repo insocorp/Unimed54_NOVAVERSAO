@@ -1,0 +1,131 @@
+/*
+
+Project      : gr5
+Program      : origem.reclamacao.mnt.html
+Function     : origem_reclamacao_mnt_html
+Created on   : 18-Oct-2005   16:09:23
+Descripition : Cadastro de Origem da Reclamação.
+
+*/
+
+   local lcACTION     := upper(WGet('ACTION','C')) ,;
+         lcTABLE      := 'origem_reclamacao' ,;
+         lcWHERE      := '' as string
+   local laSAVE    := {} ,;
+         laRESULT  := {} ,;
+         laWHERE   := {} ,;
+         laAUX     := {} as array
+
+   lcWHERE := 'RECLAMA_OPCAO='+DLAP+WGet('RECLAMA_OPCAO','C')+DLAP+' and RECLAMA_ITEM='+DLAP+WGet('RECLAMA_ITEM','C')+DLAP
+   laWHERE := {'RECLAMA_OPCAO='+DLAP+DLAP}
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      laSAVE := {{'RECLAMA_OPCAO','RECLAMA_ITEM'}}
+      if ! empty(WGet('RECLAMA_ITEM'))
+         if len(db_findrec({'RECLAMA_ITEM'},'origem_reclamacao','RECLAMA_ITEM='+DLAP+WGet('RECLAMA_ITEM','C')+DLAP)) > 0
+            walert(lblfscreen('RECLAMA_ITEM')+' ja existe!')
+         else
+            aadd(laSAVE,{alltrim(WGet('RECLAMA_OPCAO')),alltrim(WGet('RECLAMA_ITEM'))})
+            if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+            WPut('RECLAMA_OPCAO',WGet('RECLAMA_OPCAO'))
+            laWHERE := {'RECLAMA_OPCAO='+DLAP+WGet('RECLAMA_OPCAO')+DLAP}
+            if ! empty(WGet('RECLAMA_OPCAO'))
+               WPut('GRAPH',mkgraph(WGet('RECLAMA_ITEM')))
+            endif
+         endif
+      else
+         walert(lblfscreen('RECLAMA_ITEM')+' é um campo Obrigatório!')
+      endif
+
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select({'RECLAMA_OPCAO','RECLAMA_ITEM'},lcTABLE,,{'RECLAMA_ITEM='+DLAP+WGet('RECLAMA_ITEM','C')+DLAP}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         WPut('RECLAMA_OPCAO',laRESULT[2,2])
+         laWHERE := {'RECLAMA_OPCAO='+DLAP+laRESULT[2,2]+DLAP}
+         WPut('GRAPH',mkgraph(laRESULT[2,2]))
+      endif
+
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      //Selecionando todos os itens
+
+      if len(db_findrec({'RECLAMA_OPCAO'},'origem_reclamacao','RECLAMA_OPCAO='+DLAP+WGet('RECLAMA_ITEM')+DLAP)) == 0
+         if db_delete('origem_reclamacao','RECLAMA_OPCAO='+DLAP+WGet('RECLAMA_OPCAO','C')+DLAP+' and RECLAMA_ITEM='+DLAP+WGet('RECLAMA_ITEM','C')+DLAP) == -1
+            error_sys(db_error())
+         endif
+      else
+         walert('Item não pode ser excluido!\nExclua primeiramente seus sub-itens!')
+      endif
+
+      WPut('RECLAMA_OPCAO',WGet('RECLAMA_OPCAO'))
+      laWHERE := {'RECLAMA_OPCAO='+DLAP+WGet('RECLAMA_OPCAO')+DLAP}
+      WPut('GRAPH',mkgraph(WGet('RECLAMA_OPCAO')))
+   endif
+
+   if db_select({'RECLAMA_OPCAO','RECLAMA_ITEM'},lcTABLE,,laWHERE) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   WPut('lstITEM',laRESULT)
+   WPut('TITLE','Origem da Reclamação')
+
+return
+
+static function mkgraph(fcREC_ITEM)
+   local lcHTML  := '' ,;
+         lcWHERE := '' ,;
+         lcAUX   := '' as string
+   local laRESULT := {} ,;
+         laAUX    := {} as array
+   local ii := 0 as int
+
+   //Selecionando todos os itens
+   if db_select({'RECLAMA_OPCAO','RECLAMA_ITEM'},'origem_reclamacao') == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+   
+      lcAUX := fcREC_ITEM
+      aadd(laAUX,lcAUX)
+      do while .t.
+         lnPOS := ascan(laRESULT,{ | x | x[2]==lcAUX })  //Procurando a opção do item.
+         if lnPOS > 0
+            if ! empty(laRESULT[lnPOS,1])
+               aadd(laAUX,laRESULT[lnPOS,1])
+               lcAUX := laRESULT[lnPOS,1]
+            else
+               exit
+            endif
+         else
+            exit
+         endif
+      enddo
+   
+      lcHTML := '<br><table cellpadding="0" cellspacing="0" align="center">'+CRLF
+      lcHTML += '<tr>'+CRLF
+   
+      for ii := len(laAUX) to 1 step -1
+         if ii == len(laAUX)
+            lcHTML += '<td>'
+            lcHTML += ' <a href="wicaction/origem.reclamacao.mnt.html"><img border="0" src="wiccomponent/or_inicio.gif"></a></td>'
+            lcHTML += '<td><img src="wiccomponent/seta_direita.gif"></td>'+CRLF
+         endif
+   
+         if ii < len(laAUX)
+            lcHTML += '<td><img src="wiccomponent/seta_direita.gif"></td>'+CRLF
+         endif
+         lcHTML += '<td style="font-size:12px;cursor:pointer;padding:20px;border:1px solid #000000;"'
+         lcHTML += ' onmouseover="this.style.backgroundColor='+DLAP+'#FFCC99'+DLAP+'"'
+         lcHTML += ' onmouseout="this.style.backgroundColor='+DLAP+DLAP+'"'
+         lcHTML += ' onclick="document.location.href='+DLAP+'wicaction/origem.reclamacao.mnt.html?action=ALTER&RECLAMA_ITEM='+laAUX[ii]+DLAP+'">'+laAUX[ii]+'</td>'+CRLF
+      next ii
+   
+      lcHTML += '</tr>'+CRLF
+      lcHTML += '</table>'+CRLF
+   endif
+return (lcHTML)

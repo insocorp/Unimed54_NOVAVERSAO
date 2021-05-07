@@ -1,0 +1,72 @@
+/*
+
+Project      : isj_60
+Program      : sch.sini.i4pro.html
+Function     : sch_sini_i4pro_html
+Created on   : 20-Oct-2017   09:52:04
+Descripition :
+
+*/                      
+
+   local lcNR_SINISTRO := WGet('NR_SINISTRO')
+
+   local objService  := I4pServiceNew() AS Object
+//   local objConsulta := I4proConsultaSinistroNew() AS Object
+
+
+   if Empty(lcNR_SINISTRO)
+      WAlert('Necessário inforamr o número do sinistro para consulta !')
+      return
+   endif
+
+
+   objConsulta := objService:Consultar(lcNR_SINISTRO)
+
+   if (objConsulta:Retorno:CdRetorno != 0)
+      WAlert('Erro ao consultar sinistro:' + objConsulta:Retorno:NmRetorno)
+      return
+   endif
+
+    WPut('NR_SINISTRO',            lcNR_SINISTRO)
+
+    WPut('DT_AVISO',               objConsulta:DtAviso)
+    WPut('DT_OCORRENCIA',          objConsulta:DtOcorrencia)
+    WPut('CD_APOLICE',             objConsulta:CdApolice)
+    WPut('NR_ENDOSSO',             objConsulta:NrEndosso)
+    WPut('NM_ESTIPULANTE',         objConsulta:NmEstipulante)
+    WPut('NM_SEGURADO',            objConsulta:NmSegurado)
+    WPut('NR_CNPJ_CPF_SEGURADO',   objConsulta:SeguradoNrCnpjCpf)
+    WPut('NM_SINISTRADO',          objConsulta:NmSinistrado)
+    WPut('NR_CNPJ_CPF_SINISTRADO', objConsulta:SinistradoNrCnpjCpf)
+    WPut('NM_CAUSA',               objConsulta:NmCausa)
+    WPut('NM_MOTIVO',              objConsulta:NmMotivo)
+    WPut('NM_STATUS_SINISTRO',     objConsulta:NmStatusSinistro)
+    WPut('DV_JUDICIAL',            objConsulta:DvJudicial)
+    WPut('DT_JUDICIAL',            objConsulta:DtJudicial)
+    WPut('DT_CITACAO',             objConsulta:DtCitacao)
+    WPut('ID_PESSOA_AUTOR',        objConsulta:IdPessoaAutor)
+    WPut('NM_AUTOR',               objConsulta:NmAutor)
+    WPut('NR_CNPJ_CPF_AUTOR',      objConsulta:NrCnpjCpfAutor)
+    WPut('CD_UF',                  objConsulta:CdUf)
+    WPut('NM_PERDA',               objConsulta:NmPerda)
+    WPut('VL_ECONOMICO',           objConsulta:VlEconomico)
+    WPut('VL_ACAO',                objConsulta:VlAcao)
+    WPut('VL_PAGAMENTO',           objConsulta:VlPagamento)
+    WPut('NM_STATUS_PASTA',        objConsulta:NmStatusPasta)
+    WPut('NR_PROCESSO_JUDICIAL',   objConsulta:NrProcessoJudicial)
+    WPut('NM_RECLAMANTE',          objConsulta:NmReclamante)
+    WPut('NM_MOTIVO_JUDICIAL',     objConsulta:NmMotivoJudicial)
+    WPut('COBERTURAS',             objService:Array2Str(objConsulta:Coberturas))
+    WPut('CIPS_CONSULTA',          objService:getCipsConsulta())
+    WPut('IDCAUSA',                objService:getIdCausa())
+
+
+    WPut('CD_RETORNO',             objConsulta:Retorno:CdRetorno)
+    WPut('NM_RETORNO',             objConsulta:Retorno:NmRetorno)
+
+
+
+
+return
+
+

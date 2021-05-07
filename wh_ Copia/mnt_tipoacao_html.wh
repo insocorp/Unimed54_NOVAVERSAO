@@ -1,0 +1,60 @@
+/*
+
+Project      : gr5
+Program      : mnt.tipoacao.html
+Function     : mnt_tipoacao_html
+Created on   : 28-Nov-2004   17:26:10
+Descripition :
+
+*/
+
+local laPARAM        := {},;
+      laINPUT_OBJ    := {},;
+      laSELECT       := {} as array
+
+laPARAM := {{'TP_PASTA'          ,''     ,'*'},;
+            {'TP_ACAOPROCESSUAL' ,''     ,'*'},;
+            {'FL_ATIVO','',},;
+            {'ACTION'            ,'ALTER',   }}
+
+laINPUT_OBJ := {{'TP_PASTA',1, ,'Y',"loadcboxorder_build('pasta_config','TP_PASTA',.T.,{'TP_PASTA'})"},;
+                {                   , , ,   ,},;
+                {'TP_ACAOPROCESSUAL',0, ,'Y',},;
+                {          , , ,   , },;
+                {'FL_ATIVO',1,,'Y','{"S","I","D"}' }}
+
+laSELECT := {'TP_PASTA','TP_ACAOPROCESSUAL','FL_ATIVO'}
+
+if upper(alltrim(WGet('ACTIONBP'))) == 'ALTER'
+   mkgedico('tipoacao',WGet('TP_PASTA','C'),WGet('TP_ACAOPROCESSUAL','C'))
+endif
+
+xbp2('tipoacao',;                                                        //Tabela alvo
+    ,;                                                                  //Joins
+    ,;                                                                  //Where
+    {'TP_PASTA','TP_ACAOPROCESSUAL'},;                                  //Order by
+    ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+    ,;                                                                  //Group by
+    ,;                                                                  //Limit
+    ,;                                                                  //Banco de Dados
+    2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+    'gr5',;                                                             //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                                           //Programa chamador
+    laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+    ,;                                                                  //Parâmetros para os botões das linhas do grid
+    'mnt.tipoacao.html',;                                               //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+    ,;                                                                  //Retorno java (nil) - usado apenas para Search
+    ,;                                                                  //Campos usados na pesquisa rápida
+    ,;                                                                  //Campos Ocultos
+    laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+    laSELECT ,;                                                         //Campos exibidos no grid
+    laSELECT)                                                           //Campos usados no select
+return
+
+
+
+
+
+
+

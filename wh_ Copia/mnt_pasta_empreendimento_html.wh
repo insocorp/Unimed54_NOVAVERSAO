@@ -1,0 +1,67 @@
+/*
+
+Project      : gr5
+Program      : mnt.pasta.empreendimento.html
+Function     : mnt_pasta_empreendimento_html
+Created on   : 26-Oct-2001   08:57:51
+Descripition : Manutenção da Pasta Empreendimento
+
+*/
+
+
+local lcACTION := '',;
+      lcWHERE  := '',;
+      lcTABLE  := '' as string
+local laSAVE := {},;
+      laSAVE_AUX := {},;
+      laFIELDS   := {},;
+      laFIELDS2   := {},;
+      laRESULT   := {},;
+      laJOIN     := {} as array
+local lnii := 0 as numeric
+
+lcACTION := upper(wget('ACTION','C'))
+lcTABLE := 'pasta'
+laFIELDS := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+lcWHERE := 'pasta.NR_PASTA = '+Wget('NR_PASTA','C')
+
+laFIELDS2 := {'pasta.NR_PASTA'}
+
+// Preenchimento dos combos
+
+carrega_cbox({{'pasta_status','fl_pasta','Y'}})
+carrega_cbox({{'segmento_tipo','tp_segmento','Y'}})
+carrega_cbox({{'contrato_tipo','tp_contrato','Y'}})
+carrega_cbox({{'contrato_situacao','contrato_situacao','Y'}})
+carrega_cbox({{'edificacao','edicacao','Y'}})
+carrega_cbox({{'motivo_irregularidade','motivo_irregularidade','Y'}})
+carrega_cbox({{'acordo','acordo','Y'}})
+carrega_cbox({{'tipo_carta','tp_carta','Y'}})
+carrega_cbox({{'pasta_classifica','pasta_classifica','Y'}})
+
+
+if lcACTION == 'NEW'
+elseif lcACTION == 'ALTER'
+      if db_select(laFIELDS2,lcTABLE,,{lcWHERE}) = -1
+         error_sys(db_error())
+      endif
+      laRESULT:= db_fetchall()
+      if len(laRESULT) > 1
+         db2put()
+      endif
+
+elseif lcACTION == 'SAVE'
+       aadd(laSAVE,laFIELDS)
+       for lnii := 1 to len(laFIELDS)
+           aadd(laSAVE_AUX,WGet(laFIELDS[lnii]))
+       next lnii
+       aadd(laSAVE,laSAVE_AUX)
+       if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+          error_sys(db_error())
+       endif
+
+elseif lcACTION == 'DELETE'
+endif
+
+
+return

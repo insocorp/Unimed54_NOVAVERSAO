@@ -1,0 +1,43 @@
+/*
+Project      : gr5
+Program      : sch.documento.html
+Function     : sch_documento_html
+Created on   : 2010-02-05 18:13:35
+Descripition : Pesquisa de Documentos
+*/
+
+
+   local laFIELDS       := {},;
+         laJAVA         := {},;
+         laQUICK_SEARCH := {} as array
+   
+
+   laFIELDS       := {'DOCUMENTO_MODELO','DOCUMENTO_DESCRICAO'}
+   laJAVA := {'mntform',{{'DOCUMENTO_MODELO','DOCUMENTO_MODELO'},{'DOCUMENTO_DESCRICAO','DOCUMENTO_DESCRICAO'}}}   
+   laQUICK_SEARCH := {'DOCUMENTO_DESCRICAO'}
+   laWHERE        := {'FL_ATIVO <> '+DLAP+'I'+DLAP}
+
+xbp ('documento_modelo',;                 //Tabela Alvo
+              ,;                        //Join
+              ,;                        //Where
+              laWHERE,;                        //Order by
+              ,;                        //Sort [A]-Ascendente [D]-Descentende
+              ,;                        //Group by
+              ,;                        //Limit
+              ,;                        //Banco de Dados
+              3,;                       //Modo de funcionamento [1]-Listagem/Form para manutenção [2]-Listagem e Manutenção [3]-Search
+              'gr5',;                  //Modulo do programa chamador
+              WSet('_USER_INTERFACE'),; //Programa chamador
+              ,;                        //Parametros para linhas clicáveis
+              ,;                        //Botoes (nil)
+              'docrtf.mnt.html',;        //Programa chamado pelos links (linhas clicáveis)
+              'gr5',;                  //Módulo do programa chamado pelos links
+              laJAVA,;                  //Retorno java (nil) - usado apenas no search
+              laQUICK_SEARCH,;          //Campos usados na pesquisa rápida
+              ,;                        //Campos ocultos. Usado apenas em manutenções    ***
+              ,;                        //Campos da área de manutenção/entrada de dados  ***
+              laFIELDS,;                //Campos mostratos no grid
+              laFIELDS)                 //Campos usados no select
+return
+
+

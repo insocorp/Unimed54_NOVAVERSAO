@@ -1,0 +1,161 @@
+/*
+   Project      : gr5
+   Program      : mnt.tipo.judicial.html
+   Function     : mnt_tipo_judicial_html
+   Created on   : Wed, 1 November 2017 17:20:10 GMT
+   Descripition : Manutenção de tipo de depósito judicial
+*/
+
+   local laFIELDS  := {},;
+         laSAVE    := {},;
+         laSAVEAUX := {},;
+         laRES     := {},;
+         laRESULT  := {},;
+         laLIMIT   := {},;
+         laTRAN    := {},;
+         laPUT     := {},;
+         laJOIN    := {} as array
+   local lcWHERE   := '',;
+         lcWHERE2  := '',;
+         lcTABLE   := '',;
+         lcCODE    := '',;
+         lcACTION  := '' as string
+   local lnii      := 0 ,;
+         xx        := 0 as numeric
+   private lnCOUNT := 0
+
+
+   lcACTION := Upper(Wget('ACTION','C'))
+   lcWHERE  := 'tipo_judicial.TP_PASTA = '+DLAP+Wget('TP_PASTA','C')+DLAP +;
+               ' and tipo_judicial.TP_DEPOSITO = ' + DLAP+Wget('TP_DEPOSITO','C')+DLAP
+
+   laFIELDS := {'TP_PASTA','TP_DEPOSITO','CD_TRCT','CD_TRCT_ESTORNO','CD_TRCT_CORRECAO',;
+                'CD_TRCT_CORRECAO_ESTORNO','CD_TRCT_JURO','CD_TRCT_JURO_ESTORNO'}
+   lcTABLE := 'tipo_judicial'
+
+   carrega_cbox({{'pasta_config','TP_PASTA','Y'}})
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      for ii := 1 to len(laFIELDS)
+          aadd(laSAVEAUX,Wget(laFIELDS[ii]))
+      next ii
+      aadd(laSAVE,laFIELDS)
+      aadd(laSAVE,laSAVEAUX)
+
+      if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+         error_sys(db_error())
+      endif
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE},,,,,) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) >= 2
+         db2put(laRESULT)
+      endif
+
+      laTRAN := {{'transacao_contabil',{'NM_TRCT'},'NM_TRCT'                 ,'CD_TRCT = '+str(laRESULT[2,db_fetchncol(laRESULT,'CD_TRCT')]) },;
+                 {'transacao_contabil',{'NM_TRCT'},'NM_TRCT_ESTORNO'         ,'CD_TRCT = '+str(laRESULT[2,db_fetchncol(laRESULT,'CD_TRCT_ESTORNO')]) },;
+                 {'transacao_contabil',{'NM_TRCT'},'NM_TRCT_CORRECAO'        ,'CD_TRCT = '+str(laRESULT[2,db_fetchncol(laRESULT,'CD_TRCT_CORRECAO')]) },;
+                 {'transacao_contabil',{'NM_TRCT'},'NM_TRCT_CORRECAO_ESTORNO','CD_TRCT = '+str(laRESULT[2,db_fetchncol(laRESULT,'CD_TRCT_CORRECAO_ESTORNO')]) },;
+                 {'transacao_contabil',{'NM_TRCT'},'NM_TRCT_JURO'            ,'CD_TRCT = '+str(laRESULT[2,db_fetchncol(laRESULT,'CD_TRCT_JURO')]) },;
+                 {'transacao_contabil',{'NM_TRCT'},'NM_TRCT_JURO_ESTORNO'    ,'CD_TRCT = '+str(laRESULT[2,db_fetchncol(laRESULT,'CD_TRCT_JURO_ESTORNO')]) }}
+
+      for ii := 1 to len(laTRAN)
+          if db_select(laTRAN[ii,2],laTRAN[ii,1],,{laTRAN[ii,4]},,,,,) == -1
+             error_sys(db_error())
+          endif
+          laPUT := db_fetchall()
+          if  len(laPUT) > 1
+              wPut(laTRAN[ii,3],laPUT[2,1])
+          endif
+      next ii
+   elseif lcACTION == 'SEARCH'
+      get2put()
+      lcWHERE2 := ''
+      for ii := 1 to len(laFIELDS)
+          //WPut(laFIELDS[ii],WGet(laFIELDS[ii]))
+          if ! empty(wget(laFIELDS[ii],'C'))
+             if valtype(wget(laFIELDS[ii])) == 'C'
+                if ! empty(lcWHERE2)
+                   lcWHERE2 += ' and '
+                endif
+                lcWHERE2 += laFIELDS[ii]+' like '+DLAP+'%'+alltrim(WGet(laFIELDS[ii],'C'))+'%'+DLAP
+
+             elseif valtype(WGet(laFIELDS[ii])) == 'N'
+               if WGet(laFIELDS[ii]) > 0
+                  if ! empty(lcWHERE2)
+                     lcWHERE2 += ' and '
+                  endif
+                  lcWHERE2 += laFIELDS[ii]+'='+alltrim(WGet(laFIELDS[ii],'C'))
+               endif
+             endif
+          endif
+      next ii
+   endif
+   //paginação
+   if ! empty(lcWHERE2)
+      if db_select({'tipo_judicial.TP_PASTA'},'tipo_judicial',,{lcWHERE2}) == -1
+         db_error()
+      endif
+   else
+      if db_select({'tipo_judicial.TP_PASTA'},'tipo_judicial') == -1
+         db_error()
+      endif
+   endif
+   laRESULT  := db_fetchall()
+   lnCOUNT   := len(laRESULT)-1
+   if lnCOUNT > 0
+      laPAGINAS := paginacao(lnCOUNT,'','','mnt.tipo.judicial.html')
+      laLIMIT   :=  param_fetch(laPAGINAS,'LIMIT')
+      if ! empty(lcWHERE2)
+         if db_select(laFIELDS,lcTABLE,,{lcWHERE2},,,,laLIMIT) == -1
+            error_sys(db_error())
+         endif
+      else
+         if db_select(laFIELDS,lcTABLE,,,,,,laLIMIT) == -1
+            error_sys(db_error())
+         endif
+      endif
+      laRESULT := db_fetchall()
+      //Resumo da pesquisa
+      lcCODE := alltrim(str(laLIMIT[1]+1))+'-'
+      if ((len(laRESULT)-1) < (laLIMIT[2]-laLIMIT[1]))
+         lcCODE += alltrim(str(len(laRESULT)-1))
+      elseif param_fetch(laPAGINAS,'GOTO_PAGE') == param_fetch(laPAGINAS,'NR_PAGES') //lnNR_PAGES
+         lcCODE += alltrim(str(lnCOUNT))
+      else
+         lcCODE += alltrim(str(laLIMIT[1]+param_fetch(laPAGINAS,'ROWS_PAGE')))
+      endif
+      lcCODE += ' de '+alltrim(str(lnCOUNT))
+      if lnCOUNT > 1
+         lcCODE := ' Resultados '+lcCODE+' registros'
+      else
+         lcCODE := ' Resultado '+lcCODE+' registro'
+      endif
+      wput('RESUME_RESULTSET',lcCODE)
+      if len(laRESULT) > 0
+         aadd(laRESULT[1],'(row)')
+         for ii := 2 to len(laRESULT)
+            aadd(laRESULT[ii],'(row)'+wic_action('wicaction/mnt.tipo.judicial.html?ACTION=ALTER'+;
+                                                 '&TP_PASTA='+laRESULT[ii,db_fetchncol(laRESULT,'TP_PASTA')]+;
+                                                 '&TP_DEPOSITO='+laRESULT[ii,db_fetchncol(laRESULT,'TP_DEPOSITO')]))
+         next ii
+         WPut('lstDEPOSITO',grid_create(laRESULT)) //laRES
+      endif
+   else
+      WPut('lstDEPOSITO','<center> Nenhum registro encontrado </center>') //laRES
+   endif
+return
+
+
+
+
+
+
+
+

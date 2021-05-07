@@ -1,0 +1,17 @@
+/*
+
+Project      : gr5
+Program      : psab.res.sin.html
+Function     : psab_res_sin_html
+Created on   : 02-Sep-2006   14:27:12
+Descripition : Aba Resultados com Pedidos identificaod por Sinistro.
+
+*/
+
+   psab_resultado_html(.t.)
+
+return
+
+
+
+

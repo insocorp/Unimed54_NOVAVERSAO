@@ -1,0 +1,533 @@
+/*
+
+Project      : gr5
+Program      : rel_alfa_previdencia.html
+Function     : rel_alfa_previdencia
+Created on   : 05-Mar-2012   14:45
+Descripition : Relatório Previdência 
+Alteracao    : 
+Solicitante  : Celia
+Projeto      : 
+*/
+
+   local lcACTION := '' ,;
+         lcTABLE  := '' ,;
+         lcCAMPOF1 := '',;
+         lcCAMPOF2 := '',;
+         lcCAMPOF3 := '',;
+         lcCAMPOF4 := '',;
+         lcCONTE1  := '',;
+         lcCONTE2  := '',;
+         lcCONTE3  := '',;
+         lcCONTE4  := '',;
+         lcORDEM   := '',;
+         lcMENSAGEM:= '',;
+         lcFILTROAUX := '',; 
+         lcNRROW  := '' as string
+
+   local laFIELDS             := {} ,;
+         laRES                := {} ,;
+         laLABEL_FL_APROVACAO := {} ,;
+         laVALUE_FL_APROVACAO := {} ,;
+         laVAR                := {} ,;
+         laPUT                := {} ,;
+         laAUX                := {} ,;
+         laJOIN               := {} ,;
+         laWHERE              := {} ,;
+         laORDER              := {} ,;
+         laCAMPOSFILTRO       := {} ,;
+         laLABELFILTRO        := {} ,;
+         laALERTA             := {} ,;
+         laSAVE               := {} as array
+
+   local ii                   := 0 ,;
+         lnQUANTOS            := 0 ,;
+         lnTOTAL              := 0 as int
+
+   local lcCABECA             := ''  as string
+   local lcCGRID              := '' as string
+   local lcDGRID              := '' as string
+   local lcTGRID              := '' as string
+   local lcRELATORIO          := '' as string
+   
+   local lcINICIO             := '<div class="folha">' as string
+   local lcFIM                := '</div>' as string
+   
+   
+   local lnT1                 := 0.00 as numeric
+   local lnT2                 := 0.00 as numeric
+   local lnT3                 := 0.00 as numeric
+
+
+   lcACTION     := WGet('ACTION','C')
+   
+   
+   
+   lcTABLE      := 'vw_rel_123'  
+
+                   
+   laFIELDS     := {'DT_REVISAO',;
+                    'FAVORECIDO',;
+                    'NR_DESPESA',;
+                    'NR_SINISTRO',;
+                    'NR_PASTA',;
+                    'EMPRESA_PAGADORA',; 
+                    'NM_DESPESA',;
+                    'VL_TOTAL_HONOR',;
+                    'VL_TOTAL_DESPC',;
+                    'VL_TOTAL_GERAL',;
+                    'TP_PASTA'}
+
+   laFIELDS2    := {'DT_REVISAO',;
+                    'FAVORECIDO',;
+                    'NR_DESPESA',;
+                    'NR_SINISTRO',;
+                    'NR_PASTA',;
+                    'EMPRESA_PAGADORA',; 
+                    'NM_DESPESA',;
+                    'VL_TOTAL_HONOR',;
+                    'VL_TOTAL_DESPC'}
+                   
+
+   laVAR        := {'NR_PASTA',;                 
+                    'PARTE_CONTRARIA',;
+                    'NR_DESPESA',;
+                    'VL_TOTAL_HONOR',;
+                    'VL_TOTAL_DESPC'}                 
+  
+
+   WPut('TITLE','Relatório Previdência')
+   WPut('ifGRID',.T.)
+   WPut('ifIMPRIMIR',.F.)
+   
+   WPut('DT_INI',date())
+   WPut('DT_FIM',date()) 
+   
+   *** BUSCA FAVORECIDO
+
+   lcSELECT:='select'
+   lcSELECT:=lcSELECT + ' pfpj_favorecido.PFPJ' 
+   lcSELECT:=lcSELECT + ' from mvt_despesa'
+   lcSELECT:=lcSELECT + ' left join pfpj_favorecido on pfpj_favorecido.CIP = mvt_despesa.cip_favorecido'
+   lcSELECT:=lcSELECT + ' where mvt_despesa.cip_favorecido<>' +DLAP+DLAP
+   lcSELECT:=lcSELECT + ' group by mvt_despesa.cip_favorecido,pfpj_favorecido.PFPJ'  
+   lcSELECT:=lcSELECT + ' order by pfpj_favorecido.PFPJ'  
+         
+   if db_query(lcSELECT) == -1
+      error_sys(db_error())
+   endif
+   laAUX := db_fetchall() 
+   
+   *** ALIMENTA COMBOBOX
+   laRES := {}
+   aadd(laRES,'')
+   for lnXX := 2 to len(laAUX)    
+       aadd(laRES,laAUX[lnXX,1])   
+   next lnXX
+ 
+   wPut('FAVORECIDO_OPT',laRES)
+   
+
+   if lcACTION == 'IMPRIME'
+   
+      if WGET('RELMEMO')<>''
+         WPut('ifGRID',.F.)
+         WPut('ifIMPRIMIR',.T.)
+         WPut('RELATORIO',WGET('RELMEMO'))
+      endif
+      
+   elseif lcACTION == 'EXECSEL'
+   
+      WPut('ifGRID',.T.) 
+      
+      lcCONTE2  := wget('FILTER_CONTENT_2','C')
+      lcCONTE3  := wget('FILTER_CONTENT_3','C')
+
+      WPut('FILTER_CONTENT_2',lcCONTE2)
+      WPut('FILTER_CONTENT_3',lcCONTE3)
+     
+      ldINI:= wget('DT_INI','D')
+      ldFIM:= wget('DT_FIM','D')
+      
+      if ldFIM<ldINI
+         WPut('DT_INI','')
+         WPut('DT_FIM','')      
+      endif
+      
+      laWHERE   := {}
+      
+     
+     aadd(laWHERE,'vw_rel_123.CIP_EMPRESA_PAGADORA = 1468')
+     
+     aadd(laWHERE,'vw_rel_123.DT_REVISAO IS NOT NULL') 
+     
+     aadd(laWHERE,'vw_rel_123.TP_PASTA not in("Trabalhista",;
+                                              "Cível",;
+                                              "Criminal",;
+                                              "Tributário Judicial",;
+                                              "Tributário Administrativo",;
+                                              "Tributário Execuções Fsicais",;
+                                              "DCV Administrativo",;
+                                              "DCV Judicial",;
+                                              "Cível - RC",;
+                                              "A Distribuir - Pré Cadastro",;
+                                              "DPVAT")')
+     
+      
+      if ! empty(ldINI) .and. ! empty(ldFIM)
+         aadd(laWHERE,'vw_rel_123.DT_REVISAO BETWEEN '+DLAP+dtos(ldINI)+DLAP+' and '+DLAP+dtos(ldFIM)+DLAP)       
+        else  
+         WPut('DT_INI','')
+         WPut('DT_FIM','')
+      endif      
+   
+      if ! empty(wget('FAVORECIDO','C'))
+         aadd(laWHERE,'vw_rel_123.FAVORECIDO like '+DLAP+'%'+wget('FAVORECIDO','C')+'%'+DLAP)
+      endif
+
+      if ! empty(wget('FILTER_CONTENT_2','C'))
+         aadd(laWHERE,'vw_rel_123.NR_DESPESA='+DLAP+wget('FILTER_CONTENT_2','C')+DLAP)
+      endif
+
+      if ! empty(wget('FILTER_CONTENT_3','C'))
+         aadd(laWHERE,'vw_rel_123.NR_SINISTRO='+DLAP+wget('FILTER_CONTENT_3','C')+DLAP)
+      endif      
+
+     laORDER      := {'FAVORECIDO',;
+                      'NR_DESPESA',;
+                      'NR_SINISTRO',; 
+                      'NR_PASTA'} 
+     
+     
+     if db_select(laFIELDS,lcTABLE,,laWHERE,laORDER) == -1
+        error_sys(db_error())
+     endif 
+  
+     laRES := db_fetchall()
+     
+          
+     
+     
+     if len(laRES) > 1
+        aadd(laPUT,laFIELDS2)
+        
+        novo       :=.T.
+        lcDGRID    :=''
+        lcTGRID    :=''
+        lcCABECA   :=''
+        lcCGRID    :=''
+        lcRELATORIO:=''
+
+        for ii := 2 to len(laRES)
+           if novo==.T.
+
+              lcC01:=laRES[ii,db_fetchncol(laRES,'DT_REVISAO')] 
+              lcC05:=laRES[ii,db_fetchncol(laRES,'FAVORECIDO')]
+              lcC04:=laRES[ii,db_fetchncol(laRES,'NR_DESPESA')]
+              lcC11:=laRES[ii,db_fetchncol(laRES,'NR_SINISTRO')]
+              lcC02:=laRES[ii,db_fetchncol(laRES,'NR_PASTA')]  
+              lcC03:=laRES[ii,db_fetchncol(laRES,'EMPRESA_PAGADORA')]
+              lcC07:=laRES[ii,db_fetchncol(laRES,'NM_DESPESA')]
+              lcC08:=transform(laRES[ii,db_fetchncol(laRES,'VL_TOTAL_HONOR')],"@E 99,999,999.99")
+              lcC09:=transform(laRES[ii,db_fetchncol(laRES,'VL_TOTAL_DESPC')],"@E 99,999,999.99")
+              lcC10:=transform(laRES[ii,db_fetchncol(laRES,'VL_TOTAL_GERAL')],"@E 99,999,999.99")
+
+              lcD1 :=STR(lcC02)
+              
+              lcD01:=lcC11
+              
+              **if laRES[ii,db_fetchncol(laRES,'TP_PASTA')]='Cível com Sinistro'   
+              **   lcD01:=lcC11 //sinistro 
+              **else //'Cível sem Sinistro'
+              **   lcD01:=str(lcC02) //pasta 
+              **endif   
+
+              lcD03:=dtoc(wget('DT_INI','D')) + ' até ' + dtoc(wget('DT_FIM','D'))           
+              lcD06:=lcC05 //favorecido           
+  
+              F1:=laRES[ii,db_fetchncol(laRES,'FAVORECIDO')]
+              F2:=laRES[ii,db_fetchncol(laRES,'NR_SINISTRO')]
+              F3:=laRES[ii,db_fetchncol(laRES,'NR_PASTA')]           
+              
+              novo  :=.F.
+           endif   
+  
+           lcC01:=laRES[ii,db_fetchncol(laRES,'DT_REVISAO')] 
+           lcC05:=laRES[ii,db_fetchncol(laRES,'FAVORECIDO')]
+           lcC04:=laRES[ii,db_fetchncol(laRES,'NR_DESPESA')]
+           lcC11:=laRES[ii,db_fetchncol(laRES,'NR_SINISTRO')]
+           lcC02:=laRES[ii,db_fetchncol(laRES,'NR_PASTA')]  
+           lcC03:=laRES[ii,db_fetchncol(laRES,'EMPRESA_PAGADORA')]
+           lcC07:=laRES[ii,db_fetchncol(laRES,'NM_DESPESA')]
+           lcC08:=transform(laRES[ii,db_fetchncol(laRES,'VL_TOTAL_HONOR')],"@E 99,999,999.99")
+           lcC09:=transform(laRES[ii,db_fetchncol(laRES,'VL_TOTAL_DESPC')],"@E 99,999,999.99")
+           lcC10:=transform(laRES[ii,db_fetchncol(laRES,'VL_TOTAL_GERAL')],"@E 99,999,999.99") 
+           
+           lnT1:=lnT1+laRES[ii,db_fetchncol(laRES,'VL_TOTAL_HONOR')]
+           lnT2:=lnT2+laRES[ii,db_fetchncol(laRES,'VL_TOTAL_DESPC')]
+           lnT3:=lnT3+laRES[ii,db_fetchncol(laRES,'VL_TOTAL_GERAL')]       
+           
+                                                   
+           aadd(laPUT,{lcC01,;
+                       lcC05,;
+                       lcC04,;
+                       lcC11,;                   
+                       lcC02,;
+                       lcC03,;
+                       lcC07,;
+                       lcC08,;
+                       lcC09})
+  
+
+           if ii+1<=len(laRES)
+           
+              ***F1:=laRES[ii,db_fetchncol(laRES,'FAVORECIDO')]
+              ***F2:=laRES[ii,db_fetchncol(laRES,'NR_SINISTRO')]
+              ***F3:=laRES[ii,db_fetchncol(laRES,'NR_PASTA')]           
+           
+              FECHA:=.F. 
+                            
+              if F1<>laRES[ii+1,db_fetchncol(laRES,'FAVORECIDO')]
+                 FECHA:=.T.
+                elseif F2<>laRES[ii+1,db_fetchncol(laRES,'NR_SINISTRO')]
+                 FECHA:=.T. 
+                elseif F3<>laRES[ii+1,db_fetchncol(laRES,'NR_PASTA')]
+                 FECHA:=.T.               
+          
+                else  
+                  FECHA:=.F.
+              endif              
+
+
+              if FECHA==.T.
+              
+                 ldemi:=strzero(day(date()),2)+'/'+strzero(month(date()),2)+'/'+str(year(date()))
+               
+                 lcD02:=transform(lnT3,"@E 99,999,999.99")
+                 lcD04:=transform(lnT1,"@E 99,999,999.99")
+                 lcD05:=transform(lnT2,"@E 99,999,999.99")
+
+                 lcCABECA += '<td valign="middle" colspan="2">'                
+                 lcCABECA += '<div align="center"><img src="wiccomponent/logo alfa prev horizontal.gif" width="80%"></div>'
+                 lcCABECA += '</td>'
+                 ***lcCABECA += '<h1 colspan="2" align="center" class="titulo"><strong>ALFA PREVIDÊNCIA</strong><br /></h1>'
+                 lcCABECA += '<font face="Arial" size="2">'
+                 lcCABECA += '<br />'
+                 lcCABECA += '<br />'
+                 
+                 lcCABECA += '<strong>Número do Protocolo: </strong>' + lcD01 + '<br />'  //numero do sinistro
+          
+
+                 lcCABECA += '<strong>Número do Registro : </strong>' + lcD1 + '<br />'      //nr_pasta  
+                 lcCABECA += '<br />'
+                 lcCABECA += '<br />'
+                 lcCABECA += '<strong>Motivo:</strong><br />'
+                 lcCABECA += '<br />' 
+                 lcCABECA += '(X)Reembolso de honorários advocatícios/ reembolso despesas/ condenação/ acordo<br />'
+                 lcCABECA += '(     )Outros:_______________________________________________<br />' 
+                 lcCABECA += '<br />' 
+                 lcCABECA += '<br />' 
+                 lcCABECA += '<br />' 
+                 lcCABECA += '<br />'
+                 lcCABECA += '<br />'                 
+                 lcCABECA += '<strong>Tipo de Pagamento</strong><br />'
+                 lcCABECA += '<br />' 
+
+                 lcCABECA += '<table border="1" cellpadding="0" cellspacing="0" height="66" width="663">'
+                 lcCABECA += '<tbody><font face="Arial" size="2">'
+                 lcCABECA += '<tr>'
+                 lcCABECA += '<td>Valor a ser pago: <strong>R$ '+ lcD02 +' sendo R$ '+ lcD04 +' ref.Honorários e R$ '+ lcD05 +' ref.Despesas</strong></td>'
+                 lcCABECA += '</tr>'
+                 lcCABECA += '<tr>'
+                 lcCABECA += '<td>Beneficiário: <strong>'+F1+'</strong></td>'
+                 lcCABECA += '</tr>'
+                 lcCABECA += '</font></tbody>'
+                 lcCABECA += '</table></font>'                
+                 
+                 lcCABECA += '<br />' 
+                 lcCABECA += '<br />'
+                 lcCABECA += '<br />'                  
+                 lcCABECA += 'Ficaremos no aguardo de email confirmando o pagamento acima solicitado, inclusive com a informação da data<br />' 
+                 lcCABECA += 'em que o crédito se efetivará na conta-corrente do prestador.<br />'                 
+                 lcCABECA += '<br />'
+                 lcCABECA += 'Obs.: O expediente identificado com a letra "R" trata-se de ressarcimento e com a letra "C" trata-se de<br />'
+                 lcCABECA += 'contencioso.<br />'
+                 lcCABECA += '<br />'
+                 lcCABECA += '<br />'
+                 lcCABECA += '<br />'
+                 lcCABECA += '<br />'                
+                 lcCABECA += 'Nome, assinatura e carimbo do requisitante:<br />'
+                 lcCABECA += '<br />'
+                 lcCABECA += '<br />'
+                 lcCABECA += '<br />'
+                 lcCABECA += '<br />' 
+                 lcCABECA += 'São Paulo, ' + ldemi + '.' 
+                 
+                 lcCABECA += '<br />'
+                 lcCABECA += '<br />' 
+                 lcCABECA += '<br />' 
+                 lcCABECA += '<br />' 
+                 lcCABECA += '<br />' 
+                 lcCABECA += '<br />'                
+                 
+                 lcCABECA += '<table align="right" style="border: 1px solid rgb(0, 0, 0); border-collapse: collapse;" height="112" width="196">'
+                 lcCABECA += '<tbody>'
+                 lcCABECA += '<tr>'
+                 lcCABECA += '<td align="center">DIGITALIZAR</td>'
+                 lcCABECA += '</tr>'
+                 lcCABECA += '<tr>'
+                 lcCABECA += '<td align="center">Solicitação de pagamento</td>'
+                 lcCABECA += '</tr>'
+                 lcCABECA += '<tr>'
+                 lcCABECA += '<td></td>'
+                 lcCABECA += '</tr>'
+                 lcCABECA += '<tr>'
+                 lcCABECA += '<td align="center">PASTA:_____________</td>'
+                 lcCABECA += '</tr>'
+                 lcCABECA += '<tr>'
+                 lcCABECA += '<td></td>'
+                 lcCABECA += '</tr>'
+                 lcCABECA += '</tbody>'
+                 lcCABECA += '</table></font>'
+
+                 
+                 lcRELATORIO+=lcINICIO+lcCABECA+lcFIM               
+  
+                 aadd(laPUT,{'Totais',,,,,,,transform(lnT1,"@E 99,999,999.99"),transform(lnT2,"@E 99,999,999.99")})    
+                 aadd(laPUT,{,,,,,,,,})                                         
+                
+                 lcCABECA:=''
+                 lcDGRID :=''
+                 lcTGRID :=''                                
+                 lnT1    :=0.00
+                 lnT2    :=0.00
+                 lnT3    :=0.00
+  
+                 novo:=.T.           
+              endif 
+              
+            else
+                
+                 ldemi:=strzero(day(date()))+'/'+strzero(month(date()))+'/'+str(year(date()))
+                 
+                 lcD02:=transform(lnT3,"@E 99,999,999.99")
+                 lcD04:=transform(lnT1,"@E 99,999,999.99")
+                 lcD05:=transform(lnT2,"@E 99,999,999.99")
+
+                 lcCABECA += '<td valign="middle" colspan="2">'                
+                 lcCABECA += '<div align="center"><img src="wiccomponent/logo alfa prev horizontal.gif" width="80%"></div>'
+                 lcCABECA += '</td>'
+                 ***lcCABECA += '<h1 colspan="2" align="center" class="titulo"><strong>ALFA PREVIDÊNCIA</strong><br /></h1>'
+                 lcCABECA += '<font face="Arial" size="2">'
+                 lcCABECA += '<br />'
+                 lcCABECA += '<br />'                 
+                 
+                 lcCABECA += '<strong>Número do Protocolo: </strong>' + lcD01 + '<br />' //numero do sinistro
+                                                                                            
+                 lcCABECA += '<strong>Número do Registro : </strong>' + lcD1 + '<br />'     //nr_pasta
+                 lcCABECA += '<br />'
+                 lcCABECA += '<br />'
+                 lcCABECA += '<strong>Motivo:</strong><br />'
+                 lcCABECA += '<br />' 
+                 lcCABECA += '(X)Reembolso de honorários advocatícios/ reembolso despesas/ condenação/ acordo<br />'
+                 lcCABECA += '(     )Outros:_______________________________________________<br />'
+                 lcCABECA += '<br />' 
+                 lcCABECA += '<br />' 
+                 lcCABECA += '<br />' 
+                 lcCABECA += '<br />'
+                 lcCABECA += '<br />'                 
+                 lcCABECA += '<strong>Tipo de Pagamento</strong><br />'
+                 lcCABECA += '<br />' 
+                 
+                 
+                 lcCABECA += '<table border="1" cellpadding="0" cellspacing="0" height="66" width="663">'
+                 lcCABECA += '<tbody><font face="Arial" size="2">'
+                 lcCABECA += '<tr>'
+                 lcCABECA += '<td>Valor a ser pago: <strong>R$ '+ lcD02 +' sendo R$ '+ lcD04 +' ref.Honorários e R$ '+ lcD05 +' ref.Despesas</strong></td>'
+                 lcCABECA += '</tr>'
+                 lcCABECA += '<tr>'
+                 lcCABECA += '<td>Beneficiário: <strong>'+F1+'</strong></td>'
+                 lcCABECA += '</tr>'
+                 lcCABECA += '</font></tbody>'
+                 lcCABECA += '</table>'
+
+                 
+                 lcCABECA += '<br />' 
+                 lcCABECA += '<br />'
+                 lcCABECA += '<br />'                  
+                 lcCABECA += 'Ficaremos no aguardo de email confirmando o pagamento acima solicitado, inclusive com a informação da data<br />' 
+                 lcCABECA += 'em que o crédito se efetivará na conta-corrente do prestador.<br />'                 
+                 lcCABECA += '<br />'
+                 lcCABECA += 'Obs.: O expediente identificado com a letra "R" trata-se de ressarcimento e com a letra "C" trata-se de<br />'
+                 lcCABECA += 'contencioso.<br />'
+                 lcCABECA += '<br />'
+                 lcCABECA += '<br />'
+                 lcCABECA += '<br />'
+                 lcCABECA += '<br />'                
+                 lcCABECA += 'Nome, assinatura e carimbo do requisitante:<br />'
+                 lcCABECA += '<br />'
+                 lcCABECA += '<br />'
+                 lcCABECA += '<br />'
+                 lcCABECA += '<br />' 
+                 lcCABECA += 'São Paulo, ' + ldemi + '.' 
+                 
+                 lcCABECA += '<br />'
+                 lcCABECA += '<br />' 
+                 lcCABECA += '<br />' 
+                 lcCABECA += '<br />' 
+                 lcCABECA += '<br />' 
+                 lcCABECA += '<br />'                                                
+                 
+                 lcCABECA += '<table align="right" style="border: 1px solid rgb(0, 0, 0); border-collapse: collapse;" height="112" width="196">'
+                 lcCABECA += '<tbody>'
+                 lcCABECA += '<tr>'
+                 lcCABECA += '<td align="center">DIGITALIZAR</td>'
+                 lcCABECA += '</tr>'
+                 lcCABECA += '<tr>'
+                 lcCABECA += '<td align="center">Solicitação de pagamento</td>'
+                 lcCABECA += '</tr>'
+                 lcCABECA += '<tr>'
+                 lcCABECA += '<td></td>'
+                 lcCABECA += '</tr>'
+                 lcCABECA += '<tr>'
+                 lcCABECA += '<td align="center">PASTA:_____________</td>'
+                 lcCABECA += '</tr>'
+                 lcCABECA += '<tr>'
+                 lcCABECA += '<td></td>'
+                 lcCABECA += '</tr>'
+                 lcCABECA += '</tbody>'
+                 lcCABECA += '</table></font>'       
+         
+                
+                 lcRELATORIO+=lcINICIO+lcCABECA+lcFIM  
+                                
+                 aadd(laPUT,{'Totais',,,,,,,transform(lnT1,"@E 99,999,999.99"),transform(lnT2,"@E 99,999,999.99")})    
+                 aadd(laPUT,{,,,,,,,,})           
+                                           
+                 lcCABECA:=''
+                 lcDGRID :=''
+                 lcTGRID :=''
+                 lnT1    :=0.00
+                 lnT2    :=0.00
+                 lnT3    :=0.00
+
+           endif
+  
+        next ii
+      endif
+
+      WPut('RELMEMO',lcRELATORIO)   
+      WPut('lstMEMORANDO',laPUT)   
+
+   endif
+return
+
+
+
+
+
+
+
+
+
+

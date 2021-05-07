@@ -1,0 +1,45 @@
+/*
+
+Project      : gr5
+Program      : lst.trct.html
+Function     : lst_trct_html
+Created on   : 12-Nov-2002   09:29:26
+Descripition : Listagem de Transação Contábil
+
+*/
+
+   local laPARAM := {{'CD_TRCT',''},;
+                     {'ACTION'  ,'ALTER'}} as array
+   local laWHERE        := {} ,;
+         laINPUT_HIDDEN := {} ,;
+         laQUICK_SEARCH := {} as array
+
+   laSELECT       := {'CD_TRCT',;
+                      'NM_TRCT',;
+                      'FL_TRCT_CCF'}
+
+   laQUICK_SEARCH := {'NM_TRCT','FL_TRCT_CCF'}
+
+   xbp('transcontabil',;                                                   //Tabela alvo
+       ,;                                                                  //Joins
+       laWHERE,;                                                           //Where
+       ,;                                                                  //Order by
+       ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+       ,;                                                                  //Group by
+       ,;                                                                  //Limit
+       ,;                                                                  //Banco de Dados
+       4,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search, 4-Listagem
+       'gr5',;                                                             //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;                                           //Programa chamador
+       laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+       ,;                                                                  //Parâmetros para os botões das linhas do grid
+       'mnt.trct.html',;                                                   //Programa que os links/botoes do grid deverao chamar
+       'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+       ,;                                                                  //Retorno java (nil) - usado apenas para Search
+       laQUICK_SEARCH,;                                                    //Campos usados na pesquisa rápida
+       ,;                                                                  //Campos Ocultos
+       ,;                                                                  //Campos da área de manutenção/entrada de dados
+       laSELECT,;                                                          //Campos exibidos no grid
+       laSELECT)                                                           //Campos usados no select
+   wPut('TITLE','Pesquisa de Transação Contábil')
+return

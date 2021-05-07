@@ -1,0 +1,129 @@
+/*
+
+Project      : isj_45
+Program      : headerrequest.class
+Function     : headerrequest_class
+Created on   : 15-Apr-2016   18:04:39
+Descripition :
+
+*/
+
+//
+// Glauber - 04/2016
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+*
+* Glauber - 04/2016
+*
+* Classe...........: HeaderRequest
+*
+* Objetivo.........: Classe que contém o cabeçalho para requisições.
+*
+* Atributos........:
+*
+*    EXPORT TpIntegracao
+*    EXPORT SinistroNumero
+*    EXPORT Ramo
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS HeaderRequest
+
+    // Atributos publico
+
+    EXPORT TpIntegracao
+    EXPORT SinistroNumero
+    EXPORT Ramo
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()      CLASS HeaderRequest
+    PROTOTYPE METHOD Destroy()   CLASS HeaderRequest
+
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS HeaderRequest
+
+
+    self:TpIntegracao   := 0
+    self:SinistroNumero := ''
+    self:Ramo           := ''
+
+
+return(self)
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS HeaderRequest
+
+    self:TpIntegracao   := nil
+    self:SinistroNumero := nil
+    self:Ramo           := nil
+
+return(nil)
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+

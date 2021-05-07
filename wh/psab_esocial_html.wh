@@ -1,0 +1,233 @@
+/*
+Project      : gr5
+Program      : psab.esocial.html
+Function     : psab_esocial_html
+Created on   : 19/01/2016 14:14:24
+Descripition :
+*/
+
+   local lcACTION     := '' ,;
+         lcTP_PASTA   := '' ,;
+         lcTABLE      := '' ,;
+         lcNR_PASTA   := '' as string
+   local laRESULT   := {} ,;
+         laRES      := {} ,;
+         laPUT      := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laWHERE    := {} ,;
+         laFIELDS   := {} ,;
+         laLABELS   := {} ,;
+         laVALIDA   := {} as array
+   local ii := 0 as int
+   local llERRO := .F. as logical
+
+   lcACTION   := upper(alltrim(WGet('ACTION','C')))
+   lcTP_PASTA  := WGet('TP_PASTA','C')
+   lcNR_PASTA := WGet('NR_PASTA','C')
+   lcTABLE    := 'pasta_esocial'
+   laWHERE    := {'NR_PASTA='+lcNR_PASTA}
+   laFIELDS   := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS   := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   lcUSUARIO := wSet('LOGIN')
+   Wput('LOGIN',lcUSUARIO)
+   Wput('LOGIN_CADASTRO',lcUSUARIO)
+   Wput('DT_CADASTRO',DATE())
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   init_reqfield(WSet('_USER_INTERFACE'))
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   pasta_abas(lcTP_PASTA)   // Função coloca abas lado esquerdo
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+   if empty(lcACTION)
+      lcACTION = 'NEW'
+   endif
+
+   wPut('TP_PASTA',lcTP_PASTA)
+   if db_select(laFIELDS,lcTABLE,,{'NR_PASTA='+lcNR_PASTA}) = -1
+      error_sys(db_error())
+   endif
+   GET2PUT()
+   
+   WPut('INTERFACE_ESOCIAL.option',{'','Sim','Não'})
+   WPut('INTERFACE_ESOCIAL.optionvalue',{'','S','N'})
+
+   WPut('TIPO_PROCESSO.option',{'','Administrativo','Judicial'})
+   WPut('TIPO_PROCESSO.optionvalue',{'','A','J'})
+
+   WPut('ENVIADO_ESOCIAL.option',{'','Sim','Não'})
+   WPut('ENVIADO_ESOCIAL.optionvalue',{'','S','N'})  
+
+   carrega_cbox({{'esocial1','ESOCIAL1','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+   carrega_cbox({{'esocial2','ESOCIAL2','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})   
+
+    //Exibe os botões permitidos
+   if gbWAC_CREATE
+      WPut('ifWAC_CREATE',.t.)
+   endif
+   if gbWAC_DELETE
+      WPut('ifWAC_DELETE',.t.)
+   endif
+   if gbWAC_WRITE
+      WPut('ifWAC_WRITE',.t.)
+   endif
+   
+   
+   WPut('ifWAC_DELETE',.f.)
+
+   if lcACTION == 'NEW' .and. gbWAC_CREATE
+   
+      lcLOGIN := wSet('LOGIN')
+      Wput('LOGIN_CADASTRO',lcLOGIN)
+      Wput('DT_CADASTRO',DATE())
+
+      wPut('TITLE','Inclusão eSocial' + lcNR_PASTA)
+//      db2put(laRESULT)
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,laWHERE) = -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      db2put(laRESULT)
+      wPut('TITLE','Alteracão eSocial')
+
+
+   elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+      lcDATA := DTOS(DATE())
+      for ii := 1 to len(laVALIDA)
+          if empty(alltrim(WGet(laVALIDA[ii],'C')))
+             wPut('ERROR_MENS',laLABELS[ascan(laFIELDS,laVALIDA[ii])]+' é um campo obrigatório!')
+             get2Put()
+             llERRO := .T.
+             exit
+          endif
+      next ii
+      laSAVE_AUX := {}
+      if ! llERRO
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+
+           if laFIELDS[ii] == 'LOGIN_CADASTRO'
+                  aadd(laSAVE_AUX,lcUSUARIO)
+                  loop
+           elseif laFIELDS[ii] == 'DT_CADASTRO'
+                  aadd(laSAVE_AUX,date())
+                  loop
+//           elseif laFIELDS[ii] == 'INTERFACE_ESOCIAL'
+//                  IF WGET('INTERFACE_ESOCIAL','C') == 'Sim'
+//                     aadd(laSAVE_AUX,'S')
+//                     loop
+//                  ELSE
+//                      aadd(laSAVE_AUX,'N')
+//                     loop
+//                  ENDIF
+//           elseif laFIELDS[ii] == 'TIPO_PROCESSO'
+//                  lctipo_processo := WGET('TIPO_PROCESSO','C')
+//                  wout(lctipo_processo)
+//                  IF WGET('TIPO_PROCESSO','C') == 'Administrativo'
+//                     aadd(laSAVE_AUX,'A')
+//                     loop
+//                  ELSE
+//                      aadd(laSAVE_AUX,'J')
+//                     loop
+//                  ENDIF 
+//          elseif laFIELDS[ii] == 'ENVIADO_ESOCIAL'
+//                  IF WGET('ENVIADO_ESOCIAL','C') == 'Sim'
+//                     aadd(laSAVE_AUX,'S')
+//                     loop
+//                  ELSE
+//                      aadd(laSAVE_AUX,'N')
+//                     loop
+//                  ENDIF
+            else
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+                  loop
+
+           endif    
+
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+         lcWHERE  := 'NR_PASTA = '+lcNR_PASTA
+         psab_logs(laSAVE,'pasta_esocial',lcWHERE,lcNR_PASTA,'eSocial')
+         if db_replace(laSAVE,lcTABLE,{'NR_PASTA='+lcNR_PASTA}) = -1
+            error_sys(db_error())
+         endif
+      endif
+      wPut('ifREADWRITE',.T.)
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      lcWHERE  := 'NR_PASTA = '+lcNR_PASTA
+      if db_delete('pasta_esocial',lcWHERE)  == -1
+         error_sys(db_error())
+      endif
+      wPut('TITLE','Inclusão eSocial')
+   endif
+        
+   laJOIN   :={{2,'cidade','cidade.CD_GEOCMU = pasta_esocial.CD_GEOCMU'}}
+
+   lafieldsb := {'DISTINCT NR_PASTA','DT_CADASTRO','LOGIN_CADASTRO','INTERFACE_ESOCIAL','TIPO_PROCESSO','pasta_esocial.CD_GEOCMU','cidade.CIDADE','ENVIADO_ESOCIAL','DT_ENVIO','DT_AUXILIAR','ESOCIAL1','ESOCIAL2'}
+   if db_select(laFIELDSB,lcTABLE,laJOIN,{'NR_PASTA='+lcNR_PASTA}) = -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   DB2PUT(laRESULT)
+
+   lcCD_GEOCMU := WGET('CD_GEOCMU','C')  
+
+   IF !EMPTY(lcCD_GEOCMU) 
+      if db_select({'CD_GEOCMU','CIDADE'},'cidade',,{'CD_GEOCMU='+lcCD_GEOCMU}) < 0
+               	error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+     				WPut('CD_GEOCMU',laRESULT[2,1])
+           	WPut('CIDADE',laRESULT[2,2])
+      endif
+   ENDIF
+ 
+   pasta_abas(lcTP_PASTA)
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

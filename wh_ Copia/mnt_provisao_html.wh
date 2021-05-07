@@ -1,0 +1,212 @@
+/*
+Project      : gr5
+Program      : mnt.provisao.html
+Function     : mnt_provisao_html
+Created on   : 26/06/2008
+Descripition : Calcula dados estatisticos para Provisao
+*/
+
+   local ldPERIODO_DE   := WGet('PERIODO_DE','D') as date
+   local lcPERIODO_ATE  := WGet('PERIODO_ATE','D') as date
+   local lnCD_INDICE    := WGet('CD_INDICE','N') as int
+   local lcTP_PASTA     := WGet('TP_PASTA','C') as string
+   local lcFL_PASTA     := WGet('FL_PASTA','C') as string
+   local lcCORRECAO  := alltrim(WGet('DATA_CORRECAO','C')) as string
+   local lcTIPO_PASTA_1 := WGet('TIPO_PASTA_1','C') as string
+   local lpTIPO_PASTA_2 := WGet('TIPO_PASTA_2','C') as string
+   local ldTIPO_PASTA_3 := WGet('TIPO_PASTA_3','C') as string
+   local laPUT := {}
+   local laPUT2 := {}
+
+
+// Combo TIPO da Pasta
+   laPUT := loadcbox_build('pasta_config','TP_PASTA',.T.)
+   for ii := 1 to len(laPUT)
+      laPUT[ii] := alltrim(laPUT[ii])
+   next ii
+          WPut('TIPO_PASTA_1_OPT',laPUT)
+        
+
+// Combo TIPO da Pasta
+   laPUT := loadcbox_build('pasta_config','TP_PASTA',.T.)
+   for ii := 1 to len(laPUT)
+      laPUT[ii] := alltrim(laPUT[ii])
+   next ii
+          WPut('TIPO_PASTA_2_OPT',laPUT)
+ 
+
+// Combo TIPO da Pasta
+   laPUT := loadcbox_build('pasta_config','TP_PASTA',.T.)
+   for ii := 1 to len(laPUT)
+      laPUT[ii] := alltrim(laPUT[ii])
+   next ii
+          WPut('TIPO_PASTA_3_OPT',laPUT)
+
+// Combo Status da Pasta
+//   laPUT := loadcbox_build('pasta_status','FL_PASTA',.T.)
+     laPUT := loadcboxorder_build('pasta_status','FL_PASTA',.T.,'A')
+   for ii := 1 to len(laPUT)
+      laPUT[ii] := alltrim(laPUT[ii])
+   next ii
+         aadd(laPUT2,laPUT[6])
+         aadd(laPUT2,laPUT[2])
+         aadd(laPUT2,laPUT[3])
+         aadd(laPUT2,laPUT[4])
+         aadd(laPUT2,laPUT[5])
+         aadd(laPUT2,laPUT[7])
+         aadd(laPUT2,laPUT[8])
+         aadd(laPUT2,laPUT[9])
+         WPut('FL_PASTA_OPT',laPUT2)
+
+
+//Titulo
+     WPut('TITLE','Calcula Provisão')
+  if upper(WGet('ACTION')) == 'CALC'
+      if empty(ldPERIODO_DE)
+         walert('Digite o período inicial!')
+         get2Put()
+      elseif empty(lcPERIODO_ATE)
+         walert('Digite o período final!')
+         get2Put()
+      elseif lnCD_INDICE == 0
+         walert('Selecione um índice!')
+         get2Put()
+       elseif empty(lcTIPO_PASTA_1)
+         walert('Selecione um tipo de pasta!')
+         get2Put()
+      elseif empty(lcFL_PASTA)
+         walert('Selecione o status da pasta!')
+         get2Put()
+      elseif empty(lcCORRECAO)
+         walert('Digite um Ano Mes (AAAAMM) para aplicar a correcão!')
+         get2Put()
+      else
+         if mkprovisao(ldPERIODO_DE,lcPERIODO_ATE,lnCD_INDICE,lcFL_PASTA,lcCORRECAO,lcTIPO_PASTA_1,lpTIPO_PASTA_2,ldTIPO_PASTA_3)
+            poppro()
+//          walert('Cálculo realizado com sucesso!')
+            else
+            walert('Cálculo não realizado!')
+         endif
+     endif
+  endif
+return
+
+
+/*
+* Data.Criaï¿½o: 15.11.2006
+* Function....: xcmb_fl_pasta()
+* Objetivo....: Carregar os dados do combo TP_PASTA.
+* Parï¿½etros..:
+*    fcTP_PASTA..: Tipo de Pasta
+*    fcACTION....: Aï¿½o vinda do POST
+*
+* Retorno.....: Nenhum
+*/
+static function xcmb_fl_pasta(fcTP_PASTA,fcACTION)
+   local laWHERE  := {} ,;
+         laDEF    := {} ,;
+         laDEFV   := {} ,;
+         laATI    := {} ,;
+         laATIV   := {} ,;
+         laINA    := {} ,;
+         laINAV   := {} ,;
+         laPUTV   := {} ,;
+         laFIELD  := {} ,;
+         laRESULT := {} ,;
+         laPUT    := {} as array
+
+   local lnPOS := 0 ,;
+         liPOS := 0 ,;
+         ii    := 0 ,;
+         jj    := 0 as int
+
+   //Nas Pastas onde existe Aba Resultado, filtra o combo TP_PASTA
+   if psab_find(fcTP_PASTA,'psab.resultado.html') .or. psab_find(fcTP_PASTA,'psab.res.sin.html')
+      if ! empty(alltrim(GetWPut('FL_PASTA')))
+         laWHERE := {'FL_PASTA_STATUS=(select FL_PASTA_STATUS from pasta_status where FL_PASTA='+DLAP+GetWPut('FL_PASTA')+DLAP+')'}
+      else
+         laWHERE := {'FL_PASTA_STATUS='+DLAP+'A'+DLAP}
+      endif
+   endif
+
+   laDEF := {}
+   laDEFV:= {}
+
+   laATI := {}
+   laATIV:= {}
+
+   laINA := {}
+   laINAV:= {}
+
+   laPUT := {}
+   laPUTV:= {}
+
+   laFIELD := structtable(WSet("DB_ACTIVE"),'pasta_status',1,'A')
+   liPOS   := ascan(laFIELD,'FL_ATIVO')
+
+   if liPOS<>0
+      laFIELD:={'FL_PASTA','FL_PASTA_STATUS','FL_DEFAULT','FL_ATIVO'}
+     else
+      laFIELD:={'FL_PASTA','FL_PASTA_STATUS','FL_DEFAULT'}
+   endif
+
+   if db_select(laFIELD,'pasta_status',,laWHERE,{'FL_PASTA_STATUS','FL_PASTA'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   for jj := 2 to len(laRESULT)
+       if liPOS<>0
+          if laRESULT[jj,4] == 'D'
+             aadd(laDEF,laRESULT[jj,1])
+             aadd(laDEFV,laRESULT[jj,1])
+
+           elseif laRESULT[jj,4] == 'I'
+             aadd(laINA,laRESULT[jj,1])
+             aadd(laINAV,laRESULT[jj,1])
+           else
+             aadd(laATI,laRESULT[jj,1])
+             aadd(laATIV,laRESULT[jj,1])
+          endif
+       else
+          aadd(laATI,laRESULT[jj,1])
+          aadd(laATIV,laRESULT[jj,1])
+       endif
+   next jj
+
+   if len(laDEF) == 0
+      aadd(laDEF,'') // Adiciona uma linha vazia no inicio do combo, caso seja solicitado
+      aadd(laDEFV,'0')
+   endif
+
+   for jj=1 to len(laDEF)
+       aadd(laPUT,laDEF[jj])
+       aadd(laPUTV,laDEFV[jj])
+   next jj
+
+   for jj=1 to len(laATI)
+       aadd(laPUT,laATI[jj])
+       aadd(laPUTV,laATIV[jj])
+   next jj
+
+   for jj=1 to len(laINA)
+       aadd(laPUT,'INATIVO - '+laINA[jj])
+       aadd(laPUTV,laINAV[jj])
+   next jj
+
+   if len(laRESULT) > 1
+
+      WPut('FL_PASTA.option',laPUT)
+      WPut('FL_PASTA.optionvalue',laPUTV)
+
+      if fcACTION == 'NEW'
+         lnPOS := ascan(laRESULT,{| x | x[3] =='S'})
+         if lnPOS > 0
+            WPut('FL_PASTA',laRESULT[lnPOS,1])
+         endif
+      endif
+
+   endif
+
+return (nil)
+

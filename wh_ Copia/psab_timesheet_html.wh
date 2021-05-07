@@ -1,0 +1,462 @@
+/*
+
+Project      : isj_398
+Program      : psab.timesheet.html
+Function     : psab_timesheet_html
+Created on   : 28/08/2012   20:00
+Descripition : 
+
+*/
+
+    
+local lcTABLE       := '' ,;
+      lcWHERE       := '' ,;
+      lcWHERE2      := '' as string
+
+private lcTP_PASTA  := ''  
+private lcACTION  := '' 
+      
+local laRES       := {} ,;
+      laRES2      := {} ,;
+      laFIELDS    := {} ,;
+      laFIELDS_AUX:= {} ,;
+      laSAVE      := {} ,; 
+      laJOIN      := {} ,;  
+      laVALIDA    := {} ,;    
+      laRESULTCON := {} as array 
+      
+local ii as int 
+local lnNR_SEQUENCIA:=0
+
+local laAUX := {}
+ 
+      
+lcTABLE       := 'timesheet'
+
+lcACTION      := upper(Wget('ACTION'))
+lcTP_PASTA    := Wget('TP_PASTA','C')
+
+lcWHERE    := 'LOGIN = ' + DLAP + gcLOGIN + DLAP 
+if db_select({'CIP'},'acuser',,{lcWHERE}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchrow()
+
+Wput('CIP',laRES[1])    
+
+
+if len(alltrim(lcTP_PASTA))=0
+   pcORIGEM := 'MENU'
+  else
+   pcORIGEM := 'PSABA'
+endif   
+
+if pcORIGEM == 'PSABA'
+   laVALIDA      := {'DT_INICIO',;
+                     'HR_INICIO',;     
+                     'HR_FIM',;
+                     'ATIVIDADE_RECURSO'}
+                
+endif
+
+if pcORIGEM == 'MENU'
+    
+   laVALIDA      := {'NR_PASTA',;
+                     'DT_INICIO',;
+                     'HR_INICIO',;     
+                     'HR_FIM',;
+                     'ATIVIDADE_RECURSO'}
+                 
+endif                  
+
+
+lcNR_SEQUENCIA := alltrim(WGet('NR_SEQUENCIA','C'))
+
+if empty(lcNR_SEQUENCIA)
+   lcNR_SEQUENCIA := '0'
+endif
+
+
+Wput('TP_PASTA',lcTP_PASTA)
+Wput('LOGIN_CADASTRO',gcLOGIN) 
+
+*** marca em vermelho campos obrigatorios
+init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+if pcORIGEM == 'PSABA'
+   *** cria pesquisa pasta
+   make_psthead(Wget('NR_PASTA','C'),lcTP_PASTA)
+   
+   pasta_abas(lcTP_PASTA)
+   
+   Wput('ifABA',.T.)
+   Wput('ifMENU',.F.)
+   
+   laAUX :=busativ(Wget('NR_PASTA','C')) 
+
+   Wput('ifNOVO',.T.)
+   Wput('ifSAVE',.F.)
+   Wput('ifLOCA',.F.)
+   Wput('ifDELE',.F.)   
+   
+endif
+
+if pcORIGEM == 'MENU'
+   Wput('ifABA',.F.)
+   Wput('ifMENU',.T.)
+   
+   Wput('ifNOVO',.T.)
+   Wput('ifSAVE',.F.)
+   Wput('ifLOCA',.T.)
+   Wput('ifDELE',.F.)
+ 
+endif
+
+if lcACTION == 'NEW' .and. gbWAC_CREATE 
+
+   if pcORIGEM == 'MENU'
+      *** verifica se campos obrigatorios estão com dados
+      verif_reqfield(WSet('_USER_INTERFACE'),{'NR_PASTA'})
+   endif
+
+   if val(Wget('NR_PASTA','C'))>0
+      get2put()
+
+      lcWHERE    := 'NR_PASTA = ' + DLAP + Wget('NR_PASTA','C') + DLAP 
+      if db_select({'TP_PASTA'},'pasta',,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchrow()
+
+      if len(laRES)=0
+         walert('Pasta não localizada.')          
+         Wput('NR_PASTA','')
+      else  
+         
+          
+         if UPPER(alltrim(laRES[1]))<>'OCORRENCIAS' .AND. UPPER(alltrim(laRES[1]))<>'PROJETOS'           
+            walert('Tipo de pasta incorreta.')
+            Wput('NR_PASTA','') 
+          else
+
+            Wput('NR_SEQUENCIA','New')     
+            lcNR_SEQUENCIA := alltrim(WGet('NR_SEQUENCIA','C')) 
+   
+            Wput('ifLIBERADO',.T.)
+   
+            Wput('ifNOVO',.T.)
+            Wput('ifSAVE',.T.)
+            Wput('ifLOCA',.F.)
+            Wput('ifDELE',.F.)         
+            
+            laAUX :=busativ(Wget('NR_PASTA','C'))
+         endif    
+      endif
+     
+      
+     else
+
+      Wput('NR_PASTA','')   
+   endif
+elseif lcACTION = 'ALTER' .and. gbWAC_READ
+
+   if pcORIGEM == 'MENU'
+      laAUX :=busativ(Wget('NR_PASTA','C'))
+   endif    
+  
+   Wput('ifLIBERADO',.T.)
+
+   Wput('ifNOVO',.T.)
+   Wput('ifSAVE',.T.)
+   Wput('ifLOCA',.F.)
+   Wput('ifDELE',.T.) 
+
+   lcWHERE    := 'NR_PASTA = ' +Wget('NR_PASTA','C')  + ' and NR_SEQUENCIA = ' + WGet('NR_SEQUENCIA','C')   
+   
+   laJOIN := {{2,'atividade_recurso','atividade_recurso.ID_ATIVIDADE=timesheet.ID_ATIVIDADE'},;
+              {2,'pfpj','pfpj.CIP=timesheet.CIP'}}
+
+   laFIELDS    := {'NR_PASTA',; 
+                   'NR_SEQUENCIA',;
+                   'timesheet.ID_ATIVIDADE',;
+                   'atividade_recurso.ATIVIDADE_RECURSO',;
+                   'DT_INICIO',;
+                   'HR_INICIO',;
+                   'HR_FIM',;                    
+                   'TEMPO_DEDICADO',;
+                   'OBSERVACAO',;
+                   'timesheet.CIP',;
+                   'pfpj.pfpj as CIP_RECURSO_PFPJ'}
+
+   
+   if db_select(laFIELDS,'timesheet',laJOIN,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   
+   Wput('NR_SEQUENCIA.readonly',.T.)
+   Wput('NR_SEQUENCIA.class','winputreadonly')
+   
+   db2put(laRES) //sobe os dados encontrados para tela
+
+elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+
+    lcWHERE    := 'NR_PASTA = ' + Wget('NR_PASTA','C')  + ' and NR_SEQUENCIA = ' + WGet('NR_SEQUENCIA','C')
+    
+    psab_logdel(Wget('NR_PASTA','C'),'NR_SEQUENCIA',WGet('NR_SEQUENCIA','C'),,'Recursos')
+    
+    if db_delete(lcTABLE,lcWHERE) == -1
+       error_sys(db_error())
+    endif 
+
+    
+elseif lcACTION == 'SEARCH'
+
+   if pcORIGEM == 'MENU'
+      *** verifica se campos obrigatorios estão com dados
+      verif_reqfield(WSet('_USER_INTERFACE'),{'NR_PASTA'})
+   endif
+
+   
+   if val(Wget('NR_PASTA','C'))>0
+      get2put()
+   
+      if pcORIGEM == 'MENU'
+      
+         lcWHERE    := 'NR_PASTA = ' + DLAP + Wget('NR_PASTA','C') + DLAP 
+         if db_select({'TP_PASTA'},'pasta',,{lcWHERE}) == -1
+            error_sys(db_error())
+         endif
+         laRES := db_fetchrow()
+
+         
+         if len(laRES)=0
+            walert('Pasta não localizada.')          
+            Wput('NR_PASTA','')
+         else  
+         
+          
+            if UPPER(alltrim(laRES[1]))<>'OCORRENCIAS' .AND. UPPER(alltrim(laRES[1]))<>'PROJETOS'           
+               walert('Tipo de pasta incorreta.')
+               Wput('NR_PASTA','') 
+             else  
+               Wput('ifLIBERADO',.F.)
+   
+               Wput('ifNOVO',.T.)
+               Wput('ifSAVE',.F.)
+               Wput('ifLOCA',.T.)
+               Wput('ifDELE',.F.)         
+            
+               laAUX :=busativ(Wget('NR_PASTA','C'))
+            endif    
+         endif
+      endif       
+      
+     else
+
+      Wput('NR_PASTA','')   
+   endif
+
+
+
+
+
+
+
+    **lcWHERE    := 'NR_PASTA = ' + lcNR_PASTA
+
+    **if WGet('NR_SEQUENCIA','N')>0
+    ***    lcWHERE    := lcWHERE + ' and timesheet.NR_SEQUENCIA = ' + WGet('NR_SEQUENCIA','C') 
+    **endif        
+  
+    **busca(lcWHERE) 
+
+  
+elseif lcACTION == 'SAVE'
+
+    llERRO := .f.
+        
+    *** verifica se campos obrigatorios estão com dados
+    if ! verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+    
+       Wput('ifLIBERADO',.T.)
+       
+       Wput('ifNOVO',.T.)
+       Wput('ifSAVE',.T.)
+       Wput('ifLOCA',.F.)
+       Wput('ifDELE',.F.)
+       
+       llERRO := .t.
+    endif
+    
+    if ! llERRO 
+     
+       if upper(wGet('NR_SEQUENCIA','C')) == 'NEW'
+          lcNR_SEQUENCIA := 0
+         else
+          lnNR_SEQUENCIA := wGet('NR_SEQUENCIA','N')
+       endif      
+
+       laFIELDS     := {'NR_PASTA',; 
+                        'NR_SEQUENCIA',;      
+                        'ID_ATIVIDADE',;     
+                        'DT_INICIO',;
+                        'HR_INICIO',;     
+                        'HR_FIM',;
+                        'TEMPO_DEDICADO',;
+                        'OBSERVACAO',;
+                        'CIP'}  
+                                                                          
+
+                       
+       laFIELDS_AUX := {}
+       for lnXX := 1 to len(laFIELDS)
+            if laFIELDS[lnXX] == 'NR_SEQUENCIA'
+               aadd(laFIELDS_AUX,lnNR_SEQUENCIA)
+            elseif laFIELDS[lnXX] == 'ID_ATIVIDADE' 
+               aadd(laFIELDS_AUX,busidativ(wGet('ATIVIDADE_RECURSO','C')))  
+            elseif laFIELDS[lnXX] == 'CIP'            
+               aadd(laFIELDS_AUX,wGet('CIP','N'))  
+            else
+               aadd(laFIELDS_AUX,wGet(laFIELDS[lnXX])) 
+            endif   
+       next lnXX 
+       
+       aadd(laSAVE,laFIELDS)
+       aadd(laSAVE,laFIELDS_AUX)      
+      
+       
+       lcWHERE    := 'NR_PASTA = ' + Wget('NR_PASTA','C') + ' and NR_SEQUENCIA = ' + str(lnNR_SEQUENCIA)
+       
+       psab_logs(laSAVE,lcTABLE,lcWHERE,Wget('NR_PASTA','C'),'Timesheet') 
+
+       if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+           error_sys(db_error())
+       endif
+
+       lcACTION:=''
+       
+       if pcORIGEM == 'MENU'
+          Wput('NR_PASTA','') 
+     
+       endif                         
+    endif
+   
+   
+   
+endif
+
+if len(alltrim(Wget('NR_PASTA','C')))>0
+   *** refaz grid
+   lcWHERE    := 'NR_PASTA = ' + Wget('NR_PASTA','C')
+   busca(lcWHERE)
+   ***
+endif
+
+return
+
+******************************
+static function busca(fcWHERE)
+******************************          
+local laJOIN    := {} as array
+local laFIELDS2 := {} as array
+
+laJOIN := {{2,'atividade_recurso','atividade_recurso.ID_ATIVIDADE=timesheet.ID_ATIVIDADE'},;
+           {2,'pfpj','pfpj.CIP=timesheet.CIP'}}
+
+
+laFIELDS2   := {'NR_PASTA',; 
+                'NR_SEQUENCIA',;
+                'timesheet.ID_ATIVIDADE',;
+                'atividade_recurso.ATIVIDADE_RECURSO',;
+                'DT_INICIO',;
+                'HR_INICIO',;
+                'HR_FIM',;                    
+                'TEMPO_DEDICADO',;
+                'OBSERVACAO',;
+                'timesheet.CIP',;
+                'pfpj.pfpj'}                 
+                 
+
+if db_select(laFIELDS2,'timesheet',laJOIN,{fcWHERE}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+aadd(laRES[1],'(row)')
+for ii := 2 to len(laRES)
+    aadd(laRES[ii],'(row)'+wic_action('wicaction_gr5/psab.timesheet.html'+;
+                                      '?NR_PASTA='+str(laRES[ii,1])+;
+                                      '&NR_SEQUENCIA='+str(laRES[ii,2])+;
+                                      '&TP_PASTA='+lcTP_PASTA+; 
+                                      '&ACTION=ALTER'))
+next ii
+WPut('GRID_TIMESHEET',grid_create(laRES))
+
+  
+    
+
+return(nil)
+
+***************************
+function busativ(fnr_pasta)
+***************************
+
+local laAUX1 := {}
+local lcSELECT:='' 
+
+*** BUSCA ATIVIDADES
+lcSELECT:='select distinct'
+lcSELECT:=lcSELECT + ' ocorrencia_recurso.ID_ATIVIDADE,'
+lcSELECT:=lcSELECT + 'atividade_recurso.atividade_recurso' 
+lcSELECT:=lcSELECT + ' from ocorrencia_recurso' 
+lcSELECT:=lcSELECT + ' left join pfpj on pfpj.CIP = ocorrencia_recurso.CIP_RECURSO'
+lcSELECT:=lcSELECT + ' left join acuser on acuser.CIP = pfpj.CIP' 
+lcSELECT:=lcSELECT + ' left join atividade_recurso on atividade_recurso.ID_ATIVIDADE=ocorrencia_recurso.ID_ATIVIDADE'
+lcSELECT:=lcSELECT + ' where ocorrencia_recurso.nr_pasta=' + fnr_pasta
+lcSELECT:=lcSELECT + ' and acuser.LOGIN = ' + DLAP + gcLOGIN + DLAP 
+lcSELECT:=lcSELECT + ' order by atividade_recurso.atividade_recurso'  
+         
+if db_query(lcSELECT) == -1
+   error_sys(db_error())
+endif
+laAUX1 := db_fetchall() 
+   
+*** ALIMENTA COMBOBOX
+laRES := {}
+aadd(laRES,'')
+
+for lnXX := 2 to len(laAUX1)    
+    aadd(laRES,laAUX1[lnXX,2])
+next lnXX
+wPut('ATIVIDADE_RECURSO_OPT',laRES) 
+
+return(laAUX1)
+
+*******************************
+function busidativ(fcatividade)
+*******************************
+
+local laAUX1  := {} 
+local lcSELECT:=''
+local lnid    :=0
+
+*** BUSCA ATIVIDADES
+lcSELECT:='select'
+lcSELECT:=lcSELECT + ' atividade_recurso.ID_ATIVIDADE,'
+lcSELECT:=lcSELECT + 'atividade_recurso.ATIVIDADE_RECURSO' 
+lcSELECT:=lcSELECT + ' from atividade_recurso' 
+lcSELECT:=lcSELECT + ' where atividade_recurso.ATIVIDADE_RECURSO=' + DLAP + fcatividade + DLAP
+if db_query(lcSELECT) == -1
+   error_sys(db_error())
+endif
+laAUX1 := db_fetchrow() 
+if len(laAUX1)=0
+   lnid:=0 
+  else
+   lnid:=laAUX1[1]
+endif  
+return(lnid)
+
+
+

@@ -1,0 +1,148 @@
+/*
+
+Project      : gr5
+Program      : psab.jurisprudencia.html
+Function     : psab_jurisprudencia_html
+Created on   : 14-Oct-2005   11:14:20
+Descripition : Aba Jurisprudência
+Alterado em 31/01/2009 - Eliana inclusao rotina para Lits
+*Chama funcoes : verifica_relacionamento
+*                ver_aba
+*                montar_filho
+*/
+   local lcACTION   := upper(WGet('ACTION','U')),;
+         lcNR_PASTA := WGet('NR_PASTA','C'),;
+         lcTP_PASTA := WGet('TP_PASTA','C'),;
+         lcRelac    := '' ,;
+         lcProgram  := 'psab_jurisprudencia_html' ,;
+         lcTABLE    := '',;
+         lcWherep   := '',;
+         lcWHERE    := '' as string
+   local laFIELDS   := {},;
+         laRESULT   := {},;
+         laSAVE     := {},;
+         laSAVE_AUX := {} as array
+
+   local ii := 0 as int
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   get2Put({'NR_PASTA','TP_PASTA'})
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   pasta_abas(lcTP_PASTA)
+   init_reqfield(WSet('_USER_INTERFACE'))
+
+   lcTABLE  := 'pasta_jurisprudencia'
+   laFIELDS := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   lcWHERE  := 'NR_PASTA='+lcNR_PASTA+' and NR_PASTA_JURISPRUDENCIA='+WGet('NR_PASTA_JURISPRUDENCIA','C')
+   // Glauber 06/01/2011
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+   WPut('DT_CADASTRO',date())
+   WPut('LOGIN',WSet('LOGIN'))
+    mkgedico('pasta_jurisprudencia')
+
+//------------  Verificando relacionamento    -----------------------------------------
+
+   lcRelac:=verifica_relacionamento(lcNR_PASTA,lcTp_pasta)
+//------------ Verificando se Aba pode ser alterada  ------------------------
+
+   if lcRelac = 'F' .or. lcRelac = 'P'
+      llReturn:=Ver_ABA(lcTP_PASTA, lcProgram)
+   endif         
+
+   if lcRelac = 'F' .and. llReturn  
+      walert('Somente Para Consulta - Pasta Pertence a Litsconsorte')
+   endif
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      if verif_reqfield(WSet('_USER_INTERFACE'))
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         next ii
+         if lcRelac = '' .or. lcRelac = 'P' .or. (lcRelac = 'F' .and. llReturn = .f.)      // se .f. posso alterar atraves do filho
+            aadd(laSAVE,laSAVE_AUX)
+            psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Jurisprudência') //Gravar log de alterações da pasta
+            if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+            if lcRelac = 'P' .and. llReturn 
+               laFilho:=Montar_filho(lcNR_PASTA, lcTp_pasta)
+               if len(laFilho) > 0
+                  for ii :=1 to len(lafilho)
+                    laSave[2,1]:=lafilho[ii]
+                    lcWHEREP := 'NR_PASTA='+str(lafilho[ii])+' and NR_PASTA_JURISPRUDENCIA='+WGet('NR_PASTA_JURISPRUDENCIA','C')
+                    if db_replace(laSAVE,lcTABLE,{lcWHEREp}) == -1
+                       error_sys(db_error())
+                    endif
+                  next ii
+               endif
+            endif      
+         endif
+      endif
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      db2Put(db_fetchall())
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+       if lcRelac = '' .or. lcRelac = 'P' .or. (lcRelac = 'F' .and. llReturn = .f.)      // se .f. posso alterar atraves do filho
+          if db_delete(lcTABLE,lcWHERE) == -1
+             error_sys(db_error())
+          endif
+          if lcRelac = 'P' .and. llReturn 
+             laFilho:=Montar_filho(lcNR_PASTA, lcTp_pasta)
+             if len(laFilho) > 0
+                for ii :=1 to len(lafilho)
+                      lcWHEREP  := 'NR_PASTA='+str(laFilho[ii])+' and NR_PASTA_JURISPRUDENCIA='+WGet('NR_PASTA_JURISPRUDENCIA','C')
+                     if db_delete(lcTABLE, lcWherep) == -1
+                         error_sys(db_error())
+                     endif
+                 next ii
+             endif   
+          endif
+       endif
+   endif
+
+   if db_select({'NR_PASTA_JURISPRUDENCIA','DT_CADASTRO','LOGIN'},lcTABLE,,{'NR_PASTA='+lcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      aadd(laRESULT[1],'(row)')
+      for ii := 2 to len(laRESULT)
+         aadd(laRESULT[ii],'(row)'+wic_action('wicaction/psab.jurisprudencia.html'+;
+                                              '?ACTION=ALTER'+;
+                                              '&NR_PASTA='+lcNR_PASTA+;
+                                              '&TP_PASTA='+lcTP_PASTA+;
+                                              '&NR_PASTA_JURISPRUDENCIA='+str(laRESULT[ii,1])))
+      next ii
+      WPut('GRID_JURISPRUDENCIA',grid_create(laRESULT))
+   endif
+   
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

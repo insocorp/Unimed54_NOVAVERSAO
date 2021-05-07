@@ -1,0 +1,135 @@
+
+//
+// Glauber - 05/2016
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+*
+* Glauber - 04/2016
+*
+* Classe...........: RetMkSinistro
+*
+* Objetivo.........: Classe que contém o retorno para operação de marcar sinistro como Judicial.
+*
+* Atributos........:
+*
+*    EXPORT RetEbao
+*    EXPORT SinistroNumero
+*    EXPORT CodigoCobertura
+*    EXPORT CodigoSubCobertura
+*    EXPORT TipoReserva
+*    EXPORT ValorTotalReserva
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*
+*
+* Classes Ligadas..:
+*                    RetornoEbao
+*
+*
+*/
+
+
+CLASS RetMkSinistro
+
+    // Atributos publico
+
+    EXPORT RetEbao
+    EXPORT SinistroNumero
+    EXPORT CodigoCobertura
+    EXPORT CodigoSubCobertura
+    EXPORT TipoReserva
+    EXPORT ValorTotalReserva
+
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()      CLASS RetMkSinistro
+    PROTOTYPE METHOD Destroy()   CLASS RetMkSinistro
+
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS RetMkSinistro
+
+
+    self:RetEbao               := RetornoEbaoNew()
+    self:SinistroNumero        := ''
+    self:CodigoCobertura       := ''
+    self:CodigoSubCobertura    := ''
+    self:TipoReserva           := ''
+    self:ValorTotalReserva     := 0.00
+
+
+
+
+return(self)
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS RetMkSinistro
+
+    self:RetEbao               := nil
+    self:SinistroNumero        := nil
+    self:CodigoCobertura       := nil
+    self:CodigoSubCobertura    := nil
+    self:TipoReserva           := nil
+    self:ValorTotalReserva     := nil
+
+return(nil)
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+

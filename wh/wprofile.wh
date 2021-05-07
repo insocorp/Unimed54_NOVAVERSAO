@@ -1,0 +1,175 @@
+/*
+
+Project      : gr5
+Program      : wprofile
+Function     : wprofile
+Created on   : 07-Jun-2006   14:11:19
+Descripition : Criptografa / Descriptografa WPROFILE
+
+*/
+
+/*function wprofile(lcACTION, lcPASSWD)
+           parametros ...  WPACTION - DECRYPT ou ENCRYPT.
+                           WPPASS   - Senha, no caso da ação ser DECRYPT
+*/
+
+#define BUFFSIZE 4096
+
+//parameters fcACTION
+
+   local lcPASS := '' ,;
+         fcPATH := ''  as string
+
+   if upper(fcACTION) = 'ENCRYPT'
+      wp_encrypt(fcPATH)
+   elseif upper(fcACTION) = 'DECRYPT'
+      ? "Senha: "
+      do while .t.
+         inkey(0)
+         if lastkey() == 0
+            loop
+         elseif lastkey() == 13
+            exit
+         elseif lastkey() == 27
+            lcPASS := ''
+            exit
+         endif
+         lcPASS += chr(lastkey())
+         ?? '*'
+      enddo
+      ? ''
+      if ! empty(lcPASS)
+         wp_decrypt(lcPASS,fcPATH)
+      endif
+   endif
+return
+
+function wp_encrypt(fcPATH)
+   local lcBUFFER := '' ,;
+         lcFILE  := '' ,;
+         lcWPROFILE  := '' ,;
+         lcPATH_WPROFILE := '' as string
+
+   local lhHANDLE
+
+   local liLEN := 0 ,;
+         lnPOS := 0 as int
+
+   local laWSET := {} as array
+
+   lcBUFFER = SPACE(BUFFSIZE)
+   // le arquivo XML
+   lcFILE := "wprofile.ini.xml"
+   wout('Abrindo arquivo XML: ' + lcFILE)
+   lhHANDLE = FOPEN(lcFILE)
+   if FERROR() == 0
+      do while .t.
+         liLEN := fread(lhHANDLE, @lcBUFFER, BUFFSIZE)
+         if liLEN = 0
+            exit
+         elseif liLEN != BUFFSIZE
+            lcWPROFILE += substr(lcBUFFER,1,liLEN)
+         else
+            lcWPROFILE += lcBUFFER
+         endif
+      enddo
+      FCLOSE (lhHANDLE)
+   else
+      wout('Read wprofile: error '+str(ferror()))
+      return(-1)
+   endif
+
+   lcWPROFILE := strtran(lcWPROFILE,chr(13))
+
+  // verifica se tem o WPPASS
+   laWSET := xml2array(lcWPROFILE)
+   lnPOS := ascan(laWSET, {|x| x[1] == 'WPPASS' })
+
+   if lnPOS = 0 .or. empty(laWSET[lnPOS,1])
+      wout('Erro: falta parametro obrigatório WPPASS')
+      return(-1)
+   endif
+   lcFILE := substr(lcFILE,1,len(lcFILE)-4)
+   // Excluindo wprofile.ini
+   wout("Excluindo arquivo criptgrafado: " + lcFILE)
+   FERASE(lcFILE)
+   wout("Gravando arquivo criptografado: " + lcFILE)
+   wout("Arquivo com "+alltrim(str(len(laWSET)))+" parametros")
+   lhHANDLE = fcreate(lcFILE,644)
+   if FERROR() == 0
+      if fwrite(lhHANDLE,wencrypt(lcWPROFILE,;
+        chr(106)+chr(101)+chr(115)+chr(117)+chr(115)+chr(101)+chr(97)+chr(99)+;
+        chr(109)+chr(104)+chr(104)+chr(97)+chr(108)+chr(118)+chr(101)+chr(42))) < 1
+         wout('Save wprofile: error '+str(ferror()))
+         return(-1)
+      endif
+      FCLOSE(lhHANDLE)
+   endif
+
+   lcFILE := lcFILE+'.xml'
+   wout("Excluindo arquivo XML: " + lcFILE)
+   FERASE(lcFILE)
+return(0)
+
+
+function wp_decrypt(fcPASS,fcPATH)
+   local lcBUFFER := '' ,;
+         lcFILE  := '' ,;
+         lcWPROFILE  := '' ,;
+         lcPATH_WPROFILE := '' as string
+
+   local lhHANDLE
+
+   local liLEN := 0 ,;
+         lnPOS := 0 as int
+
+   local laWSET := {} as array
+
+   lcBUFFER = SPACE(BUFFSIZE)
+   // le arquivo XML
+   lcFILE := "wprofile.ini"
+   wout("Abrindo arquivo criptografado: " + lcFILE)
+   lhHANDLE = FOPEN(lcFILE)
+   if FERROR() == 0
+      do while .t.
+         liLEN := fread(lhHANDLE, @lcBUFFER, BUFFSIZE)
+         if liLEN = 0
+            exit
+         elseif liLEN != BUFFSIZE
+            lcWPROFILE += substr(lcBUFFER,1,liLEN)
+         else
+            lcWPROFILE += lcBUFFER
+         endif
+      enddo
+      FCLOSE (lhHANDLE)
+   else
+      wout('Read wprofile: error '+str(ferror()))
+      return(-1)
+   endif
+   lcWPROFILE := wdecrypt(lcWPROFILE,;
+        chr(106)+chr(101)+chr(115)+chr(117)+chr(115)+chr(101)+chr(97)+chr(99)+;
+        chr(109)+chr(104)+chr(104)+chr(97)+chr(108)+chr(118)+chr(101)+chr(42))
+
+  // verifica a WPPASS
+   laWSET := xml2array(lcWPROFILE)
+   lnPOS := ascan(laWSET, {|x| x[1] == 'WPPASS' })
+
+   if !(lnPOS > 0 .and. upper(alltrim(laWSET[lnPOS,2])) == upper(alltrim(fcPASS)))
+      wout('Senha inválida, tente novamente.')
+      return(-1)
+   endif
+
+   lcFILE := lcFILE+'.xml'
+   wout("Gravando arquivo XML: " + lcFILE)
+   lhHANDLE = fcreate(lcFILE,644)
+   if FERROR() == 0
+      if fwrite(lhHANDLE,lcWPROFILE) < 1
+         wout('Save wprofile: error '+str(ferror()))
+         return(-1)
+      endif
+      FCLOSE(lhHANDLE)
+   endif
+   /*lcFILE := substr(lcFILE,1,len(lcFILE)-4)
+   wout("Excluindo arquivo criptgrafado: " + lcFILE)
+   FERASE(lcFILE)*/
+return(0)

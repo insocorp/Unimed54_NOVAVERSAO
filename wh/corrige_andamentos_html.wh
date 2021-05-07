@@ -1,0 +1,31 @@
+/*
+
+Project      : gr5
+Program      : corrige_andamentos.html
+Function     : corrige_andamentos_html.wh
+Created on   : 17-Jul-2009   16:27:00 - Valdimari Martins
+Description  : Popula a tabela Andamentos Last com o último andamento de cada Pasta.
+
+*/
+
+   local  laRES_ANDA := {} ,;
+          laSAVE     := {} as array
+   
+   if db_select({'NR_PASTA','max(NR_ANDAMENTO)'},'pasta_andamento',,,,,{'NR_PASTA'}) == -1
+      error_sys(db_error())
+   endif
+   laRES_ANDA := db_fetchall()
+   
+   for xx := 2 to len(laRES_ANDA)
+      if db_select({'NR_PASTA','ANDAMENTO','DT_ANDAMENTO','TP_ANDAMENTO'},'pasta_andamento',,{'NR_ANDAMENTO = '+str(laRES_ANDA[xx,2])}) == -1
+         error_sys(db_error())
+      endif
+      laSAVE := db_fetchall()
+      
+      if len(laSAVE) > 1
+         if db_replace(laSAVE,'pasta_andamento_last',{'NR_PASTA = '+str(laSAVE[2,1])}) == -1
+            error_sys(db_error())
+         endif
+      endif
+   next xx
+return

@@ -1,0 +1,65 @@
+/*
+
+Project      : gr5
+Program      : convencao.mnt.html
+Function     : convencao_mnt_html
+Created on   : 06/10/2014 11:41:52
+Descripition : Convenção / Acordo Coletivo
+
+*/
+
+   local laPARAM        := {},;
+         laINPUT_OBJ    := {},;
+         laSELECT       := {} as array
+
+   laPARAM := {{'ID_CONVENCAO_ACORDO',''     ,'*'},;
+               {'CONVENCAO_ACORDO'     ,''     ,'*'},;
+               {'FL_ATIVO','',},;
+               {'ACTION'       ,'ALTER',   }}
+
+   laINPUT_OBJ := {{'ID_CONVENCAO_ACORDO',0, ,'Y',   },;
+                   {               , , ,   ,   },;
+                   {'CONVENCAO_ACORDO',0, ,'Y',   },;
+                   {,,,,},;
+                   {'FL_ATIVO',1,,'Y','{"S","I","D"}' }}
+           
+
+   laSELECT := {'ID_CONVENCAO_ACORDO','CONVENCAO_ACORDO','FL_ATIVO'}
+
+   xbp('convencao_acordo',;                                                     //Tabela alvo
+       ,;                                                                  //Joins
+       ,;                                                                  //Where
+       {'CONVENCAO_ACORDO'},;                                             			//Order by
+       ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+       ,;                                                                  //Group by
+       ,;                                                                  //Limit
+       ,;                                                                  //Banco de Dados
+       2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+       'gr5',;                                                             //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;                                           //Programa chamador
+       laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+       ,;                                                                  //Parâmetros para os botões das linhas do grid
+       'convencao.mnt.html',;                                           //Programa que os links/botoes do grid deverao chamar
+       'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+       ,;                                                                  //Retorno java (nil) - usado apenas para Search
+       ,;                                                                  //Campos usados na pesquisa rápida
+       ,;                                                                  //Campos Ocultos
+       laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+       laSELECT ,;                                                         //Campos exibidos no grid
+       laSELECT)                                                           //Campos usados no select
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

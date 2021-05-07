@@ -1,0 +1,545 @@
+/*
+
+Project      : gr5
+Program      : pst.distribuicao_externa.html
+Function     : pst_distribuicao_externa_html
+Created on   : 16-Feb-2007   10:13:08
+Descripition :
+
+*/
+
+    local laRESULT     := {},;
+          laRES        := {},;
+          laSAVE       := {},;
+          laSAVE_AUX   := {},;
+          laJOIN       := {},;
+          laORDER      := {},;
+          laGROUPBY    := {},;
+          laFIELDS2    := {},;
+          laGRID       := {},;
+          laTOTAL      := {},;
+          laFIELDS     := {} as array
+    local lcACTION     := '',;
+          lcREGIAO     := '',;
+          lcSEGUIMENTO := '',;
+          lcZEBRA      := '',;
+          lcNRLTOTAL   := '',;
+          lcWHERE      := '' as string
+    local lnTOTAL      := 0 ,;
+          lnNR_CONTROLE := 0 ,;
+          lnXX          := 0 ,;
+          lnII          := 0 ,;
+          lnCURSOR      := 0 ,;
+          lnNR_ACOES_VAR := 0,;
+          lnALOCACAO_ATUAL_VAR := 0,;
+          lnPC_ALOCACAO_VAR := 0,;
+          lnVAR_ALOCACAO := 0,;
+          lnNRLTOTAL     := 0,;
+          lnYY          := 0 as numeric
+    local lDT_VIG_INI := ctod('') ,;
+          lDT_VIG_FIN := ctod('') as date
+
+
+    lcACTION   := Upper(Wget('ACTION','C'))
+
+    // Verifica as ações
+
+    if lcACTION == 'NEW' // Novo Período
+       Wput('ifPCALOCACAO',.F.)
+       Wput('ifLOCALIZAR',.F.)
+       Wput('ifNOVO',.T.)
+       return
+    elseif lcACTION == 'SEARCH' // Pesquisar Períodos
+           Wput('ifPCALOCACAO',.F.)
+           Wput('ifLOCALIZAR',.T.)
+           Wput('ifNOVO',.F.)
+           laFIELDS   := {'DT_VIGENCIA_INI','DT_VIGENCIA_FIN','NR_CONTROLE'}
+           if db_select(laFIELDS,'pasta_distribuicao_externa_vigencia',,,{'DT_VIGENCIA_INI'},'D') == -1
+              error_sys(db_error())
+           endif
+           laRESULT := db_fetchall()
+           lnCOUNT   := len(laRESULT)-1
+           laPAGINAS := paginacao(lnCOUNT,'','','pst.distribuicao_externa.html')
+           laLIMIT   := param_fetch(laPAGINAS,'LIMIT')
+           if db_select(laFIELDS ,'pasta_distribuicao_externa_vigencia',,,{'DT_VIGENCIA_INI'},'D',,laLIMIT) == -1
+              error_sys(db_error())
+           endif
+           laRESULT := db_fetchall()
+           if len(laRESULT) > 1
+              //Resumo da pesquisa
+              lcCODE := alltrim(str(laLIMIT[1]+1))+'-'
+              if ((len(laRESULT)-1) < (laLIMIT[2]-laLIMIT[1]))
+                 lcCODE += alltrim(str(len(laRESULT)-1))
+              elseif param_fetch(laPAGINAS,'GOTO_PAGE') == param_fetch(laPAGINAS,'NR_PAGES') //lnNR_PAGES
+                 lcCODE += alltrim(str(lnCOUNT))
+              else
+                 lcCODE += alltrim(str(laLIMIT[1]+param_fetch(laPAGINAS,'ROWS_PAGE')))
+              endif
+              lcCODE += ' de '+alltrim(str(lnCOUNT))
+              if lnCOUNT > 1
+                 lcCODE := ' Resultados '+lcCODE+' registros'
+              else
+                 lcCODE := ' Resultado '+lcCODE+' registro'
+              endif
+              wput('RESUME_RESULTSET',lcCODE)
+              aadd(laRESULT[1],'(row)')
+              for lnII := 2 to len(laRESULT)
+                  aadd(laRESULT[lnII],'(row)'+wic_action('wicaction/pst.distribuicao_externa.html'+;
+                                                         '?NR_CONTROLE='+alltrim(str(laRESULT[lnII, db_fetchncol(laRESULT,'NR_CONTROLE')]))+;
+                                                         '&DT_VIGENCIA_INI='+dtoc(laRESULT[lnII, db_fetchncol(laRESULT,'DT_VIGENCIA_INI')])+;
+                                                         '&DT_VIGENCIA_FIN='+dtoc(laRESULT[lnII, db_fetchncol(laRESULT,'DT_VIGENCIA_FIN')])+;
+                                                         '&ACTION=SEL_PERIODO'))
+              next lnII
+              laSAVE := {'DT_VIGENCIA_INI','DT_VIGENCIA_FIN','(row)'}
+              for lnII := 2 to len(laRESULT)
+                  if ! empty(alltrim(laRESULT[lnII,ascan(laRESULT[1],'(row)')]))
+                     aadd(laSAVE,{laRESULT[lnII,ascan(laRESULT[1],'DT_VIGENCIA_INI')],;
+                                  laRESULT[lnII,ascan(laRESULT[1],'DT_VIGENCIA_FIN')],;
+                                  laRESULT[lnII,ascan(laRESULT[1],'(row)')]})
+                  endif
+              next lnII
+              //Remove o Campo NR_CONTROLE do Select caso o mesmo não esteja definido em laRESULT
+              if ascan(laRESULT,'NR_CONTROLE') = 0
+                 lnPOS  := ascan(laRESULT[1],'NR_CONTROLE')
+                 adel(laRESULT[1],lnPOS)
+                 asize(laRESULT[1],len(laRESULT[1])-1)
+                 for ii := 2 to len(laRESULT)
+                    adel(laRESULT[ii],lnPOS)
+                    asize(laRESULT[ii],len(laRESULT[ii])-1)
+                 next ii
+              endif
+              WPut('lstPERIODO',grid_create(laRESULT))
+           endif
+           return
+    elseif lcACTION == 'SAVE'
+           laFIELDS   := {'DT_VIGENCIA_INI','DT_VIGENCIA_FIN','PC_ALOCACAO'}
+
+           // Verifica se os campos obrigatórios estão preenchidos
+
+           if verif_reqfield(WSET('_USER_INTERFACE'),laFIELDS) == .F.
+             get2put()
+             return
+           endif
+
+           // Verifica se as datas estão em intervalos correto
+
+           if Wget('DT_VIGENCIA_INI','D') > Wget('DT_VIGENCIA_FIN','D')
+              WAlert('A data inicial não pode ser maior que a data final.')
+              get2put()
+              return
+           endif
+
+           laFIELDS   := {'DT_VIGENCIA_INI','DT_VIGENCIA_FIN','NR_CONTROLE'}
+           lcWHERE    := 'DT_VIGENCIA_INI = '+ DLAP + Wget('DT_VIGENCIA_INI','DS') + DLAP + ' AND '+;
+                         'DT_VIGENCIA_FIN = '+ DLAP + Wget('DT_VIGENCIA_FIN','DS') + DLAP
+           if Wget('NR_CONTROLE','N') > 0
+              lcWHERE += ' AND NR_CONTROLE <> ' + Wget('NR_CONTROLE','C')
+           endif
+           if db_select(laFIELDS,'pasta_distribuicao_externa_vigencia',,{lcWHERE }) == -1
+              error_sys(db_error())
+           endif
+           laRESULT := db_fetchall()
+           if len(laRESULT) > 1
+              WAlert('Período ja cadastrado.')
+              Wput('ifLOCALIZAR',.F.)
+              Wput('ifNOVO',.F.)
+              lnNR_CONTROLE     := laRESULT[2,ascan(laRESULT[1],'NR_CONTROLE')]
+              lDT_VIG_INI := laRESULT[2,ascan(laRESULT[1],'DT_VIGENCIA_INI')]
+              lDT_VIG_FIN := laRESULT[2,ascan(laRESULT[1],'DT_VIGENCIA_FIN')]
+              Wput('DT_VIGENCIA_INI',lDT_VIG_INI)
+              Wput('DT_VIGENCIA_FIN',lDT_VIG_FIN)
+              Wput('NR_CONTROLE',lnNR_CONTROLE)
+              Monta_Grid_Distribuicao(lnNR_CONTROLE, lDT_VIG_INI, lDT_VIG_FIN )
+              get2put()
+              return
+           endif
+
+           // Executa a gravação na tabela pasta_distribuicao_externa_vigencia
+
+           laSAVE_AUX := {}
+
+           for lnII := 1 to len(laFIELDS)
+               aadd(laSAVE_AUX, Wget(laFIELDS[lnII]))
+           next lnII
+
+           laSAVE := {}
+           aadd(laSAVE,laFIELDS)
+           aadd(laSAVE,laSAVE_AUX)
+           lcWHERE := 'NR_CONTROLE = ' + str(Wget('NR_CONTROLE','N'))
+           if db_replace(laSAVE,'pasta_distribuicao_externa_vigencia',{lcWHERE},) == -1
+              error_sys(db_error())
+           endif
+           if Wget('NR_CONTROLE','N') == 0
+              lnNR_CONTROLE := db_insert_id()
+           else
+              lnNR_CONTROLE := Wget('NR_CONTROLE','N')
+           endif
+           Wput('NR_CONTROLE',lnNR_CONTROLE)
+
+           // Validar a soma dos percentuais de PC_ALOCACAO
+
+           lnII := 1
+           lnXX := 0
+
+           laSAVE := {}
+           while Wget('REGIAO_VAR'+alltrim(transform(lnII,'99999')),'B')
+                 lnXX +=  val(Wget('PC_ALOCACAO_VAR'+alltrim(transform(lnII,'99999')),'C'))
+                 aadd(laSAVE,{'PC_ALOCACAO_VAR'+alltrim(transform(lnII,'99999')),Wget('PC_ALOCACAO_VAR'+alltrim(transform(lnII,'99999')),'C')})
+                 ++lnII
+           enddo
+           if lnXX > 100
+              Walert('A soma total do percentual de alocação não pode ultrapassar 100%')
+              Wput('ifLOCALIZAR',.F.)
+              Wput('ifNOVO',.F.)
+              lnNR_CONTROLE     := Wget('NR_CONTROLE')
+              lDT_VIG_INI := Wget('DT_VIGENCIA_INI')
+              lDT_VIG_FIN := Wget('DT_VIGENCIA_FIN')
+              Wput('DT_VIGENCIA_INI',lDT_VIG_INI)
+              Wput('DT_VIGENCIA_FIN',lDT_VIG_FIN)
+              Wput('NR_CONTROLE',lnNR_CONTROLE)
+              Monta_Grid_Distribuicao(lnNR_CONTROLE, lDT_VIG_INI, lDT_VIG_FIN )
+              //Wput('ifPCALOCACAO',.t.)
+              //get2put()
+              for lnII := 1 to len(laSAVE)
+                  Wput(laSAVE[lnII,1],laSAVE[lnII,2])
+              next lnII
+              return
+           endif
+
+           // Primeiramente apagar os registros existentes
+
+           lcWHERE := 'NR_CONTROLE = '+ alltrim(str(lnNR_CONTROLE))
+
+           if db_delete('pasta_distribuicao_externa',lcWHERE) = -1
+              error_sys(db_error())
+           endif
+
+           // Recuperar dados da lista
+
+           lnII := 1
+           while Wget('REGIAO_VAR'+alltrim(transform(lnII,'99999')),'B')
+                 laSAVE := {{'REGIAO','TP_SEGMENTO','CIP_ESCRITORIO','NR_CONTROLE','PC_ALOCACAO','FL_AUTOMATICO'}}
+                 aadd(laSAVE,{Wget('REGIAO_VAR'+alltrim(transform(lnII,'99999'))),;
+                              Wget('TP_SEGMENTO_VAR'+alltrim(transform(lnII,'99999'))),;
+                              Wget('CIP_ESCRITORIO_VAR'+alltrim(transform(lnII,'99999'))),;
+                              lnNR_CONTROLE,;
+                              Wget('PC_ALOCACAO_VAR'+alltrim(transform(lnII,'99999'))),;
+                              Wget('FL_AUTOMATICO_VAR'+alltrim(transform(lnII,'99999')),'C')})
+
+                 lcWHERE := 'REGIAO = ' + DLAP +Wget('REGIAO_VAR'+alltrim(transform(lnII,'99999'))) + DLAP + ' and '
+                 lcWHERE += ' TP_SEGMENTO = ' + DLAP +Wget('TP_SEGMENTO_VAR'+alltrim(transform(lnII,'99999'))) + DLAP + ' and '
+                 lcWHERE += ' CIP_ESCRITORIO = ' + DLAP +Wget('CIP_ESCRITORIO_VAR'+alltrim(transform(lnII,'99999'))) + DLAP + ' and '
+                 lcWHERE += ' NR_CONTROLE = ' + str(lnNR_CONTROLE)
+                 if db_replace(laSAVE,'pasta_distribuicao_externa',{lcWHERE}) == -1
+                    error_sys(db_error())
+                 endif
+                 ++lnII
+           enddo
+           Wput('ifLOCALIZAR',.F.)
+           Wput('ifNOVO',.F.)
+           lnNR_CONTROLE     := Wget('NR_CONTROLE')
+           lDT_VIG_INI := Wget('DT_VIGENCIA_INI')
+           lDT_VIG_FIN := Wget('DT_VIGENCIA_FIN')
+           Wput('DT_VIGENCIA_INI',lDT_VIG_INI)
+           Wput('DT_VIGENCIA_FIN',lDT_VIG_FIN)
+           //Wput('NR_CONTROLE',lnNR_CONTROLE)
+           Monta_Grid_Distribuicao(lnNR_CONTROLE, lDT_VIG_INI, lDT_VIG_FIN )
+           return
+    elseif lcACTION == 'DELETE'
+
+           lcWHERE := 'NR_CONTROLE = '+ Wget('NR_CONTROLE','C')
+
+           if db_delete('pasta_distribuicao_externa_vigencia',lcWHERE) = -1
+              error_sys(db_error())
+           endif
+
+           if db_delete('pasta_distribuicao_externa',lcWHERE) = -1
+              error_sys(db_error())
+           endif
+
+           // Sempre trazer o último periodo cadastrado como padrão
+
+           laFIELDS   := {'DT_VIGENCIA_INI','DT_VIGENCIA_FIN','NR_CONTROLE'}
+           if db_select(laFIELDS,'pasta_distribuicao_externa_vigencia',,,{'DT_VIGENCIA_INI'},'D') == -1
+              error_sys(db_error())
+           endif
+           laRESULT := db_fetchall()
+           if len(laRESULT) > 1
+              Wput('ifLOCALIZAR',.F.)
+              Wput('ifNOVO',.F.)
+              lnNR_CONTROLE  := laRESULT[2,3]
+              lDT_VIG_INI    := laRESULT[2,1]
+              lDT_VIG_FIN    := laRESULT[2,2]
+              Wput('DT_VIGENCIA_INI',lDT_VIG_INI)
+              Wput('DT_VIGENCIA_FIN',lDT_VIG_FIN)
+              Wput('NR_CONTROLE',lnNR_CONTROLE)
+              Monta_Grid_Distribuicao(lnNR_CONTROLE, lDT_VIG_INI, lDT_VIG_FIN )
+              return
+           endif
+
+    elseif lcACTION == 'SEL_PERIODO'
+           Wput('ifLOCALIZAR',.F.)
+           Wput('ifNOVO',.F.)
+           lnNR_CONTROLE     := Wget('NR_CONTROLE')
+           lDT_VIG_INI := Wget('DT_VIGENCIA_INI')
+           lDT_VIG_FIN := Wget('DT_VIGENCIA_FIN')
+           Wput('DT_VIGENCIA_INI',lDT_VIG_INI)
+           Wput('DT_VIGENCIA_FIN',lDT_VIG_FIN)
+           Wput('NR_CONTROLE',lnNR_CONTROLE)
+           Monta_Grid_Distribuicao(lnNR_CONTROLE, lDT_VIG_INI, lDT_VIG_FIN )
+           return
+    endif
+
+    // Sempre trazer o último periodo cadastrado como padrão
+
+    laFIELDS   := {'DT_VIGENCIA_INI','DT_VIGENCIA_FIN','NR_CONTROLE'}
+    if db_select(laFIELDS,'pasta_distribuicao_externa_vigencia',,,{'DT_VIGENCIA_INI'},'D') == -1
+       error_sys(db_error())
+    endif
+    laRESULT := db_fetchall()
+    if len(laRESULT) > 1
+       Wput('ifLOCALIZAR',.F.)
+       Wput('ifNOVO',.F.)
+       lnNR_CONTROLE  := laRESULT[2,3]
+       lDT_VIG_INI    := laRESULT[2,1]
+       lDT_VIG_FIN    := laRESULT[2,2]
+       Wput('DT_VIGENCIA_INI',lDT_VIG_INI)
+       Wput('DT_VIGENCIA_FIN',lDT_VIG_FIN)
+       Wput('NR_CONTROLE',lnNR_CONTROLE)
+       Monta_Grid_Distribuicao(lnNR_CONTROLE, lDT_VIG_INI, lDT_VIG_FIN )
+       return
+    else
+       Wput('ifPCALOCACAO',.F.)
+       Wput('ifLOCALIZAR',.F.)
+       Wput('ifNOVO',.T.)
+       return
+    endif
+return
+/*
+* Data.Criação.....: 28.02.2007 - Glauber
+* Function.........: Monta_Grid_Distribuicao(pnNR_CONTROLE,pdDT_VIG_INI,pdDT_VIG_FIN )
+* Objetivo.........: Monta a grid de distribuição de um determinado período.
+*
+* Parâmetros.......:
+*    pnNR_CONTROLE.: Número do controle.
+*    pdDT_VIGENCIA_INI..: Data de vigencia inicial.
+*    pdDT_VIGENCIA_FIN..: Data de vigencia final.
+* Retorno..........: nada
+*/
+
+Static Function Monta_Grid_Distribuicao(pnNR_CONTROLE, pdDT_VIG_INI, pdDT_VIG_FIN )
+
+    // Montagem da Grid de Alocação
+
+    Wput('ifPCALOCACAO',.t.)
+
+    laFIELDS2  := {'comarca_regiao.REGIAO',;
+                   'pasta.TP_SEGMENTO',;
+                   'pasta_pfpj_escritorio.CIP as CIP_ESCRITORIO',;
+                   'count(*) as NR_ACOES',;
+                   'pasta_distribuicao_externa.pc_alocacao',;
+                   'pasta_distribuicao_externa.fl_automatico',;
+                   'pasta_pfpj_escritorio.PFPJ'}
+    laJOIN     := {{2,'comarca_regiao','comarca_regiao.COMARCA = pasta.COMARCA'},;
+                   {2,'pasta_pfpj_escritorio','pasta_pfpj_escritorio.NR_PASTA = pasta.NR_PASTA'},;
+                   {2,'pasta_distribuicao_externa','pasta_distribuicao_externa.regiao=comarca_regiao.regiao and '+;
+                                                   'pasta_distribuicao_externa.tp_segmento=pasta.tp_segmento and '+;
+                                                   'pasta_distribuicao_externa.cip_escritorio=pasta_pfpj_escritorio.CIP and '+;
+                                                   'pasta_distribuicao_externa.nr_controle = '+ str(pnNR_CONTROLE)} }
+
+    lcWHERE    := ' (comarca_regiao.REGIAO <> '+DLAP+DLAP+' and comarca_regiao.REGIAO is not null) and'
+    lcWHERE    += ' (pasta.TP_SEGMENTO <> '+DLAP+DLAP+' and pasta.TP_SEGMENTO is not null) and'
+    lcWHERE    += ' (pasta_pfpj_escritorio.CIP <> '+DLAP+DLAP+' and pasta_pfpj_escritorio.CIP is not null)'
+    laGROUPBY  := {'comarca_regiao.REGIAO','pasta.TP_SEGMENTO','pasta_pfpj_escritorio.CIP','pasta_distribuicao_externa.pc_alocacao','pasta_distribuicao_externa.fl_automatico','pasta_pfpj_escritorio.PFPJ'}
+    laORDER    := {'comarca_regiao.REGIAO','pasta.TP_SEGMENTO','pasta_pfpj_escritorio.CIP'}
+
+    if db_select(laFIELDS2,'pasta',laJOIN,{lcWHERE},laORDER,'A',laGROUPBY) == -1
+       error_sys(db_error())
+    endif
+    laRESULT := db_fetchall()
+    if len(laRESULT) > 1
+       laGRID := aclone(laRESULT)
+       aadd(laGRID[1], 'NR_ACOES_DIA')
+       laJOIN := {{2,'comarca_regiao','comarca_regiao.COMARCA = pasta.COMARCA'},;
+                  {2,'pasta_pfpj_escritorio','pasta_pfpj_escritorio.NR_PASTA = pasta.NR_PASTA'}}
+
+       for lnII := 2 to len(laRESULT)
+           lcWHERE   := 'comarca_regiao.REGIAO = '+DLAP +laRESULT[lnII,ascan(laRESULT[1],'REGIAO')]+DLAP +' and '
+           lcWHERE   += 'pasta.TP_SEGMENTO = '+DLAP+laRESULT[lnII,ascan(laRESULT[1],'TP_SEGMENTO')]+DLAP +' and '
+           lcWHERE   += 'pasta_pfpj_escritorio.CIP = ' +DLAP +laRESULT[lnII,ASCAN(laRESULT[1],'CIP_ESCRITORIO')]+DLAP + ' and '
+           lcWHERE   += 'pasta.DT_CADASTRO = '+DLAP+substr(dtoc(date()),7,4)+'-'+substr(dtoc(date()),4,2) + '-' +substr(dtoc(date()),1,2) + DLAP
+           laFIELDS2 := {'count(*) as NR_ACOES_DIA'}
+           laGROUPBY := {'comarca_regiao.REGIAO','pasta.TP_SEGMENTO','pasta_pfpj_escritorio.CIP'}
+           // Alimentação da Coluna NR_ACOES_DIA
+           if db_select(laFIELDS2,'pasta',laJOIN,{lcWHERE},,,laGROUPBY) == -1
+              error_sys(db_error())
+           endif
+           laRES := db_fetchall()
+           if len(laRES) > 1
+              aadd(laGRID[lnII],laRES[2,1])
+           else
+              aadd(laGRID[lnII],0)
+           endif
+       next lnII
+    endif
+
+    // Armazena em um vetor o total de ações por grupo
+
+    lcREGIAO := laGRID[2,ascan(laGRID[1],'REGIAO')]
+    lcSEGMENTO := laGRID[2,ascan(laGRID[1],'TP_SEGMENTO')]
+    laTOTAL := {{'REGIAO','TP_SEGMENTO','TOTAL_GRUPO','ZEBRA'}}
+    lnII := 2
+    lcZEBRA := 'wgridrow'
+    while (lnII <= len(laGRID))
+          lcREGIAO := laGRID[lnII,ascan(laGRID[1],'REGIAO')]
+          lcSEGMENTO := laGRID[lnII,ascan(laGRID[1],'TP_SEGMENTO')]
+          lnTOTAL := 0
+          while (lnII <= len(laGRID)) .and. (laGRID[lnII,ascan(laGRID[1],'REGIAO')] == lcREGIAO .and. laGRID[lnII,ascan(laGRID[1],'TP_SEGMENTO')] == lcSEGMENTO)
+                lnTOTAL += laGRID[lnII,ascan(laGRID[1],'NR_ACOES')]
+                ++lnII
+          enddo
+          if lcZEBRA == 'wgridrow'
+             lcZEBRA := 'wgridrowzebra'
+          else
+             lcZEBRA := 'wgridrow'
+          endif
+          aadd(laTOTAL,{lcREGIAO,lcSEGMENTO,lnTOTAL,lcZEBRA})
+    enddo
+
+    // Alimentação do campo PC_ALOCACAO_ATUAL e PC_VAR_ALOCACAO
+
+    aadd(laGRID[1],'PC_ALOCACAO_ATUAL')
+    aadd(laGRID[1],'PC_VAR_ALOCACAO')
+    for lnII := 2 to len(laGRID)
+        aadd(laGRID[lnII],((laGRID[lnII,ascan(laGRID[1],'NR_ACOES')] / ret_totalacoes(laGRID[lnII,ascan(laGRID[1],'REGIAO')],laGRID[lnII,ascan(laGRID[1],'TP_SEGMENTO')],laTOTAL) ) * 100) )
+        aadd(laGRID[lnII], ((laGRID[lnII,ascan(laGRID[1],'PC_ALOCACAO_ATUAL')] / laGRID[lnII,ascan(laGRID[1],'PC_ALOCACAO')])-1) * 100 )
+    next lnII
+
+    aadd(laGRID[1],'REGIAO_VAR')
+    aadd(laGRID[1],'TP_SEGMENTO_VAR')
+    aadd(laGRID[1],'CIP_ESCRITORIO_VAR')
+    aadd(laGRID[1],'PC_ALOCACAO_VAR')
+    aadd(laGRID[1],'PC_ALOCACAO_ATUAL_VAR')
+    aadd(laGRID[1],'PC_VAR_ALOCACAO_VAR')
+    aadd(laGRID[1],'FL_AUTOMATICO_VAR')
+
+    // Preparação do Array para o Wicdo
+    //Wout('')
+    //debug2(laGRID,,20)
+
+    laSAVE := {}
+    for lnII := 1 to len(laGRID[1])
+        aadd(laSAVE,laGRID[1,lnII])
+    next lnII
+
+    aadd(laSAVE,'ZEBRA')
+    aadd(laTOTAL[1],'lstCOLUNA')
+
+    aadd(laTOTAL[1],'TOTAL_NR_ACOES_VAR')
+    aadd(laTOTAL[1],'TOTAL_PC_ALOCACAO_VAR')
+    aadd(laTOTAL[1],'TOTAL_ALOCACAO_ATUAL_VAR')
+    //aadd(laTOTAL[1],'TOTAL_VAR_ALOCACAO')
+
+    lnII := 2
+    lnCURSOR := 1
+    lnNRLTOTAL := 10000
+    while lnII <= len(laGRID)
+          lcREGIAO := laGRID[lnII,ascan(laGRID[1],'REGIAO')]
+          lcSEGMENTO := laGRID[lnII,ascan(laGRID[1],'TP_SEGMENTO')]
+          lnNR_ACOES_VAR := 0
+          lnALOCACAO_ATUAL_VAR := 0
+          lnPC_ALOCACAO_VAR := 0
+          lnVAR_ALOCACAO := 0
+          laSAVE_AUX := {}
+          laRES := {}
+          aadd(laRES,laSAVE)
+          while (lnII <= len(laGRID)) .and. (laGRID[lnII,ascan(laGRID[1],'REGIAO')] == lcREGIAO .and. laGRID[lnII,ascan(laGRID[1],'TP_SEGMENTO')] == lcSEGMENTO)
+                laSAVE_AUX := {}
+                lcNR_ROW   := alltrim(str(lnCURSOR))
+                lcNRLTOTAL := alltrim(str(lnNRLTOTAL))
+                lnXX := ascan(laTOTAL,{|x|x[1] == lcREGIAO .and. x[2] == lcSEGMENTO})
+                if laTOTAL[lnXX,ascan(laTOTAL[1],'ZEBRA')] == 'wgridrow'
+                   lcZEBRA := 'wgridrow'
+                else
+                   lcZEBRA := 'wgridrowzebra'
+                endif
+                //laGRID[lnII,ascan(laGRID[1],'FL_AUTOMATICO')],;
+                aadd(laRES,{laGRID[lnII,ascan(laGRID[1],'REGIAO')],;
+                            laGRID[lnII,ascan(laGRID[1],'TP_SEGMENTO')],;
+                            laGRID[lnII,ascan(laGRID[1],'CIP_ESCRITORIO')],;
+                            laGRID[lnII,ascan(laGRID[1],'NR_ACOES')],;
+                            laGRID[lnII,ascan(laGRID[1],'PC_ALOCACAO')],;
+                            laGRID[lnII,ascan(laGRID[1],'FL_AUTOMATICO')],;
+                            laGRID[lnII,ascan(laGRID[1],'PFPJ')],;
+                            laGRID[lnII,ascan(laGRID[1],'NR_ACOES_DIA')],;
+                            laGRID[lnII,ascan(laGRID[1],'PC_ALOCACAO_ATUAL')],;
+                            laGRID[lnII,ascan(laGRID[1],'PC_VAR_ALOCACAO')],;
+                            'REGIAO_VAR'+lcNR_ROW,;
+                            'TP_SEGMENTO_VAR'+lcNR_ROW,;
+                            'CIP_ESCRITORIO_VAR'+lcNR_ROW,;
+                            'PC_ALOCACAO_VAR'+lcNR_ROW,;
+                            'PC_ALOCACAO_ATUAL_VAR'+lcNR_ROW,;
+                            'PC_VAR_ALOCACAO_VAR'+lcNR_ROW,;
+                            'FL_AUTOMATICO_VAR'+lcNR_ROW,;
+                            lcZEBRA})
+                WPut('REGIAO_VAR'+lcNR_ROW,laGRID[lnII,ascan(laGRID[1],'REGIAO')])
+                WPut('TP_SEGMENTO_VAR'+lcNR_ROW,laGRID[lnII,ascan(laGRID[1],'TP_SEGMENTO')])
+                WPut('CIP_ESCRITORIO_VAR'+lcNR_ROW,laGRID[lnII,ascan(laGRID[1],'CIP_ESCRITORIO')])
+                WPut('PC_ALOCACAO_VAR'+lcNR_ROW,laGRID[lnII,ascan(laGRID[1],'PC_ALOCACAO')])
+                WPut('PC_VAR_ALOCACAO_VAR'+lcNR_ROW,laGRID[lnII,ascan(laGRID[1],'PC_VAR_ALOCACAO')])
+                WPut('FL_AUTOMATICO_VAR'+lcNR_ROW+'_OPT','S')
+                WPut('FL_AUTOMATICO_VAR'+lcNR_ROW,laGRID[lnII,ascan(laGRID[1],'FL_AUTOMATICO')])
+                //WPut('FL_AUTOMATICO_VAR'+lcNR_ROW,'S')
+                //WPut('FL_AUTOMATICO_VAR'+lcNR_ROW,laGRID[lnII,ascan(laGRID[1],'FL_AUTOMATICO')])
+                lnNR_ACOES_VAR       += laGRID[lnII,ascan(laGRID[1],'NR_ACOES')]
+                lnPC_ALOCACAO_VAR    += laGRID[lnII,ascan(laGRID[1],'PC_ALOCACAO')]
+                lnALOCACAO_ATUAL_VAR += laGRID[lnII,ascan(laGRID[1],'PC_ALOCACAO_ATUAL')]
+                //lnVAR_ALOCACAO       += laGRID[lnII,ascan(laGRID[1],'PC_VAR_ALOCACAO')]
+                ++lnII
+                ++lnCURSOR
+                ++lnNRLTOTAL
+          enddo
+          //wout('')
+          //debug2(laGRID,,20)
+          //Wout('')
+          //debug2(laRES,,20)
+          lnXX := ascan(laTOTAL,{|x|x[1] == lcREGIAO .and. x[2] == lcSEGMENTO})
+          if lnXX > 0
+             aadd(laTOTAL[lnXX],laRES) // Totalizador de ações (nr_acoes)
+             aadd(laTOTAL[lnXX],lnNR_ACOES_VAR) // Totalizador de Ações alocadas (pc_alocacao)
+             aadd(laTOTAL[lnXX], lnPC_ALOCACAO_VAR) // Totalizador de Ações alocadas Atualmente (PC_ALOCACAO_ATUAL)
+             aadd(laTOTAL[lnXX],lnALOCACAO_ATUAL_VAR) // Totalizador de Variação das alocações (PC_VAR_ALOCACAO)
+             //aadd(laTOTAL[lnXX],lnVAR_ALOCACAO)
+          endif
+    enddo
+
+    //WOUT('')
+    //debug2(laTOTAL,,25)
+    Wput('lstLINHA',laTOTAL)
+
+return
+
+/*
+* Data.Criação.....: 17.02.2007 - Glauber
+* Function.........: ret_totalacoes(fcREGIAO,fcFCSEGUIMENTO,faTOTAL)
+* Objetivo.........: Retorna o total de ações de uma determinada região.
+*
+* Parâmetros.......:
+*    fcREGIAO......: Região a Pesquisar.
+*    fcSEGUIMENTO..: String de Pesquisa.
+*    faTOTAL.......: Array a ser feito a pesquisa
+* Retorno..........: o Número total de ações
+*/
+
+Static Function ret_totalacoes(fcREGIAO,fcFCSEGUIMENTO,faTOTAL)
+
+local lnRETORNO := 0,;
+      lnELEMENTO := 0 as numeric
+
+lnELEMENTO :=  ascan(faTOTAL,{|x|x[1] == fcREGIAO .and. x[2] == fcFCSEGUIMENTO} )
+
+if lnELEMENTO > 0
+   lnRETORNO := faTOTAL[lnELEMENTO,ascan(faTOTAL[1],'TOTAL_GRUPO')]
+endif
+
+return(lnRETORNO)

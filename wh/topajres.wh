@@ -1,0 +1,177 @@
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+*
+* Glauber - 04/2018
+*
+* Classe...........: TopAjustaReserva
+*
+* Objetivo.........: Classe de Ajuste de Reserva.
+*
+* Atributos........:
+*
+*
+*
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD Inicializar()
+*    METHOD toString()
+*
+* Classes Ligadas..:
+*
+*    RetornoTop
+*
+*/
+
+
+CLASS TopAjustaReserva
+
+
+/*
+AtualizacaoSinistro
+<sinistro>
+    <sinistro_numero>1009308009157</sinistro_numero>
+    <id_integracao>1</id_integracao> 
+    <tp_integracao>2</tp_integracao>
+    <ramo>86</ramo>
+    <valor_reserva>0,00</valor_reserva>
+    <ajuste_reserva>-0,01</ajuste_reserva>
+    <ajuste_correcao_monetaria>0,00</ajuste_correcao_monetaria>
+    <ajuste_juros>0,00</ajuste_juros>
+    <ajuste_sucumbencia>0,00</ajuste_sucumbencia>
+    <manter_com_acao>S</manter_com_acao> 
+    <encerrar_sinistro>N</encerrar_sinistro> 
+</sinistro>
+*/
+
+    // Atributos publico
+
+    EXPORT SinistroNumero
+    EXPORT IdIntegracao
+    EXPORT TpIntegracao
+    EXPORT Ramo
+    EXPORT ValorReserva
+    EXPORT AjusteReserva
+    EXPORT AjusteCorrecao
+    EXPORT AjusteJuros
+    EXPORT AjusteSucumbencia
+    EXPORT ManterComAcao
+    EXPORT EncerrarSinistro
+
+
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()      CLASS TopAjustaReserva
+    PROTOTYPE METHOD Destroy()   CLASS TopAjustaReserva
+    PROTOTYPE METHOD toString()  CLASS TopAjustaReserva
+
+
+
+
+
+
+/*
+*
+* Glauber - 04/2018
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS TopAjustaReserva
+
+    self:SinistroNumero    := ''
+    self:IdIntegracao      := 0
+    self:TpIntegracao      := 0
+    self:Ramo              := ''
+    self:ValorReserva      := 0
+    self:AjusteReserva     := 0
+    self:AjusteCorrecao    := 0
+    self:AjusteJuros       := 0
+    self:AjusteSucumbencia := 0
+    self:ManterComAcao     := 'S'
+    self:EncerrarSinistro  := 'N'
+
+
+
+return(self)
+
+
+/*
+*
+* Glauber - 04/2018
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS TopAjustaReserva
+
+    self:SinistroNumero    := nil
+    self:IdIntegracao      := nil
+    self:TpIntegracao      := nil
+    self:Ramo              := nil
+    self:ValorReserva      := nil
+    self:AjusteReserva     := nil
+    self:AjusteCorrecao    := nil
+    self:AjusteJuros       := nil
+    self:AjusteSucumbencia := nil
+    self:ManterComAcao     := nil
+    self:EncerrarSinistro  := nil
+
+
+return(nil)
+
+
+
+/*
+*
+* Glauber - 04/2018
+*
+* Metodo....: toString()
+* Objetivo..: Retorna uma String com o formato do objeto.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             string
+*
+*/
+
+METHOD toString() CLASS TopAjustaReserva
+
+
+return "TopAjustaReserva [Retorno:" +;
+       ",SinistroNumero="    + transform(self:SinistroNumero) +;
+       ",IdIntegracao="      + transform(self:IdIntegracao) +;
+       ",TpIntegracao="      + transform(self:TpIntegracao) +;
+       ",Ramo="              + transform(self:Ramo) +;
+       ",ValorReserva="      + transform(self:ValorReserva) +;
+       ",AjusteReserva="     + transform(self:AjusteReserva) +;
+       ",AjusteCorrecao="    + transform(self:AjusteCorrecao) +;
+       ",AjusteJuros="       + transform(self:AjusteJuros) +;
+       ",AjusteSucumbencia=" + transform(self:AjusteSucumbencia) +;
+       ",ManterComAcao="     + transform(self:ManterComAcao) +;
+       ",EncerrarSinistro="  + transform(self:EncerrarSinistro) + "]"

@@ -1,0 +1,231 @@
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+*
+* Glauber - 09/2017
+*
+* Classe...........: ConsultaTop
+*
+* Objetivo.........: Classe de retorno da Consula de Beneficiario.
+*
+* Atributos........:
+*
+*
+*
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD Inicializar()
+*    METHOD toString()
+*
+* Classes Ligadas..:
+*
+*    RetornoTop
+*
+*/
+
+
+CLASS ConsultaTop
+
+    // Atributos publico
+
+    EXPORT Retorno
+    EXPORT SinistroNumero
+    EXPORT IdIntegracao
+    EXPORT TpIntegracao
+    EXPORT Ramo
+    EXPORT StatusSinistro
+    EXPORT FlSinistro
+    EXPORT PagtoPendentes
+    EXPORT PagtoAgendados
+    EXPORT TpSinistro
+    EXPORT Uf
+    EXPORT CnpjCpf
+    EXPORT NomeSegurado
+    EXPORT DataSinistro
+    EXPORT DataBaixa
+    EXPORT NrApolice
+    EXPORT StatusApolice
+    EXPORT NrProposta
+    EXPORT DataContratacao
+    EXPORT DataPagtoPremio
+    EXPORT CdCorretor
+    EXPORT CdEstipulante
+    EXPORT FlCosseguro
+    EXPORT PcCosseguro
+    EXPORT CnpjCongenere
+    EXPORT NrCobertura
+    EXPORT VlLmi
+    EXPORT VlSinistrado
+
+
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()      CLASS ConsultaTop
+    PROTOTYPE METHOD Destroy()   CLASS ConsultaTop
+    PROTOTYPE METHOD toString()  CLASS ConsultaTop
+
+
+
+
+
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS ConsultaTop
+
+    self:Retorno         := RetornoTopNew()
+    self:SinistroNumero  := ''
+    self:IdIntegracao    := 0
+    self:TpIntegracao    := 0
+    self:Ramo            := ''
+    self:StatusSinistro  := ''
+    self:FlSinistro      := ''
+    self:PagtoPendentes  := ''
+    self:PagtoAgendados  := ''
+    self:TpSinistro      := ''
+    self:Uf              := ''
+    self:CnpjCpf         := ''
+    self:NomeSegurado    := ''
+    self:DataSinistro    := Ctod('')
+    self:DataBaixa       := Ctod('')
+    self:NrApolice       := ''
+    self:StatusApolice   := ''
+    self:NrProposta      := ''
+    self:DataContratacao := Ctod('')
+    self:DataPagtoPremio := Ctod('')
+    self:CdCorretor      := ''
+    self:CdEstipulante   := ''
+    self:FlCosseguro     := ''
+    self:PcCosseguro     := 0
+    self:CnpjCongenere   := ''
+    self:NrCobertura     := ''
+    self:VlLmi           := 0.00
+    self:VlSinistrado    := 0.00
+    self:DataContratacao := Ctod('')
+
+
+
+return(self)
+
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS ConsultaTop
+
+    self:Retorno         := nil
+    self:SinistroNumero  := nil
+    self:IdIntegracao    := nil
+    self:TpIntegracao    := nil
+    self:Ramo            := nil
+    self:StatusSinistro  := nil
+    self:FlSinistro      := nil
+    self:PagtoPendentes  := nil
+    self:PagtoAgendados  := nil
+    self:TpSinistro      := nil
+    self:Uf              := nil
+    self:CnpjCpf         := nil
+    self:NomeSegurado    := nil
+    self:DataSinistro    := nil
+    self:DataBaixa       := nil
+    self:NrApolice       := nil
+    self:StatusApolice   := nil
+    self:NrProposta      := nil
+    self:DataContratacao := nil
+    self:DataPagtoPremio := nil
+    self:CdCorretor      := nil
+    self:CdEstipulante   := nil
+    self:FlCosseguro     := nil
+    self:PcCosseguro     := nil
+    self:CnpjCongenere   := nil
+    self:NrCobertura     := nil
+    self:VlLmi           := nil
+    self:VlSinistrado    := nil
+    self:DataContratacao := nil
+
+
+return(nil)
+
+
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: toString()
+* Objetivo..: Retorna uma String com o formato do objeto.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             string
+*
+*/
+
+METHOD toString() CLASS ConsultaTop
+
+
+return "ConsultaTop [[Retorno:" + transform(self:Retorno:toString()) +"]" 
+/*
++;
+       ",SinistroNumero=" + transform(self:SinistroNumero) +;
+       ",IdIntegracao=" + transform(self:IdIntegracao) +;
+       ",TpIntegracao=" + transform(self:TpIntegracao) +;
+       ",Ramo=" + transform(self:Ramo) +;
+       ",StatusSinistro=" + transform(self:StatusSinistro) +;
+       ",FlSinistro=" + transform(self:FlSinistro) +;
+       ",PagtoPendentes=" + transform(self:PagtoPendentes) +;
+       ",PagtoAgendados=" + transform(self:PagtoAgendados) +;
+       ",TpSinistro=" + transform(self:TpSinistro) +;
+       ",Uf=" + transform(self:Uf) +;
+       ",CnpjCpf=" + transform(self:CnpjCpf) +;
+       ",NomeSegurado=" + transform(self:NomeSegurado) +;
+       ",DataSinistro=" + transform(self:DataSinistro) +;
+       ",DataBaixa=" + transform(self:DataBaixa) +;
+       ",NrApolice=" + transform(self:NrApolice) +;
+       ",StatusApolice=" +  transform(self:StatusApolice) +;
+       ",NrProposta=" + transform(self:NrProposta) +;
+       ",DataContratacao=" +transform(self:DataContratacao) +;
+       ",DataPagtoPremio=" + transform(self:DataPagtoPremio) +;
+       ",CdCorretor=" + transform(self:CdCorretor) +;
+       ",CdEstipulante="+transform(self:CdEstipulante) +;
+       ",FlCosseguro="+transform(self:FlCosseguro) +;
+       ",PcCosseguro="+ transform(self:PcCosseguro) +;
+       ",CnpjCongenere="+transform(self:CnpjCongenere) +;
+       ",NrCobertura=" +transform(self:NrCobertura) +;
+       ",VlLmi="+transform(self:VlLmi) +;
+       ",VlSinistrado="+transform(self:VlSinistrado)  + "]"
+*/

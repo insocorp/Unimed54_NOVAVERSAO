@@ -1,0 +1,149 @@
+/*
+
+Project      : gr5
+Program      : aba.socios.pfpj.html
+Function     : aba_socios_pfpj_html
+Created on   : 25-Jan-2006   14:43:52
+Descripition : Aba Sócios de Pessoas
+
+*/
+
+   local lcACTION              := upper(WGet('ACTION','U')),;
+         lcNR_CONTROLE         := WGet('NR_CONTROLE','C'),;
+         lcPFPJ_NATUREZA       := WGet('PFPJ_NATUREZA','C'),;
+         lcCIP_SOCIO_ACIONISTA := WGet('CIP_SOCIO_ACIONISTA','C'),;
+         lcNR_PASTA            := WGet('NR_PASTA','C') ,;
+         lcTP_PASTA            := WGet('TP_PASTA','C') ,;
+         lcTABLE               := '',;
+         lcWHERE               := '' as string
+   local laFIELDS   := {} ,;
+         laRESULT   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laVALIDA   := {} as array
+   local ii := 0 as int
+   local llFL_PASTA := .f. as logical
+
+   laVALIDA := {'CIP_SOCIO_ACIONISTA'}
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+   if ! empty(lcNR_PASTA) .and. ! empty(lcTP_PASTA)
+      llFL_PASTA := .t.
+
+      if db_select({'pfpj.NR_CONTROLE'},'pasta',{{2,'pfpj','pfpj.CIP=pasta.CIP'}},{'pasta.NR_PASTA='+lcNR_PASTA}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         lcNR_CONTROLE := str(laRESULT[1])
+      endif
+   endif
+   if val(lcNR_CONTROLE) == 0
+      walert('Favor Definir uma Pessoa Física/Jurídica em Informações Principais')
+      mnt_pasta_html()
+      return .f.
+   endif
+
+   lcTABLE  := 'pfpj_socios'
+   laFIELDS := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   lcWHERE  := 'NR_CONTROLE='+lcNR_CONTROLE+' and CIP_SOCIO_ACIONISTA='+DLAP+lcCIP_SOCIO_ACIONISTA+DLAP
+   get2Put({'PFPJ_NATUREZA','NR_PASTA','TP_PASTA'})
+
+   carrega_cbox({{'tipoparticipacao','TP_PARTICIPACAO','Y'}})
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      if verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+         //Validação de total
+         if db_select({'sum(PC_PARTICIPACAO)'},;
+                      'pfpj_socios',,;
+                      {'NR_CONTROLE='+lcNR_CONTROLE+' and CIP_SOCIO_ACIONISTA<>'+DLAP+lcCIP_SOCIO_ACIONISTA+DLAP}) == -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchrow()
+         if (laRESULT[1]+WGet('PC_PARTICIPACAO','N')) > 100
+            walert('A soma das Participações não pode ser superior a 100%')
+            get2put()
+         else
+            aadd(laSAVE,laFIELDS)
+            for ii := 1 to len(laFIELDS)
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+            next ii
+            aadd(laSAVE,laSAVE_AUX)
+   
+            pfpj_logs(laSAVE,lcTABLE,lcWHERE,lcNR_CONTROLE,'Sócios') //Gravar log de alterações da pasta
+   
+            if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+         endif
+      endif
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2Put(laRESULT)
+         if ! empty(getwput('CIP_SOCIO_ACIONISTA'))
+            if db_select({'NR_CONTROLE',;
+                          'PFPJ as CIP_SOCIO_ACIONISTA_PFPJ',;
+                          'CNPJ_CPF as CIP_SOCIO_ACIONISTA_CNPJ_CPF',;
+                          'IE as CIP_SOCIO_ACIONISTA_IE',;
+                          'CARGO as CIP_SOCIO_ACIONISTA_CARGO'},'pfpj',,{'CIP='+DLAP+getwput('CIP_SOCIO_ACIONISTA')+DLAP}) == -1
+               error_sys(db_error())
+            endif
+            db2put(db_fetchall())
+            mkgedembed('pfpj','EMBED_PFPJ_MNT_HTML_FOTO',150,130,'GED_EMBED_FOTO','Foto',.f.)
+            mkgedembed('pfpj','EMBED_PFPJ_MNT_HTML_ASSINATURA',150,130,'GED_EMBED_ASSINATURA','Assinatura',.f.)
+
+         endif
+      endif
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      pfpj_logdel(lcNR_CONTROLE,'CIP_SOCIO_ACIONISTA',lcCIP_SOCIO_ACIONISTA,,'Administração')
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+   endif
+
+   if db_select({'pfpj_socios.CIP_SOCIO_ACIONISTA',;
+                 'pfpj.PFPJ',;
+                 'pfpj.CNPJ_CPF',;
+                 'pfpj.IE',;
+                 'pfpj.CARGO',;
+                 'pfpj_socios.TP_PARTICIPACAO',;
+                 'pfpj_socios.PC_PARTICIPACAO'},lcTABLE,;
+                {{2,'pfpj','pfpj_socios.CIP_SOCIO_ACIONISTA=pfpj.CIP'}},;
+                {'pfpj_socios.NR_CONTROLE='+lcNR_CONTROLE},{'pfpj_socios.CIP_SOCIO_ACIONISTA'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      aadd(laRESULT[1],'(row)')
+      for ii := 2 to len(laRESULT)
+         aadd(laRESULT[ii],'(row)'+wic_action('wicaction/aba.socios.pfpj.html'+;
+                                              '?ACTION=ALTER'+;
+                                              '&NR_CONTROLE='+lcNR_CONTROLE+;
+                                              '&NR_PASTA='+lcNR_PASTA+;
+                                              '&TP_PASTA='+lcTP_PASTA+;
+                                              '&PFPJ_NATUREZA='+lcPFPJ_NATUREZA+;
+                                              '&CIP_SOCIO_ACIONISTA='+laRESULT[ii,1]))
+      next ii
+      WPut('GRID_SOCIOS',grid_create(laRESULT))
+   endif
+
+   if llFL_PASTA
+      WPut('ifPASTA',.t.)
+      make_psthead(lcNR_PASTA,lcTP_PASTA)
+      pasta_abas(lcTP_PASTA)
+   else
+      WPut('ifPFPJ',.t.)
+      make_pfpjhead(lcNR_CONTROLE,lcPFPJ_NATUREZA)
+      pfpj_abas(lcPFPJ_NATUREZA,lcNR_CONTROLE)
+   endif
+   WPut('NR_CONTROLE',lcNR_CONTROLE)
+return
+
+
+
+
+

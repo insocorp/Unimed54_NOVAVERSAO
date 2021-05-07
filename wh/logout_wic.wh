@@ -1,0 +1,10 @@
+/*
+
+Project      : gr5
+Program      : logout.wic
+Function     : logout_wic
+Created on   : 21-Nov-2003   10:50:45
+Descripition : Encerra sessão do usuário
+
+*/
+   wlogout()

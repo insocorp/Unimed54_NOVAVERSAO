@@ -1,0 +1,65 @@
+/*
+
+Project      : isj_60
+Program      : sch.sinistro.top.html
+Function     : sch_sinistro_top_html
+Created on   : 27-Sep-2017   09:38:24
+Descripition : 
+
+*/
+
+
+    local objTop := TopSaudeServiceNew() AS Object
+    
+    local objRet AS Object
+    
+    
+    objRet := objTop:Consultar(Wget('NR_SINISTRO'),;
+                               Wget('CD_RAMOSRSN'),;
+                               Wget('SEGURADO_NUMERO'))
+    
+    if (objRet:Retorno:CdRetorno != 0)
+       if (objRet:Retorno:CdRetorno == 20)
+          WPut('SINISTRO_EXISTE','N')
+          WPut('NOME_SEGURADO','*** Dados não encontrado.')
+       else
+          Wput('CD_RETORNO', objRet:Retorno:CdRetorno)
+          Walert('Erro:'+objRet:Retorno:NmRetorno)
+       endif
+       return
+    endif
+
+
+    Wput('FL_STATUSINTERFACE','3')
+    Wput('NR_SINISTRO',objRet:SinistroNumero)
+    Wput('ID_INTEGRACAO',objRet:IdIntegracao)
+    Wput('TP_INTEGRACAO',objRet:TpIntegracao)
+    Wput('CD_RAMOSRSN',objRet:Ramo)
+    Wput('STATUS_SINISTRO',objRet:StatusSinistro)
+    //Wput(FL_SINISTRO','Liberado')
+    Wput('PAGTO_PENDENTES',objRet:PagtoPendentes)
+    Wput('PAGTO_AGENDADOS',objRet:PagtoAgendados)
+    Wput('TP_SINISTRO',objRet:TpSinistro)
+    Wput('UF',objRet:Uf)
+    Wput('CNPJ_CPF',objRet:CnpjCpf)
+    Wput('NOME_SEGURADO',objRet:NomeSegurado)
+    Wput('DT_SINISTRO',objRet:DataSinistro)
+    Wput('DT_BAIXA',objRet:DataBaixa)
+    Wput('NR_APOLICE',objRet:NrApolice)
+    Wput('FL_APOLICE',objRet:StatusApolice)
+    Wput('NR_PROPOSTA',objRet:NrProposta)
+    Wput('DT_CONTRATACAO',objRet:DataContratacao)
+    Wput('CD_CORRETOR',objRet:CdCorretor)
+    Wput('CD_ESTIPULANTE',objRet:CdEstipulante)
+    Wput('FL_COSSEGURO',objRet:FlCosseguro)
+    Wput('PC_COSSEGURO',objRet:PcCosseguro)
+    Wput('CNPJ_CONGENERE',objRet:CnpjCongenere)
+    Wput('NR_COBERTURA',objRet:NrCobertura)
+    Wput('VL_LMI',objRet:VlLmi)
+    Wput('DATA_CONTRATACAO',objRet:DataContratacao)
+    Wput('VL_SINISTRADO',objRet:VlSinistrado)
+
+
+return
+
+

@@ -1,0 +1,181 @@
+/*
+
+Project      : isj_50
+Program      : css.atack.cfg.html
+Function     : css_atack_cfg_html
+Created on   : 28-Jul-2015   09:44:41
+Descripition :
+
+*/
+
+    local lcACTION    := '',;
+          lcCODE      := '' as String
+
+    local laFIELDS    := {},;
+          laSAVE      := {},;
+          laAUX       := {},;
+          laPAGINAS   := {},;
+          laLIMIT     := {},;
+          laRESULT    := {},;
+          laRES       := {} as Array
+
+   local ii           := 0,;
+         lnCOUNT      := 0 as int
+
+
+
+    lcACTION := WGET('ACTION')
+
+
+    laFIELDS := {'CSSATACK_NROCOR',;
+                 'CSSATACK_TEXTO',;
+                 'CSSATACK_SESSAO',;
+                 'EMAIL'}
+
+
+    // Carga do combo
+
+    WPUT('CSSATACK_SESSAO.option', {'Anular a Tentativa e Encerrar a Sessão do Usuário','Somente Informar falha de sessão.','Devolver tela em branco.'})
+    WPUT('CSSATACK_SESSAO.optionvalue', {'E','F','D'})
+
+    if lcACTION == 'SAVE'
+       if (WGET('CSSATACK_NROCOR','N') == 0)
+          WAlert('O número de ocorrências deve ser informado.')
+          get2put()
+       else
+          aadd(laSAVE,laFIELDS)
+          laAUX := {}
+          for ii := 1 to len(laFIELDS)
+              aadd(laAUX,WGET(laFIELDS[ii]))
+          next ii
+          aadd(laSAVE,laAUX)
+
+          if db_replace(laSAVE,'CSS_ATACK_CFG',{'CD_EMPRESA='+DLAP + '1' + DLAP}) == -1
+             error_sys(db_error())
+          endif
+       endif
+
+       if ! empty(WGET('PALAVRA_CHAVE'))
+          if db_replace({{'PALAVRA_CHAVE'},{WGET('PALAVRA_CHAVE')}},'DICIONARIO_CSS_ATACK',{'PALAVRA_CHAVE='+DLAP + WGET('PALAVRA_CHAVE') + DLAP}) == -1
+             error_sys(db_error())
+          endif
+       endif
+    elseif lcACTION == 'DELETE'
+           if ! empty(WGET('PALAVRA_CHAVE'))
+              if db_delete('DICIONARIO_CSS_ATACK','PALAVRA_CHAVE='+DLAP + WGET('PALAVRA_CHAVE') + DLAP) == -1
+                 error_sys(db_error())
+              endif
+           endif
+    elseif lcACTION == 'ALTER'
+           if ! empty(WGET('PALAVRA_CHAVE'))
+              if db_select({'PALAVRA_CHAVE'},'DICIONARIO_CSS_ATACK',,{'PALAVRA_CHAVE='+DLAP + WGET('PALAVRA_CHAVE') + DLAP}) == -1
+                 error_sys(db_error())
+              endif
+              laRES := db_fetchall()
+              if len(laRES) > 1
+                 db2put(laRES)
+              endif
+           endif
+
+    endif
+
+   // RECUPERAR A CONFIGURAÇÃO CORRENTE
+   
+    if db_select(laFIELDS,'CSS_ATACK_CFG',,{'CD_EMPRESA='+DLAP + '1' + DLAP}) == -1
+          error_sys(db_error())
+    endif
+    laRES := db_fetchall()
+    if len(laRES) > 1
+       db2put(laRES)
+    endif
+
+
+   // Rotina para executar paginação do dicionario de dados.
+
+   if db_select({'PALAVRA_CHAVE'},'DICIONARIO_CSS_ATACK',,,{'PALAVRA_CHAVE'}) == -1
+      db_error()
+   endif
+   laRESULT  := db_fetchall()
+   lnCOUNT   := len(laRESULT)-1
+   if lnCOUNT > 0
+      laPAGINAS := paginacao(lnCOUNT,'','','CSS.atack.cfg.html')
+      laLIMIT   := param_fetch(laPAGINAS,'LIMIT')
+
+      if db_select({'PALAVRA_CHAVE'},'DICIONARIO_CSS_ATACK',,,{'PALAVRA_CHAVE'},,,laLIMIT) == -1
+         error_sys(db_error())
+      endif
+
+      laRESULT := db_fetchall()
+
+      // Resumo da pesquisa
+
+      lcCODE := alltrim(str(laLIMIT[1]+1))+'-'
+      if ((len(laRESULT)-1) < (laLIMIT[2]-laLIMIT[1]))
+               lcCODE += alltrim(str(len(laRESULT)-1))
+      elseif param_fetch(laPAGINAS,'GOTO_PAGE') == param_fetch(laPAGINAS,'NR_PAGES') //lnNR_PAGES
+               lcCODE += alltrim(str(lnCOUNT))
+      else
+               lcCODE += alltrim(str(laLIMIT[1]+param_fetch(laPAGINAS,'ROWS_PAGE')))
+      endif
+      lcCODE += ' de '+alltrim(str(lnCOUNT))
+      if lnCOUNT > 1
+         lcCODE := ' Resultados '+lcCODE+' registros'
+      else
+         lcCODE := ' Resultado '+lcCODE+' registro'
+      endif
+      wput('RESUME_RESULTSET',lcCODE)
+
+      if len(laRESULT) > 0
+
+         aadd(laRESULT[1],'(row)')
+         for ii := 2 to len(laRESULT)
+            aadd(laRESULT[ii],'(row)'+wic_action('wicaction/css.atack.cfg.html?ACTION=ALTER'+;
+                                                 '&PALAVRA_CHAVE='+laRESULT[ii,ascan(laRESULT[1],'PALAVRA_CHAVE')]))
+         next ii
+
+         WPut('GRID_DICIONARIO',grid_create(laRESULT))
+      endif
+   endif
+
+
+//wout('<br><b>script:'+str2hexweb('<script>'))
+
+
+// script:%3C%73%63%72%69%70%74%3E
+//        %3C%73%63%72%69%70%74%3E
+
+
+return
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+* Glauber 07/2015
+* Function..: str2hexweb(fcSOURCE)
+* Objetivo..: convert string em hexa padrão encode html
+* Parâmetros:
+*    fcSOURCE: conteudo a ser convertido passado por referencia
+* Retorno...: String convertida.
+*/
+
+function str2hexweb(fcSOURCE)
+
+   local ii       := 0,;
+         xx       := 0  as int
+   local fcTARGET := '' as String
+
+   for xx := 1 to len(fcSOURCE)
+       fcTARGET += '%' + num2hex(asc(substr(fcSOURCE,xx,1)))
+   next xx
+return(fcTARGET)
+
+

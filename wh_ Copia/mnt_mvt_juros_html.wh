@@ -1,0 +1,224 @@
+/*
+
+Project      : gr5
+Program      : mnt.mvt.juros.html
+Function     : mnt_mvt_juros_html
+Created on   : 09-May-2006   15:40:49
+Descripition : Lançamento de Juros Por Indices de reajuste.
+
+*/
+
+   local lcACTION      := '' ,;
+         lcWHERE       := '' ,;
+         lcTABLE       := '' ,;
+         lcCD_INDICE   := '' ,;
+         lcNR_CONTROLE := '' ,;
+         lcVALIDA      := '' ,;
+         lcAM_INICIO   := '' ,;
+         lcAM_FIM      := '' as string
+
+   local laRESULT   := {} ,;
+         laFIELDS   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laVALIDA   := {} as array
+
+   local ii    := 0 ,;
+         lnPOS := 0 as int
+
+   local llERROR := .f. as logical
+
+   lcACTION       := upper(WGet('ACTION','C'))
+   lcCD_INDICE    := WGet('CD_INDICE','C')
+   lcNR_CONTROLE  := WGet('NR_CONTROLE','C')
+   if val(lcNR_CONTROLE) == 0
+       lcNR_CONTROLE := '0'
+   endif
+   lcTABLE        := 'mvt_indice_juros'
+   lcWHERE        := 'CD_INDICE = '+lcCD_INDICE+' and NR_CONTROLE = '+lcNR_CONTROLE
+   laFIELDS       := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+
+   /* Campos obrigatórios
+   * Formato do array abaixo
+   * 1 - Campo para captura da informação no HTML - WGet()
+   * 2 - Parte do label a exibir em caso de erro, está inf. e capturado do Wictrix
+   */
+   laVALIDA := {'AM_INICIO'}
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+   /* Combo*/
+   WPut('FL_JUROS.option',{'Simples','Composto'})
+   WPut('FL_JUROS.optionvalue',{'S','C'})
+   WPut('TITLE','Juros')
+
+   if db_select({'CD_INDICE','NM_INDICE'},'indice_reajuste',,{'CD_INDICE='+lcCD_INDICE}) == -1
+      error_sys(db_error())
+   endif
+
+   db2put(db_fetchall())
+
+   if lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 0
+         db2Put(laRESULT)
+      endif
+   elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+       //Validação padrão
+       if ! verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+          llERROR := .t.
+       endif
+
+       lcAM_INICIO := WGet('AM_INICIO','C')
+       lcAM_FIM    := WGet('AM_FIM','C')
+       if empty(lcAM_FIM)
+          lcAM_FIM := '999999'
+       endif
+
+       //Validações de Data
+       if ! llERROR
+          if (lcAM_INICIO > lcAM_FIM) .and. ! empty(lcAM_FIM)
+             walert('Data inicial não pode ser maior que final')
+             get2put()
+             llERROR := .t.
+          endif
+       endif
+
+       if ! llERROR
+          if len(lcAM_INICIO) < 6 .or. (val(right(lcAM_INICIO,2)) < 1 .or. val(right(lcAM_INICIO,2)) > 12)
+             walert('Ano Mes Inicio inválido. Formato correto: AAAAMM')
+             get2put()
+             llERROR := .t.
+          endif
+       endif
+
+       if ! llERROR
+          if lcAM_FIM <> '999999'
+             if len(lcAM_FIM) < 6 .or. (val(right(lcAM_FIM,2)) < 1 .or. val(right(lcAM_FIM,2)) > 12)
+                walert('Ano Mes Fim inválido. Formato correto: AAAAMM')
+                get2put()
+                llERROR := .t.
+             endif
+          endif
+       endif
+
+       //Validação de periodo
+       if ! llERROR
+          if db_select({'AM_INICIO','AM_FIM'},;
+                       'mvt_indice_juros',,;
+                       {'CD_INDICE='+lcCD_INDICE,'NR_CONTROLE <> '+lcNR_CONTROLE},;
+                       {'AM_INICIO'}) == -1
+             error_sys(db_error())
+          endif
+          laRESULT := db_fetchall()
+          llERROR  := .f.
+
+          for ii := 2 to len(laRESULT)
+             lcAUX  := laRESULT[ii,1]
+             lcAUX2 := laRESULT[ii,2]
+             if empty(lcAUX2)
+                lcAUX2 := '999999'
+             endif
+
+             //Verifica se na Data inicio existe algum periodo iniciando ou terminando
+             if lcAM_INICIO >= lcAUX .and. lcAM_INICIO <= lcAUX2
+                walert('Juros ja definido para período!\nVerifique a Data Inicial.')
+                get2put()
+                llERROR := .t.
+                exit
+             endif
+             //Verifica se na Data fim existe algum periodo iniciando ou terminando
+             if lcAM_FIM >= lcAUX .and. lcAM_FIM <= lcAUX2
+                walert('Juros ja definido para período!\nVerifique a Data Final.')
+                get2put()
+                llERROR := .t.
+                exit
+             endif
+          next ii
+
+          if ! llERROR
+             aadd(laSAVE,laFIELDS)
+             for ii := 1 to len(laFIELDS)
+                aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+             next ii
+             aadd(laSAVE,laSAVE_AUX)
+             if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+                error_sys(db_error())
+             endif
+             if db_select({'distinct am_ref'},'markup') == -1
+	      	  	 error_sys(db_error())
+			  	 endif
+   		    laRECALC_DATAS := db_fetchall()
+		       for jj := 2 to len(laRECALC_DATAS)
+                if laRECALC_DATAS[jj,1] >= lcAM_INICIO
+              	    mkmarkup(val(lcCD_INDICE),laRECALC_DATAS[jj,1])
+                endif
+     			 next jj
+          endif
+       endif
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+       if db_delete(lcTABLE,lcWHERE) = -1
+          error_sys(db_error())
+       endif
+       if db_select({'distinct am_ref'},'markup') == -1
+       	 error_sys(db_error())
+	    endif
+   	 laRECALC_DATAS := db_fetchall()
+       for jj := 2 to len(laRECALC_DATAS)
+          if laRECALC_DATAS[jj,1] >= lcAM_INICIO
+           	mkmarkup(val(lcCD_INDICE),laRECALC_DATAS[jj,1])
+          endif
+       next jj
+   endif
+
+   if db_select({'mvt_indice_juros.NR_CONTROLE',;
+                 'mvt_indice_juros.AM_INICIO',;
+                 'mvt_indice_juros.AM_FIM',;
+                 'mvt_indice_juros.PC_JUROS',;
+                 'mvt_indice_juros.FL_JUROS'},;
+                 lcTABLE,,;
+                {'mvt_indice_juros.CD_INDICE='+lcCD_INDICE},;
+                {'mvt_indice_juros.AM_INICIO'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 0
+      aadd(laRESULT[1],'(row)')
+      for ii := 2 to len(laRESULT)
+         aadd(laRESULT[ii],'(row)wicaction/mnt.mvt.juros.html?ACTION=ALTER'+;
+                        '&CD_INDICE='+lcCD_INDICE+;
+                        '&NR_CONTROLE='+str(laRESULT[ii,db_fetchncol(laRESULT,'NR_CONTROLE')]))
+         lnPOS := db_fetchncol(laRESULT,'FL_JUROS')
+         if laRESULT[ii,lnPOS] == 'C'
+            laRESULT[ii,lnPOS] := 'Composto'
+         elseif laRESULT[ii,lnPOS] == 'S'
+            laRESULT[ii,lnPOS] := 'Simples'
+         endif
+      next ii
+
+      /* Remove coluna NR_CONTROLE da Grid */
+      lnPOS := ascan(laRESULT[1],'NR_CONTROLE')
+      if lnPOS > 0
+         adel(laRESULT[1],lnPOS)
+         asize(laRESULT[1],len(laRESULT[1])-1)
+         for ii := 2 to len(laRESULT)
+            adel(laRESULT[ii],lnPOS)
+            asize(laRESULT[ii],len(laRESULT[ii])-1)
+         next ii
+      endif
+      WPut('GRID_PST_JUROS',grid_create(laRESULT))
+   endif
+return
+
+
+
+
+
+
+
+
+
+
+

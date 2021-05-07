@@ -1,0 +1,285 @@
+/*
+Project      : gr5
+Program      : gem_isj_indenizacoes.html
+Function     : gem_isj_indenizacoes_html
+Created on   : 4/9/2009 11:34:32  Hélio
+Descripition : Envio de dados das "Indenizações" do sistema ISJ para o e-Vida e Top Saúde 
+*/
+
+    WSet('_USER_INTERFACE','none.wic')
+
+    local lcXML      := '' ,;
+          lcWHERE    := '' ,;
+          lcFILEOUT  := '' ,;
+          lcTABLE    := 'pasta_seguro',;
+          lcRAMO     := '' ,;
+          lcSini     := '' ,;
+          lcStatus   := '3' ,;
+          lcHORAINI  := time() ,;
+          lcTABLEINT := 'seq_interfaces',;
+          lcTIPO_REGISTRO := ' ' ,;  
+          lcCip      := ' ' as string
+
+    local ii       := 0 ,;
+          lnHAND   := 0 ,;
+          lnValor  := 0 ,;
+          lnIdInt  := 1 ,;
+          lnSEQ    := 0 ,;
+          jj       := 0 as int
+
+    local lnV_A   := 0 ,; 
+          lnV_R_C := 0 ,;
+          lnV_C   := 0 ,;
+          lnV_J   := 0 ,;
+          lnV_S   := 0 ,;
+          lnVSuc  := 0 ,;
+          lnV_P   := 0 as numeric
+
+    local laXML       := {},;
+          laFIELDS    := {},;
+          laRESULT    := {},;
+          laJOIN      := {},;
+          laFIELDSINT := {},;
+          laWHEREINT  := {},;
+          laRES_INT   := {},;
+          laSAVEINT   := {} as array
+          
+    local ldDIAINI := date() ,;
+          ldDTpag  := ctod('') as date
+
+    laJOIN := {{2,'pasta_pedidos'            , 'pasta_pedidos.NR_CONTROLE_SEGURO = pasta_seguro.NR_CONTROLE'},;
+               {2,'pasta_detal_pedidos'      , 'pasta_detal_pedidos.NR_CONTROLE  = pasta_pedidos.NR_CONTROLE'},;
+               {2,'mvt_despesa'              , 'mvt_despesa.NR_CONTROLE_SEGURO   = pasta_seguro.NR_CONTROLE'},;
+               {2,'mvt_despesa_pagamento'    , 'mvt_despesa_pagamento.NR_DESPESA = mvt_despesa.NR_DESPESA AND mvt_despesa_pagamento.NR_CONTROLE = pasta_seguro.NR_CONTROLE'},;
+               {2,'pfpj'                     , 'pfpj.NR_CONTROLE                 = pasta_seguro.NR_CONTROLE'},;
+               {2,'pasta_deposito'           , 'pasta_deposito.NR_CONTROLE       = pasta_seguro.NR_CONTROLE'},;
+               {2,'pasta_seguro_beneficiario', 'pasta_seguro.NR_CONTROLE         = pasta_seguro_beneficiario.NR_CONTROLE'}}
+
+    laFIELDS := {'DISTINCT pasta_seguro.NR_SINISTRO',;
+                 'CASE ' + ; 
+                     'WHEN pasta_deposito.TP_DEPOSITO LIKE '+DLMT+'%JUDICIAL%'+DLMT+' THEN '+DLMT+'S'+DLMT + ;
+                     'WHEN pasta_deposito.TP_DEPOSITO IS NULL THEN '+DLMT+' '+DLMT + ;
+                     'ELSE '+DLMT+'N'+DLMT + ;
+                  'END AS TP_DEPOSITO'             ,;
+                 'CASE ' +;
+                     'WHEN mvt_despesa.FORMA_PAGAMENTO LIKE '+DLMT+ '%Cheque%' +DLMT+' THEN '+DLMT+'1'+DLMT +;
+                     'WHEN mvt_despesa.FORMA_PAGAMENTO LIKE '+DLMT+ '%Débito em Conta%' +DLMT+' THEN '+DLMT+'2'+DLMT +;
+                     'WHEN mvt_despesa.FORMA_PAGAMENTO NOT IN ('+DLMT+ '%Cheque%' +DLMT+','+DLMT+ '%Débito em Conta%' +DLMT+') THEN '+DLMT+'3'+DLMT +;
+                     'WHEN mvt_despesa.FORMA_PAGAMENTO IS NULL THEN '+DLMT+' '+DLMT +;
+                  'END AS FORMA_PAGAMENTO'          ,;
+                 'mvt_despesa.CIP_FAVORECIDO'       ,;
+                 'CASE ' +;
+                     'WHEN pfpj.PFPJ_NATUREZA LIKE '+DLMT+'%Física%'  +DLMT+' THEN '+DLMT+'1'+DLMT +;
+                     'WHEN pfpj.PFPJ_NATUREZA LIKE '+DLMT+'%Jurídica%'+DLMT+' THEN '+DLMT+'2'+DLMT +;
+                     'ELSE '+DLMT+' '+DLMT+;
+                  'END AS PFPJ_NATUREZA'            ,;
+                 'pfpj.PFPJ'                        ,;
+                 'pfpj.CNPJ_CPF'                    ,;
+                 'pfpj.ENDERECO'                    ,;
+                 'pfpj.NR_ENDERECO'                 ,;
+                 'pfpj.EXTRA_ENDERECO'              ,;             
+                 'pfpj.BAIRRO'                      ,;                     
+                 'pfpj.CIDADE'                      ,;                     
+                 'pfpj.UF'                          ,;                         
+                 'pfpj.PAIS'                        ,;                       
+                 'pfpj.CEP'                         ,;                        
+                 'pfpj.CD_BANCO'                    ,;                   
+                 'pfpj.BANCO_AGENCIA'               ,;              
+                 'pfpj.BANCO_CONTA'                 ,;                
+                 'mvt_despesa_pagamento.VL_PAGO'    ,;
+                 'pasta_detal_pedidos.VL_RISCO_CALC',;   
+                 'pasta_detal_pedidos.VL_JUROS'     ,;    
+                 'pasta_detal_pedidos.VL_CORRECAO'  ,; 
+                 'pasta_detal_pedidos.DT_MOVTO_PED' ,;
+                 'mvt_despesa.CD_GRP_DESPESA'       ,;
+                 'pasta_seguro.NR_CONTROLE'         ,;
+                 'pasta_seguro.CIP_SEGURADO'        ,;
+                 'pasta_seguro_beneficiario.CIP_BENEFICIARIO' ,;
+                 'pasta_pedidos.PEDIDO_PROCESSO' ,;
+                 'CASE '+; 
+                    'WHEN pasta_seguro.CD_RAMOSRSN IN ('+DLMT+'77'+DLMT+', '+DLMT+'81'+DLMT+', '+DLMT+'82'+DLMT+', '+DLMT+'90'+DLMT+', '+DLMT+'93'+DLMT+','+DLMT+'99'+DLMT+') THEN '+DLMT+'EVIDA'+DLMT+;
+                    'WHEN pasta_seguro.CD_RAMOSRSN IN ('+DLMT+'86'+DLMT+', '+DLMT+'87'+DLMT+') THEN '+DLMT+'TOP'+DLMT +;
+                    'ELSE '+DLMT+'   '+DLMT+;  //'TOP'
+                  'END AS SIS_RAMO',; 
+                 'pfpj.CIP',;
+                 'mvt_despesa_pagamento.DT_PAGAMENTO'}
+
+    lcWHERE := ' pasta_pedidos.PEDIDO_PROCESSO LIKE ' +DLMT+ 'Sucumb_ncia de Condena__o' +DLMT // 'Sucumb_ncia de Condena__o'
+    lcWHERE += ' AND pasta_detal_pedidos.DT_MOVTO_PED IS NOT NULL'
+    lcWHERE += ' AND mvt_despesa_pagamento.DT_PAGAMENTO IS NULL'
+    lcWHERE += ' AND ( pasta_detal_pedidos.FL_INTERFACEGEM = '+DLMT+'N'+DLMT
+    lcWHERE += '  OR pasta_detal_pedidos.FL_INTERFACEGEM IS NULL )'     // Filtra os não(N) atualizados
+    lcWHERE += ' AND ( pasta_pedidos.FL_INTERFACEGEM = '+DLMT+'N'+DLMT  
+    lcWHERE += '  OR pasta_pedidos.FL_INTERFACEGEM IS NULL )'   // Filtra os não(N) atualizados
+
+    If db_select( laFIELDS,lcTABLE,laJOIN,{lcWHERE},{'SIS_RAMO' ,'pasta_seguro.NR_SINISTRO', 'pasta_detal_pedidos.DT_MOVTO_PED', 'pfpj.CIP'}) == -1
+       db_error()
+    Endif
+
+    laRESULT := db_fetchall()
+
+    If len(laRESULT) > 1
+    
+       For jj := 1 to 2
+          
+          lcWHERE := ''
+          lcSini  := Alltrim(laRESULT[02,db_fetchncol(laRESULT,'NR_SINISTRO')])
+          ldDTpag := laRESULT[02,db_fetchncol(laRESULT,'DT_MOVTO_PED')]
+          lcCip   := laRESULT[02,db_fetchncol(laRESULT,'CIP')]
+          
+          lcRAMO  := If(jj == 1, 'EVIDA', 'TOP')
+          
+          ii := 0
+         
+          For ii := 2 to len(laRESULT)
+          
+             If lcSini  == Alltrim(laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')]) .and. ;
+                ldDTpag == laRESULT[ii,db_fetchncol(laRESULT,'DT_MOVTO_PED')] .and. ;
+                lcCip   == laRESULT[ii,db_fetchncol(laRESULT,'CIP')]
+                       
+                lnV_S := lnV_S + (laRESULT[ii,db_fetchncol(laRESULT,'VL_RISCO_CALC')]) ;
+                               + (laRESULT[ii,db_fetchncol(laRESULT,'VL_CORRECAO')])   ;
+                               + (laRESULT[ii,db_fetchncol(laRESULT,'VL_JUROS')])
+          
+                lnV_R_C := lnV_R_C + (laRESULT[ii,db_fetchncol(laRESULT,'VL_RISCO_CALC')])
+                lnV_C   := lnV_C   + (laRESULT[ii,db_fetchncol(laRESULT,'VL_CORRECAO')])
+                lnV_J   := lnV_J   + (laRESULT[ii,db_fetchncol(laRESULT,'VL_JUROS')])
+                
+                lnV_P   := lnV_P   + (laRESULT[ii,db_fetchncol(laRESULT,'VL_PAGO')])
+          
+          
+                If !(ii+1 > len(laRESULT))
+          
+                   Loop
+                Endif
+             
+             Else
+                             
+                lcSini  := Alltrim(laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')])
+                ldDTpag := laRESULT[ii,db_fetchncol(laRESULT,'DT_MOVTO_PED')]
+                lcCip   := laRESULT[ii,db_fetchncol(laRESULT,'CIP')]
+                
+                ii--
+             Endif
+             
+             If lcRAMO != laRESULT[ii,db_fetchncol(laRESULT,'SIS_RAMO')]
+             
+                lnV_S := lnV_R_C := lnV_C := lnV_J := lnV_P := 0 
+                Loop
+             Endif
+                
+             lcTIPO_REGISTRO := ' '
+
+             If     laRESULT[ii,db_fetchncol(laRESULT,'CIP_SEGURADO')] == '3'
+                lcTIPO_REGISTRO := '3'
+                
+             ElseIf laRESULT[ii,db_fetchncol(laRESULT,'CIP_BENEFICIARIO')] == '4'
+                lcTIPO_REGISTRO := '4'
+                
+             ElseIf laRESULT[ii,db_fetchncol(laRESULT,'CIP_BENEFICIARIO')] == '5'
+                lcTIPO_REGISTRO := '5'
+             Endif
+
+             aadd(laXML, {'sinistro_numero='         , laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')]    })   //<sinistro_numero="1009308009157">
+             aadd(laXML, {'id_integracao='           , StrZero(lnIdInt++, 4)                                })   //<id_integracao valor="1"/> 		(seqüencial)
+             aadd(laXML, {'tp_integracao='           , "3"                                                  })   //<tp_integracao valor="3"/>
+             aadd(laXML, {'deposito_judicial='       , laRESULT[ii,db_fetchncol(laRESULT,'TP_DEPOSITO')]    })   //<deposito_judicial="N"/>
+             aadd(laXML, {'forma_pgto='              , laRESULT[ii,db_fetchncol(laRESULT,'FORMA_PAGAMENTO')]})   //<forma_pgto="3"/>   (1=cheque, 2=débito em conta ou  3=OP)
+             aadd(laXML, {'cod_pessoa='              , laRESULT[ii,db_fetchncol(laRESULT,'CIP_FAVORECIDO')] })   //<cod_pessoa="123456"/>
+             aadd(laXML, {'tipo_pessoa='             , laRESULT[ii,db_fetchncol(laRESULT,'PFPJ_NATUREZA')]  })   //<tipo_pessoa="2"/>   (1=Física e 2=Jurídica)
+             aadd(laXML, {'nm_favorecido='           , laRESULT[ii,db_fetchncol(laRESULT,'PFPJ')]           })   //<nm_favorecido="Fulano de Tal"/>
+             aadd(laXML, {'cnpj_cpf_favorecido='     , laRESULT[ii,db_fetchncol(laRESULT,'CNPJ_CPF')]       })   //<cnpj_cpf_favorecido="123456789012345"/>
+             aadd(laXML, {'tipo_registro='           , lcTIPO_REGISTRO                                      })   //<tipo_registro="3"/>  (3=Segurado, 4=Beneficiário e 5=Prestador Serviços)
+             aadd(laXML, {'endereco='                , laRESULT[ii,db_fetchncol(laRESULT,'ENDERECO')]       })   //<endereco="Al. Santos/>
+             aadd(laXML, {'numero='                  , laRESULT[ii,db_fetchncol(laRESULT,'NR_ENDERECO')]    })   //<numero="366"/>
+             aadd(laXML, {'complemento='             , laRESULT[ii,db_fetchncol(laRESULT,'EXTRA_ENDERECO')] })   //<complemento="5º andar"/>  (opcional)
+             aadd(laXML, {'bairro='                  , laRESULT[ii,db_fetchncol(laRESULT,'BAIRRO')]         })   //<bairro="Cerqueira Cesar"/>
+             aadd(laXML, {'cidade='                  , laRESULT[ii,db_fetchncol(laRESULT,'CIDADE')]         })   //<cidade="São Paulo"/>
+             aadd(laXML, {'uf='                      , laRESULT[ii,db_fetchncol(laRESULT,'UF')]             })   //<uf="SP"/>
+             aadd(laXML, {'pais='                    , laRESULT[ii,db_fetchncol(laRESULT,'PAIS')]           })   //<pais="Brasil"/>
+             aadd(laXML, {'cep='                     , laRESULT[ii,db_fetchncol(laRESULT,'CEP')]            })   //<cep="01419901"/>
+             aadd(laXML, {'banco='                   , laRESULT[ii,db_fetchncol(laRESULT,'CD_BANCO')]       })   //<banco="409"/>
+             aadd(laXML, {'agencia='                 , laRESULT[ii,db_fetchncol(laRESULT,'BANCO_AGENCIA')]  })   //<agencia="7620"/>
+             aadd(laXML, {'conta='                   , laRESULT[ii,db_fetchncol(laRESULT,'BANCO_CONTA')]    })   //<conta="1234567"/>
+             aadd(laXML, {'valor_pgto='              , lnV_P                                                })   //<valor_pgto="2.200,00"/>
+             aadd(laXML, {'valor_indenização='       , lnV_R_C                                              })   //<valor_indenização="1.000,00"/>
+             aadd(laXML, {'valor_juros='             , lnV_J                                                })   //<valor_juros="500,00"/>
+             aadd(laXML, {'valor_correção_monetaria=', lnV_C                                                })   //<valor_correção_monetaria="500,00"/>
+             aadd(laXML, {'valor_sucumbencia='       , lnV_S                                                })   //<valor_sucumbencia="200,00"/>
+             aadd(laXML, {'data_pgto='               , laRESULT[ii,db_fetchncol(laRESULT,'DT_MOVTO_PED')]   })   //<data_pgto="20080131"/>
+             aadd(laXML, {'cod_grupo_despesa='       , laRESULT[ii,db_fetchncol(laRESULT,'CD_GRP_DESPESA')] })   //<cod_grupo_despesa="2"/>
+             
+             If len(lcWHERE) > 0
+                lcWHERE += ', '
+             Endif
+             
+             lcWHERE += alltrim(str(laRESULT[ii,db_fetchncol(laRESULT,'NR_CONTROLE')]))
+             
+             lnV_R_C := lnV_C := lnV_J := lnV_S := lnV_P := 0
+            
+          Next ii                                                                                                
+
+          lcXML := array2xml(laXML)
+          
+          If len(lcXML) < 1      // manda arquivo em branco quando ñ há dados
+             lcXML := Space(100)
+          Endif
+          
+          // Gerando arquivo de exportacao
+          
+          lnHAND := fcreate('RETPAG' + lcRAMO + 'INDE' + dtos(date()) + '_' + dtos(date()) + strtran(time(),':','') + '.TXT', 0)
+          If lnHAND > 0
+             if FWrite(lnHAND,lcXML) <= 0
+                wout("Erro na gravação do arquivo.")
+                return(.f.)
+             endif
+             fclose(lnHAND)
+             
+             lcStatus := '1'  //Atualiza seq_interfaces - processo OK
+          Else
+          
+             wout("Problemas na criacao do arquivo: " + 'RETPAG' + lcRAMO + 'INDE' + dtos(date()) + '_' + dtos(date()) + strtran(time(),':','') + '.TXT')
+             lcStatus := '2'  //Atualiza seq_interfaces - erro no processo
+          Endif
+          
+          laXML := {}
+          
+          lnIdInt := 1
+
+       Next jj                                                                                                
+
+       If lcStatus == '1'  //Atualiza seq_interfaces - processo OK
+          lcWHERE := 'pasta_detal_pedidos.NR_CONTROLE in (' + lcWHERE + ')'
+         // if db_update({{"FL_INTERFACEGEM"},{'S'}},'pasta_detal_pedidos',{lcWHERE}) == -1
+         //    wout("Erro Update -> "+db_error())
+         // endif
+       
+          lcWHERE := 'pasta_pedidos.NR_CONTROLE in (' + lcWHERE + ')'
+         // if db_update({{"FL_INTERFACEGEM"},{'S'}},'pasta_pedidos',{lcWHERE}) == -1
+         //    wout("Erro Update -> "+db_error())
+         // endif
+
+       Endif
+
+    Else
+    
+       wout("Sem Conteudo para gravação do arquivo.")
+       lcStatus := '2'  //Atualiza seq_interfaces - erro no processo
+    Endif
+        
+    //Atualizar Interfaces - seq_interfaces  
+
+    laFIELDSINT := structtable(WSet("DB_ACTIVE"),lcTABLEINT,1,'N')                      
+    laWHEREINT  := {"PROGRAM = 'gem_isj_indenizacoes_html'"}                                      
+    if db_select(laFIELDSINT, lcTABLEINT,,laWHEREINT) == -1                             
+       error_sys(db_error())                                                            
+    endif                                                                               
+    laRES_INT := db_fetchrow()                                                          
+    lnSEQ     := laRES_INT[2] + 1                                                     
+    aadd(laSAVEINT,laFIELDSINT)                                                         
+    aadd(laSAVEINT,{laRES_INT[1],lnSEQ, ldDIAINI, lcHORAINI, date(), time(), lcStatus})      
+    if db_replace(laSAVEINT,lcTABLEINT,laWHEREINT) == -1                                
+       error_sys(db_error())                                                            
+    endif
+
+Return

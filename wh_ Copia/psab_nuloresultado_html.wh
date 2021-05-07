@@ -1,0 +1,578 @@
+/*
+
+Project      : gr5
+Program      : psab.nuloresultado.html
+Function     : psab_nuloresultado_html
+Created on   : 09-Sep-2008   16:14:01
+Descripition : Aba Resultados IBI
+
+*/
+
+   local lcACTION     := '' ,;
+         lcWHERE      := '' ,;
+         lcTABLE      := '' ,;
+         lcNR_PASTA   := '' ,;
+         lcTP_PASTA   := '' ,;
+         lcNR_ROW     := '' ,;
+         lcVAR        := '' ,;
+         lcUSUARIO    := '' ,;
+         lcCONTNOVO   := '' ,;
+         lcCONTALT    := '' ,;
+         lcWFIELD     := '' ,;
+         lcHORA       := '' ,;
+         lcABA        := '' ,;
+         lcINST       := '' as string
+   local laFIELDS        := {} ,;
+         laFIELDS_AUX    := {} ,;
+         laPUT           := {} ,;
+         laRESULT        := {} ,;
+         laSAVE          := {} ,;
+         laSAVE_AUX      := {} ,;
+         laWICDO         := {} ,;
+         laCAMPOSENCERRA := {} ,;
+         laWHEREENCERRA  := {} ,;
+         laVL_INDICE     := {} ,;
+         laVALIDA        := {} as array
+   local ii    := 0 ,;
+         xx    := 0 ,;
+         yy    := 0 ,;
+         lnPOS := 0 as int
+
+   local lnVL_TT_RESULTADO := -0.01 as numeric
+
+   local llERROR := .f. as logical
+   if valtype(plFL_SINISTRO) <> 'L'
+      plFL_SINISTRO := .f.
+   endif
+           
+   lcACTION   := upper(alltrim(WGet('ACTION','C')))
+   lcTP_PASTA := wGet('TP_PASTA','C')
+   lcNR_PASTA := wGet('NR_PASTA','C')
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   if plFL_SINISTRO
+      lcTABLE := 'pasta_resultado_pedidos_sinistro'
+
+      if psab_find(lcTP_PASTA,'psab.seg.cont.sinistro.html')
+         WPut('ifSINISTRO',.t.)
+      else
+         WPut('ifSEM_SINISTRO',.t.)
+      endif
+   else
+      lcTABLE := 'pasta_resultado_pedidos'
+   endif
+
+   WPut('RESUMODECISAO_ROWS',5)
+
+   //WPut('MOTIVO_ENCERRAMENTO.label.style.color','#FF0000')
+   //WPut('MOTIVO_ENCERRAMENTO.label.style.font-weight','bold')
+
+   carrega_cbox({{'motivo_encerramento','MOTIVO_ENCERRAMENTO','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+
+   //Combo Resultado Processo
+   
+   if db_select({'FL_RESULTADO_PROCESSO'},'resultado_processo',,{'TP_PASTA='+DLAP+lcTP_PASTA+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      aadd(laPUT,'')
+      for ii := 2 to len(laRESULT)
+         aadd(laPUT,laRESULT[ii,1])
+      next ii
+      WPut('FL_RESULTADO_PROCESSO_OPT',laPUT)
+      laPUT := {}
+   endif
+   //Combo Tipo de Baixa
+   if db_select({'TP_BAIXA'},'pasta_tp_baixa',,{'TP_PASTA='+DLAP+lcTP_PASTA+DLAP},{'TP_BAIXA'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      aadd(laPUT,'')
+      for ii := 2 to len(laRESULT)
+         aadd(laPUT,laRESULT[ii,1])
+      next ii
+      WPut('TP_BAIXA_OPT',laPUT)
+      laPUT := {}
+   endif
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+
+   if plFL_SINISTRO
+      pedproc_sin_resultado(val(lcNR_PASTA),lcTP_PASTA)
+   else
+      pedproc_resultado(val(lcNR_PASTA))
+   endif
+
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   pasta_abas(lcTP_PASTA)
+   init_reqfield(WSet('_USER_INTERFACE'),{'MOTIVO_ENCERRAMENTO'})
+
+   laFIELDS     := {'FL_PASTA',;
+                    'FL_RESULTADO_PROCESSO',;
+                    'TP_BAIXA',;
+                    'VL_RESULTADO',;
+                    'DT_RESULTADO',;
+                    'DT_ARQUIVAMENTO',;
+                    'RESUMODECISAO',;
+                    'DT_DECISAO_1INST',;
+                    'DT_DECISAO_2INST',;
+                    'DT_DECISAO_3INST',;
+                    'MOTIVO_ENCERRAMENTO',;
+                    'DT_ENCERRAMENTO'}
+   laFIELDS_AUX := {'pasta.FL_PASTA',;
+                    'pasta_status.FL_PASTA_STATUS',;
+                    'pasta.FL_RESULTADO_PROCESSO',;
+                    'pasta.TP_BAIXA',;
+                    'pasta.VL_RESULTADO',;
+                    'pasta.DT_RESULTADO',;
+                    'pasta.DT_ARQUIVAMENTO',;
+                    'pasta.RESUMODECISAO',;
+                    'pasta.DT_DECISAO_1INST',;
+                    'pasta.DT_DECISAO_2INST',;
+                    'pasta.DT_DECISAO_3INST',;
+                    'pasta.DT_ENCERRAMENTO',;
+                    'pasta.MOTIVO_ENCERRAMENTO'}
+
+   // Glauber 06/01/2011
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+   if lcACTION = 'SAVE' .and. gbWAC_WRITE
+      /* Salvando os Pedidos */
+      ii       := 1
+      lcNR_ROW := '1'
+      lcVAR    := 'VAR_PEDIDO_PROCESSO1'
+      do while WGet(lcVAR,'B')
+         laSAVE := {{'NR_INSTANCIA','FL_RESULTADO_PEDIDO','VL_RESULTADO'}}
+         aadd(laSAVE,{WGet('VAR_NR_INSTANCIA'+lcNR_ROW,'N'),;
+                      WGet('VAR_FL_RESULTADO_PEDIDO'+lcNR_ROW,'C'),;
+                      WGet('VAR_VL_RESULTADO'+lcNR_ROW,'N')})
+
+         lcWHERE  := 'NR_PASTA='+lcNR_PASTA
+         lcWHERE  += ' and NR_INSTANCIA='+WGet('VAR_NR_INSTANCIA'+lcNR_ROW,'C')
+
+         if plFL_SINISTRO
+            lcWHERE  += ' and NR_CONTROLE='+str(WGet('VAR_NR_CONTROLE'+lcNR_ROW,'N'))
+         else
+            lcWHERE  += ' and PEDIDO_PROCESSO='+DLAP+WGet('VAR_PEDIDO_PROCESSO'+lcNR_ROW,'C')+DLAP
+         endif
+
+         psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Resultado')
+
+         if db_update(laSAVE,lcTABLE,{lcWHERE}) == -1
+            error_sys(db_error())
+         endif
+
+         ii++
+         lcNR_ROW := alltrim(str(ii))
+         lcVAR    := 'VAR_PEDIDO_PROCESSO'+lcNR_ROW
+      enddo
+
+      if WGet('FL_PASTA_ACTION') == 'E'
+         aadd(laVALIDA,'MOTIVO_ENCERRAMENTO')
+      endif
+
+      /* Salva campos na pasta */
+      if verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+         laSAVE := {}
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            if laFIELDS[ii] == 'FL_PASTA'
+               if WGet('FL_PASTA_ACTION','C') == 'A'
+                  if db_select({'FL_PASTA'},'pasta_status',,{'FL_PASTA_STATUS='+DLAP+'A'+DLAP+' and FL_DEFAULT='+DLAP+'S'+DLAP}) == -1
+                     error_sys(db_error())
+                  endif
+                  laRESULT := db_fetchrow()
+                  if len(laRESULT) > 0
+                     aadd(laSAVE_AUX,laRESULT[1])
+                  else
+                     walert('Não existe um status padrão para "Ativo" cadastrado no sistema!\nA Pasta não pode ser ativada.')
+                     get2put()
+                     llERROR := .t.
+                     exit
+                  endif
+
+               elseif WGet('FL_PASTA_ACTION','C') == 'E'
+                  if db_select({'FL_PASTA'},'pasta_status',,{'FL_PASTA_STATUS='+DLAP+'E'+DLAP+' and FL_DEFAULT='+DLAP+'S'+DLAP}) == -1
+                     error_sys(db_error())
+                  endif
+                  laRESULT := db_fetchrow()
+                  if len(laRESULT) > 0
+                     aadd(laSAVE_AUX,laRESULT[1])
+                  else
+                     walert('Não existe um status padrão para "Encerrado" cadastrado no sistema!\nA Pasta não pode ser encerrada.')
+                     get2put()
+                     llERROR := .t.
+                     exit
+                  endif
+               else
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+               endif
+            elseif laFIELDS[ii] == 'MOTIVO_ENCERRAMENTO'
+               if WGet('FL_PASTA_ACTION','C') == 'A'
+                  aadd(laSAVE_AUX,'')
+               else
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+               endif
+
+            elseif laFIELDS[ii] == 'DT_ENCERRAMENTO'
+               if WGet('FL_PASTA_ACTION','C') == 'A'
+                  aadd(laSAVE_AUX,ctod(''))
+               elseif WGet('FL_PASTA_ACTION','C') == 'E'
+                  aadd(laSAVE_AUX,date())
+               else
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+               endif
+
+            else
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+            endif
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+
+         if plFL_SINISTRO .and. ! llERROR
+             if ! valida1_vl_resultado(WGet('VL_RESULTADO','N'),lcNR_PASTA)
+               llERROR := .t.
+            else
+               llERROR := .f.
+            endif
+        
+         endif
+         // Verifica se existe regras para encerramento da pasta
+         if ! valida1result()
+               llERROR := .t.
+         else
+               llERROR := .f.
+         endif
+
+         if ! llERROR
+            lcWHERE  := 'NR_PASTA='+lcNR_PASTA
+            psab_logs(laSAVE,'pasta',lcWHERE,lcNR_PASTA,'Resultado')
+
+            if db_update(laSAVE,'pasta',{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+         endif
+      endif
+   /*
+   elseif lcACTION == 'ENCERRAR'
+      WPut('DT_ENCERRAMENTO',dtoc(date()))
+      if empty(WGet('MOTIVO_ENCERRAMENTO'))
+         WAlert('O campo Motivo de Encerramento é de preenchimento obrigatório.')
+      else
+         laCAMPOSENCERRA := {'FL_PASTA','MOTIVO_ENCERRAMENTO','DT_ENCERRAMENTO'}
+         laWHEREENCERRA := {'NR_PASTA='+lcNR_PASTA}
+         laSAVE := {}
+         laSAVE_AUX :={'E',WGet('MOTIVO_ENCERRAMENTO'), date()}
+         aadd(laSAVE, laCAMPOSENCERRA)
+         aadd(laSAVE, laSAVE_AUX)
+         if db_update(laSAVE,'pasta',laWHEREENCERRA) == -1
+            error_sys(db_error())
+         endif
+         lcCONTNOVO := 'Pasta Encerrada. Motivo do Encerramento:'+WGet('MOTIVO_ENCERRAMENTO')
+         lcUSUARIO := WSet('LOGIN')
+         lcWFIELD := 'FL_PASTA'
+         lcCONTANT := ''
+         ldDATAALTERA := date()
+         lcHORA := TIME()
+         lcABA := 'Resultado'
+         laSAVE := {}
+         aadd(laSAVE, {'NR_PASTA','LOGIN','WFIELD','CONTEUDO_ANTERIOR',;
+                       'CONTEUDO_NOVO','DT_ALTERACAO','HR_ALTERACAO',;
+                       'LOCAL_ALTERACAO'})
+         aadd(laSAVE, {lcNR_PASTA, lcUSUARIO,lcWFIELD, lcCONTANT,;
+              lcCONTNOVO,ldDATAALTERA,lcHORA, lcABA})
+         if db_insert(laSAVE,'pasta_log_altera') == -1
+            error_sys(db_error())
+         endif
+      endif
+   elseif lcACTION == 'ATIVAR'
+      laCAMPOSENCERRA := {'FL_PASTA','MOTIVO_ENCERRAMENTO','DT_ENCERRAMENTO'}
+      laWHEREENCERRA := {'NR_PASTA='+lcNR_PASTA}
+      laSAVE := {}
+      laSAVE_AUX :={'A',' ', ctod('')}
+      aadd(laSAVE, laCAMPOSENCERRA)
+      aadd(laSAVE, laSAVE_AUX)
+      if db_update(laSAVE,'pasta',laWHEREENCERRA) == -1
+         error_sys(db_error())
+      endif
+      lcCONTNOVO := 'Pasta Ativada.'
+      lcUSUARIO := WSet('LOGIN')
+      lcWFIELD := 'FL_PASTA'
+      lcCONTANT := ''
+      ldDATAALTERA := date()
+      lcHORA := TIME()
+      lcABA := 'Resultado'
+      laSAVE := {}
+      aadd(laSAVE, {'NR_PASTA','LOGIN','WFIELD','CONTEUDO_ANTERIOR',;
+                    'CONTEUDO_NOVO','DT_ALTERACAO','HR_ALTERACAO',;
+                    'LOCAL_ALTERACAO'})
+      aadd(laSAVE, {lcNR_PASTA, lcUSUARIO,lcWFIELD, lcCONTANT,;
+           lcCONTNOVO,ldDATAALTERA,lcHORA, lcABA})
+      if db_insert(laSAVE,'pasta_log_altera') == -1
+         error_sys(db_error())
+      endif
+   */
+   endif
+
+   /* Dados da Pasta */
+   if db_select(laFIELDS_AUX,'pasta',{{2,'pasta_status','pasta_status.FL_PASTA=pasta.FL_PASTA'}},{'pasta.NR_PASTA='+lcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      // Verificação do status da pasta e habilitação dos botões correspondentes
+      lnPOS := ascan(laRESULT[1],'FL_PASTA_STATUS')
+      if lnPOS > 0
+         if upper(laRESULT[2,lnPOS]) == 'E'
+	         WPut('ifATIVA',.t.)
+	         WPut('ifENCERRA',.f.)
+   	   elseif upper(laRESULT[2,lnPOS]) == 'A'
+	         WPut('ifATIVA',.f.)
+	         WPut('ifENCERRA',.t.)
+         else
+	         WPut('ifATIVA',.f.)
+	         WPut('ifENCERRA',.f.)
+	      endif
+      endif
+
+      db2put(laRESULT)
+      ii := mlcount(laRESULT[2,db_fetchncol(laRESULT,'RESUMODECISAO')])
+      if ii > 5
+         WPut('RESUMODECISAO_ROWS',ii)
+      endif
+
+      if llERROR
+         get2put()
+      endif
+   endif
+
+   /* Selecionando os pedidos */
+   if plFL_SINISTRO
+      if db_select({'pasta_resultado_pedidos_sinistro.NR_CONTROLE',;
+                    'pasta_resultado_pedidos_sinistro.PEDIDO_PROCESSO',;
+                    'pasta_resultado_pedidos_sinistro.NR_INSTANCIA',;
+                    'pasta_resultado_pedidos_sinistro.NR_CONTROLE_SEGURO',;
+                    'pasta_seguro.NR_SINISTRO',;
+                    'pasta_resultado_pedidos_sinistro.FL_RESULTADO_PEDIDO',;
+                    'pasta_resultado_pedidos_sinistro.VL_RESULTADO'},;
+                    lcTABLE,;
+                    {{2,'pasta_seguro','pasta_seguro.NR_CONTROLE=pasta_resultado_pedidos_sinistro.NR_CONTROLE_SEGURO'+;
+                                       ' and pasta_seguro.NR_PASTA=pasta_resultado_pedidos_sinistro.NR_PASTA'}},;
+                    {'pasta_resultado_pedidos_sinistro.NR_PASTA='+lcNR_PASTA},;
+                    {'pasta_resultado_pedidos_sinistro.NR_INSTANCIA',;
+                     'pasta_resultado_pedidos_sinistro.PEDIDO_PROCESSO'}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         laPUT := loadcbox_build('resultado_pedido','FL_RESULTADO_PEDIDO',.t.)
+
+         for xx := 1 to 3
+            lnVL_TT_RESULTADO := 0
+            lcINST            := alltrim(str(xx))+'INST'
+            laWICDO           := {{'VAR_NR_CONTROLE',;
+                                   'VAR_PEDIDO_PROCESSO',;
+                                   'VAR_NR_INSTANCIA',;
+                                   'VAR_FL_RESULTADO_PEDIDO',;
+                                   'VAR_VL_RESULTADO',;
+                                   'PEDIDO_PROCESSO',;
+                                   'NR_CONTROLE_SEGURO',;
+                                   'NR_SINISTRO'}}
+            for ii := 2 to len(laRESULT)
+               if laRESULT[ii,db_fetchncol(laRESULT,'NR_INSTANCIA')] == xx
+                  lcNR_ROW := alltrim(str(ii-1))
+
+                  lnVL_TT_RESULTADO  += round(laRESULT[ii,db_fetchncol(laRESULT,'VL_RESULTADO')],2)
+
+                  aadd(laWICDO,{'VAR_NR_CONTROLE'+lcNR_ROW,;
+                                'VAR_PEDIDO_PROCESSO'+lcNR_ROW,;
+                                'VAR_NR_INSTANCIA'+lcNR_ROW,;
+                                'VAR_FL_RESULTADO_PEDIDO'+lcNR_ROW,;
+                                'VAR_VL_RESULTADO'+lcNR_ROW,;
+                                laRESULT[ii,db_fetchncol(laRESULT,'PEDIDO_PROCESSO')],;
+                                laRESULT[ii,db_fetchncol(laRESULT,'NR_CONTROLE_SEGURO')],;
+                                laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')]})
+
+                  WPut('VAR_NR_CONTROLE'+lcNR_ROW                   ,laRESULT[ii,db_fetchncol(laRESULT,'NR_CONTROLE')])
+                  WPut('VAR_PEDIDO_PROCESSO'+lcNR_ROW               ,laRESULT[ii,db_fetchncol(laRESULT,'PEDIDO_PROCESSO')])
+                  WPut('VAR_NR_INSTANCIA'+lcNR_ROW                  ,laRESULT[ii,db_fetchncol(laRESULT,'NR_INSTANCIA')])
+                  WPut('VAR_FL_RESULTADO_PEDIDO'+lcNR_ROW+'.option' ,laPUT)
+                  WPut('VAR_FL_RESULTADO_PEDIDO'+lcNR_ROW           ,laRESULT[ii,db_fetchncol(laRESULT,'FL_RESULTADO_PEDIDO')])
+                  WPut('VAR_VL_RESULTADO'+lcNR_ROW                  ,wpictrans('VL_RESULTADO',laRESULT[ii,db_fetchncol(laRESULT,'VL_RESULTADO')]))
+                endif
+            next xx
+            WPut('lstRESULTADO_'+lcINST  ,laWICDO)
+            WPut('VL_TT_RESULTADO'+lcINST,wpictrans('VL_RESULTADO',lnVL_TT_RESULTADO))
+         next xx
+      endif
+   else
+      if db_select({'pasta_resultado_pedidos.PEDIDO_PROCESSO',;
+                    'pasta_resultado_pedidos.NR_INSTANCIA',;
+                    'pasta_resultado_pedidos.FL_RESULTADO_PEDIDO',;
+                    'pasta_resultado_pedidos.VL_RESULTADO'},;
+                    lcTABLE,,;
+                    {'NR_PASTA='+lcNR_PASTA},;
+                    {'pasta_resultado_pedidos.NR_INSTANCIA',;
+                     'pasta_resultado_pedidos.PEDIDO_PROCESSO'}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         laPUT := loadcbox_build('resultado_pedido','FL_RESULTADO_PEDIDO',.t.)
+
+         for xx := 1 to 3
+            lnVL_TT_RESULTADO := 0
+            lcINST            := alltrim(str(xx))+'INST'
+            laWICDO           := {{'VAR_PEDIDO_PROCESSO',;
+                                   'VAR_NR_INSTANCIA',;
+                                   'VAR_FL_RESULTADO_PEDIDO',;
+                                   'VAR_VL_RESULTADO',;
+                                   'PEDIDO_PROCESSO'}}
+            for ii := 2 to len(laRESULT)
+               if laRESULT[ii,db_fetchncol(laRESULT,'NR_INSTANCIA')] == xx
+                  lcNR_ROW := alltrim(str(ii-1))
+
+                  lnVL_TT_RESULTADO  += round(laRESULT[ii,db_fetchncol(laRESULT,'VL_RESULTADO')],2)
+                  aadd(laWICDO,{'VAR_PEDIDO_PROCESSO'+lcNR_ROW,;
+                                'VAR_NR_INSTANCIA'+lcNR_ROW,;
+                                'VAR_FL_RESULTADO_PEDIDO'+lcNR_ROW,;
+                                'VAR_VL_RESULTADO'+lcNR_ROW,;
+                                laRESULT[ii,db_fetchncol(laRESULT,'PEDIDO_PROCESSO')]})
+
+                  WPut('VAR_PEDIDO_PROCESSO'+lcNR_ROW               ,laRESULT[ii,db_fetchncol(laRESULT,'PEDIDO_PROCESSO')])
+                  WPut('VAR_NR_INSTANCIA'+lcNR_ROW                  ,laRESULT[ii,db_fetchncol(laRESULT,'NR_INSTANCIA')])
+                  WPut('VAR_FL_RESULTADO_PEDIDO'+lcNR_ROW+'.option' ,laPUT)
+                  WPut('VAR_FL_RESULTADO_PEDIDO'+lcNR_ROW           ,laRESULT[ii,db_fetchncol(laRESULT,'FL_RESULTADO_PEDIDO')])
+                  WPut('VAR_VL_RESULTADO'+lcNR_ROW                  ,wpictrans('VL_RESULTADO',laRESULT[ii,db_fetchncol(laRESULT,'VL_RESULTADO')]))
+               endif
+            next xx
+            WPut('lstRESULTADO_'+lcINST  ,laWICDO)
+            WPut('VL_TT_RESULTADO'+lcINST,wpictrans('VL_RESULTADO',lnVL_TT_RESULTADO))
+          next xx
+      endif
+   endif
+   if db_select({'VL_RESULTADO'},'pasta',,{'NR_PASTA='+DLAP+lcNR_PASTA+DLAP}) == -1
+      error_sys(db_error())
+   endif
+local laNULO := {}
+      laNULO := db_fetchall()
+      //Walert(str(laNULO[2,1]))
+      //WPut('VL_RESULTADO' ,-0.01)
+      //Walert(str(Wget('VL_RESULTADO' ,'N')))
+   if Wget('VL_RESULTADO' ,'N') > 0
+      Wput('VL_RESULTADO' ,str(Wget('VL_RESULTADO' ,'N')))
+   endif
+   if str(laNULO[2,1]) == str(0)
+      Wput('VL_RESULTADO' ,-0.01)
+   endif
+   if str(laNULO[2,1]) == str(0.00)
+      Wput('VL_RESULTADO' ,0.00)
+   endif
+return
+
+/*
+* Data.Criação: 09.09.2008
+* Function....: valida1_vl_resultado(fnVL_RESULTADO,fcNR_PASTA)
+* Objetivo....: Verifica se o Valor Risco é igual ao Total de Pedidos do processo.
+* Parâmetros..: Nenhum
+*    fnVL_RESULTADO.: Valor Risco Contratual
+*    fcNR_PASTA.....: Número da Pasta
+*
+* Retorno.....: .t. em caso dos valores serem iguais
+*               .f. em caso dos valores serem diferentes
+*/
+static function valida1_vl_resultado(fnVL_RESULTADO,fcNR_PASTA)
+   local laRESULT := {} as array
+   local ii := 0 as int
+   local lnVL_TOTAL := -0.01 as numeric
+
+   if db_select({'VL_RISCO_CALC','VL_CORRECAO','VL_JUROS'},'pasta_pedidos',,{'NR_PASTA='+fcNR_PASTA+' and PEDIDO_PROCESSO<>'+DLAP+'Sucumbência de Condenação'+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      lnVL_TOTAL := 0
+      for ii := 2 to len(laRESULT)
+         lnVL_TOTAL += laRESULT[ii,1]+laRESULT[ii,2]+laRESULT[ii,3]
+      next ii
+      if round(lnVL_TOTAL,2) != round(fnVL_RESULTADO,2)
+         walert('O '+lblfscreen('VL_RESULTADO')+' deve ser igual ao Valor Total dos Pedidos Atualizados (Exceto o Pedido Sucumbência de Condenação)!')
+         return(.f.)
+      endif
+   endif
+return (.t.)
+
+
+
+/*
+* Data.Criação: 09.09.2008
+* Function....: valida1result()
+* Objetivo....: Verifica se o Encerramento esta atendendo as regras de validacao
+* Parâmetros..: Nenhum
+
+* Retorno.....: .t. em caso de sucesso 
+*               .f. em caso de erro
+*/
+static function valida1result()
+
+local laRESULT := {} as array
+  
+   if db_select({'FL_VALOR_RESULTADO'},'resultado_processo',,{'TP_PASTA='+DLAP+Wget('TP_PASTA')+DLAP+ ' and FL_RESULTADO_PROCESSO = '+DLAP+WGet('FL_RESULTADO_PROCESSO')+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+//   Wout('')
+//   debug2(laRESULT)
+   if len(laRESULT) > 1
+      if laRESULT[2,1] == 'Diferente de Zero'
+         if Wget('VL_RESULTADO' ,'N') <= 0
+            Walert('O valor de encerramento difere da regra de fechamento da pasta. O valor tem que ser maior que zero.')
+            return(.t.)
+         endif   
+      elseif laRESULT[2,1] == 'Igual a Zero'
+         if Wget('VL_RESULTADO' ,'N') <> 0      
+            Walert('O valor de encerramento difere da regra de fechamento da pasta. O valor tem que ser igual a zero.')      
+            return(.t.)
+         endif   
+      elseif laRESULT[2,1] == 'Nenhuma'
+         if Wget('VL_RESULTADO' ,'N') >= 0      
+            //Walert('O valor de encerramento difere da regra de fechamento da pasta. O valor tem que ser igual a -0,01.')      
+            return(.t.)
+         endif   
+      elseif empty(laRESULT[2,1])
+             Walert('Não existe regra de encerramento para este tipo de pasta/resultado do processo, não é possível salvar ou encerrar a pasta')      
+             return(.t.)              
+      endif
+   else // Caso não exista nenhuma regra de encerramento de pasta cadastrada para o resultado do processo, emite o aviso ao usuário e não encerra a pasta
+        Walert('Não existe regra de encerramento para este tipo de pasta/resultado do processo, não é possível salvar ou encerrar a pasta')      
+        return(.f.)      
+   endif
+//wout('')
+//? 'Valor do campo VL_RESULTADO: ', Wget('VL_RESULTADO' ,'C')  
+return(.t.)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,884 @@
+/*
+
+Project      : gr5
+Program      : psab.fcpa.html
+Function     : psab_fcpa_html
+Created on   : 18/05/2016 15:00:03
+Descripition : Aba de FCPA - Customização Prudential
+
+*/ 
+
+local lcACTION      := '' ,;
+      lcTABLE       := '' ,;
+      lcWHERE       := '' ,;
+      lcNR_CONTROLE := '' ,;
+      lcLOGIN       := '' ,;
+      lcNR_PASTA    := '' ,;
+      lcTP_PASTA    := ''  as string
+
+local ldDT_CADASTRO as date
+
+local llERRO := .f. as logical
+
+local laFIELDS:= {} ,;
+      laWHERE := {} ,;
+      laSAVE0 := {} ,;
+      laSAVE1 := {} ,;
+      laVALIDA:= {} as array
+
+lcTABLE := 'pasta_fcpa'
+      
+
+   lcACTION         := WGet('ACTION','C')
+   lcTP_PASTA       := WGet('TP_PASTA','C')
+   lcNR_PASTA       := WGet('NR_PASTA','C')
+   lcNR_CONTROLE    := WGet('NR_CONTROLE','C')
+
+
+//Exibe os botões permitidos
+   if gbWAC_CREATE
+      WPut('ifWAC_CREATE',.t.)
+   endif
+   if gbWAC_DELETE
+      WPut('ifWAC_DELETE',.t.)
+   endif
+   if gbWAC_WRITE
+      WPut('ifWAC_WRITE',.t.)
+   endif
+
+   if empty(lcACTION)
+      lcACTION = 'NEW'
+      WPut('ifFCPA',.f.)   
+   endif
+ 
+   if lcACTION = 'INCFCPA'
+      WPut('ifFCPA',.t.)  
+
+   endif
+   
+   laFIELDS         := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS         := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   lcWHERE          := 'NR_PASTA='+lcNR_PASTA
+
+   lcACTION         := upper(WGet('ACTION','C'))
+   
+   
+   ***WPut('TP_PASTA',lcTP_PASTA)
+   ***WPut('NR_PASTA',lcNR_PASTA)
+
+   lcLOGIN := wSet('LOGIN')
+   Wput('LOGIN_CADASTRO',lcLOGIN)
+   Wput('DT_CADASTRO',DATE())
+   
+   
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   
+   pasta_abas(lcTP_PASTA)   // Função coloca abas lado esquerdo
+   
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+
+   WPut('ifLISTAFCPA',.t.)
+
+
+if lcACTION = 'NEW' .and. gbWAC_CREATE
+
+   WPut('ifMANUFCPA',.t.)
+   WPut('ifLISTAFCPA',.f.)
+
+   WPut('ifWAC_CREATE',.f.)
+
+   lcTP_PASTA           := WGet('TP_PASTA','C')
+   lcNR_PASTA           := WGet('NR_PASTA','C')
+
+   lcLOGIN := wSet('LOGIN')
+   Wput('LOGIN_CADASTRO',lcLOGIN)
+   Wput('DT_CADASTRO',DATE())
+
+WPut('TITLE','FCPA Pasta ' + lcNR_PASTA )
+wPut('NR_CONTROLE','New')
+
+
+*** marca em vermelho campos obrigatorios
+init_reqfield(WSet('_USER_INTERFACE'))
+
+   /* Tamanhos dos Textareas */
+
+   WPut('ROWS_NM_AUTO',2)
+   WPut('ROWS_ESPECIFICAR1',2)
+   WPut('ROWS_ESPECIFICAR2',2)
+   WPut('ROWS_ESPECIFICAR3',2)
+   WPut('ROWS_ESPECIFICAR4',2)
+   WPut('ROWS_ESPECIFICAR5',2)
+   WPut('ROWS_ESPECIFICAR6',2)
+   WPut('ROWS_ESPECIFICAR7',2)
+   WPut('ROWS_ESPECIFICAR8',2)
+
+   if db_select(laFIELDS,lcTABLE,,{'NR_PASTA='+lcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   if db_select ({'PFPJ','CIP'},'pasta_pfpj_gerente',,{'NR_PASTA ='+lcNR_PASTA}) = -1
+      error_sys(db_error())
+   endif
+   laPUT := db_fetchrow()
+   if len(laPUT) > 0
+      WPut('CIP_GERENTE_PFPJ',laPUT[1])
+      WPut('CIP_GERENTE',laPUT[2])
+   endif
+
+   if db_select ({'PFPJ','CIP'},'pasta_pfpj_solicitante',,{'NR_PASTA ='+lcNR_PASTA}) = -1
+      error_sys(db_error())
+   endif
+   laPUT := db_fetchrow()
+   if len(laPUT) > 0
+      WPut('CIP_SOLICITANTE_PFPJ',laPUT[1])
+      WPut('CIP_SOLICITANTE',laPUT[2])
+   endif
+
+   if db_select ({'TP_CONTRATO','DEPARTAMENTO'},'pasta',,{'NR_PASTA ='+lcNR_PASTA}) = -1
+      error_sys(db_error())
+   endif
+   laPUT := db_fetchrow()
+   if len(laPUT) > 0
+      WPut('TP_CONTRATO',laPUT[1])
+      WPut('DEPARTAMENTO',laPUT[2])
+   endif
+
+   WPut('NR_CONTRATO_ADITIVO',WGet('ADTVLISTA','C'))
+
+elseif lcACTION == 'ALTER' .and. gbWAC_READ
+
+   WPut('ifMANUFCPA',.t.)
+   WPut('ifLISTAFCPA',.f.)
+
+   WPut('ifWAC_CREATE',.f.)
+
+ // contar os registros, se tiver mais que um não permitir inserir mais
+      if db_select(laFIELDS,lcTABLE,,{'NR_PASTA = ' + lcNR_PASTA + ' AND NR_CONTROLE = ' + lcNR_CONTROLE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+  
+      db2put(laRESULT)
+
+      if db_select ({'PFPJ','CIP'},'pasta_pfpj_gerente',,{'NR_PASTA ='+lcNR_PASTA}) = -1
+         error_sys(db_error())
+      endif
+      laPUT := db_fetchrow()
+      if len(laPUT) > 0
+         WPut('CIP_GERENTE_PFPJ',laPUT[1])
+         WPut('CIP_GERENTE',laPUT[2])
+      endif
+
+      if db_select ({'PFPJ','CIP'},'pasta_pfpj_solicitante',,{'NR_PASTA ='+lcNR_PASTA}) = -1
+         error_sys(db_error())
+      endif
+      laPUT := db_fetchrow()
+      if len(laPUT) > 0
+         WPut('CIP_SOLICITANTE_PFPJ',laPUT[1])
+         WPut('CIP_SOLICITANTE',laPUT[2])
+      endif
+
+      if db_select ({'TP_CONTRATO','DEPARTAMENTO'},'pasta',,{'NR_PASTA ='+lcNR_PASTA}) = -1
+         error_sys(db_error())
+      endif
+      laPUT := db_fetchrow()
+      if len(laPUT) > 0
+         WPut('TP_CONTRATO',laPUT[1])
+         WPut('DEPARTAMENTO',laPUT[2])
+      endif
+
+
+      if db_select({'PFPJ'},'pfpj',,{'CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_ANALISTA_RESPONSAVEL')]+DLAP}) = -1
+         error_sys(db_error())
+      endif
+      laPUT := db_fetchrow()
+      if len(laPUT) > 0
+         WPut('CIP_ANALISTA_RESPONSAVEL_PFPJ',laPUT[1])
+      endif
+
+      if db_select({'PFPJ'},'pfpj',,{'CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_ADVOGADO_INTERNO')]+DLAP}) = -1
+         error_sys(db_error())
+      endif
+      laPUT := db_fetchrow()
+      if len(laPUT) > 0
+         WPut('CIP_ADVOGADO_INTERNO_PFPJ',laPUT[1])
+      endif
+
+      if db_select({'PFPJ'},'pfpj',,{'CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_CONFERENTE')]+DLAP}) = -1
+         error_sys(db_error())
+      endif
+      laPUT := db_fetchrow()
+      if len(laPUT) > 0
+         WPut('CIP_CONFERENTE_PFPJ',laPUT[1])
+      endif
+
+      if db_select({'PFPJ'},'pfpj',,{'CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_ENVIADO_POR')]+DLAP}) = -1
+         error_sys(db_error())
+      endif
+      laPUT := db_fetchrow()
+      if len(laPUT) > 0
+         WPut('CIP_ENVIADO_POR_PFPJ',laPUT[1])
+      endif
+
+      if db_select({'PFPJ'},'pfpj',,{'CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_AUTORIZADO_POR')]+DLAP}) = -1
+         error_sys(db_error())
+      endif
+      laPUT := db_fetchrow()
+      if len(laPUT) > 0
+         WPut('CIP_AUTORIZADO_POR_PFPJ',laPUT[1])
+      endif
+
+      if db_select({'PFPJ'},'pfpj',,{'CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_ANALISTA_JURIDICO')]+DLAP}) = -1
+         error_sys(db_error())
+      endif
+      laPUT := db_fetchrow()
+      if len(laPUT) > 0
+         WPut('CIP_ANALISTA_JURIDICO_PFPJ',laPUT[1])
+      endif
+
+elseif lcACTION == 'SAVE' .and. gbWAC_CREATE
+
+   if WGet('NR_CONTROLE ','C') == 'New'
+      wPut('NR_CONTROLE','New')
+   endif
+
+
+      laWHERE:={}
+      laSAVE0:={}
+      laSAVE1:={}
+      laSAVE_AUX:={}
+
+      lcWHERE  := 'NR_PASTA = ' + lcNR_PASTA + ' AND NR_CONTROLE = ' + lcNR_CONTROLE
+
+      aadd(laWHERE,lcWHERE)
+
+
+lcAREA_SOLICITANTE   := WGet('AREA_SOLICITANTE','C')
+lcCIP_GERENTE        := WGet('CIP_GERENTE','C')
+lcCIP_ANALISTA_RESPONSAVEL := WGet('CIP_ANALISTA_RESPONSAVEL','C')
+lcRESPOSTA1          := WGet('RESPOSTA1','C')
+lcESPECIFICAR1       := WGet('ESPECIFICAR1','C')
+lcDILIG_FCPA         := WGet('DILIG_FCPA','C')
+lcANEXOA_PREENCHIDO  := WGet('ANEXOA_PREENCHIDO','C')
+lcENTIDADE           := WGet('ENTIDADE','C')
+lcANEXOB_PREENCHIDO  := WGet('ANEXOB_PREENCHIDO','C')
+lcANEXOCII           := WGet('ANEXOCII','C')
+lcDIRETOR_APROVOU    := WGet('DIRETOR_APROVOU','C')
+lcNAO_ACEITO_FCPA    := WGet('NAO_ACEITO_FCPA','C')     
+lcESPECIFICAR7       := WGet('ESPECIFICAR7','C')
+lcFCPA_CLAUA         := WGet('FCPA_CLAUA','B')
+lcFCPA_CLAUB         := WGet('FCPA_CLAUB','C')
+lcFCPA_CLAUC         := WGet('FCPA_CLAUC','C')
+lcFCPA_OBRIGA        := WGet('FCPA_OBRIGA','B')
+lcFCPA_OBRIGB        := WGet('FCPA_OBRIGB','B')
+lcFCPA_OBRIGC        := WGet('FCPA_OBRIGC','B')
+lcFCPA_OBRIGD        := WGet('FCPA_OBRIGD','B')
+lcFCPA_OBRIGE        := WGet('FCPA_OBRIGE','B')
+lcFCPA_OBRIGF        := WGet('FCPA_OBRIGF','B')
+lcFCPA_ANEXOD        := WGet('FCPA_ANEXOD','C')
+lcFCPA_OPCG          := WGet('FCPA_OPCG','B')
+lcFCPA_OPCH          := WGet('FCPA_OPCH','B')
+lcFCPA_OPCI          := WGet('FCPA_OPCI','B')
+lcFCPA_OPCJ          := WGet('FCPA_OPCJ','B')
+lcESPECIFICAR3       := WGet('ESPECIFICAR3','C')
+lcCARTA_CONFORTO     := WGet('CARTA_CONFORTO','B')
+lcESPECIFICAR4       := WGet('ESPECIFICAR4','C')
+lcOUTROS             := WGet('OUTROS','C')
+lcESPECIFICAR5       := WGet('ESPECIFICAR5','C')
+lcCIP_ADVOGADO_INTERNO := WGet('CIP_ADVOGADO_INTERNO','C')
+lcDT_ANALISE         := WGet('DT_ANALISE','C')
+lcESPECIFICAR2       := WGet('ESPECIFICAR2','C')
+lcDT_RETORNO         := WGet('DT_RETORNO','C')
+lcPREST_ACEITOU      := WGet('PREST_ACEITOU','C')
+lcPREST_NAO_ACEITOU  := WGet('PREST_NAO_ACEITOU','C')
+lcPREST_ALTEROU      := WGet('PREST_ALTERO','C')
+lcESPECIFICAR6       := WGet('ESPECIFICAR6','C')
+lcDT_ANALISE2        := WGet('DT_ANALISE2','C')
+lcDT_ANALISE3        := WGet('DT_ANALISE3','C')
+lcPRT_VER_PEP        := WGet('PRT_VER_PEP','C')
+lcCLASS              := WGet('CLASS','C')
+lcCLASS2             := WGet('CLASS2','C')
+lcCRIT_VENDOR        := WGet('CRIT_VENDOR','C')
+lcPRT_VER_PEP        := WGet('PRT_VER_PEP','C')
+lcRISK_RATING        := WGet('RISK_RATING','C')
+lcPIA                := WGet('PIA','C')
+lcAPAP               := WGet('APAP','C')
+lcCIP_ENVIADO_POR    := WGet('CIP_ENVIADO_POR','C')
+lcCIP_CONFERENTE     := WGet('CIP_CONFERENTE','C')
+lcDOCPRE_ATU         := WGet('DOCPRE_ATU','C')
+lcNRP                := WGet('NRP','C')
+lcARQUIVO_PEP        := WGet('ARQUIVO_PEP','C')
+lcFL_SLA             := WGet('FL_SLA','C')
+lcFL_KPI             := WGet('FL_KPI','C')
+lcFL_ISSUE_TRACK     := WGet('FL_ISSUE_TRACK','C')
+lcFL_ISQ             := WGet('FL_ISQ','C')
+lcFL_BCQ             := WGet('FL_BCQ','C')
+
+lcDEPARTAMENTO           := WGet('DEPARTAMENTO','C')
+lcNR_CONTRATO_ADITIVO    := WGet('NR_CONTRATO_ADITIVO','C')
+lcCIP_ANALISTA_JURIDICO  := WGet('CIP_ANALISTA_JURIDICO','C')
+
+//DEBUG2(LCPREST_ACEITOU)
+      aadd(laSAVE0,laFIELDS)
+
+          for ii := 1 to len(laFIELDS)
+
+              if laFIELDS[ii] == 'LOGIN_CADASTRO'
+                  if WGet('LOGIN_CADASTRO','C') == ''
+                     aadd(laSAVE_AUX,WSet('LOGIN'))
+                     loop
+                  else
+                     aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+                     loop
+                  endif
+              elseif laFIELDS[ii] == 'DT_CADASTRO'
+                  if WGet('DT_CADASTRO','C') == ''
+                     aadd(laSAVE_AUX,date())
+                     loop
+                  else
+                     aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+                     loop
+                  endif
+              elseif laFIELDS[ii] == 'LOGIN_ALTERACAO'
+                  if WGet('LOGIN_CADASTRO','C') == ''
+                     aadd(laSAVE_AUX,WSet('LOGIN'))
+                     loop
+                  else
+                     aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+                     loop
+                  endif
+              elseif laFIELDS[ii] == 'DT_ALTERACAO'
+                  if WGet('DT_CADASTRO','C') == ''
+                     aadd(laSAVE_AUX,date())
+                     loop
+                  else
+                     aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+                     loop
+                  endif
+
+              elseif laFIELDS[ii] == 'PASTA_CGC'
+                  if WGet('PASTA_CGC','C') == ''
+                     aadd(laSAVE_AUX,0)
+                     loop
+                  else
+                     aadd(laSAVE_AUX,val(WGet(laFIELDS[ii])))
+                     loop
+                  endif 
+              elseif laFIELDS[ii] == 'RESPOSTA1'
+                  aadd(laSAVE_AUX,(substr(lcRESPOSTA1,1,1)))
+                  loop
+              elseif laFIELDS[ii] == 'DILIG_FCPA'
+                  aadd(laSAVE_AUX,(substr(lcDILIG_FCPA,1,1)))
+                  loop
+              elseif laFIELDS[ii] == 'ANEXOA_PREENCHIDO'
+                  aadd(laSAVE_AUX,(substr(lcANEXOA_PREENCHIDO,1,1)))
+                  loop
+              elseif laFIELDS[ii] == 'ENTIDADE'
+                  aadd(laSAVE_AUX,(substr(lcENTIDADE,1,1)))
+                  loop
+              elseif laFIELDS[ii] == 'ANEXOB_PREENCHIDO'
+                  aadd(laSAVE_AUX,(substr(lcANEXOB_PREENCHIDO,1,1)))
+                  loop
+              elseif laFIELDS[ii] == 'ANEXOCII'
+                  aadd(laSAVE_AUX,(substr(lcANEXOCII,1,1)))
+                  loop
+              elseif laFIELDS[ii] == 'DIRETOR_APROVOU'
+                  aadd(laSAVE_AUX,(substr(lcDIRETOR_APROVOU,1,1)))
+                  loop
+              elseif laFIELDS[ii] == 'OUTROS'
+                  aadd(laSAVE_AUX,(substr(lcOUTROS,1,1)))
+                  loop
+              elseif laFIELDS[ii] == 'ARQUIVO_PEP'
+                  aadd(laSAVE_AUX,(substr(lcARQUIVO_PEP,1,1)))
+                  loop
+              elseif laFIELDS[ii] == 'DOCPRE_ATU'
+                  aadd(laSAVE_AUX,(substr(lcDOCPRE_ATU,1,1)))
+                  loop
+              elseif laFIELDS[ii] == 'CRIT_VENDOR'
+                  aadd(laSAVE_AUX,(substr(lcCRIT_VENDOR,1,1)))
+                  loop
+              elseif laFIELDS[ii] == 'PIA'
+                  aadd(laSAVE_AUX,(substr(lcPIA,1,1)))
+                  loop
+              elseif laFIELDS[ii] == 'FL_SLA'
+                  aadd(laSAVE_AUX,(substr(lcFL_SLA,1,1)))
+                  loop
+              elseif laFIELDS[ii] == 'FL_KPI'
+                  aadd(laSAVE_AUX,(substr(lcFL_KPI,1,1)))
+                  loop
+              elseif laFIELDS[ii] == 'FL_ISSUE_TRACK'
+                  aadd(laSAVE_AUX,(substr(lcFL_ISSUE_TRACK,1,1)))
+                  loop
+              elseif laFIELDS[ii] == 'FL_ISQ'
+                  aadd(laSAVE_AUX,(substr(lcFL_ISQ,1,1)))
+                  loop
+              elseif laFIELDS[ii] == 'FL_BCQ'
+                  aadd(laSAVE_AUX,(substr(lcFL_BCQ,1,1)))
+                  loop
+              elseif laFIELDS[ii] == 'NR_CONTROLE'
+                  aadd(laSAVE_AUX,val('lcNR_CONTROLE'))
+                  loop
+              else
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+              endif
+         next ii
+         
+         aadd(laSAVE0,laSAVE_AUX)
+
+ 
+         lcWHERE  := 'NR_PASTA = ' + lcNR_PASTA + ' AND NR_CONTROLE = ' + wget('NR_CONTROLE','C') 
+
+         psab_logs(laSAVE0,lcTABLE,lcWHERE,lcNR_PASTA,'Checkl')
+
+         if db_replace(laSAVE0,lcTABLE,laWHERE) == -1
+            error_sys(db_error())
+         endif
+
+        
+         lcWHERE  := 'NR_PASTA = ' + lcNR_PASTA
+         if db_delete('fcpa_docs',lcWHERE)  == -1
+            error_sys(db_error())
+         endif
+
+         if WGet('DOCS','C')<>''
+
+            laRESULT := str2array(WGet('DOCS','C'),'|')
+
+            for ii := 1 to len(laRESULT)
+
+               laLINHA_ATUAL:={}
+               laTMP        :={}
+
+               aadd(laTMP,str2array(laRESULT[ii],'#'))
+
+               laSAVE  := {'NR_PASTA',;
+                           'DOCUMENTO',;
+                           'ENTREGUE'}
+
+               aadd(laLINHA_ATUAL,laSAVE)
+
+               lcTMP0:=alltrim(laTMP[1,1])
+               lcTMP1:=alltrim(laTMP[1,2])
+
+               laSAVE  := {val(lcNR_PASTA),;
+                          lcTMP0,;
+                          lcTMP1}
+
+               aadd(laLINHA_ATUAL,laSAVE)
+
+               if db_insert(laLINHA_ATUAL,'fcpa_docs') == -1
+                  db_rollback()
+                  error_sys(db_error())
+               endif
+
+            next ii
+         endif
+
+      get2put()
+
+      WPut('ifMANUFCPA',.f.)
+      WPut('ifLISTAFCPA',.t.)
+
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+
+      lcNR_CONTROLE := WGet('NR_CONTROLE','C')
+
+      psab_logdel(lcNR_PASTA,'NR_CONTROLE',lcNR_CONTROLE,,'FCPA-Checklist')
+
+      lcWHERE  := 'NR_CONTROLE = ' + lcNR_CONTROLE
+      if db_delete(lcTABLE,lcWHERE) = -1
+         error_sys(db_error())
+      endif
+
+      WPut('ifMANUFCPA',.f.)
+
+    elseif lcACTION == 'CANCEL' .and. gbWAC_DELETE
+
+      WPut('ifMANUFCPA',.f.)
+
+   endif
+
+enchecombos(lcNR_PASTA,lcACTION)
+
+lst_fcpa(lcNR_PASTA)
+
+return
+
+**************************************
+static function lst_fcpa(fcNR_PASTA)
+**************************************
+local faFIELDS := {},;
+      faRES    := {} as array
+
+local li       := 0 as int
+local lcNR_ROW := '1' as string
+
+faFIELDS := structtable(WSet("DB_ACTIVE"),'pasta_fcpa',1,'A')
+
+if db_select(faFIELDS,'pasta_fcpa',,{'NR_PASTA = '+ DLAP + fcNR_PASTA + DLAP},{'NR_CONTRATO_ADITIVO'}) == -1
+   error_sys(db_error())
+endif
+faRES:= db_fetchall()
+
+if len(faRES) > 1
+   aadd(faRES[1],'VAR_NR_CONTRATO_ADITIVO')
+
+   for ii := 2 to len(faRES)
+       aadd(faRES[ii],'VAR_NR_CONTRATO_ADITIVO_'+lcNR_ROW)
+
+       WPut('VAR_NR_CONTRATO_ADITIVO_'+lcNR_ROW,faRES[ii,db_fetchncol(faRES,'NR_CONTRATO_ADITIVO')])
+
+       lcNR_ROW := alltrim(str(ii))
+   next ii
+
+   WPut('lstFCPA',faRES)
+endif
+
+return
+
+
+*************************************************
+static function enchecombos(flcNR_PASTA,fcACTION)
+*************************************************
+
+
+local  laOPT    := {} ,;
+       laOPTV   := {} ,;
+       laPUT    := {} ,;
+       laDEF    := {} ,;
+       laDEFV   := {} ,;
+       laATI    := {} ,;
+       laATIV   := {} ,;
+       laINA    := {} ,;
+       laINAV   := {} ,;
+       laPUTV   := {} ,;
+       laFIELD  := {} ,;
+       laRES    := {} as array
+
+local  ii    := 1  ,;
+       liPOS := 0  as int
+
+   lcTP_PASTA    := WGet('TP_PASTA','C')
+
+   WPut('RESPOSTA1.option',{'','Sim','Não'})
+   WPut('RESPOSTA1.optionvalue',{'','S','N'})
+
+   WPut('DILIG_FCPA.option',{'','Sim','Não'})
+   WPut('DILIG_FCPA.optionvalue',{'','S','N'})
+
+   WPut('ANEXOA_PREENCHIDO.option',{'','Sim','Não'})
+   WPut('ANEXOA_PREENCHIDO.optionvalue',{'','S','N'})
+
+   WPut('ANEXOB_PREENCHIDO.option',{'','Sim','Não','N/A'})
+   WPut('ANEXOB_PREENCHIDO.optionvalue',{'','S','N','A'})
+
+   WPut('ENTIDADE.option',{'','Coberta','Excluída'})
+   WPut('ENTIDADE.optionvalue',{'','C','E'})
+
+
+   WPut('ANEXOCII.option',{'','Sim','Não','N/A'})
+   WPut('ANEXOCII.optionvalue',{'','S','N','A'})
+
+   WPut('DIRETOR_APROVOU.option',{'','Sim','Não'})
+   WPut('DIRETOR_APROVOU.optionvalue',{'','S','N'})
+
+   WPut('NAO_ACEITO_FCPA.option',{'','Sim','Não','N/A'})
+   WPut('NAO_ACEITO_FCPA.optionvalue',{'','S','N','A'})
+
+   WPut('ACEITOU_FCPA.option',{'','Contrato','Termo Aditivo','Termo de Compromisso','Contrato Guarda Chuva'})
+   WPut('ACEITOU_FCPA.optionvalue',{'','Contrato','Termo Aditivo','Termo de Compromisso','Contrato Guarda Chuva'})
+
+   WPut('FCPA_ANEXOD.option',{'','Sim','Não'})
+   WPut('FCPA_ANEXOD.optionvalue',{'','S','N'})
+
+   WPut('OUTROS.option',{'','Sim','Não'})
+   WPut('OUTROS.optionvalue',{'','S','N'})
+
+   WPut('ARQUIVO_PEP.option',{'','Sim','Não'})
+   WPut('ARQUIVO_PEP.optionvalue',{'','S','N'})
+
+   WPut('DOCPRE_ATU.option',{'','Sim','Não','N/A - área enviou os documentos'})
+   WPut('DOCPRE_ATU.optionvalue',{'','S','N','A'})
+
+   WPut('CRIT_VENDOR.option',{'','Sim','Não'})
+   WPut('CRIT_VENDOR.optionvalue',{'','S','N'})
+
+   WPut('RISK_RATING.option',{'','Sim','Não'})
+   WPut('RISK_RATING.optionvalue',{'','S','N'})
+
+   WPut('PIA.option',{'','Sim','Não'})
+   WPut('PIA.optionvalue',{'','S','N'})
+
+   WPut('FL_SLA.option',{'','Sim','Não'})
+   WPut('FL_SLA.optionvalue',{'','S','N'})
+
+   WPut('SLA_NR.option',{'','Sim','Não'})
+   WPut('SLA_NR.optionvalue',{'','S','N'})
+
+   WPut('FL_KPI.option',{'','Sim','Não'})
+   WPut('FL_KPI.optionvalue',{'','S','N'})
+
+   WPut('KPI_NR.option',{'','Sim','Não'})
+   WPut('KPI_NR.optionvalue',{'','S','N'})
+
+   WPut('FL_ISSUE_TRACK.option',{'','Sim','Não'})
+   WPut('FL_ISSUE_TRACK.optionvalue',{'','S','N'})
+
+   WPut('FL_ISQ.option',{'','Sim','Não'})
+   WPut('FL_ISQ.optionvalue',{'','S','N'})
+
+   WPut('FL_BCQ.option',{'','Sim','Não'})
+   WPut('FL_BCQ.optionvalue',{'','S','N'})
+
+   WPut('CLASS.option',{'','Função Crítica','Valor Financeiro Alto','Informações Confidênciais','Impactos ao Cliente','Interrese de Órgão Regulador'})
+   WPut('CLASS.optionvalue',{'','Função Crítica','Valor Financeiro Alto','Informações Confidênciais','Impactos ao Cliente','Interrese de Órgão Regulador'})
+
+   WPut('CLASS2.option',{'','Impacto ao Cliente','Impacto ao Negócio'})
+   WPut('CLASS2.optionvalue',{'','Impacto ao Cliente','Impacto ao Negócio'})
+
+   WPut('RISK_RATING.option',{'','Low','Medium','High','Very Hight'})
+   WPut('RISK_RATING.optionvalue',{'','Low','Medium','High','Very Hight'})
+   
+   WPut('RES_PEP.option',{'','Positivo','Negativo'})
+   WPut('RES_PEP.optionvalue',{'','Positivo','Negativo'})
+
+   wPut('FCPA_CLAUA.option','Y')
+   
+   WPut('CARTA_CONFORTO.option','Y')
+   WPut('PREST_ACEITOU.option','Y')
+   WPut('PREST_NAO_ACEITOU.option','Y')
+   WPut('PREST_ALTEROU.option','Y')
+   WPut('FCPA_OBRIGA.option','Y')
+   WPut('FCPA_OBRIGB.option','Y')
+   WPut('FCPA_OBRIGC.option','Y')
+   WPut('FCPA_OBRIGD.option','Y')
+   WPut('FCPA_OBRIGE.option','Y')
+   WPut('FCPA_OBRIGF.option','Y')
+   WPut('FCPA_ANEXOD.option','Y')
+   WPut('FCPA_OPCG.option','Y')
+   WPut('FCPA_OPCH.option','Y')
+   WPut('FCPA_OPCI.option','Y')
+   WPut('FCPA_OPCJ.option','Y')
+   WPut('OUTROS.option','Y')
+
+   WPut('FCPA_CLAUB.option','Y')
+   WPut('FCPA_CLAUC.option','Y')
+
+   WPut('APBCA.option','Y')
+
+   WPut('LEG_S.option','Y')
+   WPut('LEG_N.option','Y')
+   WPut('LEG_NA.option','Y')
+   WPut('TP_DEMANDAC.option','Y')
+   WPut('TP_DEMANDAA.option','Y')
+   WPut('TP_DEMANDAP.option','Y')
+   WPut('TP_DEMANDAT.option','Y')
+   WPut('COPIA_CONTRATO.option','Y')
+   WPut('COPIA_ADITIVO.option','Y')
+   WPut('PEP_BASE.option','Y')
+   WPut('DISP_DIR.option','Y')
+   WPut('FL_PEP.option','Y')
+   WPut('FL_CONFIDENCIALIDADE.option','Y')
+   WPut('FL_USO_MARCA.option','Y')
+   WPut('FL_ANTICORRUPCAO.option','Y')
+   WPut('FL_OTP.option','Y')
+   WPut('FL_DAPI.option','Y')
+   WPut('FL_SI.option','Y')
+
+   WPut('FL_KEY_VENDOR.option',{'','Sim - Key Vendor','Não - Key Vendor'})
+   WPut('FL_KEY_VENDOR.optionvalue',{'','S','N'})
+
+   WPut('FL_FCPA.option','Y')
+
+
+
+
+
+
+    *** alimenta combo tipo de resultado_contrato
+// carrega_cbox({{'resultado_contrato','RESULTADO_CONTRATO','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+ carrega_cbox({{'resultado_contrato','RESULTADO_CONTRATO','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+ carrega_cbox({{'empresa_area_solicitante','AREA_SOLICITANTE','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+ carrega_cbox({{'tipo_consulta','TP_CONSULTA','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+
+ **carrega_cbox({{'pasta_contrato_aditivo','NR_CONTRATO_ADITIVO','Y','NR_PASTA='+flcNR_PASTA}})
+
+ **cargacbox('pasta_contrato_aditivo',{'NR_CONTRATO_ADITIVO','NR_CONTRATO_ADITIVO'},{'NR_CONTRATO_ADITIVO'},'ADITIVO')
+
+ cargacbox('tipo_pessoa',{'PFPJ_NM_TIPO','PFPJ_NM_TIPO'},{},'PFPJ_NATUREZA')
+
+
+ carrega_cbox({{'departamento','DEPARTAMENTO','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+
+ cmb_aditivo(flcNR_PASTA,'ADTVLISTA',fcACTION)
+ cmb_aditivo(flcNR_PASTA,'ADITIVO',fcACTION)
+
+
+return(nil)
+
+
+
+/*
+* Function....: cmb_aditivo(flcNR_PASTA,obj1)
+* Retorno.....: Nenhum
+*/
+static function cmb_aditivo(flcNR_PASTA,obj1,fcACTION)
+
+local lcWHERE:=''
+local lcQUERY:=''
+local laRES:={}
+local laLST_NOVA:={}
+local laVINCULADO:={}
+
+local paAUTO     :={} as array
+
+local  laOPT    := {} ,;
+       laOPTV   := {} ,;
+       laPUT    := {} ,;
+       laDEF    := {} ,;
+       laDEFV   := {} ,;
+       laDEFV2  := {} ,;
+       laATI    := {} ,;
+       laATIV   := {} ,;
+       laATIV2  := {} ,;
+       laINA    := {} ,;
+       laINAV   := {} ,;
+       laINAV2  := {} ,;
+       laPUTV   := {} ,;
+       laPUTV2  := {} ,;
+       laFIELD  := {} as array
+
+
+local  jj    := 1  as int
+
+
+laDEF  := {}
+laDEFV := {}
+laDEFV2:= {}
+
+laATI  := {}
+laATIV := {}
+laATIV2:= {}
+
+laINA  := {}
+laINAV := {}
+laINAV2:= {}
+
+laPUT  := {}
+laPUTV := {}
+laPUTV2:= {}
+
+
+lcQUERY := 'select'
+lcQUERY += ' pasta_contrato_aditivo.nr_contrato_aditivo,pasta_contrato_aditivo.nr_contrato_aditivo'
+lcQUERY += ' from pasta_contrato_aditivo'
+lcQUERY += ' where pasta_contrato_aditivo.nr_pasta=' +flcNR_PASTA
+
+if obj1 = 'ADTVLISTA'
+   lcQUERY += ' and pasta_contrato_aditivo.nr_contrato_aditivo'
+   lcQUERY += ' not in('
+   lcQUERY += ' select'
+   lcQUERY += ' nr_contrato_aditivo'
+   lcQUERY += ' from pasta_fcpa'
+   lcQUERY += ' where nr_pasta='+flcNR_PASTA+')'
+endif
+
+lcQUERY += ' order by  pasta_contrato_aditivo.nr_contrato_aditivo'
+
+if db_query(lcQUERY) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+
+for jj := 2 to len(laRES)
+    aadd(laATI,laRES[jj,2])  //TEXTO
+    aadd(laATIV,laRES[jj,1]) //ID
+next jj
+
+if len(laDEF) == 0 // Adiciona uma linha vazia no inicio do combo, caso seja solicitado
+   aadd(laDEF,'')   //TEXTO
+   aadd(laDEFV,'') //ID
+endif
+
+if obj1 = 'ADTVLISTA'
+   aadd(laDEF,'Contrato Principal')   //TEXTO
+   aadd(laDEFV,0) //ID
+endif
+
+for jj=1 to len(laDEF)
+    aadd(laPUT,laDEF[jj]) //TEXTO
+    aadd(laPUTV,laDEFV[jj]) //ID
+next jj
+
+for jj=1 to len(laATI)
+    aadd(laPUT,laATI[jj]) //TEXTO
+    aadd(laPUTV,laATIV[jj]) //ID
+next jj
+
+for jj=1 to len(laINA)
+    aadd(laPUT,'INATIVO - '+laINA[jj]) //TEXTO
+    aadd(laPUTV,laINAV[jj])  //ID
+next jj
+
+laLABEL_CANCELAMENTO_MOTIVO := laPUT
+laVALUE_CANCELAMENTO_MOTIVO := laPUTV
+
+
+WPut(obj1+'.option',laPUT)
+WPut(obj1+'.optionvalue',laPUTV)
+
+return(nil)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

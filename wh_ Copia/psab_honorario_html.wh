@@ -1,0 +1,149 @@
+/*
+
+Project      : gr5
+Program      : psab.honorario.html
+Function     : psab_honorario_html
+Created on   : 01-Mar-2007   09:38:54
+Descripition : Aba Honorários
+
+*/
+
+   local lcACTION   := upper(WGet('ACTION','U')),;
+         lcNR_PASTA := WGet('NR_PASTA','C'),;
+         lcTP_PASTA := WGet('TP_PASTA','C'),;
+         lcTABLE    := '',;
+         lcWHERE    := '' as string
+   local laFIELDS   := {} ,;
+         laRESULT   := {} ,;
+         laSAVE     := {} ,;
+         laVALIDA   := {} ,;
+         laMARKUP   := {} as array
+   local lnRHFIXCALC:= 0.00 as numeric
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   get2Put({'NR_PASTA','TP_PASTA'})
+   laVALIDA := {}
+
+   make_psthead(lcNR_PASTA,lcTP_PASTA)         // necessária
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)       // necessária
+
+   wPut("PC_RHFIXO.class","winput")
+   wPut("PC_RHFIXO.readonly",.t.)
+   wPut("PC_RHFIXO.class","winputreadonly")
+
+   lcTABLE  := 'pasta_honorario'
+   laFIELDS := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   lcWHERE  := 'NR_PASTA='+lcNR_PASTA
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+   /*
+   laFIELDS[ 1 ] = NR_PASTA
+   laFIELDS[ 2 ] = VL_RISCO_HONORARIO
+   laFIELDS[ 3 ] = VL_RESULTADO
+   laFIELDS[ 4 ] = PC_RHFIXO
+   laFIELDS[ 5 ] = FL_NEGOCIAVEL
+   laFIELDS[ 6 ] = VL_RHFIXO_CALCULADO
+   laFIELDS[ 7 ] = VL_ECONOMIZADO
+   laFIELDS[ 8 ] = PC_ECONOMIA
+   laFIELDS[ 9 ] = PC_RHVARIAVEL
+   laFIELDS[ 10 ] = VL_RHVARIAVEL_CALCULADO
+   laFIELDS[ 11 ] = DT_RHFIXO_PAGO
+   laFIELDS[ 12 ] = DT_RHVARIAVEL_PAGO
+   laFIELDS[ 13 ] = VL_RHFIXO_PAGO
+   laFIELDS[ 14 ] = VL_RHVARIAVEL_PAGO
+   */
+
+   if db_select(laFIELDS,lcTABLE,,{'NR_PASTA='+lcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchrow()
+   if len(laRESULT) > 0
+      if((laRESULT[2] * laRESULT[4])/100) < laRESULT[6]
+         wput("ifmsg",.t.)
+         wput("msgfixo","Valor de Honorário Fixo Real: "+str(((laRESULT[2] * laRESULT[4])/100))+" , aplicando valor mínimo: "+str(laRESULT[6]))
+      endif
+      wput('VL_RISCO_HONORARIO',laRESULT[2])
+      wput('VL_RESULTADO',laRESULT[3])
+
+      wput('PC_RHFIXO',laRESULT[4])
+      wput('VL_FIXO_CALCULADO',laRESULT[6])
+      wput('DT_RHFIXO_PAGO',laRESULT[11])
+      wput('VL_RHFIXO_PAGO',laRESULT[13])
+
+      if((laRESULT[7] * laRESULT[9])/100) > laRESULT[10]
+         wput("ifmsg",.t.)
+         wput("msgvar","Valor de Honorário Variável Real: "+str(((laRESULT[7] * laRESULT[9])/100))+" , aplicando valor máximo: "+str(laRESULT[10]))
+      endif
+      wput('VL_ECONOMIZADO',laRESULT[7])
+      wput('PC_ECONOMIA',laRESULT[8])
+      wput('PC_RHVARIAVEL',laRESULT[9])
+      wput('VL_RHVARIAVEL_CALCULADO',laRESULT[10])
+      if(laRESULT[5] == 'S')
+         wPut("PC_RHFIXO.class","winput")
+         wPut("PC_RHFIXO.readonly",.f.)
+      endif
+      wput('DT_RHVARIAVEL_PAGO',laRESULT[12])
+      wput('VL_RHVARIAVEL_PAGO',laRESULT[14])
+
+      wput('ifWAC_WRITE',.t.)
+   else
+      wput('ifWAC_WRITE',.f.)
+	   walert("O Honorário só será calculado ao encerrar o processo.")
+   endif
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      if verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA) // necessária
+         if(laRESULT[5] == 'S')
+            lnRHFIXCALC := (laRESULT[2] * WGet('PC_RHFIXO','N'))/100
+            laSAVE := {{'DT_RHFIXO_PAGO','VL_RHFIXO_PAGO','DT_RHVARIAVEL_PAGO','VL_RHVARIAVEL_PAGO','VL_RHFIXO_CALCULADO','PC_RHFIXO'},;
+                       {WGet('DT_RHFIXO_PAGO','D'),WGet('VL_RHFIXO_PAGO','N'),WGet('DT_RHVARIAVEL_PAGO','D'),;
+                       WGet('VL_RHVARIAVEL_PAGO','N'),lnRHFIXCALC,WGet('PC_RHFIXO','N')}}
+            if(db_update(laSAVE,lcTABLE,{lcWHERE})) == -1
+			      error_sys(db_error())
+			   endif
+         else
+            laSAVE := {{'DT_RHFIXO_PAGO','VL_RHFIXO_PAGO','DT_RHVARIAVEL_PAGO','VL_RHVARIAVEL_PAGO'},;
+                       {WGet('DT_RHFIXO_PAGO','D'),WGet('VL_RHFIXO_PAGO','N'),WGet('DT_RHVARIAVEL_PAGO','D'),;
+                       WGet('VL_RHVARIAVEL_PAGO','N')}}
+            if(db_update(laSAVE,lcTABLE,{lcWHERE})) == -1
+			      error_sys(db_error())
+			   endif
+         endif
+         if db_select(laFIELDS,lcTABLE,,{'NR_PASTA='+lcNR_PASTA}) == -1
+      		error_sys(db_error())
+   		endif
+         laRESULT := db_fetchrow()
+         if len(laRESULT) > 0
+            wput('VL_RISCO_HONORARIO',laRESULT[2])
+            wput('VL_RESULTADO',laRESULT[3])
+
+            wput('PC_RHFIXO',laRESULT[4])
+            wput('VL_FIXO_CALCULADO',laRESULT[6])
+            wput('DT_RHFIXO_PAGO',laRESULT[11])
+            wput('VL_RHFIXO_PAGO',laRESULT[13])
+
+            wput('VL_ECONOMIZADO',laRESULT[7])
+            wput('PC_ECONOMIA',laRESULT[8])
+            wput('PC_RHVARIAVEL',laRESULT[9])
+            wput('VL_RHVARIAVEL_CALCULADO',laRESULT[10])
+            if(laRESULT[5] == 'S')
+               wPut("PC_RHFIXO.class","winput")
+               wPut("PC_RHFIXO.readonly",.f.)
+            endif
+            wput('DT_RHVARIAVEL_PAGO',laRESULT[12])
+            wput('VL_RHVARIAVEL_PAGO',laRESULT[14])
+
+            wput('ifWAC_WRITE',.t.)
+         else
+            wput('ifWAC_WRITE',.f.)
+  		    walert("O Honorário só será calculado ao encerrar o processo.")
+         endif
+      endif
+   endif
+
+   pasta_abas(lcTP_PASTA) // necessária
+return
+
+
+
+

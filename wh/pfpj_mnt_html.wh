@@ -1,0 +1,1027 @@
+/*
+
+Project      : gr5
+Program      : pfpj.mnt.html
+Function     : pfpj_mnt_html
+Created on   : 22-Jan-2004   14:30:07
+Descripition : Manutenção de Pessoas Fisicas / Juridicas (CIP - Cadastro Interno de Pessoas)
+
+*/
+
+   local lcACTION        := '' ,;
+         lcTABLE         := '' ,;
+         lcNR_CONTROLE   := '' ,;
+         lcINSERT_ID     := '' ,;
+         lcVALIDA        := '' ,;
+         lcCNPJ_CPF      := '' ,;
+         lcSHOW_MENU     := '' ,;
+         lcFORMOPENER    := '' ,;
+         lcJAVAFIELDS    := '' ,;
+         lcCIP           := '' ,;
+         lcAUX           := '' ,;
+         lcTP_PASTA      := '' ,;
+         lcPFPJ_NATUREZA := '' as string
+
+   local laRESULT   := {} ,;
+         laRES      := {} ,;
+         laWHERE    := {} ,;
+         laWHERE2   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laFIELDS   := {} ,;
+         laLABELS   := {} ,;
+         laFIND_REC := {} as array
+
+   local ii         := 0,;
+         lnEMPRF    := 0  as int
+
+   private lcFILIAL := WSet("FILIAL")
+   
+   private objEvida := EvidaServiceNew()
+   private objPfpj  := PfpjRetornoEvidaNew()
+
+   if plPRE == nil
+      plPRE := .f.
+   endif
+
+   lcACTION      := iif(pcACTION==nil, upper(WGet('ACTION','C')),pcACTION)
+   lcNR_CONTROLE := iif(pcNR_CONTROLE==nil,alltrim(WGet('NR_CONTROLE','C')),pcNR_CONTROLE)
+   if lcNR_CONTROLE == 'New'
+      lcNR_CONTROLE := '0'
+   endif
+
+
+   // Parametro enviado pelo BP (Build Program) ---------------------------------------------------
+   lcFORMOPENER := alltrim(WGet('FORMOPENER','C'))
+   lcJAVAFIELDS := alltrim(WGet('JAVAFIELDS','C'))
+   lcSHOW_MENU  := upper(alltrim(WGet('SHOW_MENU','C')))
+
+   // Parametro enviado pelo BP (Build Program) ---------------------------------------------------
+
+   WPut('JAVAFIELDS',lcJAVAFIELDS)
+//  wout('<BR><b>JAVAFIELDS:'+lcJAVAFIELDS)
+   lcTP_PASTA := alltrim(WGet('TP_PASTA','C'))
+   //
+   // Glauber 25/06/2015
+   //
+   // Se o tipo de pasta estiver vazio, tentar pegar via JAVAFIELDS, a Sonia me passa via search de pesquisa.
+
+   if empty(lcTP_PASTA)
+      lcTP_PASTA := GetJavaField('TP_PASTA') // Funçaõ no final deste programa
+   endif
+// wout('<br><b>lcTP_PASTA retornado por JAVAFIELDS ==> '+ lcTP_PASTA)
+
+
+   lcTABLE         := 'pfpj'
+   laWHERE         := {'NR_CONTROLE = '+lcNR_CONTROLE}
+   laFIELDS        := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+   laLABELS        := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'A')
+   lcPFPJ_NATUREZA := alltrim(WGet('PFPJ_NATUREZA','C'))
+
+   //Exibe os botÃµes permitidos
+   if gbWAC_CREATE
+      WPut('ifWAC_CREATE',.t.)
+   endif
+   if gbWAC_DELETE
+      WPut('ifWAC_DELETE',.t.)
+   endif
+   if gbWAC_WRITE
+      WPut('ifWAC_WRITE',.t.)
+   endif
+
+   WPut('ifBTN_SAVE',.T.)
+
+// Glauber 09/2017 - Fase II Evida
+// Glauber 11/2017 - Quando a operação for de edição de uma pessoa já cadastrada, o box de consulta do Evida não deve ser exibido.
+
+   WPut('ifYESEVIDA', (objEvida:estaHabilitada()  .AND.  val(lcNR_CONTROLE) == 0))
+   WPut('ifNOEVIDA', (objEvida:estaHabilitada() == .F.   .OR.  val(lcNR_CONTROLE) > 0))
+
+
+   WPut('ifBTN_SAVE',.T.)
+
+
+   if lcPFPJ_NATUREZA == 'Juridica'
+      WPut('ifFISICA',.f.)
+      WPut('ifJURIDICA',.t.)
+   else
+      lcPFPJ_NATUREZA := 'Fisica'
+      WPut('ifFISICA',.t.)
+      WPut('ifJURIDICA',.f.)
+   endif
+
+   // alteração template societario 4
+   // Customização Vpar
+   // Sonia - 11/11/2010 16:50:56
+   WPut('FORMA_ATUACAO_ROWS','2')
+
+   // Verificação da configuração do CIP
+   if db_select({'CIP_CONFIG'},'empresa_usuaria',,{'CD_EMPRESA='+DLAP+'1'+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchrow()
+   if len(laRES) > 0
+      if laRES[1] == '0' .or. laRES[1] == '1'
+         WPut('CIP.readonly',.T.)
+         WPut('CIP.class','winputreadonly')
+      else
+         *WPut('CIP.label.style.color','#FF0000')
+         *WPut('CIP.label.style.font-weight','bold')
+         WPut('CIP.label.style.border','2px solid red')
+
+      endif
+   endif
+
+   /* Campos obrigatórios
+   * Formato do array abaixo
+   * 1 - Campo para captura da informação no HTML - WGet()
+   * 2 - Parte do label a exibir em caso de erro, está inf. e capturado do Wictrix
+   */
+
+   //laVALIDA   := {{'PFPJ',laLABELS[ascan(laFIELDS,{|lcFIND| alltrim(lcFIND) == 'PFPJ'})]},;
+   //               {'PFPJ_TIPOS',laLABELS[ascan(laFIELDS,{|lcFIND| alltrim(lcFIND) == 'PFPJ_TIPOS'})]}}
+
+   //if len(laRES) > 0
+   //   if laRES[1] == '1'
+   //      aadd(laVALIDA,{'CNPJ_CPF',laLABELS[ascan(laFIELDS,'CNPJ_CPF')]})
+   //   elseif laRES[1] == '2'
+   //      aadd(laVALIDA,{'CIP',laLABELS[ascan(laFIELDS,'CIP')]})
+   //   endif
+   //endif
+
+
+
+   laVALIDA := {'PFPJ','PFPJ_TIPOS'}
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+   //for ii := 1 to len(laVALIDA)
+   //   WPut(laVALIDA[ii,1]+'.label.style.color','#FF0000')
+   //   WPut(laVALIDA[ii,1]+'.label.style.font-weight','bold')
+   //next ii
+
+   /* Relacionamentos que devem ser validados
+   * Formato do array abaixo
+   * 1 - Tabela
+   * 2 - Campo para captura da informação no HTML - WGet()
+   * 3 - Campo para montagem da cláusula WHERE usada em old_db_findrec()
+   * 4 - Parte do label a exibir em caso de erro, está inf. e capturado do Wictrix
+   */
+   laFIND_REC := {{'grupo_economico','CD_GRP_ECONOMICO','CD_GRP_ECONOMICO',laLABELS[ascan(laFIELDS,'CD_GRP_ECONOMICO')]}}
+
+   lcSHOW_MENU := iif(empty(lcSHOW_MENU),'Y',lcSHOW_MENU)
+   if lcSHOW_MENU == 'Y'
+      WPut('ifMENU',.T.)
+   endif
+   if empty(lcFORMOPENER) .and. empty(lcJAVAFIELDS) .and. lcSHOW_MENU == 'Y'
+      WPut('ifBTN_FIND',.T.)
+      WPut('ifBTN_DELETE',.T.)
+   endif
+   WPut('SHOW_MENU',lcSHOW_MENU)
+
+   WPut('UF.option',uf())
+   WPut('PFPJ_NATUREZA',lcPFPJ_NATUREZA)
+   WPut('SMS_DEVICE.option',wfsmsdevice())
+   WPut('FL_DOCUMENTO_FALTA.option','S')
+   WPut('FL_PFPJ.option',{'Ativa', 'Inativa','Encerrada'})
+   WPut('FL_PFPJ.optionvalue',{'A', 'I','E'})
+   WPut('FL_SEXO.option',{'','Masculino','Feminino'})
+   WPut('FL_SEXO.optionvalue',{'','M','F'})
+   WPut('FL_COOPERATIVA.option',{'Sim','Não'})
+   WPut('FL_COOPERATIVA.optionvalue',{'S','N'})
+
+   carrega_cbox({{'pfpj_atividade','PFPJ_ATIVIDADE','Y'},;
+                 {'tipo_empresa','TP_EMPRESA','Y'},;
+                 {'tipo_capital','TP_CAPITAL','Y'},;
+                 {'departamento','DEPARTAMENTO','Y'}})
+
+   if lcACTION == 'NEW'
+
+      // Glauber 06/2015 - Implementação da consulta na SRF via webservice keyconsultas
+
+      if ( ! empty(WSet('URLWSRECEITA')))
+
+          // Pegar o código da empresa pela tabela empresa_usuaria
+
+          if db_select({'CODIGO_RF'},'empresa_usuaria',,{'CD_EMPRESA=' + DLAP + '1' + DLAP})
+             error_sys(db_error())
+          endif
+          laRES := db_fetchall()
+          if (len(laRES) < 2)
+             error_sys('Empresa usuária não encontrada.')
+          endif
+          if (laRES[2,1] == 0)
+              error_sys('Código da empresa na RD não informada.')
+          endif
+          lnEMPRF := laRES[2,1]
+
+          // Caso o tp_pasta não esteja vazio, validar se o template esta habilitado para consulta na SRF
+
+          if ( ! Empty(lcTP_PASTA))
+
+             if db_select({'PESQUISA_RF'},'pasta_config',,{'TP_PASTA=' + DLAP + lcTP_PASTA + DLAP})
+                error_sys(db_error())
+             endif
+             laRES := db_fetchall()
+
+             if (len(laRES) == 2) .and. (laRES[2,1] == 'S' .or. laRES[2,1] == 'Y')
+                WPUT('ifRECEITA',.T.)
+             endif
+
+          else
+              WPUT('ifRECEITA',.T.)
+          endif
+          WPUT('EMPRESAISJ',AllTrim(lnEMPRF))
+          WPUT('URLWSRECEITA',WSet('URLWSRECEITA'))
+          WPUT('LOGIN_CADASTRO',WSet('LOGIN'))
+
+      endif
+
+      if ! gbWAC_CREATE
+         WPut('NR_CONTROLE','New')
+         WPut('DT_CADASTRO',date())
+         WPut('LOGIN_CADASTRO',WSet('LOGIN'))
+         WPut('DT_ENTRADA',date())
+         WPut('TITLE','Inclusão de nova Pessoa '+lcPFPJ_NATUREZA+' - Pre-Cadastro')
+         WPut('ifBTN_SAVE',.T.)
+         WSet('_USER_INTERFACE','pfpj.pre.html') //Chama pre-cadastro
+         plPRE := .t.
+      else
+         if !empty(lcFORMOPENER) .and. !empty(lcJAVAFIELDS)
+            WPut('FORMOPENER',lcFORMOPENER)
+            WPut('JAVAFIELDS',lcJAVAFIELDS)
+         endif
+         WPut('NR_CONTROLE','New')
+         WPut('DT_CADASTRO',date())
+         WPut('LOGIN_CADASTRO',WSet('LOGIN'))
+         WPut('DT_ENTRADA',date())
+         WPut('TITLE','Inclusão de nova Pessoa '+lcPFPJ_NATUREZA)
+      endif
+   elseif lcACTION == 'PESQUISAREVIDA'  // FASE II - Evida
+          if !empty(lcFORMOPENER) .and. !empty(lcJAVAFIELDS)
+             WPut('FORMOPENER',lcFORMOPENER)
+             WPut('JAVAFIELDS',lcJAVAFIELDS)
+          endif
+
+          if val(lcNR_CONTROLE) > 0 .and. gbWAC_READ
+             lcPFPJ_NATUREZA := carrega_pfpj(lcNR_CONTROLE,laFIELDS)
+          endif
+          pfpj_abas(lcPFPJ_NATUREZA,lcNR_CONTROLE)
+          pesquisarEvida()
+          return
+   elseif lcACTION == 'SAVE' .AND. gbWAC_WRITE
+      
+     //for ii := 1 to len(laVALIDA)
+     //     lcVALIDA := alltrim(WGet(laVALIDA[ii,1],'C'))
+     //     if len(lcVALIDA) = 0 .or. lcVALIDA == '0'
+     //        walert(laVALIDA[ii,2]+' é um campo obrigatório!')
+     //        WPut('TITLE','Alteração do cadastro de Pessoa '+iif (empty(lcPFPJ_NATUREZA),'[Natureza não definida]',lcPFPJ_NATUREZA))
+     //        get2Put()
+     //        pfpj_abas(lcPFPJ_NATUREZA,lcNR_CONTROLE)
+     //        return(.f.)
+     //     endif
+     // next ii
+      
+      if verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA) == .F.
+         return(.f.)         
+      endif
+      
+      
+      
+      for ii := 1 to len(laFIND_REC)
+          lcVALIDA := alltrim(WGet(laFIND_REC[ii,2],'C'))
+          if !empty(lcVALIDA) .and. lcVALIDA <> '0'
+             if len(db_findrec({laFIND_REC[ii,3]},laFIND_REC[ii,1],laFIND_REC[ii,3]+'='+DLAP+lcVALIDA+DLAP)) = 0
+                walert(laFIND_REC[ii,4]+' é inválido(a) ou não pode ser encontrado(a)!')
+                WPut('TITLE','Alteração do cadastro de Pessoa '+iif (empty(lcPFPJ_NATUREZA),'[Natureza não definida]',lcPFPJ_NATUREZA))
+                get2Put()
+                pfpj_abas(lcPFPJ_NATUREZA,lcNR_CONTROLE)
+                return(.f.)
+             endif
+          endif
+      next ii
+
+      // Validação de CNPJ/CPF
+      lcCNPJ_CPF   := alltrim(strtran(WGet('CNPJ_CPF','C'),'.'))
+      lcCNPJ_CPF   := alltrim(strtran(lcCNPJ_CPF,'-'))
+      lcCNPJ_CPF   := alltrim(strtran(lcCNPJ_CPF,'/'))
+
+      if len(lcCNPJ_CPF) > 0
+         if ! chk_CNPJCPF(lcCNPJ_CPF)
+            if len(lcCNPJ_CPF) = 14
+               walert('Número de CNPJ Inválido!')
+            elseif len(lcCNPJ_CPF) = 11
+               walert('Número de CPF Inválido!')
+            else
+               walert('Número informado não é um CNPJ ou CPF!')
+            endif
+            get2Put()
+            pfpj_abas(lcPFPJ_NATUREZA,lcNR_CONTROLE)
+            return(.F.)
+         endif
+
+         //Verificando Unicidade de CNPJ
+         if len(db_findrec({'CNPJ_CPF'},'pfpj','CNPJ_CPF='+DLAP+lcCNPJ_CPF+DLAP+' and NR_CONTROLE<>'+lcNR_CONTROLE)) > 0
+            walert('CNPJ/CPF ja cadastrado!')
+            get2Put()
+            pfpj_abas(lcPFPJ_NATUREZA,lcNR_CONTROLE)
+            return(.F.)
+         endif
+      endif
+
+      // Unicidade de Pessoas através do CIP
+      if len(laRES) > 0
+         if laRES[1] == '2'
+            //Adiciona esta condicao para excluir o registro atual da pesquisa, no caso de uma alteração
+            if lcNR_CONTROLE <> '0'
+               aadd(laWHERE2,'NR_CONTROLE<>'+lcNR_CONTROLE)
+            endif
+            aadd(laWHERE2,'CIP='+DLAP+alltrim(WGet('CIP'))+DLAP)
+            if db_select(laFIELDS,lcTABLE,,laWHERE2) == -1
+               error_sys(db_error())
+            endif
+            laRESULT := db_fetchall()
+            if len(laRESULT) > 1
+               walert('O campo ['+laLABELS[ascan(laFIELDS,'CIP')]+':'+;
+                      laRESULT[2,ascan(laFIELDS,'CIP')]+'] já existe para '+DLMT+;
+                      laRESULT[2,ascan(laFIELDS,'PFPJ')]+DLMT)
+               get2Put()
+               if lcNR_CONTROLE == '0'
+                  WPut('NR_CONTROLE','New')
+               endif
+               pfpj_abas(lcPFPJ_NATUREZA,lcNR_CONTROLE)
+               return(.f.)
+            endif
+         endif
+      endif
+
+      aadd(laSAVE,laFIELDS)
+      for ii := 1 to len(laFIELDS)
+         if laFIELDS[ii] == 'FL_EMISSAO_FATURA'
+            lcTIPO := alltrim(WGet(laFIELDS[ii],'C'))
+            aadd(laSAVE_AUX,alltrim(substr(lcTIPO,1,at('-',lcTIPO)-1)))
+         elseif laFIELDS[ii] == 'PFPJ_CHAR'
+            aadd(laSAVE_AUX,lower(lat2char(WGet('PFPJ','C'))))
+         elseif laFIELDS[ii] == 'LOGIN_CADASTRO'
+            if WGet('NR_CONTROLE','N') == 0
+               aadd(laSAVE_AUX,WSet('LOGIN'))
+            else
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+            endif
+         elseif laFIELDS[ii] == 'DT_CADASTRO'
+            if WGet('NR_CONTROLE','N') == 0
+               aadd(laSAVE_AUX,date())
+            else
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+            endif
+         elseif laFIELDS[ii] == 'LOGIN_APROVACAO'
+            if plPRE
+               if WGet('NR_CONTROLE','N') == 0
+                  aadd(laSAVE_AUX,nil)
+               else
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+               endif
+            else
+               if WGet('NR_CONTROLE','N') == 0
+                  aadd(laSAVE_AUX,WSet('LOGIN'))
+               else
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+               endif
+            endif
+         elseif laFIELDS[ii] == 'DT_APROVACAO'
+            if plPRE
+               if WGet('NR_CONTROLE','N') == 0
+                  aadd(laSAVE_AUX,nil)
+               else
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+               endif
+
+            else
+               if WGet('NR_CONTROLE','N') == 0
+                  aadd(laSAVE_AUX,date())
+               else
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+               endif
+            endif
+
+         elseif laFIELDS[ii] == 'FL_APROVADO'
+            if plPRE
+               if WGet('NR_CONTROLE','N') == 0
+                  aadd(laSAVE_AUX,'N')
+               else
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+               endif
+            else
+               if WGet('NR_CONTROLE','N') == 0
+                  aadd(laSAVE_AUX,'S')
+               else
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+               endif
+            endif
+         elseif laFIELDS[ii] == 'LOGIN_REJEICAO'
+            if plPRE
+               if WGet('NR_CONTROLE','N') == 0
+                  aadd(laSAVE_AUX,nil)
+               else
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+               endif
+            else
+               if WGet('NR_CONTROLE','N') == 0
+                  aadd(laSAVE_AUX,WSet('LOGIN'))
+               else
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+               endif
+            endif
+        elseif laFIELDS[ii] == 'DT_REJEICAO'
+            if plPRE
+               if WGet('NR_CONTROLE','N') == 0
+                  aadd(laSAVE_AUX,nil)
+               else
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+               endif
+
+            else
+               if WGet('NR_CONTROLE','N') == 0
+                  aadd(laSAVE_AUX,date())
+               else
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+               endif
+            endif
+
+         elseif laFIELDS[ii] == 'FL_REJEITADO'
+            if plPRE
+               if WGet('NR_CONTROLE','N') == 0
+                  aadd(laSAVE_AUX,'N')
+               else
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+               endif
+            else
+               if WGet('NR_CONTROLE','N') == 0
+                  aadd(laSAVE_AUX,'S')
+               else
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+               endif
+            endif
+         else
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         endif
+      next ii
+      aadd(laSAVE,laSAVE_AUX)
+
+    
+      // Glauber 09/2017 - Interface com Evida - Fase II
+      
+      if (objEvida:estaHabilitada() .AND. WGET('EXISTENOEVIDA') != 'S' .AND. ( AT(Lower(WGET('PFPJ_TIPOS')), 'fav') > 0))
+      
+         // Glauber 09/11/2017 - Item 1.7 do documento de homologação.
+
+         if (LEN(WGET('CNPJ_CPF')) <= 11  .AND.  Empty(AllTrim(WGet('FL_SEXO'))))
+            WAlert('Retorno da Consulta no Evida: Campo sexo é de preenchimento obrigatório para pessoa física!')
+            pfpj_abas(lcPFPJ_NATUREZA,lcNR_CONTROLE)
+            Get2put()
+            return
+         endif
+
+
+         objPfPj := objEvida:ConsultaFavorecido(WGET('CNPJ_CPF'),;
+                                                StrZero(Year(Wget('DT_NASCIMENTO')),4) + '-' + StrZero(Month(Wget('DT_NASCIMENTO')), 2) + '-' + Strzero(Day(Wget('DT_NASCIMENTO')),2),;
+                                                iif(WGet('FL_SEXO') == 'M', '1','2'),;
+                                                iif(LEN(WGET('CNPJ_CPF')) <= 11, '1','2'))
+
+         if (objPfpj:CdRetorno == -1) // Código de erro retornado para a mensagem Nenhum dado retornado
+
+             objPfPj:Documento    := WGET('CNPJ_CPF')
+             objPfPj:TipoPessoa   := iif(LEN(WGET('CNPJ_CPF')) <= 11, '1','2')
+             objPfPj:Nome         := WGET('PFPJ')
+             objPfPj:DtNascimento := StrZero(Year(Wget('DT_NASCIMENTO')),4) + '-' + StrZero(Month(Wget('DT_NASCIMENTO')), 2) + '-' + Strzero(Day(Wget('DT_NASCIMENTO')),2)
+             objPfPj:Sexo         := iif(WGet('FL_SEXO') == 'M', '1','2')
+
+             objPfPj              := objEvida:IncluirFavorecido(objPfpj)
+
+             if (objPfpj:CdRetorno != 0)
+                WAlert('Erro Evida:' + objPfpj:NmRetorno)
+                pfpj_abas(lcPFPJ_NATUREZA,lcNR_CONTROLE)
+                Get2put()
+                return
+             endif
+
+             laSAVE[2,db_fetchncol(laSAVE,'CD_LEGADO')] := objPfpj:IdPessoa
+
+         endif
+
+      endif
+
+      pfpj_logs(laSAVE,lcTABLE,laWHERE[1],lcNR_CONTROLE,'Informações Principais')
+
+      if db_replace(laSAVE,lcTABLE,laWHERE) = -1
+         error_sys(db_error())
+      endif
+
+      if val(lcNR_CONTROLE) == 0
+         lcNR_CONTROLE := alltrim(str(db_insert_id()))
+      endif
+
+      if len(laRES) > 0
+         if laRES[1] == '0'
+            lcCIP := lcNR_CONTROLE
+            if db_update({{'CIP'},{lcCIP}},lcTABLE,{'NR_CONTROLE='+lcNR_CONTROLE}) == -1
+               error_sys(db_error())
+            endif
+            laSAVE[2,ascan(laFIELDS,'CIP')] := lcCIP
+         elseif laRES[1] == '1'
+            if db_update({{'CIP'},{lcCNPJ_CPF}},lcTABLE,{'NR_CONTROLE='+lcNR_CONTROLE}) == -1
+               error_sys(db_error())
+            endif
+            laSAVE[2,ascan(laFIELDS,'CIP')] := lcCNPJ_CPF
+         endif
+      endif
+   
+      if !empty(lcFORMOPENER) .and. !empty(lcJAVAFIELDS)
+         mkjsreturn(lcFORMOPENER,lcJAVAFIELDS,lcTABLE,laSAVE) //Cria JS retornando os dados gravados ao form opener
+      endif
+
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+
+      // Glauber 24/06/2010
+      // Ajuste do item 55 da planilha geral de demandas da célia
+      // O sistema não deve permitir a exclusão de um CIP se este CIP estiver atrelado há alguma pasta ou tiver login na ACUSER.
+
+      if db_query("select pasta_cip.CIP as CIP, 'PASTA' as TABELA from pasta_cip where pasta_cip.CIP = "+ DLAP + Alltrim(Wget('CIP')) + DLAP + ;
+                  " union select acuser.CIP as CIP, 'ACUSER' as TABELA from acuser where acuser.CIP = " + DLAP + Alltrim(Wget('CIP')) + DLAP) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         walert('Este CIP contém movimentação de pastas ou esta cadastrado na tabela de usuários, exclusão não permitida!')
+         get2Put()
+         if val(lcNR_CONTROLE) > 0 .and. gbWAC_READ
+            lcPFPJ_NATUREZA := carrega_pfpj(lcNR_CONTROLE,laFIELDS)
+         endif
+         pfpj_abas(lcPFPJ_NATUREZA,lcNR_CONTROLE)
+         return(.F.)
+      endif
+
+      pfpj_logdel(lcNR_CONTROLE,'NR_CONTROLE',lcNR_CONTROLE,,'Informações Principais')
+
+      if db_delete(lcTABLE,laWHERE[1]) = -1
+         error_sys(db_error())
+      endif
+      WSet('_USER_INTERFACE','pfpj.lst.html')
+      pfpj_lst_html()
+   elseif lcACTION == 'APROVA'
+      if !gbWAC_WRITE
+         walert('O seu Perfil não possue alçada para Aprovação.')
+      else
+         pfpj_logs({{'LOGIN_APROVACAO','DT_APROVACAO','FL_APROVADO','LOGIN_REJEICAO','DT_REJEICAO','FL_REJEITADO'},;
+                  {WSet('LOGIN'),    date() ,'S','', ctod('  /   /    '),'N'}},'pfpj','NR_CONTROLE='+lcNR_CONTROLE,lcNR_CONTROLE,'Informações Principais')
+
+         if db_update({{'LOGIN_APROVACAO','DT_APROVACAO','FL_APROVADO','LOGIN_REJEICAO','DT_REJEICAO','FL_REJEITADO'},;
+                      {WSet('LOGIN'),    date(),'S','',ctod('  /   /    '),'N'}},'pfpj',{'NR_CONTROLE='+lcNR_CONTROLE}) == -1
+            error_sys(db_error())
+         endif
+      endif   
+   elseif lcACTION == 'REJEITA'
+      if !gbWAC_WRITE
+         walert('O seu Perfil não possue alçada para Rejeição.')
+      else
+         pfpj_logs({{'LOGIN_REJEICAO','DT_REJEICAO','FL_REJEITADO','LOGIN_APROVACAO','DT_APROVACAO','FL_APROVADO'},;
+                    {WSet('LOGIN'),    date() ,'S','',ctod('  /   /    '),'N'}},'pfpj','NR_CONTROLE='+lcNR_CONTROLE,lcNR_CONTROLE,'Informações Principais')
+   
+         if db_update({{'LOGIN_REJEICAO','DT_REJEICAO','FL_REJEITADO','LOGIN_APROVACAO','DT_APROVACAO','FL_APROVADO'},;
+                       {WSet('LOGIN'),    date() ,'S', '',ctod('  /   /    '),'N'}},'pfpj',{'NR_CONTROLE='+lcNR_CONTROLE}) == -1
+            error_sys(db_error())
+         endif
+      endif
+   elseif lcACTION == 'INVERTE_NATUREZA' .and. gbWAC_WRITE
+      if WGet('PFPJ_NATUREZA','C') == 'Fisica'
+         lcPFPJ_NATUREZA := 'Juridica'
+      else
+         lcPFPJ_NATUREZA := 'Fisica'
+      endif
+      pfpj_logs({{'PFPJ_NATUREZA'},{lcPFPJ_NATUREZA}},'pfpj','NR_CONTROLE='+lcNR_CONTROLE,lcNR_CONTROLE,'Informações Principais')
+
+      if db_update({{'PFPJ_NATUREZA'},{lcPFPJ_NATUREZA}},'pfpj',{'NR_CONTROLE='+lcNR_CONTROLE}) == -1
+         error_sys(db_error())
+      endif
+
+   endif
+
+   if val(lcNR_CONTROLE) > 0 .and. gbWAC_READ
+      lcPFPJ_NATUREZA := carrega_pfpj(lcNR_CONTROLE,laFIELDS)
+   endif
+   pfpj_abas(lcPFPJ_NATUREZA,lcNR_CONTROLE)
+
+   *** rufino 19/09/2013 conf.fase 3
+   WPut('FILIAL',lcFILIAL)
+
+   if lcPFPJ_NATUREZA == 'Juridica'
+      if ! Empty(lcFILIAL) // verifica tag de filial
+         if lcFILIAL=='ENABLE'
+            lcTMP:='<tr id="INCX">'+CRLF
+         else
+            lcTMP:='<tr id="INCX" style="visibility:hidden;">'+CRLF
+         endif
+      else
+         lcTMP:='<tr id="INCX" style="visibility:hidden;">'+CRLF
+      endif
+
+      lcTMP+='<td id="INC0">wiclabel.CIP_EMPRESA</td>'+CRLF
+      lcTMP+='<td colspan="3">'+CRLF
+      lcTMP+='<input type="text"    class="winput"         id="CIP_EMPRESA"         name="CIP_EMPRESA"         wicinput size="10" onChange="sch_auto('+"'"+'mntform'+"'"+',this,'+"'"+'CIP,PFPJ'+"'"+','+"'"+'pfpj'+"'"+","+"'',"+"'"+'CIP='+"'"+'+DLAP+this.value+DLAP'+','+"'"+'CIP_EMPRESA,CIP|CIP_EMPRESA_PFPJ,PFPJ'+"'"+',['+"'"+'PFPJ_TABLE_FIELD=pasta.CIP_EMPRESA,CIP_EMPRESA'+"'"+'])">'+CRLF
+
+
+           ***<input type="text" class="winput" name="CIP_ADVOGADO_INTERNO" wicinput size="10" onChange="sch_auto('mntform',this,'CIP,PFPJ','pfpj','','CIP='+DLAP+this.value+DLAP,'CIP_ADVOGADO_INTERNO,CIP|CIP_ADVOGADO_INTERNO_PFPJ,PFPJ',['PFPJ_TABLE_FIELD=pasta.CIP_ADVOGADO_INTERNO'])">
+
+
+
+
+      lcTMP+='<input type="button"  class="wbuttonsearch"  id="INC1" value="..." onClick="sch_pop('+"'"+'sch.pfpj.html'+"'"+',['+"'"+'PFPJ_TABLE_FIELD=pasta.CIP_EMPRESA'+"'"+'])">'+CRLF
+      lcTMP+='<input type="button"  class="wbuttonsearch"  id="INC2"  title="Detalhes" value="D" onClick="pfpj_detalhe(document.mntform.CIP_EMPRESA.value)">'+CRLF
+      lcTMP+='<input type="text"    class="winputreadonly" id="CIP_EMPRESA_PFPJ" readonly name="CIP_EMPRESA_PFPJ" wicinput size="45">'+CRLF
+      lcTMP+='</td>'+CRLF
+      lcTMP+='</tr>'+CRLF
+
+      WPut('EMP_FILIAL',lcTMP)
+
+   endif
+   ***
+
+
+   if !plPRE
+      if !gbWAC_WRITE
+         WPut('ifBTN_SAVE',.f.)
+      else   
+         WPut('ifBTN_SAVE',.t.)
+      endif
+
+      if !gbWAC_DELETE
+         WPut('ifBTN_DELETE',.f.)
+      else   
+         WPut('ifBTN_DELETE',.t.)
+      endif
+   else
+      if !gbWAC_WRITE
+         //---------- Busca o Perfil do Usuário para saber se ele pode realizar o Pré-Cadastro ou não 
+         if db_select({'WGID'},'acuser',,{'LOGIN = '+DLAP+gcLOGIN+DLAP}) == -1
+            error_sys(db_error())
+         endif
+         laRES := db_fetchrow()
+         
+         //---------- Busca o pfpj dentro do Perfil do Usuário para saber se ele pode realizar o Pré-Cadastro ou não. 
+         if db_select({'WGID'},'acgroup_program',,{'WGID = '+alltrim(str(laRES[1]))+' and WPROGRAM = '+DLAP+'pfpj.mnt.html'+DLAP}) == -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchrow()
+                         
+         if len(laRESULT) > 0
+            WPut('ifBTN_SAVE',.t.)
+         else   
+            WPut('ifBTN_SAVE',.f.)
+         endif   
+      else   
+         WPut('ifBTN_SAVE',.t.)
+      endif
+
+      if !gbWAC_DELETE
+         WPut('ifBTN_DELETE',.f.)
+      else   
+         WPut('ifBTN_DELETE',.t.)
+      endif
+   endif
+return
+
+static function carrega_pfpj(fcNR_CONTROLE,faFIELDS)
+   local lcPFPJ_NATUREZA := '',;
+         lcAUX           := '' as string
+   local laRES    := {} ,;
+         laRESULT := {} as array
+
+   if db_select(faFIELDS,'pfpj',,{'NR_CONTROLE='+fcNR_CONTROLE}) = -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   db2Put(laRESULT)
+
+   if len(laRESULT) > 1
+      /* Carrega Grupo Econômico */
+      if db_select({'NM_GRP_ECONOMICO'},'grupo_economico',,{'CD_GRP_ECONOMICO='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CD_GRP_ECONOMICO')]+DLAP}) = -1
+         error_sys(db_error())
+      endif
+      db2Put(db_fetchall())
+
+      /* Carrega CIP */
+      //lcAUX := db_fetchcolvalue(laRESULT,'CIP_EMPRESA',2)
+      lcAUX := alltrim(laRESULT[2,db_fetchncol(laRESULT,'CIP_EMPRESA')])
+      if ! empty(alltrim(lcAUX))
+         if db_select({'PFPJ'},'pfpj',,{'CIP='+DLAP+lcAUX+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laRES := db_fetchrow()
+         if len(laRES) > 0
+            WPut('CIP_EMPRESA_PFPJ',laRES[1])
+         endif
+      endif
+
+      lcPFPJ_NATUREZA := laRESULT[2,db_fetchncol(laRESULT,'PFPJ_NATUREZA')]
+      WPut('ifALTER',.t.)
+
+      lcAUX := alltrim(laRESULT[2,db_fetchncol(laRESULT,'CIP_GESTOR_INTERNO')])
+      if ! empty(alltrim(lcAUX))
+         if db_select({'PFPJ'},'pfpj',,{'CIP='+DLAP+lcAUX+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laRES := db_fetchrow()
+         if len(laRES) > 0
+            WPut('CIP_GESTOR_INTERNO_PFPJ',laRES[1])
+         endif
+      endif
+   endif   
+   if GetWPut('FL_APROVADO') == 'N'
+      WPut('ifBTN_APROVA',.T.)
+      WPut('ifBTN_REJEITA',.T.)
+      WPut('ifBTN_SAVE',.T.)
+      WPut('ifBTN_DELETE',.T.)
+   endif
+   if GetWPut('FL_REJEITADO') == 'N'
+      WPut('ifBTN_APROVA',.T.)
+      WPut('ifBTN_REJEITA',.T.)
+      WPut('ifBTN_SAVE',.T.)
+      WPut('ifBTN_DELETE',.T.)
+   endif
+   WPut('TITLE','Alteração do cadastro de Pessoa '+iif (empty(lcPFPJ_NATUREZA),'[Natureza não definida]',lcPFPJ_NATUREZA))
+   if lcPFPJ_NATUREZA == 'Fisica'
+      WPut('ifFISICA',.t.)
+      WPut('ifJURIDICA',.f.)
+
+      mkgedembed('pfpj','EMBED_PFPJ_MNT_HTML_FOTO',150,130,'GED_EMBED_FOTO','Foto',.t.)
+      mkgedembed('pfpj','EMBED_PFPJ_MNT_HTML_ASSINATURA',150,130,'GED_EMBED_ASSINATURA','Assinatura',.t.)
+   else
+      WPut('ifFISICA',.f.)
+      WPut('ifJURIDICA',.t.)
+   endif
+   nnmkgedico('pfpj')
+
+return (lcPFPJ_NATUREZA)
+
+/*
+* Data......: 20/07/2015 15:41:55 - Rufino
+* Function..: nnmkgedico(fcWTABLE,fcNR_PASTA)
+* Objetivo..: Verificar a existencia de configurções GED para uma determinada tabela e criar o link para o ícone do GED
+* Parâmetros:
+* fcWTABLE: Nome da tabela
+* fcNR_PASTA: Numero da pasta
+* Retorno...: Nenhum
+*/
+function nnmkgedico(fcWTABLE,fcNR_PASTA)
+   local lcPARAMS  := '' ,;
+         lcHTML    := '' ,;
+         lcCONTENT := '' as string
+
+   local laFIELDS := {} ,;
+         laRESULT := {} as array
+
+   local ii := 0 as int
+
+   wput('GED_ICO','')
+
+   if valtype(fcWTABLE) == 'U' .or. empty(fcWTABLE)
+      puterror('nmkgedico: Tabela não definida')
+      return(nil)
+   endif
+
+   laFIELDS := {'WTABLE','CD_BUSINESS','WFIELD1','WFIELD2','WFIELD3','WFIELD4','WFIELD5'}
+   if db_select(laFIELDS,'gdrelacionamento',,{'WTABLE='+DLAP+fcWTABLE+DLAP}) == -1
+      puterror('nmkgedico: ('+alltrim(str(procline()))+') '+db_error())
+      return(nil)
+   endif
+   laRESULT := db_fetchrow()
+   if len(laRESULT) > 0
+      if !empty(laRESULT[2]) .and. !empty(laRESULT[3])
+         lcPARAMS += 'WTABLE='+fcWTABLE
+         lcPARAMS += '&CD_BUSINESS='+alltrim(laRESULT[2])
+         for ii := 1 to 5
+             if !empty(laRESULT[ascan(laFIELDS,'WFIELD'+alltrim(str(ii)))])
+                lcCONTENT := alltrim(getwput(laRESULT[ascan(laFIELDS,'WFIELD'+alltrim(str(ii)))],'C')) // Recupera dados da UI
+                if !empty(lcCONTENT)
+                   lcPARAMS += '&WFIELD'+alltrim(str(ii))+'='+lcCONTENT
+                else
+                   lcPARAMS += '&WFIELD'+alltrim(str(ii))+'=RELATIONEMPTY.'+laRESULT[ascan(laFIELDS,'WFIELD'+alltrim(str(ii)))]
+                endif
+             endif
+         next ii
+
+         lcPARAMS := wic_action('wicaction_workflow/ged.mgr.html')+'?'+lcPARAMS
+
+         lcHTML += '<style>'+CRLF
+         lcHTML += '   div.prin {'+CRLF
+         lcHTML += '      position: fixed;'+CRLF
+         lcHTML += '      border:0px solid #000000;'+CRLF
+         lcHTML += '      right: 8px;'+CRLF
+         lcHTML += '      z-index: 1000;'+CRLF
+         lcHTML += '      }'+CRLF
+         lcHTML += '</style>'+CRLF
+
+         lcHTML += '<style>'+CRLF
+         lcHTML += '   div.btged {'+CRLF
+         lcHTML += '      cursor:pointer;'+CRLF
+         lcHTML += '      background-image:url('+WSet('PATH_COMPONENTS')+'/btged.gif);'+CRLF
+         lcHTML += '      background-repeat:none;'+CRLF
+         lcHTML += '      border:0px solid #000000;'+CRLF
+         lcHTML += '      width:66px;'+CRLF
+         lcHTML += '      height:62px;'+CRLF
+         lcHTML += '      }'+CRLF
+         lcHTML += '</style>'+CRLF
+
+         lcHTML += '<style>'+CRLF
+         lcHTML += '  #divged {'+CRLF
+         lcHTML += '     overflow:hidden;'+CRLF
+         lcHTML += '     position: fixed;'+CRLF
+         lcHTML += '     width: 890px;'+CRLF
+         lcHTML += '     height: 500px;'+CRLF
+         lcHTML += '     top: 10%;'+CRLF
+         lcHTML += '     left: 9%;'+CRLF
+         lcHTML += '     background-color: #FFFFFF;'+CRLF
+         lcHTML += '     border:1px solid #000000;'+CRLF
+         lcHTML += '     visibility:hidden;'+CRLF
+         lcHTML += '     z-index: 1000; '+CRLF
+         lcHTML += ' }'+CRLF
+         lcHTML += '</style>'+CRLF
+
+         lcHTML += '<style>'+CRLF
+         lcHTML += '   #totged {'+CRLF
+         lcHTML += '      position:fixed;'+CRLF
+         lcHTML += '      border:0px solid #000000;'+CRLF
+         lcHTML += '      width:33px;'+CRLF
+         lcHTML += '      height:20px;'+CRLF
+         lcHTML += '      text-align:right;'+CRLF
+         lcHTML += '      margin-left: 28px;'+CRLF
+         lcHTML += '      margin-top: 40px;'+CRLF
+         lcHTML += '      z-index: 1000;'+CRLF
+         lcHTML += '      }'+CRLF
+         lcHTML += '</style>'+CRLF
+
+
+         lcHTML += '<script language="javascript">'+CRLF
+
+         lcHTML += '   /*'+CRLF
+         lcHTML += '   * function wingedn()'+CRLF
+         lcHTML += '   * Abre iframe com programa de visualização de Documentos'+CRLF
+         lcHTML += '   * Parametros:'+CRLF
+         lcHTML += '   * wACTION - open | close -> Abre/fecha iframe.'+CRLF
+         lcHTML += '   */'+CRLF
+
+
+         lcHTML += '   function wingedn(wACTION,wURL,objevent) {'+CRLF
+
+         lcHTML += '      if (wACTION == '+DLAP+'open'+DLAP+') {'+CRLF
+         lcHTML += '         document.getElementById('+DLAP+'divged'+DLAP+').style.visibility = '+DLAP+'visible'+DLAP+';'+CRLF
+         lcHTML += '         parent.iframeged.location.href = '+DLAP+lcPARAMS+DLAP+';'+CRLF
+         lcHTML += '      }'+CRLF
+         lcHTML += '      else {'+CRLF
+         lcHTML += '         document.getElementById('+DLAP+'divged'+DLAP+').style.visibility = '+DLAP+'hidden'+DLAP+';'+CRLF
+         lcHTML += '         parent.iframeged.location.href = '+DLAP+'about:blank'+DLAP+';'+CRLF
+         lcHTML += '      }'+CRLF
+         lcHTML += '   }'+CRLF
+         lcHTML += '</script>'+CRLF
+
+         lcHTML += '<div id="ICOG" class="prin">'+CRLF
+
+         lcHTML += '<div class="btged" title="Clique aqui caso queira inserir documentos no Ged." onclick="wingedn('+DLAP+'open'+DLAP+')">'+CRLF
+
+         ***lcHTML += '<div id="totged"><label>'+totged(fcNR_PASTA)+'</label></div>'+CRLF
+
+         lcHTML += '</div>'+CRLF
+
+         lcHTML += '<div id="divged">'+CRLF
+         lcHTML += '   <div align="right" style="background-color:#408095;height:20px;padding:2px;">'+CRLF
+         lcHTML += '      <input type="button" style="background-color:#408095;font-family:Verdana, Arial, Helvetica, sans-serif; font-size:10;'
+         lcHTML += '             color:#FFFFFF; border:1px solid #FFFFFF; height:16px;" value="x" onclick="wingedn('+DLAP+'close'+DLAP+')">'+CRLF
+         lcHTML += '   </div>'+CRLF
+         lcHTML += '   <iframe name="iframeged" frameborder="0" width="100%" height="100%"></iframe>'+CRLF
+         lcHTML += '</div>'+CRLF
+         lcHTML += '</div>'+CRLF
+
+         wput('GED_ICO',lcHTML) // Tag localizada na UI da aplicação
+      endif
+   endif
+
+return(nil)
+
+
+
+/*
+* Glauber - 06/2015
+*
+* Function..: GetJavaField('TP_PASTA')
+* Objetivo..: Recupera o valor de um campo passado via String JAVAFIELDS.
+* Parâmetros:
+*
+*    pcFIELD : nome do campo
+*
+* Retorno...: conteúdo do campo caso encontrado, senão retorna uma string vazia.
+*
+*
+*
+*/
+
+Function GetJavaField(pcFIELD)
+
+
+    local lcGET :=  alltrim(WGet('JAVAFIELDS','C')),;
+          lcRET := '' as String
+
+    local laAUX := {} as Array
+    local ii    := 0,;
+          lnPOS := 0 as int
+
+
+    if ! Empty(lcGET)
+
+//     CIP_ADVOGADO_INTERNO,CIP|CIP_ADVOGADO_INTERNO_DT_NASCIMENTO,DT_NASCIMENTO|CIP_ADVOGADO_INTERNO_ESTADO_CIVIL,ESTADO_CIVIL|CIP_ADVOGADO_INTERNO_PFPJ,PFPJ|TP_PASTA,Criminal
+
+       laAUX := Str2Array(lcGET,{',','|'})
+
+       lnPOS := Ascan(laAUX,{| x | x[1] == upper(pcFIELD) })
+       if lnPOS > 0
+          lcRET := laAUX[lnPOS,2]
+       endif
+    endif
+
+return (lcRET)
+
+/*
+*
+* Glauber - 09/2017 - Pasta
+*
+* função....: pesquisarEvida()
+* Objetivo..: Realiza a pesquisa no eVida.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*
+*
+*/
+
+Static Function pesquisarEvida()
+
+   local lcData := StrZero(Year(Wget('DT_NASCIMENTO')),4) + '-' + StrZero(Month(Wget('DT_NASCIMENTO')), 2) + '-' + Strzero(Day(Wget('DT_NASCIMENTO')),2) AS String
+   
+   local lcCPFCNPJ := AllTrim(WGET('CNPJ_CPF','N')) AS String
+
+         if len(lcCPFCNPJ) < 11
+            WAlert('Atenção, número de CPF inválido ou não informado:' + lcCPFCNPJ)
+            Get2put()
+            return
+         endif
+
+         WPUT('CNPJ_CPF', lcCPFCNPJ)
+
+         if (Dtos(Ctod(Wget('DT_NASCIMENTO','C'))) == space(8))
+            WAlert('Retorno da Consulta no Evida: data de nascimento inválida ou não informada:' + Wget('DT_NASCIMENTO','C'))
+            Get2put()
+            return
+         endif
+
+         if (Empty(AllTrim(WGet('FL_SEXO'))) )
+            WAlert('Retorno da Consulta no Evida: campo sexo não informado !')
+            Get2put()
+            return
+         endif
+
+         objPfPj := objEvida:ConsultaFavorecido(lcCPFCNPJ,;
+                                                lcData,;
+                                                iif(WGet('FL_SEXO') == 'M', '1','2'),;
+                                                iif(LEN(WGET('CNPJ_CPF')) <= 11, '1','2'))
+
+         if (objPfpj:CdRetorno != 0)
+            WAlert(objPfPj:NmRetorno)
+            WPUT('FL_SEXO',       WGet('FL_SEXO'))
+            WPUT('DT_NASCIMENTO', WGet('DT_NASCIMENTO'))
+            return
+         endif
+
+         lcData := Substr(objPfPj:DtNascimento,7,4) + '-' + Substr(objPfPj:DtNascimento,4,2) + '-' + Substr(objPfPj:DtNascimento,1,2)
+
+         WPUT('PFPJ',          objPfPj:Nome)
+         WPUT('NM_FANTASIA',   objPfPj:Nome)
+         WPUT('FL_SEXO',       objPfPj:Sexo)
+         WPUT('DT_NASCIMENTO', objPfPj:DtNascimento)
+         WPUT('CD_LEGADO',     objPfPj:IdPessoa)
+         WPUT('PFPJ_TIPOS',    'FAV')
+         WPUT('EXISTENOEVIDA', 'S')
+
+         WPut('PFPJ.readonly',.T.)
+         WPut('PFPJ.class','winputreadonly')
+         WPut('NM_FANTASIA.readonly',.T.)
+         WPut('NM_FANTASIA.class','winputreadonly')
+         WPut('FL_SEXO.readonly',.T.)
+         WPut('FL_SEXO.class','winputreadonly')
+         WPut('DT_NASCIMENTO.readonly',.T.)
+         WPut('DT_NASCIMENTO.class','winputreadonly')
+         WPut('CD_LEGADO.readonly',.T.)
+         WPut('CD_LEGADO.class','winputreadonly')
+         WPut('PFPJ_TIPOS.readonly',.T.)
+         WPut('PFPJ_TIPOS.class','winputreadonly')
+
+return

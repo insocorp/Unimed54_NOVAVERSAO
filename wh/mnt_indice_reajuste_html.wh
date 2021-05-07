@@ -1,0 +1,74 @@
+/*
+Project      : gr5
+Program      : mnt.indice.reajuste.html
+Function     : mnt_indice_reajuste_html
+Created on   : 14-Aug-2002   15:08:27
+Descripition : Manutenção e listagem de índices de reajuste
+*/
+
+local laPARAM        := {},;
+      laINPUT_OBJ    := {},;
+      laSELECT       := {} as array
+
+laPARAM := {{'CD_INDICE',''     ,'*'},;
+            {'FL_ATIVO','',},;
+            {'ACTION'       ,'ALTER',   }}
+
+
+laINPUT_OBJ := { {'CD_INDICE' ,0,'Y','Y',"'New'"    },;
+                 {         , , ,   ,   ,           },;
+                 {'NM_INDICE' ,0,'N','N',           },;
+                 {         , , ,   ,   ,           },;
+                 {'TIPO'      ,1,'N','N','{"Índice","Taxa","Moeda"}'},;
+                 {         , , ,   ,   ,           },;
+                 {'APLICACAO' ,1,'N','N','{"Composta","Simples"}'},;
+                 {         , , ,   ,   ,           },;
+                 {'CALCULO'   ,1,'N','N','{"Soma","Anterior/Atual","Atual/Anterior"}'},;
+                 {         , , ,   ,   ,           },;
+                 {'DEFASADO'  ,1,'N','N','{"Sim","Não"}'},;
+                 {         , , ,   ,   ,           },;
+                 {'SITUACAO'  ,1,'N','N','{"Ativo","Inativo","Extinto(Histórico)"}'},;
+                 {         , , ,   ,   ,           },;
+                 {'FL_INDICE_DIARIO',1,,,'{"S","N"}'},;
+                 { , , , , },;
+                 {'FL_ATIVO',1,,'Y','{"S","I","D"}' }}
+
+laSELECT := {'CD_INDICE','NM_INDICE','TIPO','APLICACAO','CALCULO','DEFASADO','SITUACAO','FL_INDICE_DIARIO','FL_ATIVO'}
+
+if upper(alltrim(WGet('ACTIONBP'))) == 'ALTER'
+   mkgedico('indice_reajuste',WGet('CD_INDICE','C'))
+endif
+
+xbp2('indice_reajuste',;                                                //Tabela alvo
+    ,;                                                                  //Joins
+    ,;                                                                  //Where
+    {'CD_INDICE'},;                                                     //Order by
+    ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+    ,;                                                                  //Group by
+    ,;                                                                  //Limit
+    ,;                                                                  //Banco de Dados
+    2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+    'gr5',;                                                             //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                                           //Programa chamador
+    laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+    ,;                                                                  //Parâmetros para os botões das linhas do grid
+    'mnt.indice_reajuste.html',;                                        //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+    ,;                                                                  //Retorno java (nil) - usado apenas para Search
+    ,;                                                                  //Campos usados na pesquisa rápida
+    ,;                                                                  //Campos Ocultos
+    laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+    laSELECT ,;                                                         //Campos exibidos no grid
+    laSELECT)                                                           //Campos usados no select
+return
+
+
+
+
+
+
+
+
+
+
+

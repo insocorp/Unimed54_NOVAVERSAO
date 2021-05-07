@@ -1,0 +1,136 @@
+/*
+
+Project      : gr5
+Program      : lojap.mnt.html
+Function     : lojap_mnt_html
+Created on   : 30-Jan-2008   15:42:44
+Descripition : lojas
+
+*/
+
+
+   local lcACTION     := '' ,;
+         lcWHERE      := '' ,;
+         lcTABLE      := '' ,;
+         lcPROCURA    := '' ,;
+         lcCONTROLE   := str(WGET('NR_LOJA_OR_PROBLEMA','N'))  as string
+   local laRESULT   := {} ,;
+         laCOMO_OP  := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laJOIN     := {} ,;
+         laFIELDS   := {} as array
+
+
+
+    local ii:=0,;
+          xx := 0 as int
+
+   local oQryPadrao as object
+   local oQrycmb as object
+
+   lcACTION     := upper(alltrim(WGet('ACTION','C')))
+
+
+
+
+
+   lcTABLE      := 'lojas'
+   lcWHERE      := 'NR_LOJA_OR_PROBLEMA='+ str(WGET('ID_LOJA'))
+   laFIELDS     := {'ID_LOJA','SIGLA_LOJA','NR_LOJA','REGIONAL','CANAL','NM_LOJA','ID_CANAL'}
+
+
+
+   wput('ID_LOJA','New')
+
+   oQryPadrao          := QueryNew()
+   oQryPadrao:Table    := 'canal'
+   oQryPadrao:Fields   := {'CANAL'}
+   oQryPadrao:OrderBy  := {'CANAL'}
+   if !oQryPadrao:Open()
+       error_sys(oQryPadrao:LastError)
+       oQryPadrao:Destroy()
+   endif
+   if ! oQryPadrao:Eof
+       aadd(laCOMO_OP,'')
+       while !oQryPadrao:Eof
+          aadd(laCOMO_OP,oQryPadrao:FieldValue('CANAL'))
+          oQryPadrao:Skip()
+       enddo
+       WPut('CANAL.option',laCOMO_OP)
+    end if
+
+   if lcACTION == 'NEW' .or. empty(lcACTION)  // INDENTIFICA QUE UM NOVO REGISTRO
+      lcCONTROLE := '0'
+
+           // INSERI NO CAMPO CODUNIDADE A PALAVRA NEW
+   elseif lcACTION == 'ALTER'
+      oQryPadrao          := QueryNew()
+      oQryPadrao:Table    := 'lojas'
+      oQryPadrao:Fields   := laFIELDS
+      oQryPadrao:Where    := {'ID_LOJA = ' +lcCONTROLE}
+      if !oQryPadrao:Open()
+          error_sys(oQryPadrao:LastError)
+          oQryPadrao:Destroy()
+      endif
+
+
+      for xx := 1 to len(laFIELDS)
+
+
+          wput(laFIELDS[xx],oQryPadrao:FieldValue(laFIELDS[xx]))
+          if laFIELDS[xx] = 'CANAL'
+             cmb_regional(oQryPadrao:FieldValue(laFIELDS[xx]))
+          endif
+      next xx
+
+      oQryPadrao:Destroy()
+   elseif lcACTION == 'SAVE'
+
+      laSAVE     := {{'ID_LOJA','SIGLA_LOJA','NR_LOJA','REGIONAL','CANAL','NM_LOJA'}}
+      for lnXX := 1 to len(laSAVE[1])
+           aadd(laSAVE_AUX,Wget(laSAVE[1,lnXX]))
+
+      next lnXX
+      aadd(laSAVE,laSAVE_AUX)
+
+
+      if db_replace(laSAVE,'lojas',{'ID_LOJA = '+ lcCONTROLE}) == -1 //EXECUTA A A OP��DE SALVAR
+         error_sys(db_error())
+      endif
+   elseif lcACTION == 'DELETE'
+      if db_delete('lojas','ID_LOJA = ' + str(WGET('ID_LOJA','N'))) == -1  //DELETA O REGISTRO
+         error_sys(db_error())
+      endif
+
+
+   endif
+return
+
+static function cmb_regional(faFIELDS)
+   local laPUT    := {} ,;
+         laRESULT := {} as array
+   local ii := 0 as int
+
+      oQrycmb          := QueryNew()
+      oQrycmb:Table    := 'regional'
+      oQrycmb:Fields   := {'REGIONAL'}
+      oQrycmb:Where    := {'CANAL = ' + DLAP+faFIELDS+DLAP}
+      if !oQrycmb:Open()
+          error_sys(oQrycmb:LastError)
+          oQrycmb:Destroy()
+      endif
+
+      if ! oQrycmb:Eof
+         laPUT := {''}
+         While ! oQrycmb:Eof
+            aadd(laPUT,oQrycmb:FieldValue('REGIONAL'))
+            oQrycmb:Skip()
+         enddo
+
+         WPut('REGIONAL.option',laPUT)
+      endif
+
+return (nil)
+
+

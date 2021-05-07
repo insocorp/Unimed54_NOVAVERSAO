@@ -1,0 +1,11 @@
+/*
+
+Project      : gr5
+Program      : lst.mvt.despesas.html
+Function     : lst_mvt_despesas_html
+Created on   : 15-Aug-2002   14:35:12
+Descripition : Listagem de localização de Lançamentos de Despesas
+
+*/
+
+lst_pasta_html()

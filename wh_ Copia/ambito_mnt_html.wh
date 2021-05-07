@@ -1,0 +1,66 @@
+/*
+
+Project      : gr5
+Program      : ambito.mnt.html
+Function     : ambito_mnt_html
+Created on   : 14-Dec-2006   10:36:49
+Descripition : Âmbito
+
+*/
+
+   local laPARAM        := {},;
+         laINPUT_OBJ    := {},;
+         laSELECT       := {} as array
+
+   laPARAM := {{'AMBITO',''     ,'*'},;
+               {'TP_PASTA'     ,''     ,'*'},;
+               {'FL_ATIVO','',},;
+               {'ACTION'       ,'ALTER',   }}
+
+   laINPUT_OBJ := {{'TP_PASTA',1, ,'Y',"loadcboxorder_build('pasta_config','TP_PASTA',.T.,{'TP_PASTA'})"},;
+                {               , , ,   ,   },;
+                {'AMBITO',0, ,'Y',   },;
+                {,,,,},;
+                {'FL_ATIVO',1,,'Y','{"S","I","D"}' }}
+           
+
+   laSELECT := {'TP_PASTA','AMBITO','FL_ATIVO'}
+
+   if upper(alltrim(WGet('ACTIONBP'))) == 'ALTER'
+   	mkgedico('ambito',WGet('TP_PASTA','C'),WGet('ambito','C'))
+	endif
+
+   xbp2('ambito',;                                                         //Tabela alvo
+       ,;                                                                  //Joins
+       ,;                                                                  //Where
+       {'TP_PASTA','AMBITO'},;                                        			//Order by
+       ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+       ,;                                                                  //Group by
+       ,;                                                                  //Limit
+       ,;                                                                  //Banco de Dados
+       2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+       'gr5',;                                                             //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;                                           //Programa chamador
+       laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+       ,;                                                                  //Parâmetros para os botões das linhas do grid
+       'ambito.mnt.html',;                                                 //Programa que os links/botoes do grid deverao chamar
+       'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+       ,;                                                                  //Retorno java (nil) - usado apenas para Search
+       ,;                                                                  //Campos usados na pesquisa rápida
+       ,;                                                                  //Campos Ocultos
+       laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+       laSELECT ,;                                                         //Campos exibidos no grid
+       laSELECT)                                                           //Campos usados no select
+return
+
+
+
+
+
+
+
+
+
+
+
+

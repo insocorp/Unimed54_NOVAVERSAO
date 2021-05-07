@@ -1,0 +1,92 @@
+/*
+
+Project      : gr5
+Program      : mnt.plct.html
+Function     : mnt_plct_html
+Created on   : 06-Nov-2002   16:43:15
+Descripition : Manutenção de Plano de Contas
+
+*/
+
+   local lcACTION   := '',;
+         lcCD_PLCT  := '',;
+         lcWHERE    := '',;
+         lcTABLE    := '' as string
+
+   local laRESULT   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laFIELDS   := {} ,;
+         laLABELS   := {} ,;
+         laVALIDA   := {} as array
+
+   local ii := 0 as int
+
+   lcACTION   := upper(WGet('ACTION','C'))
+   if len(alltrim(lcACTION)) = 0
+      lcACTION:='NEW'
+   endif
+
+   lcCD_PLCT := alltrim(WGet('CD_PLCT','C'))
+   lcWHERE   := 'CD_PLCT = '+DLAP+lcCD_PLCT+DLAP
+   lcTABLE   := 'planocontas'
+   laFIELDS  := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+   laLABELS  := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'A')
+   laVALIDA  := {'CD_PLCT',;
+                  'NM_PLCT',;
+                  'PLCT_NIVEL'}
+
+   wPut('PLCT_NATUREZA_OPT',{'Débito','Crédito'})
+   wPut('PLCT_ESPECIE_OPT',{'Analítca','Sintética'})
+   if lcACTION = 'NEW' .and. gbWAC_CREATE
+      wPut('TITLE','Inclusão de novo Plano de Contas')
+   elseif lcACTION = 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         for ii := 1 to len(laFIELDS)
+             if laFIELDS[ii] == 'PLCT_NATUREZA'
+                WPut(laFIELDS[ii],iif(laRESULT[ii]='D','Débito','Crédito'))
+                loop
+             elseif laFIELDS[ii] == 'PLCT_ESPECIE'
+                WPut(laFIELDS[ii],iif(laRESULT[ii]='A','Analítica','Sintética'))
+                loop
+             endif
+             wPut(laFIELDS[ii],laRESULT[ii])
+         next ii
+      else
+         return(.f.)
+      endif
+      wPut('TITLE','Alteração do Plano de Conta')
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+      for ii:= 1 to len(laVALIDA)
+         if len(alltrim(WGet(laVALIDA[ii],'C'))) = 0
+            wPut('ERROR_MENS',DLMT+laLABELS[ascan(laFIELDS,laVALIDA[ii])]+DLAP+' é um campo obrigatório')
+            get2Put()
+            return(.f.)
+         endif
+      next ii
+      aadd(laSAVE,laFIELDS)
+      for ii := 1 to len(laFIELDS)
+         if laFIELDS[ii] == 'PLCT_NATUREZA' .or. laFIELDS[ii] == 'PLCT_ESPECIE'
+            aadd(laSAVE_AUX,substr(WGet(laFIELDS[ii]),1,1))
+         else
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         endif
+      next ii
+      aadd(laSAVE,laSAVE_AUX)
+      if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+         error_sys(db_error())
+      endif
+      wSet('_USER_INTERFACE','lst.plct.html')
+      lst_plct_html()
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+      wSet('_USER_INTERFACE','lst.plct.html')
+      lst_plct_html()
+   endif
+return

@@ -1,0 +1,88 @@
+/*
+
+Project      : gr5
+Program      : xmark
+Function     : xmark
+Created on   : 02/05/2017 16:29:24
+Descripition : Calculo de Markup
+
+*/
+
+   WSet('_WDEBUG','ENABLED')
+
+   local lcFL_OPERADOR := '' ,;
+         lcWHERE       := '' ,;
+         lcERROR       := '' as string
+
+   local llDEUERRO     := .F.
+
+   local laPEDIDOS      := {} ,;
+         laDEPOSITOS    := {} ,;
+         laRESULT       := {} ,;
+         laPASTA        := {} ,;
+         laOCOR_PED     := {} ,;
+         laSAVE         := {} ,;
+         laSAVE2        := {} ,;
+         laSAVE_AUX     := {} ,;
+         laSAVE2_AUX    := {} ,;
+         laSAVEDETAL    := {} ,;
+         laFIELDS       := {} ,;
+         laAUX          := {} ,;
+         laMARKUP       := {} ,;
+         laMARKUP_JUROS := {} ,;
+         laLIMIT        := {} ,;
+         laPARSER       := {} ,;
+         laLOG          := {} ,;
+         laINICIO       := {} ,;
+         laCAMPOS1      := {} ,;
+         laCAMPOS2      := {} ,;
+         laRESULT1      := {} ,;
+         laRESULT2      := {} ,; 
+         laJOIN         := {} ,; 
+         laJOIN1        := {} ,; 
+         laJOIN2        := {} as array
+
+   local ii          := 0 ,;
+         jj          := 0 ,;
+         ip          := 0 ,;
+         lnINC       := 0 ,;
+         lnNR_PASTA  := 0 ,;
+         liPOS       := 0 ,;
+         lnNR_NOPROC := 0 as int
+
+   local lnVL_CORRECAO := 0.00 ,;
+         lnVL_JUROS    := 0.00 ,;
+         lnVL_ATUAL    := 0.00 ,;
+         lnDIFF        := 0.00 ,;
+         lnVL_CORDETAL := 0.00 ,;
+         lnVL_JURDETAL := 0.00 as numeric
+
+   /*
+   * Calculando os markups
+   */
+   
+ 
+   if db_select({'CD_INDICE'},'indice_reajuste',,,{'CD_INDICE'}) == -1
+
+         error_sys(db_error())
+   endif
+
+
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      for ii := 2 to len(laRESULT)
+         if mkmarkup(laRESULT[ii,1],date2ym(date()),'N')
+         else
+         endif
+      next ii
+   else
+      db_query('ROLLBACK')
+
+      return (nil)
+   endif
+ 
+ 
+return (nil)
+
+
+

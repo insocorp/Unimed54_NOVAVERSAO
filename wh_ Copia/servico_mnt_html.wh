@@ -1,0 +1,55 @@
+/*
+
+Project      : gr5
+Program      : servico.mnt.html
+Function     : servico_mnt_html
+Created on   : 2010-08-26 14:47:07
+Descripition : Servicos Webservice
+
+*/
+
+   local laPARAM        := {},;
+         laINPUT_OBJ    := {},;
+         laSELECT       := {} as array
+
+   
+   laPARAM := {{'ID_SERVICO'   ,''     ,'*'},;
+               {'ACTION'     ,'ALTER',   }}
+
+   laINPUT_OBJ := {{'ID_SERVICO',0,  ,'Y',},;
+                   {                 , , ,   ,   },;
+                   {'NOME_WS',0, ,'Y',},;           
+                   {                 , , ,   ,   },;                           
+                   {'DESCRICAO',4, ,'Y',},;
+                   {               , , ,   ,   },;
+                   {'SERVICO',4, ,'Y',   }}
+
+   laSELECT := {'ID_SERVICO','NOME_WS' ,'DESCRICAO','SERVICO'}
+
+
+   xbp('isjunimedservicos',;                                                         //Tabela alvo
+       ,;                                                                  //Joins
+       ,;                                                                  //Where
+       {'ID_SERVICO'},;                                              	   //Order by
+       ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+       ,;                                                                  //Group by
+       ,;                                                                  //Limit
+       ,;                                                                  //Banco de Dados
+       2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+       'gr5',;                                                             //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;                                           //Programa chamador
+       laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+       ,;                                                                  //Parâmetros para os botões das linhas do grid
+       'servico.mnt.html',;                                                 //Programa que os links/botoes do grid deverao chamar
+       'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+       ,;                                                                  //Retorno java (nil) - usado apenas para Search
+       ,;                                                                  //Campos usados na pesquisa rápida
+       ,;                                                                  //Campos Ocultos
+       laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+       laSELECT ,;                                                         //Campos exibidos no grid
+       laSELECT)                                                           //Campos usados no select
+return
+
+
+
+

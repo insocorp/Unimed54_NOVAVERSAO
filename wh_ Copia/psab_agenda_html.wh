@@ -1,0 +1,307 @@
+/*
+
+Project      : gr5
+Program      : psab.agenda.html
+Function     : psab_agenda_html
+Created on   : 02-Nov-2005   10:32:07
+Descripition : Aba em Pasta para exibição de Tarefas e compromissos.
+
+*/
+
+   local lcNR_PASTA   := WGet('NR_PASTA','C') ,;
+         lcTP_PASTA   := WGet('TP_PASTA','C') ,;
+         lcACTION     := WGet('ACTION','C')   ,;
+         lcLOGIN_PART := WGet('LOGIN_PARTICIPANTE','C') ,;
+         lcTC_STATUS  := WGet('TC_STATUS','C') ,;
+         lcTP_TC      := WGet('TP_TC','C') ,;
+         lcNR_ROW     := '' as string
+   local laRESULT := {} ,;
+         laAUX    := {} ,;
+         laPUT    := {} ,;
+         laSAVE   := {} as array
+
+   local ii := 0 as int
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   get2put({'NR_PASTA','TP_PASTA','TP_TC','LOGIN_PARTICIPANTE','TC_STATUS'})
+
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   pasta_abas(lcTP_PASTA)
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, {'NR_PASTA','TP_PASTA','TP_TC','LOGIN_PARTICIPANTE','TC_STATUS'})
+
+   if empty(lcTP_TC)
+      lcTP_TC := 'T'
+      WPut('TP_TC','T')
+   endif
+
+   if empty(lcLOGIN_PART)
+      lcLOGIN_PART := 'Todos'
+   endif
+
+   //Combo Participante
+   WPut('LOGIN_PARTICIPANTE.option',{'Todos',WSet('LOGIN')})
+
+   WPut('TP_TC.option',{'Tarefa','Compromisso'})
+   WPut('TP_TC.optionvalue',{'T','C'})
+
+
+   //Combo Status
+
+   if db_select({'TC_STATUS','NM_TC_STATUS'},'tc_status',,{'FL_TC='+DLAP+lcTP_TC+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   if len(laRESULT) > 1
+      laAUXOPT := {'Todos'}
+      laAUXVAL := {'*'}
+      for ii := 2 to len(laRESULT)
+         aadd(laAUXOPT,laRESULT[ii,2])
+         aadd(laAUXVAL,laRESULT[ii,1])
+      next ii
+      WPut('TC_STATUS.option',laAUXOPT)
+      WPut('TC_STATUS.optionvalue',laAUXVAL)
+
+//
+//
+// Glauber 24/06/2013 - Conforme conversei com a Célia não existe a definição do que seja tarefa ou compromisso ativo, pois o usuário não cadastra Ativos no workflow
+//                      Diante disto deixamos o termo Todos e as opções de filtro de acordo com o tipo de tarefa ou compromisso cadastrado no workflow.
+//
+//      laAUX := {'Ativos'}
+      laAUX := {}
+      for ii := 2 to len(laRESULT)
+         aadd(laAUX,laRESULT[ii,1])
+      next ii
+
+// wout('<br><b>lcTC_STATUS:'+lcTC_STATUS)
+
+      if (lcTC_STATUS == 'Todos') .or. empty(alltrim(lcTC_STATUS)) .or. (lcTC_STATUS == '*') // Caso deva exibir todos os registros da tarefa ou compromisso eu monto o filtro de acordo com o que esta definido na tabela tc_status
+         lcTC_STATUS :=''
+         if len(laRESULT) > 1
+            lcTC_STATUS := ''
+            for lnStat := 2 to len(laRESULT)
+                lcTC_STATUS += DLAP + laRESULT[lnStat,1] + DLAP
+                if (lnStat < len(laRESULT))
+                   lcTC_STATUS += ","
+                endif
+            next lnStat
+         endif
+/*
+      elseif ascan(laAUX,lcTC_STATUS) == 0 .or. lcTC_STATUS == 'Ativos'
+         if lcTP_TC == 'C'
+            lcTC_STATUS := DLAP+'1'+DLAP+','+DLAP+'2'+DLAP
+         else
+             // Glauber 24/06/2013
+             // Conforme solicitado pela Célia trazer tudo o que for diferente de concluído
+             if db_select({'TC_STATUS'},'tc_status',,{"FL_TC = "+DLAP+'Concluído'+DLAP + ")"}) == -1
+                error_sys(db_error())
+             endif
+             laSTAT := db_fetchall()
+             if len(laSTAT) > 0
+                lcTC_STATUS := ''
+                for lnStat := 2 to len(laSTAT)
+                    lcTC_STATUS += DLAP + laSTAT[lnStat,1] + DLAP
+                    if (lnStat < len(laSTAT))
+                       lcTC_STATUS += ","
+                    endif
+                next lnStat
+             else
+                lcTC_STATUS := DLAP+'1'+DLAP+','+DLAP+'2'+DLAP+','+DLAP+'3'+DLAP
+             endif
+         endif
+*/
+      else
+         lcTC_STATUS := DLAP+lcTC_STATUS+DLAP
+      endif
+      
+      
+      
+      
+      
+
+
+   endif
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      ii := 1
+      lcNR_ROW := '1'
+
+      do while WGet('NR_CONTROLE'+lcNR_ROW,'B')
+         if WGet('FL_CONCLUIR'+lcNR_ROW,'C') == 'Y'
+            if lcTP_TC == 'T'
+               laSAVE := {{'TC_STATUS','DT_CONCLUSAO','HR_CONCLUSAO'},{'5',date(),time()}}
+            else
+               laSAVE := {{'TC_STATUS'},{'4'}}
+            endif
+            if db_update(laSAVE,'tc_participante',{'NR_CONTROLE='+WGet('NR_CONTROLE'+lcNR_ROW,'C')+' and LOGIN_PARTICIPANTE='+DLAP+WGet('LOGIN_PARTICIPANTE'+lcNR_ROW,'C')+DLAP}) == -1
+               error_sys(db_error())
+            endif
+            wfremovealert({WGet('NR_CONTROLE'+lcNR_ROW,'C')},{WGet('LOGIN_PARTICIPANTE'+lcNR_ROW,'C')})
+         endif
+         ii++
+         lcNR_ROW := alltrim(str(ii))
+      enddo
+   endif
+
+   //laPUT := wftcpst(lcTP_TC,'pasta',lcNR_PASTA,lcTC_STATUS,lcLOGIN_PART)
+   laPUT := wftcpst(lcTP_TC,'pasta',wget('NR_PASTA','N'),lcTC_STATUS,lcLOGIN_PART)
+
+   if len(laPUT) > 1
+      aadd(laPUT[1],'VAR_NR_CONTROLE')
+      aadd(laPUT[1],'VAR_LOGIN_PARTICIPANTE')
+      aadd(laPUT[1],'VAR_FL_CONCLUIR')
+      aadd(laPUT[1],'FL_CONCLUIR_DISABLED')
+      for ii := 2 to len(laPUT)
+         lcNR_ROW := alltrim(str(ii-1))
+         aadd(laPUT[ii],'NR_CONTROLE'+lcNR_ROW)
+         aadd(laPUT[ii],'LOGIN_PARTICIPANTE'+lcNR_ROW)
+         aadd(laPUT[ii],'FL_CONCLUIR'+lcNR_ROW)
+
+         WPut('NR_CONTROLE'+lcNR_ROW,laPUT[ii,db_fetchncol(laPUT,'NR_CONTROLE')])
+         WPut('LOGIN_PARTICIPANTE'+lcNR_ROW,laPUT[ii,db_fetchncol(laPUT,'LOGIN_PARTICIPANTE')])
+         if laPUT[ii,db_fetchncol(laPUT,'LOGIN_PARTICIPANTE')] != WSet('LOGIN')
+            aadd(laPUT[ii],'disabled')
+         else
+            aadd(laPUT[ii],'')
+         endif
+         WPut('FL_CONCLUIR'+lcNR_ROW+'_OPT','Y')
+      next ii
+      WPut('lstTC',laPUT)
+   endif
+   WSet('_PROJECT','workflow')
+return
+
+
+
+
+
+
+/*
+*
+* Glauber - 30/01/2013
+* 
+* Nesta versão da Tokio (Oracle) existe um problema de visualização dos avisos de tarefas e compromisso causado pelo where da tabela tcreftc.
+* Estou trocando o where para a própria tabela tarefa_compromisso. 
+*
+* Function..: wftcpst(fcTP_TC,fcREF,fuREF_CHAVE,fcSTATUS,fcPART)
+* Objetivo..: Selecionar as Tarefas/Compromissos para a aba Agenda nas pastas
+* Parâmetros:
+*   fcTP_TC....: Tipo do TC. T-Tarefa, C-Compromisso
+*   fcREF......: Referencia
+*   fcREF_CHAVE: Referencia chave
+*   fcSTATUS...: Status da Tarefa/Compromisso
+*   fcPART.....: Login do Participante
+* Retorno: array
+*   Matriz contendo os TCs
+*   Matriz vazia em caso de erro
+*/
+static function wftcpst(fcTP_TC,fcREF,fuREF_CHAVE,fcSTATUS,fcPART)
+   local lcCOLUMN := '' as string
+
+   local laRESULT := {} ,;
+         laREFS   := {} ,;
+         laTC     := {} ,;
+         laFIELDS := {} ,;
+         laWHERE  := {} ,;
+         laJOIN   := {} ,;
+         laORDER  := {} as array
+
+   local ii := 0 as int
+
+   if fuREF_CHAVE != nil
+      if valtype(fuREF_CHAVE) == 'N'
+         lcCOLUMN := 'REF_NUM'
+      elseif valtype(fuREF_CHAVE) == 'C'
+         lcCOLUMN := 'REF_CHAR'
+      else
+         puterror('wftcpst: Chave da referência inválida')
+         return({})
+      endif
+   else
+      fuREF_CHAVE := ''
+   endif
+
+   // Todas as tarefas e todos os compromissos --------------------------------------------------------------------------------------------
+   aadd(laFIELDS,'tarefa_compromisso.NR_CONTROLE')
+   aadd(laFIELDS,'tarefa_compromisso.TITULO')
+   aadd(laFIELDS,'tarefa_compromisso.TC_CATEGORIA')
+   aadd(laFIELDS,'tarefa_compromisso.DT_INICIO')
+   aadd(laFIELDS,'tarefa_compromisso.HR_INICIO')
+   aadd(laFIELDS,'tarefa_compromisso.DT_PRAZO')
+   aadd(laFIELDS,'tarefa_compromisso.HR_PRAZO')
+   //aadd(laFIELDS,'tarefa_compromisso.REF_CHAVE')
+   aadd(laFIELDS,'tc_participante.LOGIN_PARTICIPANTE')
+   aadd(laFIELDS,'tc_status.NM_TC_STATUS')
+   aadd(laFIELDS,'tc_reftc.'+lcCOLUMN)
+
+   aadd(laJOIN  ,{2,'tc_reftc'       ,'tc_reftc.CHAVE_TC=tarefa_compromisso.NR_CONTROLE'})
+   aadd(laJOIN  ,{2,'tc_participante','tc_participante.NR_CONTROLE=tarefa_compromisso.NR_CONTROLE'})
+   aadd(laJOIN  ,{2,'tc_status'      ,'tc_status.FL_TC=tarefa_compromisso.TP_TC and '+;
+                                      'tc_status.TC_STATUS=tc_participante.TC_STATUS'})
+
+   aadd(laWHERE,"tarefa_compromisso.REFERENCIA='"+fcREF+"'")
+   //aadd(laWHERE,"tarefa_compromisso.REF_CHAVE='"+alltrim(fcREF_CHAVE)+"'")
+
+   if valtype(fuREF_CHAVE) == 'N'
+//      aadd(laWHERE,"tc_reftc."+lcCOLUMN+'='+transform(fuREF_CHAVE))
+      aadd(laWHERE,"tarefa_compromisso.REF_CHAVE="+DLAP+alltrim(transform(fuREF_CHAVE)) +DLAP)
+   elseif valtype(fuREF_CHAVE) == 'C'
+//      aadd(laWHERE,"tc_reftc."+lcCOLUMN+"='"+transform(fuREF_CHAVE)+"'")
+      aadd(laWHERE,"tarefa_compromisso.REF_CHAVE='"+alltrim(transform(fuREF_CHAVE))+"'")
+   endif
+
+   // Tipo: T-Tarefa ou C-Compromisso
+   if valtype(fcTP_TC) != 'U' .or. !empty(fcTP_TC)
+      aadd(laWHERE,"tarefa_compromisso.TP_TC='"+upper(fcTP_TC)+"'")
+   else
+      aadd(laWHERE,"tarefa_compromisso.TP_TC='T'")
+   endif
+
+   // Status da Tarefa/Compromisso
+   if valtype(fcSTATUS) != 'U' .or. !empty(fcSTATUS)
+      aadd(laWHERE,"tc_participante.TC_STATUS in ("+fcSTATUS+")")
+   endif
+
+   // Participantes
+   if valtype(fcPART) != 'U' .or. !empty(fcPART)
+      if alltrim(lower(fcPART)) != 'todos'
+         aadd(laWHERE,"tc_participante.LOGIN_PARTICIPANTE='"+fcPART+"'")
+      endif
+   endif
+
+   aadd(laORDER,'tarefa_compromisso.NR_CONTROLE')
+
+   if db_select(laFIELDS,'tarefa_compromisso',laJOIN,laWHERE,laORDER) == -1
+      error_sys('wftcpst: '+db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   /*
+   if len(laRESULT) > 1
+      aadd(laTC,aclone(laRESULT[1]))
+      for ii := 2 to len(laRESULT)
+          laREFS := str2array(db_fetchcolvalue(laRESULT,'REF_CHAVE',ii),',')
+          if len(laREFS) > 0
+             if ascan(laREFS,{|x| alltrim(x) == alltrim(fcREF_CHAVE)}) > 0
+                aadd(laTC,aclone(laRESULT[ii]))
+             endif
+          endif
+      next ii
+   endif
+   */
+return(laRESULT)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,120 @@
+/*
+
+Project      : workflow
+Program      : mnt.interfaces_pendentes.html
+Function     : mnt_interfaces_pendentes_html
+Created on   : 05-Jan-2008   14:00:36
+Descripition : interfaces pendentes - Estrutura HTML
+
+*/
+
+   local lcACTION   := '' ,;
+         lcTABLE    := 'pendencias' ,;
+         lcProgram  := 'mnt_interfaces_pendentes_html' ,;
+         lcWHERE    := '' as string
+
+   local laRESULT   := {} ,;
+         laFIELDS   := {} ,;
+         laWHERE    := {} ,;
+         laORDER_BY := {'NR_CONTROLE'} as array
+
+   local ii := 0 as int
+    
+   lcACTION := upper(WGet('ACTION','C'))
+   lcWHERE  := 'NR_CONTROLE = ' + str(WGet('NR_CONTROLE','N'))
+   laFIELDS := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+
+   aadd(laWHERE,lcWHERE)
+
+   if lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,laWHERE) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2put(laRESULT)
+      endif
+
+   elseif lcACTION == 'EXCLUIR'
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+      db_commit()  
+      WPut('NR_CONTROLE'  ,'')
+      WPut('DT_MOVIMENTACAO',  '')
+      WPut('TP_REGISTRO'  ,'')
+      WPut('ANO_SINISTRO'  ,'')
+      WPut('NR_SINISTRO'  ,'')
+      WPut('NM_SINISTRADO'  ,'')
+      WPut('DT_LANCAMENTO'  ,'')
+      WPut('TP_LANCAMENTO'  ,'')
+      WPut('VL_LANCAMENTO'  ,'')
+
+
+   elseif empty(lcACTION)
+      if db_select(laFIELDS,lcTABLE,,,laORDER_BY,,,,) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2Put(laRESULT)
+      endif
+      WPut('NR_CONTROLE'  ,'')
+      WPut('DT_MOVIMENTACAO',  '')
+      WPut('TP_REGISTRO'  ,'')
+WPut('ANO_SINISTRO'  ,'')
+WPut('NR_SINISTRO'  ,'')
+WPut('NM_SINISTRADO'  ,'')
+WPut('DT_LANCAMENTO'  ,'')
+WPut('TP_LANCAMENTO'  ,'')
+WPut('VL_LANCAMENTO'  ,'')
+   endif
+
+   WPut('lstCONTROLE',laRESULT)
+   
+   lista_pendentes(laFIELDS,lcTABLE,laORDER_BY)
+      
+return(nil)
+/*
+* Function..: lista_pendentes(faFIELDS,fcTABLE,faORDER_BY)
+* Objetivo..:
+* Parâmetros:
+*    faFIELDS.....: Campos a selecionar
+*    fcTABLE......: Tabela alvo
+*    faORDER_BY...: Ordenação
+* Retorno...:
+*     Nenhum
+*/
+static function lista_pendentes(faFIELDS,fcTABLE,faORDER_BY)
+   local lcCOR_LINK     := '' ,;
+         lcNR_AUTOPROC  := '' ,;
+         lcTP_ANDAMENTO := '' as string
+
+   local laRESULT := {} ,;
+         laWHERE  := {} ,;
+         laJOIN   := {}  as array
+
+   local ii    := 0 ,;
+         lnPOS := 0 as int
+
+   for ii := 1 to len(faFIELDS)
+       faFIELDS[ii] := fcTABLE+'.'+faFIELDS[ii]
+   next ii
+
+   if db_select(faFIELDS,fcTABLE,,,faORDER_BY) == -1
+      error_sys('lista_pendentes: '+db_error())
+   endif
+
+   laRESULT := db_fetchall()
+
+   if len(laRESULT) > 0
+      aadd(laRESULT[1],'COR_LINK')
+      for ii := 2 to len(laRESULT)
+         lcCOR_LINK := '#006A00'   //interface para cliente - verde escuro
+         aadd(laRESULT[ii],lcCOR_LINK)
+      next ii
+   endif
+   WPut('lstCONTROLE',laRESULT)
+return(nil)
+
+

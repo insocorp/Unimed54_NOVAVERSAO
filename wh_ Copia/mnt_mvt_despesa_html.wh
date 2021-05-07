@@ -1,0 +1,343 @@
+/*
+
+Project      : gr5
+Program      : mnt.mvt.despesa.html
+Function     : mnt_mvt_despesa_html
+Created on   : 22-Aug-2002   14:06:03
+Descripition : Manutenção/lançamentos de Despesas
+
+*/
+
+   local lcACTION     := '',;
+         lcWHERE      := '',;
+         lcTABLE      := '',;
+         lcNR_PASTA   := '',;
+         lcNR_DESPESA := '',;
+         lcVALIDA     := '',;
+         lcITEM       := '' as string
+
+   local laRESULT    := {} ,;
+         laFIELDS    := {} ,;
+         laSAVE      := {} ,;
+         laSAVE_AUX  := {} ,;
+         laVALIDA    := {} ,;
+         laAPROVACAO := {} ,;
+         laWHERE     := {} ,;
+         laJOIN      := {} ,;
+         laFOREIGN   := {} as array
+
+   local ii        := 0 ,;
+         liPOS_COD := 0 as int
+
+   local llDESPESA := upper(alltrim(wSet('_USER_INTERFACE'))) == 'MNT.MVT.DESPESA.HTML'
+
+   lcACTION     := upper(WGet('ACTION','C'))
+   lcNR_PASTA   := alltrim(WGet('NR_PASTA','C'))
+   lcNR_DESPESA := alltrim(WGet('NR_DESPESA','C'))
+   if lcNR_DESPESA = 'NEW'
+      lcNR_DESPESA := '0'
+   endif
+   lcTABLE      := 'mvt_despesa'
+   lcWHERE      := 'NR_PASTA = '+lcNR_PASTA+' and NR_DESPESA = '+lcNR_DESPESA
+   laFIELDS     := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS     := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+
+   if !empty(lcNR_PASTA)
+      wPut('ifBT_PASTA',.T.)
+   endif
+
+   if empty(lcACTION)
+      lcACTION := 'NEW'
+      if !empty(lcNR_PASTA) //Pre-seleciona Pasta quando a chamada foi feita do mnt.pasta.*.html
+         laJOIN := {{2,'pasta_pfpj_empresa','pasta.NR_PASTA = pasta_pfpj_empresa.NR_PASTA'},;
+                    {2,'pfpj','pfpj.CIP = pasta_pfpj_empresa.CIP'}}
+         laFIELDS_PST := {'pasta.NR_PASTA',;
+                          'pasta.FL_PASTA',;
+                          'pasta.NR_PROCESSO',;
+                          'pasta_pfpj_empresa.CIP',;
+                          'pfpj.PFPJ',;
+                          'pasta.VARA',;
+                          'pasta.COMARCA',;
+                          'pasta.CIP_PARTE_CONTRARIA'}
+         aadd(laWHERE,'pasta.CIP_EMPRESA=pfpj.CIP')
+         aadd(laWHERE,'pasta.NR_PASTA = '+lcNR_PASTA)
+         if db_select(laFIELDS_PST,'pasta,pfpj',laJOIN,laWHERE) == -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchall()
+         if len(laRESULT) > 1
+            db2put(laRESULT)
+         endif
+         laRESULT := {}
+         laWHERE  := {}
+      endif
+   endif
+   laJOIN := {{2,'pasta_pfpj_empresa','pasta.NR_PASTA = pasta_pfpj_empresa.NR_PASTA'},;
+              {2,'pfpj','pfpj.CIP = pasta_pfpj_empresa.CIP'}}
+
+   laFIELDS_PST := {'pasta.NR_PASTA',;
+                    'pasta.FL_PASTA',;
+                    'pasta.NR_PROCESSO',;
+                    'pasta.NR_VARA',;
+                    'pasta.VARA',;
+                    'pasta.COMARCA',;
+                    'pasta_pfpj_empresa.CIP',;
+                    'pfpj.PFPJ',;
+                    'pasta.CO_RECLAMADA',;
+                    'pasta.CO_REU',;
+                    'pasta.OBJETO'}
+
+   /* Tabelas extrangeiras
+   * Formato do array abaixo
+   * 1 - nome da tabela a pesquisar
+   * 2 - campo do relacionamento
+   * 3 - descricao
+   */
+   laFOREIGN := {{'moeda','CD_MOEDA','NM_MOEDA'},;
+                 {'despesa','CD_DESPESA','NM_DESPESA'}}
+
+   /* Campos obrigatórios
+   * Formato do array abaixo
+   * 1 - Campo para captura da informação no HTML - WGet()
+   * 2 - Parte do label a exibir em caso de erro, esta inf. á capturada do Wictrix
+   */
+   laVALIDA := {{'CD_DESPESA',laLABELS[ascan(laFIELDS,'CD_DESPESA')]},;
+                {'DT_REF',laLABELS[ascan(laFIELDS,'DT_REF')]},;
+                {'QUANTIDADE',laLABELS[ascan(laFIELDS,'QUANTIDADE')]},;
+                {'VL_UNIT',laLABELS[ascan(laFIELDS,'VL_UNIT')]}}
+   if !llDESPESA
+      aadd(laVALIDA,{'CD_MOEDA',laLABELS[ascan(laFIELDS,'CD_MOEDA')]})
+   endif
+
+   /* Relacionamentos que devem ser validados
+   * Formato do array abaixo
+   * 1 - Tabela
+   * 2 - Campo para captura da informação no HTML - WGet()
+   * 3 - Campo para montagem da cláusula WHERE usada em old_db_findrec()
+   * 4 - Parte do label a exibir em caso de erro, está inf. e capturado do Wictrix
+   */
+   laFIND_REC := {{'despesa','CD_DESPESA','CD_DESPESA',laLABELS[ascan(laFIELDS,'CD_DESPESA')]}}
+   if !llDESPESA
+      aadd(laFIND_REC,{'moeda','CD_MOEDA','CD_MOEDA',laLABELS[ascan(laFIELDS,'CD_MOEDA')]})
+   endif
+
+   if lcACTION = 'ALTER'
+      laJOIN := {{2,'pasta_pfpj_empresa','pasta.NR_PASTA = pasta_pfpj_empresa.NR_PASTA'},;
+                 {2,'pfpj','pasta_pfpj_empresa.CIP = pfpj.CIP'}}
+      aadd(laWHERE,'pasta.NR_PASTA='+lcNR_PASTA)
+      aadd(laWHERE,'pasta_pfpj_empresa.CIP=pfpj.CIP')
+//      if db_select(laFIELDS_PST,'pasta, pfpj',laJOIN,laWHERE) == -1
+      if db_select(laFIELDS_PST,'pasta',laJOIN,laWHERE) == -1
+         error_sys(db_error())
+      endif
+
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2put(laRESULT)
+      endif
+      laRESULT := {}
+      laWHERE  := {}
+   endif
+
+   if !llDESPESA
+      laAPROVACAO := {'0-Pendente','1-Faturar','2-Isentar'}
+      wPut('FL_N_LC_DEBITO_OPT','S')
+      wPut('FL_APROVADO_OPT',laAPROVACAO)
+   endif
+   if lcACTION = 'NEW' .and. gbWAC_CREATE
+      wPut('NR_DESPESA','NEW')
+      wPut('DT_REF',date())
+      wPut('LOGIN',gcLOGIN)
+      wPut('ifNR_PASTA0',.T.)
+      wPut('ifNR_PASTA1',.F.)
+      wPut('ifBTN_SAVE',.T.)
+      wPut('ifBTN_DELETE',.T.)
+      wPut('LOGIN_READONLY','readonly')
+      if !llDESPESA
+         wPut('FL_N_LC_DEBITO','S')
+         wPut('LOGIN_RESP',gcLOGIN)
+      endif
+      wPut('TITLE','Inclusão de nova Despesa')
+   elseif lcACTION = 'ALTER' .and. gbWAC_READ
+      if !llDESPESA
+         wPut('LOGIN_READONLY','readonly')
+      endif
+      wPut('ifNR_PASTA0',.F.)
+      wPut('ifNR_PASTA1',.T.)
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchrow()
+      for ii := 1 to len(laFIELDS)
+          liPOS_COD := ascan2(laFOREIGN,2,laFIELDS[ii])
+          if liPOS_COD > 0 .and. (!empty(laFIELDS[ii]) .or. val(laRESULT[ii]) != 0)
+             if db_select({laFOREIGN[liPOS_COD,3]},laFOREIGN[liPOS_COD,1],,;
+                          {laFOREIGN[liPOS_COD,2]+'='+alltrim(str(laRESULT[ii]))}) == -1
+                error_sys(db_error())
+             endif
+             laRESULT2 := db_fetchrow()
+             if len(laRESULT2) > 0
+                wPut(laFOREIGN[liPOS_COD,3],laRESULT2[1])
+             endif
+          endif
+          if laFIELDS[ii] = 'FL_APROVADO' .and. !llDESPESA
+            if !empty(laRESULT[ii])
+               wPut(laFIELDS[ii],laAPROVACAO[val(laRESULT[ii])+1])
+            endif
+            loop
+          endif
+          wPut(laFIELDS[ii],laRESULT[ii])
+      next ii
+      /* Se ainda não foi faturado, permite alterar exibindo os botões Salvar e Excluir --------------------*/
+      if empty(laRESULT[ascan(laFIELDS,'NR_FATURA')])
+         wPut('ifBTN_SAVE',.T.)
+         wPut('ifBTN_DELETE',.T.)
+      endif
+      wPut('TITLE','Alteração da Despesa')
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+      for ii := 1 to len(laVALIDA)
+          lcVALIDA := alltrim(WGet(laVALIDA[ii,1],'C'))
+          if len(lcVALIDA) = 0 .or. lcVALIDA == '0'
+             wPut('ERROR_MENS',laVALIDA[ii,2]+' é um campo obrigatório!')
+             wPut('ifNR_PASTA0',iif(lcNR_DESPESA='0',.T.,.F.))
+             wPut('ifNR_PASTA1',iif(lcNR_DESPESA='0',.F.,.T.))
+             wPut('ifBTN_SAVE',.T.)
+             wPut('ifBTN_DELETE',.T.)
+             get2Put()
+             return(.f.)
+          endif
+      next ii
+      for ii := 1 to len(laFIND_REC)
+          lcVALIDA := alltrim(WGet(laFIND_REC[ii,2],'C'))
+          if !empty(lcVALIDA) .and. lcVALIDA <> '0'
+             if len(db_findrec({laFIND_REC[ii,3]},laFIND_REC[ii,1],laFIND_REC[ii,3]+'='+lcVALIDA)) = 0
+                wPut('ERROR_MENS',laFIND_REC[ii,4]+' é inválido(a) ou não pode ser encontrado(a)!')
+                wPut('ifNR_PASTA0',iif(lcNR_DESPESA='0',.T.,.F.))
+                wPut('ifNR_PASTA1',iif(lcNR_DESPESA='0',.F.,.T.))
+                wPut('ifBTN_SAVE',.T.)
+                wPut('ifBTN_DELETE',.T.)
+                get2Put()
+                return(.f.)
+             endif
+          endif
+      next ii
+      if llDESPESA
+         if db_select({'CD_MOEDA'},'despesa',,{'CD_DESPESA='+WGet('CD_DESPESA','C')}) == -1
+            error_sys(db_error())
+         endif
+         laRESULT2 := db_fetchrow()
+      endif
+      if lcNR_DESPESA = '0'
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            if laFIELDS[ii] = 'LOGIN'
+               if llDESPESA      //Despesa
+                  aadd(laSAVE_AUX,gcLOGIN)
+               else              //Despesa Corporativo
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+               endif
+               loop
+            elseif laFIELDS[ii]='FL_N_LC_DEBITO'
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+               loop
+            elseif laFIELDS[ii] = 'CD_MOEDA' .and. llDESPESA
+               if len(laRESULT2) > 0
+                  aadd(laSAVE_AUX,laRESULT2[1])
+               else
+                  aadd(laSAVE_AUX,0)
+               endif
+               loop
+            elseif laFIELDS[ii] = 'FL_APROVADO' .and. !llDESPESA
+               lcITEM := WGet(laFIELDS[ii],'C')
+               aadd(laSAVE_AUX,alltrim(substr(lcITEM,1,at('-',lcITEM)-1)))
+               loop
+
+            /* teste - temporario */
+            elseif laFIELDS[ii] = 'VL_TOTAL'
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii],'N'))
+               loop
+            elseif laFIELDS[ii] = 'NR_FATURA'
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii],'N'))
+               loop
+            /* fim */
+
+            endif
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+         if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+            error_sys(db_error())
+         endif
+      else
+         if !llDESPESA
+            lcITEM := alltrim(WGet('FL_APROVADO','C'))
+         endif
+
+         laSAVE := {}
+         aadd(laSAVE,{'DT_REF','CD_DESPESA','QUANTIDADE','VL_UNIT','EXTRA','NR_FATURA'})
+         aadd(laSAVE,{WGet('DT_REF'),;    //Data de referencia
+                      WGet('CD_DESPESA','N'),; //Codigo da despesa
+                      WGet('QUANTIDADE','N'),; //Quantidade
+                      WGet('VL_UNIT','N'),;    //Valor unitario
+                      WGet('EXTRA'),;      //Extra
+                      WGet('NR_FATURA','N')})  //Numero da fatura
+         if llDESPESA
+            aadd(laSAVE[1],'LOGIN')
+            aadd(laSAVE[1],'LOGIN_RESP')
+            aadd(laSAVE[1],'CD_MOEDA')
+            aadd(laSAVE[2],WGet('LOGIN'))                                        //Login
+            aadd(laSAVE[2],gcLOGIN)                                              //Login responsavel
+            aadd(laSAVE[2],iif(len(laRESULT2) > 0,laRESULT2[1],0)) //Moeda
+         else
+            aadd(laSAVE[1],'FL_N_LC_DEBITO')
+            aadd(laSAVE[1],'CD_MOEDA')
+            aadd(laSAVE[1],'FL_APROVADO')
+            aadd(laSAVE[2],WGet('FL_N_LC_DEBITO'))            //Debitar S/N
+            aadd(laSAVE[2],WGet('CD_MOEDA','N'))                  //Moeda
+            aadd(laSAVE[2],substr(lcITEM,1,at('-',lcITEM)-1)) //Aprovacao 0/1/2
+         endif
+         if db_update(laSAVE,lcTABLE,{lcWHERE}) == -1
+            error_sys(db_error())
+         endif
+      endif
+      lcNR_PASTA := WGet('NR_PASTA','C')
+      aadd(laWHERE,'pasta.NR_PASTA='+lcNR_PASTA)
+      aadd(laWHERE,'pasta_pfpj_empresa..CIP=pfpj.CIP')
+      if db_select(laFIELDS_PST,'pasta, pfpj',,laWHERE) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2put(laRESULT)
+      endif
+      laRESULT := {}
+
+      wPut('NR_DESPESA','NEW')
+      wPut('DT_REF',date())
+      wPut('LOGIN',gcLOGIN)
+      wPut('FL_N_LC_DEBITO_OPT','N')
+      wPut('ifNR_PASTA0',.F.)
+      wPut('ifNR_PASTA1',.T.)
+      wPut('ifBTN_SAVE',.T.)
+      wPut('ifBTN_DELETE',.T.)
+      if !llDESPESA
+         wPut('FL_APROVADO_OPT',laAPROVACAO)
+         wPut('FL_N_LC_DEBITO','S')
+         wPut('LOGIN_RESP',gcLOGIN)
+      endif
+      wPut('TITLE','Inclusão de nova Despesa')
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+      if llDESPESA
+         wSet('_USER_INTERFACE','lst.mvt.despesa.html')
+         lst_mvt_despesa_html()
+      else
+         wSet('_USER_INTERFACE','lst.desp.corp.html')
+         lst_desp_corp_html()
+      endif
+   endif
+return
+
+

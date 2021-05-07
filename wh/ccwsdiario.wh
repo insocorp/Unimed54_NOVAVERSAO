@@ -1,0 +1,251 @@
+/*
+
+Project      : isj_398
+Program      : ccwsdiario
+Function     : ccwsdiario
+Created on   : 04-Jun-2012   11:56:16
+Descripition : Processamento das atualizaç&#245;es interface C&C do template Aprovaç&#227;o de Crédito.
+
+*/
+
+
+
+
+local lcContentfile := "DIARIO.XML",;
+      lcCommand     := "",;
+      lcRetFile     := "",;
+      lcContent     := "" as String
+local lnArq         := 0,;
+      lnTAM         := 0 as int
+
+
+     if (Upper(Wset("WSCC")) == "ENABLE")
+        // Execução do client
+        lcComand := WSet('WSCCAPPTASK') + ' ' + lcContentFile + ' ' + WSet('WSCCCFG')
+        ? 'Executando comando:' + lcCommand
+        Run (lcComand)
+        // Obter o retorno
+        lcRetFile := WSet("_WTEMP") + "/"+"DIARIO" + ".RET"
+        if (! file(lcRetFile))
+           GeraLogErro('C&C B2B: Não foi possível obter o arquivo de retorno da interface com o webservice:'+lcRetFile)
+           puterror('C&C B2B: Não foi possível obter o arquivo de retorno da interface com o webservice:'+lcRetFile)
+           return
+        else
+            lnArq := Fopen(lcRetFile)
+            if (lnArq < 1) .or. (ferror() > 0)
+               GeraLogErro('Erro ao tentar abrir o arquivo de retorno da interface:'+lcRetFile+ '. Codigo do Erro:'+alltrim(str(ferror())))
+               puterror('Erro ao tentar abrir o arquivo de retorno da interface:'+lcRetFile+ '. Codigo do Erro:'+alltrim(str(ferror())))
+               return(nil)
+            else
+               lnTAM     := fseek(lnArq,0,2)
+               lcCONTENT := space(lnTAM)
+               fseek(lnArq,0,0)
+               fread(lnArq,@lcCONTENT,lnTAM)
+               fclose(lnArq)
+            endif
+            // Processando o conteúdo do retorno
+            //           1         2         3          4          5         6
+            // 012345678901234567890123456789001234567890012345678901234567890
+            // <CODERRO>24</CODERRO><DESCRICAO>Usu?rio n?o encontrado</DESCRICAO>
+
+            lcCodErro  := alltrim(substr(lcCONTENT,10,AT('</CODERRO>',lcCONTENT) -10))
+            lcDescErro := alltrim(substr(lcCONTENT,AT('<DESCRICAO>',lcCONTENT)+11, (AT('</DESCRICAO>',lcCONTENT)-3)))
+            lcDescErro := strtran(lcDescErro, '</DESCRICAO>','')
+            // Caso seja outro erro, mostrar ao usuário.
+            if ! empty(lcCodErro) .and. (val(lcCodErro) > 0)
+               GeraLogErro('Ocorreu um erro ao processar sua requisição.:'+lcDescErro+ '. Codigo do Erro:'+alltrim(lcCodErro))
+               puterror('Ocorreu um erro ao processar sua requisição.:'+lcDescErro+ '. Codigo do Erro:'+alltrim(lcCodErro))
+               return(nil)
+            endif
+            // Chegou aqui, siginifica que o processamento da interface ocorreu tudo ok, então devo validar a sessão do usuário e redirecionar para o portal.
+            xmlret := substr(lcCONTENT,at('<COUNT>'),len(lcCONTENT))
+            // Processar xml
+            ProcXml(xmlret)
+            // Apagar os arquivos temporário
+            ferase(lcContentFile)
+            ferase(lcRetFile)
+
+        endif
+     endif
+
+return
+
+
+/*
+* Data Criação: 04.06.2012 - Glauber
+* Function.....: ProcXml(xmlret)
+* Objetivo.....: Processa o xml retornado pela interface C&C, fazendo a atualização das tabelas necessária no ISJ
+* Parâmetros:
+*    xmlret....: Conteúdo do xml
+*
+* Retorno: nada
+*/
+
+
+Static Function ProcXml(xmlret)
+
+
+   local lcQuantos := "",;
+         lcTmp     := "" as String
+
+   local lnQuantos := 0,;
+         ii        := 0 as int
+
+   local laSaveEmpresa := {},;
+         laTMP         := {}  as array
+
+
+   lcQuantos := GetTagXml('COUNT', xmlret)
+   lnQuantos := val("0"+lcQuantos)
+
+
+   for ii := 1 to lnQuantos
+       lcTmp := GetTagXml('REGISTRO'+ alltrim(str(ii)), xmlret)
+       laSaveEmpresa := {{ 'PFPJ',;
+                           'PFPJ_CHAR',;
+                           'CNPJ_CPF',;
+                           'IE',;
+                           'ENDERECO',;
+                           'NR_ENDERECO',;
+                           'EXTRA_ENDERECO',;
+                           'CEP',;
+                           'BAIRRO',;
+                           'CIDADE',;
+                           'UF',;
+                           'DDD',;
+                           'TELEFONE',;
+                           'FAX',;
+                           'DT_ENTRADA',;
+                           'PFPJ_NATUREZA',;
+                           'PFPJ_TIPOS',;
+                           'DT_CADASTRO',;
+                           'LOGIN_CADASTRO'}}
+
+       laTMP := { GetTagXml('PFPJ', xmlret),;
+                  lower(Lat2Char(GetTagXml('PFPJ', lcTmp))),;
+                  GetTagXml('CNPJ', lcTmp),;
+                  GetTagXml('IE', lcTmp),;
+                  GetTagXml('ENDERECO', lcTmp),;
+                  VAL('0'+GetTagXml('NRENDERECO', lcTmp)),;
+                  GetTagXml('EXTRAENDERECO', lcTmp),;
+                  GetTagXml('CEP', lcTmp),;
+                  GetTagXml('BAIRRO', lcTmp),;
+                  GetTagXml('CIDADE', lcTmp),;
+                  GetTagXml('UF', lcTmp),;
+                  val("0"+GetTagXml('FONEDDD', lcTmp)),;
+                  GetTagXml('TELEFONE', lcTmp),;
+                  GetTagXml('FAX', lcTmp),;
+                  iif(! empty(GetTagXml('DTENTRADA', lcTmp)),TrataData(GetTagXml('DTENTRADA', lcTmp)),ctod('')),;
+                  GetTagXml('NATUREZA', lcTmp),;
+                  GetTagXml('PFPJTIPOS', lcTmp),;
+                  iif(! empty(GetTagXml('DTCADASTRO', lcTmp)),TrataData(GetTagXml('DTCADASTRO', lcTmp)),ctod('')),;
+                  GetTagXml('LOGINCADASTRO', lcTmp)}
+
+       // Salvar dados na Pfpj
+       aadd(laSaveEmpresa,laTMP)
+
+       if db_replace(laSaveEmpresa,'pfpj',{"pfpj_char = "+ DLAP + lower(Lat2Char(GetTagXml('PFPJ', lcTmp))) + DLAP}) = -1
+          GeraLogErro(db_error())
+       endif
+       // Caso a operação seja inserção, atualizar o campo CIP com o insert_id
+       lnTmp := db_insert_id()
+       if (lnTmp > 0)
+          if db_replace({{'CIP'},{alltrim(lnTmp)}},'pfpj',{"pfpj_char = "+ DLAP + lower(Lat2Char(GetTagXml('PFPJ', lcTmp))) + DLAP}) = -1
+             error_sys(db_error())
+          endif
+       endif
+
+       // Salvar os dados da aba conta
+
+       if ! empty(alltrim(GetTagXml('BANCO', lcTmp)))
+          laTMP := {{'NR_CONTROLE',;
+                     'BANCO_AGENCIA',;
+                     'BANCO_CONTA',;
+                     'EXTRA'},;
+                    {lcCIPEMPRESA,;
+                     GetTagXml('BANCOAGENCIA', lcTmp),;
+                     GetTagXml('BANCOCONTA', lcTmp),;
+                     GetTagXml('EXTRA', lcTmp)}}
+          if db_replace(laTMP,'pfpj_conta',{"NR_CONTROLE = "+ DLAP + lcCIPEMPRESA + DLAP + ' and BANCO_CONTA = ' + DLAP + GetTagXml('BANCOCONTA', lcTmp) + DLAP}) = -1
+             GeraLogErro(db_error())
+          endif
+       endif
+   next ii
+
+return
+
+/*
+* Data Criação: 04.06.2012 - Glauber
+* Function.....: GeraLogErro(conteudo)
+* Objetivo.....: Gerar um arquivo de log de erros com o resultado do processamento da interface diária
+* Parâmetros:
+*    conteudo..: Conteúdo da mensgem de erro
+*
+* Retorno: nada
+*/
+
+Static Function GeraLogErro(conteudo)
+
+
+  local lcArq := "WSCCDIARIO_"+alltrim(str(day(date()))) + "_"+alltrim(str(month(date()))) + "_"+alltrim(str(year(date()))) + ".xml" as String
+  local lnArq := 0 as int
+
+  lnArq := fcreate(lcArq)
+  if ferror() != 0
+     error_sys('C&C B2B: Não foi possível criar o arquivo de log de erro:'+lcArq)
+     return(nil)
+  else
+     fwrite(lnArq,Conteudo)
+     if ferror() != 0
+        error_sys('C&C B2B: Não foi possível gravar o arquivo de log de erro:'+lcContentFile)
+        return(nil)
+     endif
+  endif
+  fclose(lnArq)
+
+
+return
+
+/*
+* Data Criação: 28.05.2012 - Glauber
+* Function.....: TrataData(sdata)
+* Objetivo.....: Converte a data do formato vindo do xml para o formato wictrix.
+*
+* Parâmetros:
+*    sdata....: String no formato data
+*
+* Retorno: nada
+*/
+
+Static function TrataData(sdata)
+
+loca ldRet := ctod('')
+
+if ! empty(sdata)
+// 1234567890
+// 2012-05-28
+   ldRet := ctod(substr(sdata,9,2)+ '/' +substr(sdata,6,2)+'/'+ substr(sdata,1,4))
+endif
+
+
+return(ldRet)
+
+/*
+* Data Criação: 28.05.2012 - Glauber
+* Function.....: GetTagXml(tag, conteudo)
+* Objetivo.....: Retorna o conteudo dentro de uma tag.
+*                Exemplo: <tag>valor</tag>
+* Parâmetros:
+*    xmlret....: Conteúdo entre a tag
+*
+* Retorno: nada
+*/
+
+Static Function GetTagXml(tag, conteudo)
+
+local lcRet := '' as String
+
+if ! empty(tag)
+   lcRet := substr(conteudo,at('<'+tag+'>',xmlret) + len(tag)+2, (at('</'+tag+'>',xmlret) -  (at('<'+tag+'>',xmlret) + len(tag)+2) ))
+endif
+return (lcRet)

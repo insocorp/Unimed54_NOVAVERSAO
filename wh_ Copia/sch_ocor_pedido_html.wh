@@ -1,0 +1,69 @@
+/*
+
+Project      : gr5
+Program      : sch.ocor_pedido.html
+Function     : sch_ocor_pedido_html
+Created on   : 17-Jan-2009   16:00:26
+Descripition : Busca de ocorrências de pedidos
+
+*/
+
+
+
+   local laFIELDS       := {},;
+         laJAVA         := {},;
+         laQUICK_SEARCH := {} as array
+   local lcNM_FIELD := WGet('NM_FIELD','C') as string
+
+   if empty(lcNM_FIELD)
+      lcNM_FIELD := 'OCOR_PEDIDO'
+   endif
+
+   laFIELDS       := {'DESCR_OCOR'}
+   laJAVA         := {'mntform',{{lcNM_FIELD,'DESCR_OCOR'}}}
+   laQUICK_SEARCH := {'DESCR_OCOR'}
+   laWHERE        := {'FL_ATIVO <> '+DLAP+'I'+DLAP}
+
+   xbp2('ocorrencia_pedido',;                                                                 //Tabela Alvo
+        ,;                                                                                    //Join
+        laWHERE,;                                                                                    //Where
+        laFIELDS,;                                                                            //Order by
+        'A',;                                                                                 //Sort [A]-Ascendente [D]-Descentende
+        ,;                                                                                    //Group by
+        ,;                                                                                    //Limit
+        ,;                                                                                    //Banco de Dados
+        3,;                                                                                   //Modo de funcionamento [1]-Listagem/Form para manutenção [2]-Listagem e Manutenção [3]-Search
+        'gr5',;                                                                               //Modulo do programa chamador
+        WSet('_USER_INTERFACE'),;                                                             //Programa chamador
+        ,;                                                                                    //Parametros para linhas clicáveis
+        ,;                                                                                    //Botoes (nil)
+        'mnt.ocorrencia.pedido.html',;                                                        //Programa chamado pelos links (linhas clicáveis)
+        'gr5',;                                                                               //Módulo do programa chamado pelos links
+        laJAVA,;                                                                              //Retorno java (nil) - usado apenas no search
+        laQUICK_SEARCH,;                                                                      //Campos usados na pesquisa rápida
+        {{'NM_FIELD',lcNM_FIELD}},;                                                           //Campos ocultos. Usado apenas em manutenções    ***
+        ,;                                                                                    //Campos da área de manutenção/entrada de dados  ***
+        laFIELDS,;                                                                            //Campos mostratos no grid
+        laFIELDS)                                                                             //Campos usados no select
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

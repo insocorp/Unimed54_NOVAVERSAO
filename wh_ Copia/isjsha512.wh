@@ -1,0 +1,161 @@
+
+//
+// Glauber - 04/2016
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+*
+* Glauber - 10/2017
+*
+* Classe...........: Sha512Service
+*
+* Objetivo.........: Classe com as rotinas de cifragem sha-512.
+*
+* Atributos........:
+*
+*
+*
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD Cifrar(frase)
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS Sha512Service
+
+    // Atributos publico
+    
+    INSTANCE AppCypher
+
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()                 CLASS Sha512Service
+    PROTOTYPE METHOD Destroy()              CLASS Sha512Service
+    PROTOTYPE METHOD isEnable()      CLASS Sha512Service
+    PROTOTYPE METHOD Cifrar(frase)   CLASS Sha512Service
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS Sha512Service
+
+       self:AppCypher := WSET('CRYPTOPLUGIN')
+
+return(self)
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS Sha512Service
+
+       self:AppCypher := nil
+
+return(nil)
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: isEnable()
+* Objetivo..: Verifica se o plug-in esta habilitado.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             .T. caso esteja habilitado.
+*
+*/
+
+METHOD METHOD isEnable() CLASS Sha512Service
+
+
+return ! Empty(self:AppCypher)
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Cifrar(frase)
+* Objetivo..: Criptografa uma frase.
+*
+* Parâmetros:
+*  frase    : frase a ser criptografada.
+*
+* Retorno...:
+*             frase cifrada
+*
+*/
+
+METHOD Cifrar(frase) CLASS Sha512Service
+
+     local retorno := '' As String
+     local comando := '' As String
+     local arquivo := 'CYP_' + AllTrim(Wic_Random()) + '.txt'
+
+       if Empty(frase) .OR. Empty(self:AppCypher)
+          return ''
+       endif
+
+       frase := StrTran(frase, chr(32), '_')
+
+       comando := self:AppCypher + ' ' + arquivo + ' ' + frase
+
+       ! (comando)
+
+       if ! file(arquivo)
+          return ''
+       endif
+
+       retorno := GetFileContent(arquivo)
+
+       ferase(arquivo)
+
+return(retorno)
+
+

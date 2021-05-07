@@ -1,0 +1,133 @@
+/*
+
+Project      : gr5
+Program      : pfpj.log.alteracao.html
+Function     : pfpj_log_alteracao_html
+Created on   : 25-May-2006   15:21:00
+Descripition : Histórico de Alterações de Pessoas.
+
+*/
+
+   local lcWHERE         := '' ,;
+         lcNR_CONTROLE   := '' ,;
+         lcTABLE         := '' ,;
+         lcPFPJ_NATUREZA := '' ,;
+         lcWFIELD        := '' ,;
+         lcAUX           := '' as string
+
+   local laRES     := {} ,;
+         laRES1    := {} ,;
+         laOPTIONS := {} ,;
+         laLABELS  := {} ,;
+         laFIELDS  := {} as array
+
+   local ii    := 0 ,;
+         xx    := 0 ,;
+         lnPOS := 0 as int
+
+   lcNR_CONTROLE   := WGet('NR_CONTROLE','C')
+   lcLABEL         := alltrim(WGet('LABEL_WFIELD','C'))
+   lcPFPJ_NATUREZA := WGet('PFPJ_NATUREZA','C')
+   lcTABLE         := 'pfpj_log_altera'
+   laFIELDS        := {'LOGIN',;
+                       'CONTEUDO_ANTERIOR',;
+                       'CONTEUDO_NOVO',;
+                       'DT_ALTERACAO',;
+                       'HR_ALTERACAO',;
+                       'LOCAL_ALTERACAO'}
+
+   WPut('NR_CONTROLE',lcNR_CONTROLE)
+   WPut('PFPJ_NATUREZA',lcPFPJ_NATUREZA)
+   WPut('LABEL_WFIELD',lcLABEL)
+
+   readWEnv('ps.log.altera.html')
+   lcWHERE := 'NR_CONTROLE='+lcNR_CONTROLE
+
+   WPut('ifPFPJ',.t.)
+   make_pfpjhead(lcNR_CONTROLE,lcPFPJ_NATUREZA)
+   pfpj_abas(lcPFPJ_NATUREZA,lcNR_CONTROLE)
+
+   if db_select({'distinct WFIELD'},lcTABLE,,{lcWHERE},{'WFIELD'}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 1
+      for ii := 1 to len(laRES)
+          if ii = 1
+             aadd(laRES1,{laRES[ii,1],'LABEL'})
+          else
+             aadd(laRES1,{laRES[ii,1],lblfscreen(laRES[ii,1])})
+          endif
+      next ii
+      asort(laRES1,2,,{|a,b| a[2] < b[2]})    // deixa combo em ordem alfabética
+      ii := 0
+      aadd(laOPTIONS,'')
+      aadd(laLABELS,'')
+      for ii := 2 to len(laRES1)
+          aadd(laOPTIONS,laRES1[ii,1])  //Opções ocultas
+          aadd(laLABELS, laRES1[ii,2])  //Valores para o usuário
+      next ii
+      WPut('LABEL_WFIELD_OPT',laLABELS)
+   else
+      aadd(laOPTIONS,'')
+      aadd(laLABELS,'')
+      WPut('LABEL_WFIELD_OPT',laLABELS)
+      putERROR('Não existem alterações no log')
+      return
+   endif
+
+
+   if !empty(lcLABEL)
+      lcWFIELD := laOPTIONS[ascan(laLABELS,lcLABEL)]
+   endif
+
+   lcWHERE := lcTABLE+'.NR_CONTROLE='+lcNR_CONTROLE
+   if !empty(lcWFIELD)
+      lcWHERE += ' and '+lcTABLE+'.WFIELD='+DLAP+lcWFIELD+DLAP
+   else
+      asize(laFIELDS,len(laFIELDS)+1)
+      ains(laFIELDS,1)
+      laFIELDS[1] := 'WFIELD'
+   endif
+   if db_select(laFIELDS,lcTABLE,,{lcWHERE},{'DT_ALTERACAO,HR_ALTERACAO'},'D') == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 1
+      for ii := 2 to len(laRES)
+         //Formata campos TEXT em colunas
+         lnPOS := ascan(laFIELDS,'CONTEUDO_ANTERIOR')
+         if lnPOS > 0
+            lcAUX := ''
+            for xx := 1 to mlcount(laRES[ii,lnPOS],50)
+               if xx > 1
+                  lcAUX += '<br>'
+               endif
+               lcAUX += memoline(laRES[ii,lnPOS],50,xx)
+            next xx
+            laRES[ii,lnPOS] := lcAUX
+         endif
+
+         lnPOS := ascan(laFIELDS,'CONTEUDO_NOVO')
+         if lnPOS > 0
+            lcAUX := ''
+            for xx := 1 to mlcount(laRES[ii,lnPOS],50)
+                if xx > 1
+                  lcAUX += '<br>'
+                endif
+                lcAUX += memoline(laRES[ii,lnPOS],50,xx)
+            next xx
+            laRES[ii,lnPOS] := lcAUX
+         endif
+
+         if empty(lcWFIELD)
+            laRES[ii,ascan(laFIELDS,'WFIELD')] := lblfscreen(laRES[ii,ascan(laFIELDS,'WFIELD')])
+         endif
+      next ii
+      WPut('HISTORY_GRID',grid_create(laRES))
+   endif
+   saveWEnv('pfpj.log.alteracao.html',{'LABEL_WFIELD'})
+   WPut('LABEL_WFIELD',lcLABEL)
+return
+
+

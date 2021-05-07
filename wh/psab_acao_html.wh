@@ -1,0 +1,308 @@
+/*
+
+Project      : gr5
+Project      : gr5
+Program      : psab.acao.html
+Function     : psab_acao_html
+Created on   : 10/07/2017 17:24:31
+Descripition : Aba de Ação (Template Plano de Ação)
+
+
+*/ 
+
+local laFIELDS      := {} ,;
+      laTMP         := {} ,;
+      laRESULT      := {} ,;
+      laDIFFROW     := {} ,;
+      laSAVE        := {} ,;
+      laSAVE_AUX    := {},;
+      laFOREIGN     := {} ,;
+      laPUT         := {} ,;
+      laLINHA_ATUAL := {} as array
+
+local lcNR_PASTA           := WGet('NR_PASTA','C') ,;
+      lcTP_PASTA           := WGet('TP_PASTA','C') ,;
+      lcAUX                := '' ,;
+      lcLOGENC             := '',;
+      lcLOG_ENC            := '',;
+      fcMENS               := '',;
+      lcACTION      := upper(WGet('ACTION','C')) as string
+      
+local xx := 0 ,;
+      ii := 0 as int   
+         
+      laFIELDS      :={'NR_ATIVIDADE',;  
+                       'NR_PASTA',;
+                       'DT_PRAZO',;
+                       'CIP_RESPONSAVEL',;
+                       'CIP_RESPONSAVEL1',;
+                       'CIP_RESPONSAVEL2',;
+                       'NR_CONTROLE',;
+                       'LOGIN_CADASTRO',;
+                       'DT_CADASTRO',;
+                       'DT_ENCERRAMENTO',;
+                       'LOGIN_ENCERRAMENTO',;
+                       'OBSERVACAO'} 
+                       
+    
+   lcTable := 'pasta_acao'
+
+   lcACTION := upper(wget('ACTION'))
+   lcTP_PASTA := wGet('TP_PASTA','C')
+   lcNR_PASTA := wGet('NR_PASTA','C')
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic    
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   pasta_abas(lcTP_PASTA)   
+   
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   lcNR_CONTROLE := wGet('NR_CONTROLE','C')
+   
+   if upper(lcNR_CONTROLE) == 'NEW'
+      lcNR_CONTROLE := '0'
+   endif
+   
+   WPut('DT_CADASTRO',date())
+   WPut('LOGIN_CADASTRO',gcLOGIN)   // Verifica se o usuario logado é advogado interno
+   make_psthead(lcNR_PASTA,lcTP_PASTA)    //Cabeçalho
+   init_reqfield(WSet('_USER_INTERFACE'))
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+   pasta_abas(lcTP_PASTA) 
+   lcWHERE    := 'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+DLAP+lcNR_CONTROLE+DLAP
+
+
+  
+//---    Monta os combos
+
+   carrega_cbox({{'fase_plano_acao','fase_plano_acao','Y'}})
+
+   Wput('ifGRID',.t.)
+   Wput('ifDADOS',.f.)
+   Wput('ifEXCLU',.f.)
+
+   if lcACTION == 'NEW' 
+      
+      Wput('ifGRID',.f.)
+      Wput('ifDADOS',.t.)
+      Wput('NR_CONTROLE','New') 
+      
+   elseif lcACTION == 'CANCEL' 
+   
+      Wput('ifGRID',.t.)
+      Wput('ifDADOS',.f.)          
+     
+   elseif lcACTION == 'ALTER'
+   
+      Wput('ifGRID',.f.)
+      Wput('ifDADOS',.t.) 
+      Wput('ifEXCLU',.t.) 
+       
+      carrega_acao(lcNR_PASTA,lcNR_CONTROLE)     
+                  
+ 
+   elseif lcACTION == 'SAVE'
+           Wput('ifGRID',.f.)
+           Wput('ifDADOS',.t.) 
+              
+          laSAVE :=  {}
+   
+          lcLOG_ENC := ''      
+          if !empty(WGet('DT_ENCERRAMENTO')) 
+             if WGet('DT_ENCERRAMENTO','D') < WGet('DT_CADASTRO','D')
+               walert('Data de Encerramento inválida!')
+               get2put()
+               return
+             endif
+             if EMPTY(WGET('LOGIN_ENCERRAMENTO')) .AND. !EMPTY(WGET('DT_ENCERRAMENTO'))
+                lcLOG_ENC := gcLOGIN
+             endif
+          endif 
+          lcnr_controle :=  WGET('NR_CONTROLE','C') 
+          
+          if val(lcnr_controle) > 0
+             laFIELDS :=  {'NR_ATIVIDADE',;  
+                       'NR_PASTA',;
+                       'DT_PRAZO',;
+                       'CIP_RESPONSAVEL',;
+                       'CIP_RESPONSAVEL1',;
+                       'CIP_RESPONSAVEL2',;
+                       'NR_CONTROLE',;
+                       'LOGIN_CADASTRO',;
+                       'DT_CADASTRO',;
+                       'DT_ENCERRAMENTO',;
+                       'LOGIN_ENCERRAMENTO'} 
+
+          endif
+          
+          aadd(laSAVE,laFIELDS)
+          lcWHERE    := 'NR_PASTA='+WGET('NR_PASTA','C')+' and NR_CONTROLE='+DLAP+WGET('NR_CONTROLE','C')+DLAP
+
+          laSAVE_AUX := {}
+          for ii := 1 to len(laFIELDS)
+          
+            if laFIELDS[ii] == 'LOGIN_ENCERRAMENTO'
+                 lcLOGENC := wget(lafields[ii])
+
+                 if empty(lcLOGENC)
+                    aadd(laSAVE_AUX,lcLOG_ENC)
+                    loop
+                 else
+                    aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+                    loop
+                 endif
+            endif
+     
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+
+          next ii
+
+          aadd(laSAVE, laSAVE_AUX)
+
+          psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Atividades') //Gravar log de alterações da pasta
+
+          if db_replace(laSAVE,'pasta_acao',{lcWHERE},) == -1
+             error_sys(db_error())
+          endif            
+          
+          
+          if WGET('ULT_ACTION','C') == 'New'                        
+             Wput('ifGRID',.f.)
+             Wput('ifDADOS',.t.)
+             Wput('NR_CONTROLE','New')
+             return
+          else
+             Wput('ifGRID',.t.)
+             Wput('ifDADOS',.f.)        
+          endif            
+         
+   elseif lcACTION == 'DELETE'
+          psab_logdel(lcNR_PASTA,'NR_CONTROLE',WGET('NR_CONTROLE','C'),,'Atividade')
+
+          if db_delete('pasta_acao',lcWHERE) = -1
+             error_sys(db_error())
+          endif
+   endif
+
+
+      laFIELDS      :={'pasta_acao.NR_ATIVIDADE',;  
+                       'pasta_acao.DT_PRAZO',;
+                       'resp.pfpj as PFPJ_RESPONSAVEL',;
+                       'resp1.pfpj as PFPJ_RESPONSAVEL',;
+                       'resp2.pfpj as PFPJ_RESPONSAVEL',;
+                       'pasta_acao.LOGIN_CADASTRO',;
+                       'pasta_acao.DT_CADASTRO',;
+                       'pasta_acao.DT_ENCERRAMENTO',;
+                       'pasta_acao.LOGIN_ENCERRAMENTO',;
+                       'pasta_acao.OBSERVACAO',;
+                       'pasta_acao.NR_PASTA',;
+                       'pasta_acao.NR_CONTROLE'}                       
+                    
+                       
+      laJOIN   :={{2,'pfpj resp','resp.CIP=pasta_acao.CIP_RESPONSAVEL and resp.CIP<>"" '},;
+                  {2,'pfpj resp1','resp1.CIP=pasta_acao.CIP_RESPONSAVEL1 and resp1.CIP<>"" '},;
+                  {2,'pfpj resp2','resp2.CIP=pasta_acao.CIP_RESPONSAVEL2 and resp2.CIP<>"" '}}
+      
+                      
+
+
+   // Montagem da Grid de Ações  
+   if db_select(laFIELDS,'pasta_acao',laJOIN,{'pasta_acao.NR_PASTA = '+lcNR_PASTA},{'pasta_acao.DT_CADASTRO'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   if len(laRESULT) >= 2
+      aadd(laRESULT[1],'(row)')
+      for ii := 2 to len(laRESULT)
+          
+          fcMENS := laRESULT[ii, db_fetchncol(laRESULT,'OBSERVACAO')]
+          fcMENS := strtran(fcMENS,chr(10)+chr(13),'\n')
+          fcMENS := strtran(fcMENS,chr(13)+chr(10),'\n')
+          fcMENS := strtran(fcMENS,chr(10),'\n')
+          fcMENS := strtran(fcMENS,chr(13),'\n')   
+      
+          aadd(laRESULT[ii],'(row)'+wic_action('wicaction/psab.acao.html?'+;
+                        'TP_PASTA='+lcTP_PASTA+;
+                        '&NR_PASTA='+lcNR_PASTA+;
+                        '&DT_PRAZO='+STR(laRESULT[ii, db_fetchncol(laRESULT,'DT_PRAZO')],9)+;
+                        '&DT_CADASTRO='+STR(laRESULT[ii, db_fetchncol(laRESULT,'DT_CADASTRO')],9)+;
+                        '&DT_ENCERRAMENTO='+STR(laRESULT[ii, db_fetchncol(laRESULT,'DT_ENCERRAMENTO')],9)+;
+                        '&NR_CONTROLE='+STR(laRESULT[ii, db_fetchncol(laRESULT,'NR_CONTROLE')],9)+;
+                        '&OBSERVACAO='+fcMENS+;
+                        '&ACTION=ALTER'))
+         
+      next ii
+    endif
+    wPut('lstACAO',grid_create(laRESULT))
+
+return
+
+*******************************************************
+static function carrega_acao(fcNR_PASTA,fcNR_CONTROLE)
+*******************************************************
+   local lcWHERE := '' ,;
+            lcTABLE := '' as string
+      local laFIELDS  := {} ,;
+            laRES     := {} ,;
+            laFOREIGN := {} ,;
+            laPUT     := {} as array
+
+      local xx := 0 ,;
+            ii := 0 as int
+
+      lcTABLE  := 'pasta_acao'
+      laFIELDS := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+      lcWHERE  := 'NR_PASTA='+fcNR_PASTA+' and NR_CONTROLE='+DLAP+fcNR_CONTROLE+DLAP
+    
+     if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+
+      if len(laRES) > 0
+         db2Put(laRES)
+
+         /* Carrega as Descrições dos campos CIP_* */
+         for ii:= 1 to len(laFIELDS)
+            if substr(laFIELDS[ii],1,4) == 'CIP_'
+               aadd(laFOREIGN,laFIELDS[ii])
+            endif
+         next ii
+         if len(laFOREIGN) > 0
+            for ii:= 1 to len(laFOREIGN)
+               if ! empty(laRES[2,ascan(laFIELDS,laFOREIGN[ii])])
+                  if db_select({'PFPJ'},'pfpj',,;
+                               {'CIP='+DLAP+laRES[2,ascan(laFIELDS,laFOREIGN[ii])]+DLAP,'CIP <> '+DLAP+DLAP}) == -1
+                     error_sys(db_error())
+                  endif
+                  laPUT := db_fetchrow()
+                  if len(laPUT) > 0
+                     WPut(laFOREIGN[ii]+'_PFPJ',laPUT[1])
+                  endif
+               endif
+            next ii
+         endif
+    endif
+return (nil)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

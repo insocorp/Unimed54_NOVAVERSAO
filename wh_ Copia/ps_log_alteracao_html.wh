@@ -1,0 +1,136 @@
+/*
+
+Project      : gr5
+Program      : ps.log.alteracao.html
+Function     : ps_log_alteracao_html
+Created on   : 25-Aug-2004   15:02:10
+Descripition : Log de Alteração da Pasta
+
+*/
+
+   local lcWHERE    := '' ,;
+         lcNR_PASTA := '' ,;
+         lcTABLE    := '' ,;
+         lcTP_PASTA := '' ,;
+         lcWFIELD   := '' ,;
+         lcAUX      := '' as string
+
+   local laRES     := {} ,;
+         laRES1    := {} ,;
+         laOPTIONS := {} ,;
+         laLABELS  := {} ,;
+         laFIELDS  := {} as array
+
+   local ii    := 0 ,;
+         xx    := 0 ,;
+         lnPOS := 0 as int
+
+   lcNR_PASTA := WGet('NR_PASTA','C')
+   lcLABEL    := alltrim(WGet('LABEL_WFIELD','C'))
+   lcTP_PASTA := WGet('TP_PASTA','C')
+   lcTABLE    := 'pasta_log_altera'
+   laFIELDS   := {'LOGIN',;
+                  'CONTEUDO_ANTERIOR',;
+                  'CONTEUDO_NOVO',;
+                  'DT_ALTERACAO',;
+                  'HR_ALTERACAO',;
+                  'LOCAL_ALTERACAO'}
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   pasta_abas(lcTP_PASTA)
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   WPut('NR_PASTA',lcNR_PASTA)
+   WPut('TP_PASTA',lcTP_PASTA)
+   WPut('LABEL_WFIELD',lcLABEL)
+
+   readWEnv('ps.log.altera.html')
+   lcWHERE := 'NR_PASTA='+lcNR_PASTA
+
+   if db_select({'distinct WFIELD'},lcTABLE,,{lcWHERE},{'WFIELD'}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 1
+      for ii := 1 to len(laRES)
+          if ii = 1
+             aadd(laRES1,{laRES[ii,1],'LABEL'})
+          else
+             aadd(laRES1,{laRES[ii,1],lblfscreen(laRES[ii,1])})
+          endif
+      next ii
+      asort(laRES1,2,,{|a,b| a[2] < b[2]})    // deixa combo em ordem alfabética
+      ii := 0
+      aadd(laOPTIONS,'')
+      aadd(laLABELS,'')
+      for ii := 2 to len(laRES1)
+          aadd(laOPTIONS,laRES1[ii,1])  //Opções ocultas
+          aadd(laLABELS, laRES1[ii,2])  //Valores para o usuário
+      next ii
+      WPut('LABEL_WFIELD_OPT',laLABELS)
+   else
+      aadd(laOPTIONS,'')
+      aadd(laLABELS,'')
+      WPut('LABEL_WFIELD_OPT',laLABELS)
+      putERROR('Não existem alterações no log')
+      return
+   endif
+
+
+   if !empty(lcLABEL)
+      lcWFIELD := laOPTIONS[ascan(laLABELS,lcLABEL)]
+   endif
+
+   lcWHERE := lcTABLE+'.NR_PASTA='+lcNR_PASTA
+   if !empty(lcWFIELD)
+      lcWHERE += ' and '+lcTABLE+'.WFIELD='+DLAP+lcWFIELD+DLAP
+   else
+      asize(laFIELDS,len(laFIELDS)+1)
+      ains(laFIELDS,1)
+      laFIELDS[1] := 'WFIELD'
+   endif
+   if db_select(laFIELDS,lcTABLE,,{lcWHERE},{'NR_CONTROLE'},'D') == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 1
+      for ii := 2 to len(laRES)
+         //Formata campos TEXT em colunas
+         lnPOS := ascan(laFIELDS,'CONTEUDO_ANTERIOR')
+         if lnPOS > 0
+            lcAUX := ''
+            for xx := 1 to mlcount(laRES[ii,lnPOS],50)
+               if xx > 1
+                  lcAUX += '<br>'
+               endif
+               lcAUX += memoline(laRES[ii,lnPOS],50,xx)
+            next xx
+            laRES[ii,lnPOS] := lcAUX
+         endif
+
+         lnPOS := ascan(laFIELDS,'CONTEUDO_NOVO')
+         if lnPOS > 0
+            lcAUX := ''
+            for xx := 1 to mlcount(laRES[ii,lnPOS],50)
+                if xx > 1
+                  lcAUX += '<br>'
+                endif
+                lcAUX += memoline(laRES[ii,lnPOS],50,xx)
+            next xx
+            laRES[ii,lnPOS] := lcAUX
+         endif
+
+         if empty(lcWFIELD)
+            laRES[ii,ascan(laFIELDS,'WFIELD')] := lblfscreen(laRES[ii,ascan(laFIELDS,'WFIELD')])
+         endif
+      next ii
+      WPut('HISTORY_GRID',grid_create(laRES))
+   endif
+   saveWEnv('ps.log.altera.html',{'LABEL_WFIELD'})
+   WPut('LABEL_WFIELD',lcLABEL)
+return
+
+
+
+
+
+
+

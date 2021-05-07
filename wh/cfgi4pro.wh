@@ -1,0 +1,394 @@
+
+//
+// Glauber - 10/2017
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Classe...........: ConfigI4Pro
+*
+* Objetivo.........: Classe para manutenção da configuração de serviços do I4Pro.
+*
+* Atributos........:
+*
+*    EXPORT IdEmpresa
+*    EXPORT TipoPastas
+*    EXPORT Ramos
+*    EXPORT IdConSinistro
+*    EXPORT IdMarcarJudicial
+*    EXPORT IdDesmarcarJudicial
+*    EXPORT IdAtualizarReserva
+*    EXPORT IdRealizarPagamento
+*    EXPORT IdConfirmacaoPagamentos
+*    EXPORT IdConsultaFavorecido
+*    EXPORT IdIncluirFavorecido
+*    EXPORT PedidoProcesso
+*    EXPORT TpPfpjResseguradora
+*    EXPORT TpPfpjCongenere
+*    EXPORT TpPfpjBeneficiario
+*    EXPORT TpPfpjEstipulante
+*    EXPORT TpPfpjSinistrado
+*    EXPORT TpPfpjReclamante
+*    EXPORT TpPfpjAutor
+*    EXPORT IdMovimentoSinistroJudicial    
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD toString()
+*    METHOD Salvar()                        
+*    METHOD Excluir()                       
+*    METHOD FindOne()                       
+*
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS ConfigI4Pro
+
+    // Atributos publico
+
+    EXPORT IdEmpresa
+    EXPORT TipoPastas
+    EXPORT Ramos
+    EXPORT IdConSinistro
+    EXPORT IdMarcarJudicial
+    EXPORT IdDesmarcarJudicial
+    EXPORT IdAtualizarReserva
+    EXPORT IdRealizarPagamento
+    EXPORT IdConfirmacaoPagamentos
+    EXPORT IdConsultaFavorecido
+    EXPORT IdIncluirFavorecido
+    EXPORT PedidoProcesso
+    EXPORT TpPfpjResseguradora
+    EXPORT TpPfpjCongenere
+    EXPORT TpPfpjBeneficiario
+    EXPORT TpPfpjEstipulante
+    EXPORT TpPfpjSinistrado
+    EXPORT TpPfpjReclamante
+    EXPORT TpPfpjAutor
+    EXPORT IdMovimentoSinistroJudicial
+
+    // Atributos privado
+
+    INSTANCE _ResultSet
+    
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()                          CLASS ConfigI4Pro
+    PROTOTYPE METHOD Destroy()                       CLASS ConfigI4Pro
+    PROTOTYPE METHOD toString()                      CLASS ConfigI4Pro
+    PROTOTYPE METHOD Salvar()                        CLASS ConfigI4Pro
+    PROTOTYPE METHOD Excluir()                       CLASS ConfigI4Pro
+    PROTOTYPE METHOD FindOne()                       CLASS ConfigI4Pro
+
+
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS ConfigI4Pro
+
+    self:IdEmpresa := 1
+    self:TipoPastas := ''
+    self:Ramos := ''
+    self:IdConSinistro := 0
+    self:IdMarcarJudicial := 0
+    self:IdDesmarcarJudicial := 0
+    self:IdAtualizarReserva := 0
+    self:IdRealizarPagamento := 0
+    self:IdConfirmacaoPagamentos := 0
+    self:IdConsultaFavorecido := 0
+    self:IdIncluirFavorecido := 0     
+    self:PedidoProcesso := ''
+    self:TpPfpjResseguradora := ''
+    self:TpPfpjCongenere := ''
+    self:TpPfpjBeneficiario := ''
+    self:TpPfpjEstipulante := ''
+    self:TpPfpjSinistrado := ''
+    self:TpPfpjReclamante := ''
+    self:TpPfpjAutor := ''
+    self:IdMovimentoSinistroJudicial := 0
+
+
+
+    self:_ResultSet  := {}
+    
+
+return(self)
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS ConfigI4Pro
+
+    self:IdEmpresa := nil
+    self:TipoPastas := nil
+    self:Ramos := nil
+    self:IdConSinistro := nil
+    self:IdMarcarJudicial := nil
+    self:IdDesmarcarJudicial := nil
+    self:IdAtualizarReserva := nil
+    self:IdRealizarPagamento := nil
+    self:IdConfirmacaoPagamentos := nil
+    self:IdConsultaFavorecido := nil
+    self:IdIncluirFavorecido := nil    
+    self:PedidoProcesso := nil
+    self:TpPfpjResseguradora := nil
+    self:TpPfpjCongenere := nil
+    self:TpPfpjBeneficiario := nil
+    self:TpPfpjEstipulante := nil
+    self:TpPfpjSinistrado := nil
+    self:TpPfpjReclamante := nil
+    self:TpPfpjAutor := nil
+    self:_ResultSet  := nil
+    self:IdMovimentoSinistroJudicial := nil
+
+
+return(nil)
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: toString()
+* Objetivo..: Retornar uma String com a representação do Objeto.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             String
+*
+*/
+
+METHOD toString() CLASS ConfigI4Pro
+
+return    'ConfigI4Pro [TipoPastas=' +  Transform(self:TipoPastas) +;
+          ', Ramos=' + Transform(self:Ramos) + ']'
+
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Salvar()
+* Objetivo..: Salva um servico.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             self
+*
+*/
+
+METHOD Salvar() CLASS ConfigI4Pro
+
+    local laSAVE := {} AS Array
+
+    aadd(laSAVE, {'ID_EMPRESA',;
+                  'TP_PASTAS',;
+                  'RAMOS',;
+                  'ID_CONSULTA_SINISTRO',;
+                  'ID_MARCA_JUDICIAL',;
+                  'ID_DESMARCA_JUDICIAL',;
+                  'ID_ATUALIZAR_RESERVA',;
+                  'ID_REALIZAR_PAGAMENTO',;
+                  'ID_CONFIRMAR_PAGAMENTO',;
+                  'ID_CONSULTAR_FAVORECIDO',;
+                  'ID_INCLUIR_FAVORECIDO',;
+                  'PEDIDO_PROCESSO',;
+                  'TP_PESSOA_RESSEGURO',;
+                  'TP_PESSOA_CONGENERE',;
+                  'TP_PESSOA_BENEFICIARIO',;
+                  'TP_PESSOA_ESTIPULANTE',;
+                  'TP_PESSOA_SINISTRADO',;
+                  'TP_PESSOA_RECLAMANTE',;
+                  'TP_PESSOA_AUTOR',;
+                  'ID_MOVIMENTO_SINISTRO_JUDICIAL'})
+    aadd(laSAVE, {self:IdEmpresa,;
+                  self:TipoPastas,;
+                  self:Ramos,;
+                  self:IdConSinistro,;
+                  self:IdMarcarJudicial,;
+                  self:IdDesmarcarJudicial,;
+                  self:IdAtualizarReserva,;
+                  self:IdRealizarPagamento,;
+                  self:IdConfirmacaoPagamentos,;
+                  self:IdConsultaFavorecido,;
+                  self:IdIncluirFavorecido,;                   
+                  self:PedidoProcesso,;
+                  self:TpPfpjResseguradora,;
+                  self:TpPfpjCongenere,;
+                  self:TpPfpjBeneficiario,;
+                  self:TpPfpjEstipulante,;
+                  self:TpPfpjSinistrado,;
+                  self:TpPfpjReclamante,;
+                  self:TpPfpjAutor,;
+                  self:IdMovimentoSinistroJudicial})
+
+
+
+    if (self:IdEmpresa == 0)
+        WAlert('Empresa não informada.')
+        return self
+    endif
+
+    if db_replace(laSAVE,'configi4pro',{'ID_EMPRESA='+Transform(self:IdEmpresa)}) == -1
+        error_sys(db_error())
+    endif
+
+
+return self
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Excluir()
+* Objetivo..: Exclui um servico.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             self
+*
+*/
+
+METHOD Excluir() CLASS ConfigI4Pro
+
+
+        if (self:IdEmpresa == 0)
+        return self
+    endif    
+
+    if db_delete('configi4pro',{'ID_EMPRESA='+Transform(self:IdEmpresa)}) == -1
+        error_sys(db_error())     
+    endif    
+
+
+return self    
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: FindOne()
+* Objetivo..: Localiza um registro com base na chave primária.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             self
+*
+*/
+METHOD FindOne() CLASS ConfigI4Pro
+
+    local laFIELDS := {},;
+          laRESULT := {} AS Array
+
+    laFIELDS := { 'TP_PASTAS',;
+                  'RAMOS',;
+                  'ID_CONSULTA_SINISTRO',;
+                  'ID_MARCA_JUDICIAL',;
+                  'ID_DESMARCA_JUDICIAL',;
+                  'ID_ATUALIZAR_RESERVA',;
+                  'ID_REALIZAR_PAGAMENTO',;
+                  'ID_CONFIRMAR_PAGAMENTO',;
+                  'ID_CONSULTAR_FAVORECIDO',;
+                  'ID_INCLUIR_FAVORECIDO',;                    
+                  'PEDIDO_PROCESSO',;
+                  'TP_PESSOA_RESSEGURO',;
+                  'TP_PESSOA_CONGENERE',;
+                  'TP_PESSOA_BENEFICIARIO',;
+                  'TP_PESSOA_ESTIPULANTE',;
+                  'TP_PESSOA_SINISTRADO',;
+                  'TP_PESSOA_RECLAMANTE',;
+                  'TP_PESSOA_AUTOR',;
+                  'ID_MOVIMENTO_SINISTRO_JUDICIAL'}
+
+    if (self:IdEmpresa == 0)        
+        return self
+    endif    
+
+    if db_select(laFIELDS,'configi4pro',,{'ID_EMPRESA='+Transform(self:IdEmpresa)}) == -1
+        error_sys(db_error())     
+    endif
+    
+    laRESULT := db_fetchall()
+
+    if (Len(laRESULT) > 1)
+       self:TipoPastas              := laRESULT[2,1] 
+       self:Ramos                   := laRESULT[2,2]
+       self:IdConSinistro           := laRESULT[2,3]
+       self:IdMarcarJudicial        := laRESULT[2,4]
+       self:IdDesmarcarJudicial     := laRESULT[2,5]
+       self:IdAtualizarReserva      := laRESULT[2,6]
+       self:IdRealizarPagamento     := laRESULT[2,7]
+       self:IdConfirmacaoPagamentos := laRESULT[2,8]
+       self:IdConsultaFavorecido    := laRESULT[2,9]
+       self:IdIncluirFavorecido     := laRESULT[2,10]       
+       self:PedidoProcesso          := laRESULT[2,11]
+       self:TpPfpjResseguradora   := laRESULT[2,12]
+       self:TpPfpjCongenere       := laRESULT[2,13]
+       self:TpPfpjBeneficiario    := laRESULT[2,14]
+       self:TpPfpjEstipulante     := laRESULT[2,15]
+       self:TpPfpjSinistrado      := laRESULT[2,16]
+       self:TpPfpjReclamante      := laRESULT[2,17]
+       self:TpPfpjAutor           := laRESULT[2,17]
+       self:IdMovimentoSinistroJudicial := laRESULT[2,19]
+    endif
+
+
+return self    
+
+
+

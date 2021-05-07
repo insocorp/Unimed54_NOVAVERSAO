@@ -1,0 +1,158 @@
+
+   local lcACTION   := '' ,;
+         lcTP_PASTA := '' ,;
+         lcNR_ATA   := '' ,;
+         lcTABLE    := '' ,;
+         lcNR_PASTA := '' ,;
+         lcMANDATA  := ''  as string
+   local laRESULT   := {} ,;
+         laRES      := {} ,;
+         laPUT      := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laWHERE    := {} ,;
+         laFIELDS   := {} ,;
+         laLABELS   := {} ,;
+         laDELETE   := {} ,;
+         laVALIDA   := {} ,;
+         laTEXT     := {} as array
+   local ii     := 0 ,;
+         lnROWS := 0 as int
+   local llERRO := .F. as logical
+
+   lcACTION   := upper(alltrim(WGet('ACTION','C')))
+   lcTP_PASTA := WGet('TP_PASTA','C')
+   lcNR_PASTA := WGet('NR_PASTA','C')
+   lcNR_ATA   := WGet('NR_ATA','C')
+   lcTABLE    := 'pasta_sct_ata'
+   laWHERE    := {'NR_PASTA='+lcNR_PASTA+' and NR_ATA='+DLAP+lcNR_ATA+DLAP}
+   laFIELDS   := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS   := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   laVALIDA   := {'NR_ATA'}
+
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+
+   if empty(lcACTION)
+      lcACTION = 'NEW'
+   endif
+
+   wPut('TP_PASTA',lcTP_PASTA)
+   wPut('NR_PASTA',lcNR_PASTA)
+
+   carrega_cbox({{'societario_ato','SOCIETARIO_ATO','Y'},;
+                 {'forma_realizacao','FORMA_REALIZACAO','Y'}})
+
+   /* Array com os campos Textarea de tamanho dinâmico */
+   laTEXT := {'SCT_ORDENS',;
+              'ASSEMBLEIA_PUBLICACAO',;
+              'ASSEMBLEIA_PRESENCA',;
+              'ASSEMBLEIA_MESA',;
+              'ASSEMBLEIA_CONVOCACAO',;
+              'ASSEMBLEIA_ENCERRAMENTO'}
+
+   for ii := 1 to len(laTEXT)
+      WPut(laTEXT[ii]+'_ROWS',3)
+   next ii
+
+   if lcACTION == 'NEW' .and. gbWAC_CREATE
+      wPut('TITLE','Inclusão de Ata de Assembléia')
+      wPut('ifNR_ATARW',.T.)
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,laWHERE) = -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2put(laRESULT)
+         amkgedico(lcTABLE,lcNR_PASTA,lcNR_ATA)
+         if db_select({'PFPJ'},'pfpj',,{'CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_FILIAL')]+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchrow()
+         if len(laRESULT) > 0
+            WPut('CIP_FILIAL_PFPJ',laRESULT[1])
+         endif
+      endif
+      wPut('TITLE','Alteração do Ata de Assembléia '+getWPut('NR_ATA'))
+      wPut('ifNR_ATARO',.T.)
+   elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+      for ii := 1 to len(laVALIDA)
+          if empty(alltrim(WGet(laVALIDA[ii],'C')))
+             walert(laLABELS[ascan(laFIELDS,laVALIDA[ii])]+' é um campo obrigatório!')
+             get2Put()
+             llERRO := .T.
+             wPut('ifNR_ATARW',.T.)
+             exit
+          endif
+      next ii
+      if ! llERRO
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+
+         psab_logs(laSAVE,lcTABLE,'NR_PASTA='+lcNR_PASTA+' and NR_ATA='+DLAP+lcNR_ATA+DLAP,lcNR_PASTA,'Atas de Assembléia')
+
+         if db_replace(laSAVE,lcTABLE,laWHERE) = -1
+            error_sys(db_error())
+         endif
+         wPut('TITLE','Inclusão de novo Ata de Assembléia')
+
+         /*
+         if db_select(laFIELDS,'pasta_sct_ata',,laWHERE) = -1
+            error_sys(db_error())
+         endif
+         db2Put(db_fetchall())
+         */
+         get2put()
+         wPut('WSCRIPT','parent.document.mntform.NR_ATA.value='+DLMT+getWPut('NR_ATA')+DLMT+';parent.document.mntform.ASSEMBLEIA_TITULO.value='+DLMT+getWPut('ASSEMBLEIA_TITULO')+DLMT)
+         wPut('ifNR_ATARO',.T.)
+      endif
+
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      psab_logdel(lcNR_PASTA,'NR_ATA',lcNR_ATA,'Ata Excluída','Atas de Assembléia')
+
+      //Exclusão em cascata
+      /*
+      laDELETE := {'pasta_sct_ata',;
+                   'pasta_sct_ata_ordemdia',;
+                   'pasta_sct_ata_deliberacao',;
+                   'pasta_poderes',;
+                   'pasta_poderes_outorgado',;
+                   'pasta_sct_ato',;
+                   'pasta_sct_procedimento'}
+      */
+      laDELETE := {'pasta_sct_ata',;
+                   'pasta_sct_ata_deliberacao',;
+                   'pasta_sct_procedimento'}
+
+      for ii := len(laDELETE) to 1 step -1
+         if db_delete(lcTABLE,laWHERE[1]) = -1
+            error_sys(db_error())
+         endif
+      next ii
+      wPut('TITLE','Inclusão de novo Ata de Assembléia')
+      wPut('WSCRIPT','parent.location.href="'+wic_action('wicaction/ps.lst.assembleia.html')+'?TP_PASTA='+lcTP_PASTA+'&NR_PASTA='+lcNR_PASTA+'";')
+   endif
+
+   /* Define tamanho dinâmico aos campos TEXT */
+   for ii := 1 to len(laTEXT)
+      lnROWS := mlcount(GetWput(laTEXT[ii]))
+      WPut(laTEXT[ii]+'_ROWS',iif(lnROWS <= 3 ,3, lnROWS+2 ))
+   next ii
+return
+
+
+
+
+
+
+
+

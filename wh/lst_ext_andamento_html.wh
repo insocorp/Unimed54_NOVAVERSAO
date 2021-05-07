@@ -1,0 +1,12 @@
+/*
+Project      : gr5
+Program      : lst.ext.andamento.html
+Function     : lst_ext_andamento_html
+Created on   : 19/12/2008   15:00:00
+Descripition : Relação do Andamento Externos das Pastas
+*/
+
+WSet('_USER_INTERFACE','lst.pasta.html')
+lst_pasta_html('mnt.ext.andamento.html')
+
+

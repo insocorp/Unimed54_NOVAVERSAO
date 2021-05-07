@@ -1,0 +1,318 @@
+/*
+Project      : gr5
+Program      : sch.all.pedido.html
+Function     : sch_all_pedido_html
+Created on   : 12-03-2009   11:20:00
+Descripition : Pesquisa de Objetos com multi-seleção.
+*/
+
+   local lcACTION   := '' ,;
+         lcTABLE    := '' ,;
+         lcQUERY    := '' ,;
+         lcNM_FIELD := '' ,;
+         lcPASTAS   := '' ,;
+         lcWSCRIPT  := '' ,;
+         lcITEM     := '' ,;
+         lcPEDDT    := '' ,;
+         LCOCOR_PED := '' ,;
+         lcCHECKLST := '' as string
+
+   local laRES         := {} ,;
+         laRES2        := {} ,;
+         laCOND        := {} ,;
+         laFIELDLST    := {} ,;
+         laLABELLST    := {} ,;
+         laTP_FILTER   := {} ,;
+         laORDERBY     := {} ,;
+         laWHERE       := {} ,;
+         laRESULTS     := {} ,;
+         laCHECKLST    := {} ,;
+         laRESULT_OCOR := {} ,;
+         laRESULTPEDDT := {} ,;
+         laPROFILE     := {} as array
+
+   local ii       := 0 ,;
+         zz       := 0 ,;
+         lnbEXEC  := 0 ,;
+         lnbEXEC2 := 0 ,;
+         lnPOS    := 0 as int
+   local llEstimativa := .f.
+
+
+
+   lcACTION     := alltrim(upper(WGet('ACTION','C')))
+   lcTABLE      := 'pasta_objeto'
+   lcNM_FIELD   := 'OBJETO'
+   lcNR_PASTA   := WGet('NR_PASTA','C')
+   lcTP_PASTA   := WGet('TP_PASTA','C')
+   lcDT_RISCO   := WGet('DT_RISCO','C')
+   lcFL_CALCULO := WGet('FL_CALCULO','C')
+//   laWHERE      := {'TP_PASTA = '+DLAP+lcTP_PASTA+DLAP+' and FL_VISIVEL ='+DLAP+'W'+DLAP+' and OBJETO <>'+DLAP+'Sucumbência de Condenação'+DLAP}
+   laWHERE      := {'TP_PASTA = '+DLAP+lcTP_PASTA+DLAP+' and FL_ATIVO <>'+DLAP+'I'+DLAP+' and FL_VISIVEL ='+DLAP+'W'+DLAP+' and OBJETO <>'+DLAP+'Sucumbência de Condenação'+DLAP}
+   laFIELDLST   := structtable(WSet('DB_ACTIVE'),lcTABLE,1,'A')
+   laLABELLST   := structtable(WSet('DB_ACTIVE'),lcTABLE,11,'A')
+   laTPFILTER   := {'Contendo',;
+                    'Igual',;
+                    'Intervalo',;
+                    'Não contém'}
+
+   //----------- Buscar os valores padrões para iniciar os pedidos
+   if db_select({'OCOR_PEDIDO_INICIO'},'pasta_config',,{'TP_PASTA = '+DLAP+lcTP_PASTA+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT_OCOR:=db_fetchrow()
+
+   if len(laRESULT_OCOR) > 0
+      lcOCOR_PED := laRESULT_OCOR[1]
+   endif
+
+   if empty(lcACTION)
+      lcACTION   := 'EXECSEL'
+   endif
+
+   wPut('TITLE','Localizar Objeto')
+   wPut('FL_CALCULO',lcFL_CALCULO)
+   wPut('DT_RISCO',lcDT_RISCO)
+   wPut('OCOR_PEDIDO',lcOCOR_PED)
+   wPut('NR_PASTA',lcNR_PASTA)
+   wPut('TP_PASTA',lcTP_PASTA)
+   wPut('FDFILTER1_OPT',laLABELLST)
+   wPut('TPFILTER1_OPT',laTPFILTER)
+   wPut('FDORDER1_OPT',laLABELLST)
+
+   if lcACTION == 'EXECSEL'
+      ii := 1
+      do while .t.    // Filter
+         if WGet('FDFILTER'+alltrim(str(ii)),'B')
+            if ! empty(WGet('VLFILTER'+alltrim(str(ii)),'C')) .or. ! empty(WGet('VL2FILTER'+alltrim(str(ii)),'C'))
+               laCOND := {}
+               if WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Igual'
+                  aadd(laWHERE,mkwheresch({{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')}},1))
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Intervalo'
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laWHERE,mkwheresch(laCOND,2))
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Não contém'
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laWHERE,mkwheresch(laCOND,3))
+               else  // Contendo
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laWHERE,mkwheresch(laCOND,4))
+               endif
+            endif
+         else
+            exit
+         endif
+         aadd(laPROFILE,'FDFILTER'+alltrim(str(ii)))
+         aadd(laPROFILE,'TPFILTER'+alltrim(str(ii)))
+         aadd(laPROFILE,'VLFILTER'+alltrim(str(ii)))
+         aadd(laPROFILE,'VL2FILTER'+alltrim(str(ii)))
+         ii ++
+      enddo
+      ii := 1
+
+      do while .t.     // Order
+         if WGet('FDORDER'+alltrim(str(ii)),'B')
+            if ! empty(WGet('FDORDER'+alltrim(str(ii)),'C'))
+               aadd(laORDERBY,laFIELDLST[ascan(laLABELLST,WGet('FDORDER'+alltrim(str(ii)),'C'))])
+            endif
+         else
+            exit
+         endif
+         aadd(laPROFILE,'FDORDER'+alltrim(str(ii)))
+         ii ++
+      enddo
+
+      if empty(laORDERBY)
+         aadd(laORDERBY,'OBJETO')
+      endif
+
+      if db_select(laFIELDLST,lcTABLE,,laWHERE,laORDERBY) = -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      if len(laRES) > 0
+         lnPOS := db_fetchncol(laRES,'OBJETO')
+
+         aadd(laRES[1],'VAR_OBJETO')
+         aadd(laRES[1],'VAR_CTR')  // Campo para controle
+         for ii:= 2 to len(laRES)
+            lcITEM := alltrim(str(ii-1))
+            aadd(laRES[ii],'VAR_OBJETO_'+lcITEM)
+            aadd(laRES[ii],'VAR_CTR_'+lcITEM)
+            wPut('VAR_OBJETO_'+lcITEM+'_OPT',laRES[ii,lnPOS])
+            wPut('VAR_CTR_'+lcITEM,laRES[ii,lnPOS])
+         next ii
+         wPut('schPEDIDO',laRES)
+      endif
+      if len(laPROFILE) > 0
+         SaveWEnv('sch.all.pedido.html',laPROFILE)
+      endif
+   elseif lcACTION == 'EXECSEND'
+
+      if db_select({'GERA_EST_AUT'},'pasta_config',,{'TP_PASTA = '+DLAP+lcTp_Pasta+DLAP}) == -1
+         error_sys(db_error())
+      endif
+      laRes := db_fetchrow()
+
+      if len(laRes) > 0 .and. laRes[1] == 'S'
+         llEstimativa := .t.
+      endif
+
+      ii := 1
+      vv := 2
+      lcITEM := '_'+alltrim(str(ii))
+
+      do while WGet('VAR_CTR'+lcITEM,'B')
+
+         laSAVE      := {{'NR_PASTA',;
+                       'NR_CONTROLE',;
+                       'PEDIDO_PROCESSO',;
+                       'PC_RISCO',;
+                       'DT_MOVTO_PED',;
+                       'DT_RISCO',;
+                       'FL_CALCULO',;
+                       'OCOR_PEDIDO',;
+                       'FL_INTERFACEWEB',;
+                       'FL_INTERFACEGEM',;
+                       'NR_CONTROLE_SEGURO',;
+                       'VL_RISCO',;
+                       'VL_RISCO_CALC',;
+                       'COMENTARIOS_PED',;
+                       'TP_EXPEDIENTE'}}
+
+
+
+         if !empty(alltrim(WGet('VAR_OBJETO'+lcITEM,'C'))) .AND. WGet('VAR_CTR'+lcITEM,'B')
+
+            lcPEDDT := 'NR_PASTA = '+lcNR_PASTA
+            lcPEDDT += ' AND PEDIDO_PROCESSO = '+DLAP+WGet('VAR_OBJETO'+lcITEM,'C')+DLAP
+
+            if lcDT_RISCO='  /  /  '
+               lcPEDDT += ' AND DT_RISCO is null'
+            else
+               lcPEDDT += ' AND DT_RISCO = '+DLAP+dtos(ctod(lcDT_RISCO))+DLAP
+            endif
+
+            lcPEDDT += ' AND DT_MOVTO_PED = '+DLAP+dtos(date())+DLAP
+
+
+            if db_select({'NR_CONTROLE'},'pasta_pedidos',,{lcPEDDT},{'NR_CONTROLE'}) == -1
+               error_sys(db_error())
+            endif
+            laRESULTPEDDT := db_fetchall()
+
+
+            *** rufino email celia 11:52 20/09/2016  mandou tirar critica.
+            *** rufino email monica 25/11/2016 15:32:11 mandou voltar primeiro if abaixo
+            *** rufino conforme reuniao Alexandre, Célia 19/12/2016 14:30:40 tirar critica para sempre.
+
+            *if len(laRESULTPEDDT) > 1 //achou lançamento na mesma data
+            *   walert('Já existe este Pedido:( ' + WGet('VAR_OBJETO'+lcITEM,'C') + ' ) nesta Data de Movimentação e Data de Risco.')
+            *else
+            *   aadd(laSAVE,{val(lcNR_PASTA),0,alltrim(WGet('VAR_OBJETO'+lcITEM,'C')),;
+            *                0,date(),ctod(lcDT_RISCO),lcFL_CALCULO,lcOCOR_PED,'','',0,0,0,'',''})
+            *endif
+
+             aadd(laSAVE,{val(lcNR_PASTA),0,alltrim(WGet('VAR_OBJETO'+lcITEM,'C')),;
+                          0,date(),ctod(lcDT_RISCO),lcFL_CALCULO,lcOCOR_PED,'','',0,0,0,'',''})
+
+
+         endif
+
+         ii ++
+         vv ++
+         lcITEM := '_'+alltrim(str(ii))
+
+
+
+         if len(laSAVE) > 1
+
+            for zz := 2 to len(laSAVE)
+
+                //rufino
+                //if db_replace({laSAVE[1],laSAVE[zz]},'pasta_pedidos',{'PEDIDO_PROCESSO = ' + DLAP+laSAVE[zz,3]+DLAP,}) == -1
+
+                if db_insert({laSAVE[1],laSAVE[zz]},'pasta_pedidos') == -1
+                   error_sys(db_error())
+                endif
+
+
+                if db_select({'max(NR_CONTROLE)'},'pasta_pedidos') == -1
+	                error_sys(db_error())
+    	          endif
+                laRES2     := db_fetchrow()
+
+                *** rufino 14/05/2014 o comando abaixo não esta trazendo o ID
+                ***laSAVE[zz,2] := db_insert_id()
+
+                laSAVE[zz,2] := laRES2[1]
+
+            next zz
+
+
+            // Pega o NR_CONTROLE com db_insert_id()
+            //
+            // Glauber 23/11/2010
+            // Como os pedidos são inseridos por esta search, quando o tipo de pasta for configurado
+            // Para geração automática de estimativas, deve ser chamado a rotina abaixo que fica no
+            // programa psab.ped2.html
+            //
+
+            if llEstimativa
+               GeraEstimativa(laSAVE, lcTP_PASTA)
+            endif
+
+         endif
+
+
+      enddo
+
+      //else
+      //   wPut('ERROR_MENS','Nenhum registro foi selecionado')
+      //endif
+
+      lcWSCRIPT:='opener.document.mntform.submit()'
+      wPut('WSCRIPT',lcWSCRIPT)
+      WSet('_USER_INTERFACE','close.wic')
+
+   endif
+return
+ReadWEnv('sch.all.pedido.html')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

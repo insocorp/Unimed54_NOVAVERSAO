@@ -1,0 +1,56 @@
+/*
+
+Project      : gr5
+Program      : mnt.grupo_economico.html
+Function     : mnt_grupo_economico_html
+Created on   : 21-Jan-2003   14:30:58
+Descripition : Cadastro de Grupo Econômico
+
+*/
+
+local laPARAM        := {},;
+      laINPUT_OBJ    := {},;
+      laSELECT       := {} as array
+
+laPARAM := {{'CD_GRP_ECONOMICO',''     ,'*'},;
+            {'FL_ATIVO','',},;
+            {'ACTION'       ,'ALTER',   }}
+
+laINPUT_OBJ := { {'CD_GRP_ECONOMICO',0,'N','Y',  },;
+                 {,                 , ,   ,   ,  },;
+                 {'NM_GRP_ECONOMICO',0,'N','Y',  } ,;
+                { , , , , },;
+                {'FL_ATIVO',1,,'Y','{"S","I","D"}' }}
+
+laSELECT := {'CD_GRP_ECONOMICO','NM_GRP_ECONOMICO','FL_ATIVO'}
+
+if upper(alltrim(WGet('ACTIONBP'))) == 'ALTER'
+   mkgedico('grupo_economico',WGet('CD_GRP_ECONOMICO','C'))
+endif
+
+xbp('grupo_economico',;                                                 //Tabela alvo
+    ,;                                                                  //Joins
+    ,;                                                                  //Where
+    {'NM_GRP_ECONOMICO'},;                                              //Order by
+    ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+    ,;                                                                  //Group by
+    ,;                                                                  //Limit
+    ,;                                                                  //Banco de Dados
+    2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+    'gr5',;                                                             //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                                           //Programa chamador
+    laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+    ,;                                                                  //Parâmetros para os botões das linhas do grid
+    'mnt.grupo_economico.html',;                                        //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+    ,;                                                                  //Retorno java (nil) - usado apenas para Search
+    ,;                                                                  //Campos usados na pesquisa rápida
+    ,;                                                                  //Campos Ocultos
+    laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+    laSELECT ,;                                                         //Campos exibidos no grid
+    laSELECT)                                                           //Campos usados no select
+return
+
+
+
+

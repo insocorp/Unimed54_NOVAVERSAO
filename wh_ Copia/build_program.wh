@@ -1,0 +1,36 @@
+/*
+
+Project      : workflow
+Program      : build_program
+Function     : build_program
+Created on   : 22-Oct-2004   14:49:03
+Descripition : Criação dinâmica de Manutenções Simples
+
+*/
+
+xbp(pcTABLE,;
+    paJOIN,;
+    paWHERE,;
+    paORDERBY,;
+    pcSORT,;
+    paGROUPBY,;
+    paLIMIT,;
+    pcDBNAME,;
+    pnPROG_TYPE,;
+    pcTARGET_SRC,;
+    pcPROG_SRC,;
+    paONCLICK,;
+    paBUTTON,;
+    pcPROGRAM,;
+    pcTARGET_MOD,;
+    paFLD_JAVA,;
+    paQUICK_SCH,;
+    paFLDS_HIDDEN,;
+    paFLDS_INPUT,;
+    paFLDS_GRID,;
+    paFLDS_DB,;
+    paBTN_LST,;
+    paBTN_MNT)
+
+
+

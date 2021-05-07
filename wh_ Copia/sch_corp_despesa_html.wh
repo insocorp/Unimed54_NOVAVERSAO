@@ -1,0 +1,159 @@
+/*
+Project      : gr5
+Program      : sch.corp.despesa.html
+Function     : sch_corp_despesa_html
+Created on   : 01-Oct-2002   11:37:03
+Descripition : Pesquisa de despesas
+*/
+
+   local lcACTION        := '' ,;
+         lcTABLE         := '' ,;
+         lcNR_PASTA      := '' ,;
+         lcCD_TB_DESPESA := ''as string
+   local laRES       := {} ,;
+         laCOND      := {} ,;
+         laTPFILTER  := {} ,;
+         laFIELDLST  := {} ,;
+         laLABELLST  := {} ,;
+         laWHERE     := {} ,;
+         laORDERBY   := {} ,;
+         laJOIN      := {} ,;
+         laPROFILE   := {} as array
+   local ii := 0 as int
+   lcACTION   := upper(alltrim(WGet('ACTION','C')))
+   lcNR_PASTA := wGet('NR_PASTA','C')
+   lcTABLE    := 'despesa'
+   laFIELDLST := structtable(WSet('DB_ACTIVE'),{'despesa','vl_tabela_despesa','moeda'},1,'A')
+   laLABELLST := structtable(WSet('DB_ACTIVE'),{'despesa','vl_tabela_despesa','moeda'},11,'A')
+   laJOIN     := {{2,'vl_tabela_despesa','vl_tabela_despesa.CD_DESPESA = despesa.CD_DESPESA'},;
+                  {2,'moeda','moeda.CD_MOEDA = despesa.CD_MOEDA'}}
+   laTPFILTER := {'Contendo',;
+                  'Igual',;
+                  'Intervalo',;
+                  'Não contém'}
+   wPut('TITLE','Localizar Despesas')
+   wPut('NR_PASTA',lcNR_PASTA)
+   for ii := 1 to 3
+       wPut('FDFILTER'+alltrim(str(ii))+'_OPT',laLABELLST) // Campos
+       wPut('TPFILTER'+alltrim(str(ii))+'_OPT',laTPFILTER) // Filtros
+       wPut('FDORDER'+alltrim(str(ii))+'_OPT',laLABELLST)  // Ordens
+   next ii
+   /* Inicio: Obter Código da tabela de Despesas */
+   if len(db_findrec({'NR_PASTA'},'pasta','NR_PASTA='+lcNR_PASTA)) = 0
+      wPut('WSCRIPT','alert("Pasta inexistente");')
+      gmPAGE := 'close.wic'
+      return .F.
+   else
+      if db_select({'CD_TB_DESPESA','CIP_EMPRESA','TP_PASTA'},'pasta',,{'NR_PASTA='+lcNR_PASTA}) = -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchrow()
+      if len(db_findrec({'CD_TB_DESPESA'},'tabela_despesa','CD_TB_DESPESA='+str(laRES[1]))) = 0
+         if db_select({'CD_TB_DESPESA'},'cobranca_cliente',,{'CIP_EMPRESA='+DLAP+laRES[2]+DLAP+' and TP_PASTA='+DLMT+laRES[3]+DLMT}) = -1
+            error_sys(db_error())
+         endif
+         laRES := db_fetchrow()
+         if len(laRES) > 0
+            if len(db_findrec({'CD_TB_DESPESA'},'tabela_despesa','CD_TB_DESPESA='+str(laRES[1]))) = 0
+               wPut('WSCRIPT','alert("Não foi encontrada uma Tabela de Despesas válida");')
+               gmPAGE := 'close.wic'
+               return .F.
+            else
+               lcCD_TB_DESPESA := alltrim(str(laRES[1]))
+            endif
+         else
+           wPut('WSCRIPT','alert("Não foi encontrada uma Tabela de Despesas válida");')
+           gmPAGE := 'close.wic'
+           return .F.
+         endif
+      else
+         lcCD_TB_DESPESA := alltrim(str(laRES[1]))
+      endif
+   endif
+   /* Final da Rotina */
+   if empty(lcACTION)
+      lcACTION := 'EXECSEL'
+   endif
+   if lcACTION == 'EXECSEL'
+      aadd(laWHERE,'vl_tabela_despesa.CD_TB_DESPESA ='+lcCD_TB_DESPESA)
+      ii := 1
+      do while .t.    // Filter
+         if WGet('FDFILTER'+alltrim(str(ii)),'B')
+            if ! empty(WGet('VLFILTER'+alltrim(str(ii)),'C')) .or. ! empty(WGet('VL2FILTER'+alltrim(str(ii)),'C'))
+               laCOND := {}
+               /*if WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Igual'
+                  aadd(laWHERE,laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' = ' +DLMT+WGet('VLFILTER'+alltrim(str(ii)),'C')+WGet('VL2FILTER'+alltrim(str(ii)),'C')+DLMT)
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Intervalo'
+                  if ! empty(WGet('VLFILTER'+alltrim(str(ii)),'C'))
+                     aadd(laWHERE,laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' > '+DLMT+WGet('VLFILTER'+alltrim(str(ii)),'C')+DLMT)
+                  endif
+                  if ! empty(WGet('VL2FILTER'+alltrim(str(ii)),'C'))
+                     aadd(laWHERE,laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' < '+DLMT+WGet('VL2FILTER'+alltrim(str(ii)),'C')+DLMT)
+                  endif
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Não contém'
+                  if ! empty(WGet('VLFILTER'+alltrim(str(ii)),'C'))
+                     aadd(laWHERE,' not ('+laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' like '+DLMT+'%'+WGet('VLFILTER'+alltrim(str(ii)),'C')+'%'+DLMT+')')
+                  endif
+                  if ! empty(WGet('VL2FILTER'+alltrim(str(ii)),'C'))
+                     aadd(laWHERE,' not ('+laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' like '+DLMT+'%'+WGet('VL2FILTER'+alltrim(str(ii)),'C')+'%'+DLMT+')')
+                  endif
+               else  // Contendo
+                  if ! empty(WGet('VLFILTER'+alltrim(str(ii)),'C'))
+                     aadd(laWHERE,laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' like '+DLMT+'%'+WGet('VLFILTER'+alltrim(str(ii)),'C')+'%'+DLMT)
+                  endif
+                  if ! empty(WGet('VL2FILTER'+alltrim(str(ii)),'C'))
+                     aadd(laWHERE,laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' like '+DLMT+'%'+WGet('VL2FILTER'+alltrim(str(ii)),'C')+'%'+DLMT)
+                  endif
+               endif*/
+               if WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Igual'
+                  aadd(laWHERE,mkwheresch({{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')}},1))
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Intervalo'
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laWHERE,mkwheresch(laCOND,2))
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Não contém'
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laWHERE,mkwheresch(laCOND,3))
+               else  // Contendo
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laWHERE,mkwheresch(laCOND,4))
+               endif
+            endif
+         else
+            exit
+         endif
+         aadd(laPROFILE,'FDFILTER'+alltrim(str(ii)))
+         aadd(laPROFILE,'TPFILTER'+alltrim(str(ii)))
+         aadd(laPROFILE,'VLFILTER'+alltrim(str(ii)))
+         aadd(laPROFILE,'VL2FILTER'+alltrim(str(ii)))
+         ii ++
+      enddo
+      ii := 1
+      do while .t.     // Order
+         if WGet('FDORDER'+alltrim(str(ii)),'B')
+            if ! empty(WGet('FDORDER'+alltrim(str(ii)),'C'))
+               aadd(laORDERBY,laFIELDLST[ascan(laLABELLST,WGet('FDORDER'+alltrim(str(ii)),'C'))])
+            endif
+         else
+            exit
+         endif
+         aadd(laPROFILE,'FDORDER'+alltrim(str(ii)))
+         ii ++
+      enddo
+      if db_select(laFIELDLST,lcTABLE,laJOIN,laWHERE,laORDERBY) = -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      wPut('schDESPESA',laRES)
+      if len(laPROFILE) > 0
+         SaveWEnv('sch.corp.despesa.html',laPROFILE)
+      endif
+   endif
+   ReadWEnv('sch.corp.despesa.html')
+
+
+
+
+

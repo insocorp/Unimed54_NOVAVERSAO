@@ -1,0 +1,230 @@
+/*
+
+Project      : isj_45
+Program      : mnt.capacidadeescritorio.html
+Function     : mnt_capacidadeescritorio_html
+Created on   : 30-Dec-2014   09:39:11
+Descripition :
+
+*/
+
+    local lcTable         := 'pfpj_capacidade_escritorio' as String
+    local laFIELDS        := {'TP_PASTA',;
+                              'CIP_ESCRITORIO',;
+                              'CAPACIDADE_HORAS'} as Array
+
+    local laSAVE          := {},;
+          laPUT           := {},;
+          laSAVE_AUX      := {} as Array
+
+    local lcAction        := Upper(WGet('ACTION')) as String
+    local lcWhere         := '' as String
+    local llErro          := .F.
+    local ii              := 0 as int
+    local lnSALDO         := 0.00 as numeric
+
+
+    WPut('TITLE','Capacidade do Escritório')
+
+    // Alimentar o combo de tipo de pasta
+    laPUT := loadcboxorder_build('pasta_config','TP_PASTA',.t.,{'TP_PASTA'})
+    Wput('TP_PASTA_OPT',laPUT)
+
+
+
+    lcWhere := 'TP_PASTA = ' + DLAP + Wget('TP_PASTA') + DLAP +;
+               ' and CIP_ESCRITORIO = ' + DLAP+ Wget('CIP_ESCRITORIO') + DLAP
+
+
+    if lcACTION == 'ALTER' .and. gbWAC_READ
+
+       aadd(laFIELDS,'CIP_ESCRITORIO_PFPJ')
+       for ii := 1 to len(laFIELDS)
+           WPut(laFIELDS[ii],WGet(laFIELDS[ii]))
+       next ii
+
+    elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+
+
+           if (Empty(Wget('TP_PASTA')))
+               WAlert('O campo '+lblfscreen('TP_PASTA') + ' é de preenchimento obrigatório !')
+               llErro := .T.
+           endif
+
+           if Empty(Wget('CIP_ESCRITORIO'))
+               WAlert('O campo '+lblfscreen('CIP_ESCRITORIO') + ' é de preenchimento obrigatório !')
+               llErro := .T.
+           endif
+
+
+           if ! llErro
+              aadd(laSAVE,laFIELDS)
+              for ii := 1 to len(laFIELDS)
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+              next ii
+              aadd(laSAVE,laSAVE_AUX)
+
+              if db_replace(laSAVE,lcTable,{lcWhere}) == -1
+                 error_sys(db_error())
+              endif
+
+           endif
+    elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+    
+           if (Empty(Wget('TP_PASTA')))
+               WAlert('O campo '+lblfscreen('TP_PASTA') + ' é de preenchimento obrigatório !')
+               llErro := .T.
+           endif
+
+           if Empty(Wget('CIP_ESCRITORIO'))
+               WAlert('O campo '+lblfscreen('CIP_ESCRITORIO') + ' é de preenchimento obrigatório !')
+               llErro := .T.
+           endif
+
+
+           if ! llErro
+                if db_delete(lcTable,lcWhere) == -1
+                   error_sys(db_error())
+                endif
+           else
+              Get2Put()
+           endif
+
+    endif
+
+
+    GridPaginada()
+
+
+return
+
+
+
+/*
+* Glauber - 12/2014
+*
+* Function..: GridPaginada()
+* Objetivo..: Monta a grid paginada com os dados.
+* Parâmetros:
+*
+*
+* Retorno...:
+*
+*
+*
+*/
+
+Static Function GridPaginada()
+
+
+
+
+
+
+    local lcTable         := 'pfpj_capacidade_escritorio' as String
+
+    local laRESULT        := {},;
+          laPAGINAS       := {},;
+          laLIMIT         := {}  as Array
+
+    local lnCOUNT         := 0 as Int
+
+    local laFIELDS        := {'pfpj_capacidade_escritorio.TP_PASTA',;
+                              'pfpj_capacidade_escritorio.CIP_ESCRITORIO',;
+                              'pfpj.PFPJ AS CIP_ESCRITORIO_PFPJ',;
+                              'pfpj_capacidade_escritorio.CAPACIDADE_HORAS'} as Array
+
+
+
+    local laORDER         := {'pfpj_capacidade_escritorio.TP_PASTA','pfpj.PFPJ'}
+
+
+    local laJoin          := {{2,'pfpj','pfpj_capacidade_escritorio.CIP_ESCRITORIO = pfpj.CIP'}} as Array
+
+    local lcCODE          := '' as String
+
+    local xx              := 0,;
+          ii              := 0 as Int
+
+
+    local pcFILTRO        := '' as String
+    local lcWHERE         := '' as String
+/*
+
+WOUT('<b><br> Action:'+Wget('ACTION'))
+for ii := 1 to len(laFIELDS)
+    wout('<br><b>'+laFIELDS[ii] + ':')
+    wout(transform(WGet(laFIELDS[ii])))
+next ii
+*/
+    if Upper(Wget('ACTION')) == 'SEARCH'
+       if ! Empty(WGet('TP_PASTA'))
+          pcFILTRO := 'pfpj_capacidade_escritorio.TP_PASTA = ' + DLAP + WGet('TP_PASTA') + DLAP
+       endif
+
+       if WGet('CIP_ESCRITORIO','N') > 0
+          pcFILTRO += iif(! Empty(pcFILTRO),' and ', '')
+          pcFILTRO += 'pfpj_capacidade_escritorio.CIP_ESCRITORIO = ' + DLAP + WGet('CIP_ESCRITORIO') + DLAP
+       endif
+    endif
+
+
+   // Rotina para executar paginação
+
+   if db_select({'count(*)'},lcTable) == -1
+      db_error()
+   endif
+   laRESULT  := db_fetchall()
+   lnCOUNT   := laRESULT[2,1]
+   if lnCOUNT > 0
+      laPAGINAS := paginacao(lnCOUNT,'','','mnt.capacidadeescritorio.html')
+      laLIMIT   := param_fetch(laPAGINAS,'LIMIT')
+      if empty(pcFILTRO)
+          if db_select(laFIELDS,lcTABLE,laJOIN,,laORDER,,,laLIMIT) == -1
+            error_sys(db_error())
+         endif
+      else
+          if db_select(laFIELDS,lcTABLE,laJOIN,{pcFILTRO},laORDER,,,laLIMIT) == -1
+             error_sys(db_error())
+          endif
+      endif
+      laRESULT := db_fetchall()
+      //Resumo da pesquisa
+       lcCODE := alltrim(str(laLIMIT[1]+1))+'-'
+       if ((len(laRESULT)-1) < (laLIMIT[2]-laLIMIT[1]))
+          lcCODE += alltrim(str(len(laRESULT)-1))
+       elseif param_fetch(laPAGINAS,'GOTO_PAGE') == param_fetch(laPAGINAS,'NR_PAGES') //lnNR_PAGES
+          lcCODE += alltrim(str(lnCOUNT))
+       else
+          lcCODE += alltrim(str(laLIMIT[1]+param_fetch(laPAGINAS,'ROWS_PAGE')))
+       endif
+       lcCODE += ' de '+alltrim(str(lnCOUNT))
+       if lnCOUNT > 1
+          lcCODE := ' Resultados '+lcCODE+' registros'
+       else
+          lcCODE := ' Resultado '+lcCODE+' registro'
+       endif
+       wput('RESUME_RESULTSET',lcCODE)
+
+      if len(laRESULT) > 0
+         aadd(laRESULT[1],'(row)')
+         for ii := 2 to len(laRESULT)
+            aadd(laRESULT[ii],'(row)'+wic_action('wicaction/mnt.capacidadeescritorio.html?ACTION=ALTER'+;
+                                                 '&TP_PASTA='+laRESULT[ii,ascan(laRESULT[1],'TP_PASTA')] +;
+                                                 '&CIP_ESCRITORIO='+Alltrim(laRESULT[ii,ascan(laRESULT[1],'CIP_ESCRITORIO')]) +;
+                                                 '&CIP_ESCRITORIO_PFPJ='+AllTrim(laRESULT[ii,ascan(laRESULT[1],'CIP_ESCRITORIO_PFPJ')]) +;
+                                                 '&CAPACIDADE_HORAS='+Alltrim(laRESULT[ii,ascan(laRESULT[1],'CAPACIDADE_HORAS')]) ))
+         next ii
+
+         WPut('GRID_CAPESCRITORIO',grid_create(laRESULT))
+      endif
+   endif
+
+
+
+return(nil)
+
+
+
+
+

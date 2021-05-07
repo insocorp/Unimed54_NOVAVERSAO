@@ -1,0 +1,199 @@
+/*
+
+Project      : gr5
+Program      : fat.emite.html
+Function     : fat_emite_html
+Created on   : 18-Oct-2002   09:34:18
+Descripition : Emissão Fatura
+
+*/
+   local lcTABLE         := '' ,;
+         lcFIELDS        := '' ,;
+         lcACTION        := '' ,;
+         lcDT_FATURA     := '' ,;
+         lcSEL_NR_FATURA := '' ,;
+         lcWHERE         := ''  as string
+
+   local jj             := 0,;
+         ii             := 0,;
+         lnRECORD_COUNT := 0 as int
+
+   local laRESULT   := {} ,;
+         laPUT      := {} ,;
+         laWHERE    := {} ,;
+         laORDER_BY := {} ,;
+         laUPDATE   := {} ,;
+         laTPFILTER := {} ,;
+         laFIELDLST := {} ,;
+         laLABELLST := {} ,;
+         laCOND     := {} as array
+
+   lcACTION   := alltrim(upper(WGet('ACTION','C')))
+   laFIELDLST := structtable(WSet("DB_ACTIVE"),{'fatura','pfpj'},1,'A')
+   laLABELLST := structtable(WSet("DB_ACTIVE"),{'fatura','pfpj'},11,'A')
+   laTPFILTER := {'Contendo',;
+                  'Igual',;
+                  'Intervalo',;
+                  'Não contém'}
+
+   wPut('TITLE','Listagem de Faturas')
+   wPut('FDFILTER1',laLABELLST[ascan(laFIELDLST,'fatura.NR_FATURA')])
+   wPut('FDFILTER2',laLABELLST[ascan(laFIELDLST,'pfpj.PFPJ')])
+   wPut('FDORDER1',laLABELLST[ascan(laFIELDLST,'fatura.NR_FATURA')])
+   wPut('DT_FATURA',date())
+
+   for ii:= 1 to 3
+      wPut('FDFILTER'+alltrim(str(ii))+'_OPT',laLABELLST)
+      wPut('TPFILTER'+alltrim(str(ii))+'_OPT',laTPFILTER)
+   next ii
+
+   wPut('FDORDER1_OPT',laLABELLST)
+
+   if lcACTION = 'EXECSEL'
+      aadd(laWHERE,'fatura.CIP_EMPRESA = pfpj.CIP and FL_PRINT='+DLAP+'N'+DLAP)
+      ii := 1
+      do while .t.    // Filter
+         if WGet('FDFILTER'+alltrim(str(ii)),'B')
+            if ! empty(WGet('VLFILTER'+alltrim(str(ii)),'C')) .or. ! empty(WGet('VL2FILTER'+alltrim(str(ii)),'C'))
+               if WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Igual'
+                  aadd(laWHERE,mkwheresch({{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')}},1))
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Intervalo'
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laWHERE,mkwheresch(laCOND,2))
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Não contém'
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laWHERE,mkwheresch(laCOND,3))
+               else  // Contendo
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laWHERE,mkwheresch(laCOND,4))
+               endif
+            endif
+         else
+            exit
+         endif
+         ii ++
+      enddo
+
+      ii := 1
+      do while .t.     // Order
+         if WGet('FDORDER'+alltrim(str(ii)),'B')
+            if ! empty(WGet('FDORDER'+alltrim(str(ii)),'C'))
+               aadd(laORDER_BY,laFIELDLST[ascan(laLABELLST,WGet('FDORDER'+alltrim(str(ii)),'C'))])
+            endif
+         else
+            exit
+         endif
+         ii ++
+      enddo
+
+      if db_select(laFIELDLST,'fatura,pfpj',,laWHERE,laORDER_BY,,,{50}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+
+      if len(laRESULT) > 0
+         aadd(laRESULT[1],'VAR_ITEM_SEL_NR_FATURA')
+         for ii:= 2 to len(laRESULT)
+             aadd(laRESULT[ii],'ITEM_SEL_NR_FATURA'+alltrim(str(ii-1)))
+         next ii
+         wPut('RECORD_COUNT',str(len(laRESULT)-1))
+         wPut('lstFATURA',laRESULT)
+      endif
+   elseif lcACTION = 'EXECRPT'
+      lnRECORD_COUNT:= WGet('RECORD_COUNT','N')
+
+      /*
+        Gera o Numero da Nota Fiscal com a Função ctr_nf() e o grava no campo fatura.NR_NF.
+        Altera para "S" o valor do campo fatura.FL_PRINT para controle de impressão.
+        Grava a Data de emissão da Nota.
+      */
+      lcDT_FATURA := WGet('DT_FATURA','DS')
+      for ii:= 1 to lnRECORD_COUNT
+        lcSEL_NR_FATURA:= alltrim(WGet('ITEM_SEL_NR_FATURA'+alltrim(str(ii)),'C'))
+        if len(lcSEL_NR_FATURA) > 0
+           if db_select({'NR_NF','PC_IRRF','VL_TOTAL'},'fatura',,{'NR_FATURA='+lcSEL_NR_FATURA}) == -1
+              error_sys(db_error())
+           endif
+           laRESULT:= db_fetchrow()
+
+           if len(laRESULT) > 0
+              laUPDATE := {}
+              if laRESULT[1] = 0
+                 //laUPDATE := {{'NR_NF','FL_PRINT','DT_FATURA'},{ctr_nf(),'S',lcDT_FATURA}}
+                 laUPDATE := {{'NR_NF','FL_PRINT','DT_FATURA'},{ctr_nf(),'N',lcDT_FATURA}}
+              else
+                 //laUPDATE := {{'FL_PRINT','DT_FATURA'},{'S',lcDT_FATURA}}
+                 laUPDATE := {{'FL_PRINT','DT_FATURA'},{'N',lcDT_FATURA}}
+              endif
+           endif
+           if db_update(laUPDATE,'fatura',{'NR_FATURA='+lcSEL_NR_FATURA}) == -1
+              error_sys(db_error())
+           endif
+        endif
+      next ii
+
+      /*
+         Seleciona as faturas a serem impressas.
+         Gera as Notas fiscais para o layout fat.rpt.emite.html
+      */
+      lcWHERE := '(fatura.CIP_EMPRESA = pfpj.CIP) and ('
+      jj := 0
+      for ii:=1 to lnRECORD_COUNT
+        lcSEL_NR_FATURA := alltrim(WGet('ITEM_SEL_NR_FATURA'+alltrim(str(ii)),'C'))
+        if !empty(lcSEL_NR_FATURA)
+           if jj > 0
+              lcWHERE += ' or '
+           endif
+           lcWHERE += 'fatura.NR_FATURA='+lcSEL_NR_FATURA
+           jj ++
+        endif
+      next ii
+      lcWHERE += ')'
+
+      if db_select(laFIELDLST,'fatura,pfpj',,{lcWHERE},{'fatura.NR_NF'}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      for ii := 1 to 4
+          do case
+             case ii == 1
+                aadd(laRESULT[1],'lstFATURA_PACOTE')
+                lcTABLE := 'fatura_pacote'
+             case ii == 2
+                aadd(laRESULT[1],'lstFATURA_SERVICO')
+                lcTABLE := 'fatura_servico'
+             case ii == 3
+                aadd(laRESULT[1],'lstFATURA_HONORARIO')
+                lcTABLE := 'fatura_honorario'
+             case ii == 4
+                aadd(laRESULT[1],'lstFATURA_AVULSO')
+                lcTABLE := 'fatura_avulso'
+          endcase
+
+          for jj := 2 to len(laRESULT)
+
+              /*
+              // Soma Valores do PIS e CSLL com IRRF
+              if ii == 1
+                 //laRESULT[jj,ascan(laFIELDLST,'fatura.NR_NF')] := strzero(laRESULT[jj,ascan(laFIELDLST,'fatura.NR_NF')],6)
+                 laRESULT[jj,ascan(laFIELDLST,'fatura.VL_IRRF')] += ;
+                 laRESULT[jj,ascan(laFIELDLST,'fatura.VL_PIS')]+laRESULT[jj,ascan(laFIELDLST,'fatura.VL_CSLL')]
+              endif
+              */
+
+              laWHERE := {'NR_FATURA='+str(laRESULT[jj,ascan(laFIELDLST,'fatura.NR_FATURA')])}
+              if db_select({'NM_NARRATIVA_FATURA','VL_TOTAL'},lcTABLE,,laWHERE) == -1
+                 error_sys(db_error())
+              endif
+              laPUT := db_fetchall()
+              aadd(laRESULT[jj],laPUT)
+          next jj
+      next ii
+      wPut('lstFATURA',laRESULT)
+      wPut('VL_COFINS',0)  // Valor CONFINS. Ainda não cobrado na NF, por isso sempre receberá 0.
+      wSet('_USER_INTERFACE','fat.rpt.emite.html')
+   endif
+return

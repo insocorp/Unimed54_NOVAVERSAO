@@ -1,0 +1,134 @@
+/*
+Project      : gr5
+Program      : gera.rel.html
+Function     : gera_rel_html
+Created on   : 14/11/2016 08:39:32
+Descripition : Gera SQL para relatorios
+               Rufino
+*/
+
+local lcACTION := '' as string
+
+lcACTION := WGet('ACTION','C')
+
+ WPut('TITLE','Gerador de Sql para Relatórios')
+ carregatpastas()
+
+
+ if lcACTION == 'BUSABAS'
+    get2put()
+    newpasta_abas(WGet('TPASTA','C'))
+ endif
+
+
+return
+
+ *************************************
+static function carregatpastas()
+*************************************
+local lcTABLE := '' ,;
+      lcWHERE := '' ,;
+      lcOBJ      := '' as string
+
+local laRESULT := {},;
+      laOPT    := {},;
+      laOPTVAL := {} as array
+
+local ii := 0 as int
+
+lcTABLE      := 'pasta_config'
+lcWHERE      := ''
+
+if db_select({'tp_pasta'},;
+              lcTABLE,,,{'tp_pasta'}) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchall()
+
+aadd(laOPT,'')
+aadd(laOPTVAL,'')
+
+if len(laRESULT) > 1
+   for ii := 2 to len(laRESULT)
+       aadd(laOPT,laRESULT[ii,1])
+       aadd(laOPTVAL,laRESULT[ii,1])
+   next ii
+
+   WPut('TPASTA.optionvalue',laOPT)
+   WPut('TPASTA.option',laOPTVAL)
+endif
+
+return(nil)
+
+/*
+* Function..: newpasta_abas(fcTP_PASTA)
+* Objetivo..: Gerar Abas laterais de acordo com o Layout selecionado
+* Parâmetros:
+*     fcTP_PASTA.: Tipo de Pasta
+* Retorno...: Nenhum
+*/
+function newpasta_abas(fcTP_PASTA,fnORIGEM)
+   local lcOBJ_ID   := '' ,;
+         lcNR_PASTA := '' ,;
+         lcQUERY    := '' ,;
+         lcMENU     := '' as string
+   local laRESULT := {} ,;
+         laPARAMS := {} ,;
+         laQUANT  := {} ,;
+         laRES    := {} ,;
+         laABAS   := {} ,;
+         laOPT    := {},;
+         laOPTVAL := {} as array
+
+   local ii := 0 as int
+
+   local lcTAND := '' as string
+   local lcTALE := '' as string
+
+   if valtype(pcLAYOUT_PASTA) == 'U'
+      if db_select({'LAYOUT_PASTA'},'pasta_config',,{'TP_PASTA='+DLAP+fcTP_PASTA+DLAP}) = -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchrow()
+   else
+      laRESULT := {pcLAYOUT_PASTA}
+   endif
+
+   if len(laRESULT) = 0
+      putError('pasta_abas: not found: TP_PASTA='+fcTP_PASTA+' in pasta_config')
+      return(.f.)
+   else
+      /* Gera Abas de Programas */
+      lcMENU := 'PST_'+upper(laRESULT[1])
+
+      laABAS := structmenu(lcMENU)
+
+      if len(laABAS) > 0
+
+         aadd(laABAS[1],'OBJ_ID')
+
+         for ii := 2 to len(laABAS)
+            lcOBJ_ID := substr( laABAS[ii,1] , rat('/',laABAS[ii,1])+1 ) // Extrai a string depois da ultima barra encontrada.
+            //lcOBJ_ID := strtran( lcOBJ_ID , '.' , '_' )                  // Transforma pontos em underline.
+
+            aadd(laPARAMS,lcOBJ_ID)
+            aadd(laABAS[ii],lcOBJ_ID)
+
+         next ii
+
+         aadd(laOPT,'')
+         aadd(laOPTVAL,'')
+
+         for ii := 2 to len(laABAS)
+             ***if laABAS[ii,3] <> 'mnt.pasta.html'
+                aadd(laOPT,laABAS[ii,3])
+                aadd(laOPTVAL,laABAS[ii,2])
+             ***endif
+         next ii
+
+         WPut('ABAS.optionvalue',laOPT)
+         WPut('ABAS.option',laOPTVAL)
+      endif
+   endif
+
+return(nil)

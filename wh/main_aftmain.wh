@@ -1,0 +1,10 @@
+/*
+Project      : gr5
+Program      : main.aftmain
+Function     : main_aftmain
+Created on   : 15-Dec-2003   14:42:32
+Descripition : Source to include after main routine
+*/
+     //Carrega UI do cabecalho
+      mkprojecthead('gr5')
+      wput('wid',GetWPut('ID'))

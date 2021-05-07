@@ -1,0 +1,13 @@
+/*
+
+Project      : gr5
+Program      : pfpj.table_field.html
+Function     : pfpj_table_field_html
+Created on   : 23-Jan-2004   17:03:35
+Descripition : Pesquisa Tabela / Campo
+
+*/
+
+   lcNM_FIELD := wGet('NM_FIELD','C')
+   wPut('NM_FIELD',lcNM_FIELD)
+return

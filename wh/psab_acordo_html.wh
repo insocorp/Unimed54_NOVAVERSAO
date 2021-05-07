@@ -1,0 +1,241 @@
+/*
+
+Project      : gr5
+Program      : psab.acordo.html
+Function     : psab_acordo_html
+Created on   : 23-Nov-2006   16:09:03
+Descripition : Tela para controle de acordos e aprovação dos mesmos.
+
+*/
+
+   local laFIELDS   := {},;
+         laSAVE     := {},;
+         laSAVE_AUX := {},;
+         laRESULT   := {},;
+         laFIELDS_GRID := {},;
+         laVALIDA   := {} as array
+   local ii         := 0 as numeric
+
+   local lcWHERE       := '',;
+         lcACTION      := '',;
+         lcProgram     := 'psab_acordo_html' ,;
+         lcNR_PASTA    := '',;
+         lcADV_INTERNO := '',;
+         lcADV_EXTERNO := '',;
+         lcTP_PASTA    := '' as string
+
+   laFIELDS := structtable(WSet("DB_ACTIVE"),'pasta_acordo',1,'N')
+   lAFIELDS_GRID := {'NR_CONTROLE','VL_PROPOSTA','FL_ACORDO_DECISAO_ADVINT'}
+   lcACTION := upper(wget('ACTION'))
+   lcTP_PASTA := wGet('TP_PASTA','C')
+   lcNR_PASTA := wGet('NR_PASTA','C')
+   lcWHERE :=  'NR_PASTA = '+ lcNR_PASTA + ' AND NR_CONTROLE = '+ str(Wget('NR_CONTROLE','N'))
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   WPut('FL_ACORDO_DECISAO_ADVINT.option',{'Concordo','Não Concordo','Oferecer Contra-Proposta'})
+   WPut('FL_ACORDO_DECISAO_ADVINT.optionvalue',{'C','N','O'})
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+//   WPut('FL_FAVORAVEL_INTERPOS.option',{'Sim','Não'})
+//   WPut('FL_FAVORAVEL_INTERPOS.optionvalue',{'S','N'})
+   Wput('ifJUSTIF_ADVINT',.T.)
+   Wput('ifFL_ACORDO',.T.)
+   Wput('ifJUSTIF_ADVINT_RO',.F.)
+   Wput('ifFL_ACORDO_RO',.F.)
+   Wput('NR_CONTROLE','New')
+
+   // Verifica se o usuario logado é advogado interno
+
+   if db_select({'CIP'},'pasta_pfpj_advogado_interno',,{'NR_PASTA='+lcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      lcADV_INTERNO := laRESULT[2,1]
+   endif
+
+   // Verifica se o usuario logado é advogado externo
+
+   if db_select({'CIP'},'pasta_pfpj_advogado_externo',,{'NR_PASTA='+lcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      lcADV_EXTERNO := laRESULT[2,1]
+   endif
+
+   // Valida se o login do usuario ativo é um advogado interno ou externo para habilitar os botões de incluir/excluir
+
+   if Wset('LOGIN') == cip2login(lcADV_INTERNO)
+      laVALIDA := {'FL_ACORDO_DECISAO_ADVINT','JUSTIF_ADVINT'}
+      Wput('ifWAC_WRITE',.T.)
+      Wput('ifWAC_DELETE',.T.)
+      Wput('ifJUSTIF_ADVINT',.T.)
+      Wput('ifFL_RECURSO',.T.)
+      Wput('ifJUSTIF_ADVINT_RO',.F.)
+      Wput('ifFL_ACORDO_RO',.F.)
+
+   elseif Wset('LOGIN') == cip2login(lcADV_EXTERNO)
+      laVALIDA := {'VL_AUTOR','VL_PROPOSTA','JUSTIF_ACORDO'}
+
+      WPUT('FL_ACORDO_DECISAO_ADVINT.readonly',.T.)
+      WPUT('JUSTIF_ADVINT.readonly',.T.)
+      Wput('ifWAC_WRITE',.T.)
+      Wput('ifWAC_DELETE',.T.)
+      Wput('ifJUSTIF_ADVINT_RO',.T.)
+      Wput('ifFL_ACORDO_RO',.T.)
+      Wput('ifJUSTIF_ADVINT',.F.)
+      Wput('ifFL_RECURSO',.F.)
+
+   endif   
+   if len(laVALIDA) > 0
+      for ii := 1 to len(laVALIDA)
+             if laVALIDA[ii] <> 'FL_ACORDO_DECISAO_ADVINT'
+                *WPut(laVALIDA[ii]+'.label.style.color','#FF0000')
+                *WPut(laVALIDA[ii]+'.label.style.font-weight','bold')
+                WPut(laVALIDA[ii]+'.style.border','2px solid red')
+             endif
+      next ii
+   endif
+
+
+   if lcACTION == 'NEW' .or. empty(lcACTION)
+      Wput('NR_CONTROLE','New')
+   elseif lcACTION == 'ALTER'
+          if db_select(laFIELDS,'pasta_acordo',,{lcWHERE}) == -1
+             error_sys(db_error())
+          endif
+          laRESULT := db_fetchall()
+          if len(laRESULT) > 1
+             db2put(laRESULT)
+          endif
+   elseif lcACTION == 'SAVE'
+          if empty(lcADV_EXTERNO) .and. empty(lcADV_INTERNO)
+             walert('Você não tem permissão para incluir ou alterar recursos.')
+             get2put()
+	          make_psthead(lcNR_PASTA,lcTP_PASTA)
+             pasta_abas(lcTP_PASTA)
+
+             // Montagem da Grid de Acordo
+
+             if db_select(lAFIELDS_GRID,'pasta_acordo',,{'NR_PASTA = '+lcNR_PASTA}) == -1
+                error_sys(db_error())
+             endif
+             laRESULT := db_fetchall()
+             if len(laRESULT) >= 2
+                aadd(laRESULT[1],'(row)')
+                for ii := 2 to len(laRESULT)
+                    aadd(laRESULT[ii],'(row)'+wic_action('wicaction/psab.acordo.html?'+;
+                                      'TP_PASTA='+lcTP_PASTA+;
+                                      '&NR_PASTA='+lcNR_PASTA+;
+                                      '&NR_CONTROLE='+str(laRESULT[ii, db_fetchncol(laRESULT,'NR_CONTROLE')])+;
+                                      '&ACTION=ALTER'))
+                                      if laRESULT[ii,ascan(laRESULT[1],'FL_ACORDO_DECISAO_ADVINT')] == 'C'
+                                         laRESULT[ii,ascan(laRESULT[1],'FL_ACORDO_DECISAO_ADVINT')] := 'Concordo'
+                                      elseif laRESULT[ii,ascan(laRESULT[1],'FL_ACORDO_DECISAO_ADVINT')] == 'N'
+                                         laRESULT[ii,ascan(laRESULT[1],'FL_ACORDO_DECISAO_ADVINT')] := 'Não Concordo'
+                                      elseif laRESULT[ii,ascan(laRESULT[1],'FL_ACORDO_DECISAO_ADVINT')] == 'O'
+                                         laRESULT[ii,ascan(laRESULT[1],'FL_ACORDO_DECISAO_ADVINT')] := 'Oferecer Contra-Proposta Concordo'
+                                      endif
+                next ii
+              endif
+              wPut('lstRECURSO',grid_create(laRESULT))
+             return
+          endif
+          if verif_reqfield(WSET('_USER_INTERFACE'),laVALIDA) == .F.
+             get2put()
+             make_psthead(lcNR_PASTA,lcTP_PASTA)
+             pasta_abas(lcTP_PASTA)
+
+             // Montagem da Grid de Acordo
+
+             if db_select(lAFIELDS_GRID,'pasta_acordo',,{'NR_PASTA = '+lcNR_PASTA}) == -1
+                error_sys(db_error())
+             endif
+             laRESULT := db_fetchall()
+             if len(laRESULT) >= 2
+                aadd(laRESULT[1],'(row)')
+                for ii := 2 to len(laRESULT)
+                    aadd(laRESULT[ii],'(row)'+wic_action('wicaction/psab.acordo.html?'+;
+                                      'TP_PASTA='+lcTP_PASTA+;
+                                      '&NR_PASTA='+lcNR_PASTA+;
+                                      '&NR_CONTROLE='+str(laRESULT[ii, db_fetchncol(laRESULT,'NR_CONTROLE')])+;
+                                      '&ACTION=ALTER'))
+                                      if laRESULT[ii,ascan(laRESULT[1],'FL_ACORDO_DECISAO_ADVINT')] == 'C'
+                                         laRESULT[ii,ascan(laRESULT[1],'FL_ACORDO_DECISAO_ADVINT')] := 'Concordo'
+                                      elseif laRESULT[ii,ascan(laRESULT[1],'FL_ACORDO_DECISAO_ADVINT')] == 'N'
+                                         laRESULT[ii,ascan(laRESULT[1],'FL_ACORDO_DECISAO_ADVINT')] := 'Não Concordo'
+                                      elseif laRESULT[ii,ascan(laRESULT[1],'FL_ACORDO_DECISAO_ADVINT')] == 'O'
+                                         laRESULT[ii,ascan(laRESULT[1],'FL_ACORDO_DECISAO_ADVINT')] := 'Oferecer Contra-Proposta Concordo'
+                                      endif
+                next ii
+              endif
+              wPut('lstRECURSO',grid_create(laRESULT))
+              return
+          endif
+          aadd(laSAVE, laFIELDS)
+          for ii := 1 to len(laFIELDS)
+              aadd(laSAVE_AUX,wget(laFIELDS[ii]))
+          next ii
+          aadd(laSAVE, laSAVE_AUX)
+
+          if db_replace(laSAVE,'pasta_acordo',{lcWHERE},) == -1
+             error_sys(db_error())
+          endif
+
+   elseif lcACTION == 'DELETE'
+
+           psab_logdel(wGet('RECURSO','C'),'RECURSO',lcNR_PASTA,,'Recurso')
+           if db_delete('pasta_acordo',lcWHERE) = -1
+              error_sys(db_error())
+           endif
+   endif
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   pasta_abas(lcTP_PASTA)
+
+   // Montagem da Grid de Acordo
+
+   if db_select(lAFIELDS_GRID,'pasta_acordo',,{'NR_PASTA = '+lcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) >= 2
+      aadd(laRESULT[1],'(row)')
+      for ii := 2 to len(laRESULT)
+          aadd(laRESULT[ii],'(row)'+wic_action('wicaction/psab.acordo.html?'+;
+                            'TP_PASTA='+lcTP_PASTA+;
+                            '&NR_PASTA='+lcNR_PASTA+;
+                            '&NR_CONTROLE='+str(laRESULT[ii, db_fetchncol(laRESULT,'NR_CONTROLE')])+;
+                            '&ACTION=ALTER'))
+          if laRESULT[ii,ascan(laRESULT[1],'FL_ACORDO_DECISAO_ADVINT')] == 'C'
+             laRESULT[ii,ascan(laRESULT[1],'FL_ACORDO_DECISAO_ADVINT')] := 'Concordo'
+          elseif laRESULT[ii,ascan(laRESULT[1],'FL_ACORDO_DECISAO_ADVINT')] == 'N'
+             laRESULT[ii,ascan(laRESULT[1],'FL_ACORDO_DECISAO_ADVINT')] := 'Não Concordo'
+          elseif laRESULT[ii,ascan(laRESULT[1],'FL_ACORDO_DECISAO_ADVINT')] == 'O'
+             laRESULT[ii,ascan(laRESULT[1],'FL_ACORDO_DECISAO_ADVINT')] := 'Oferecer Contra-Proposta Concordo'
+          endif
+      next ii
+    endif
+    wPut('lstRECURSO',grid_create(laRESULT))
+
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

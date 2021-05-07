@@ -1,0 +1,47 @@
+/*
+Project      : gr5
+Program      : sch.ac.group.html
+Function     : sch_ac_group_html
+Created on   : 02-Dec-2002   10:37:38
+Descripition : Pesquisa de grupos de acesso
+*/
+
+
+
+local laFIELDS       := {},;
+      laJAVA         := {},;
+      laQUICK_SEARCH := {} as array
+
+laFIELDS := {'WGID',;
+             'WGROUP',;
+             'WFL_MASTER'}
+ 
+laJAVA   := {'mntform',{{'WGID','WGID'},{'WGROUP','WGROUP'}}}
+
+laQUICK_SEARCH := {'WGROUP',;
+                   'WFL_MASTER'}
+
+build_program('acgroup',;               //Tabela Alvo
+              ,;                        //Join
+              ,;                        //Where
+              ,;                        //Order by
+              ,;                        //Sort [A]-Ascendente [D]-Descentende
+              ,;                        //Group by
+              ,;                        //Limit
+              ,;                        //Banco de Dados
+              3,;                       //Modo de funcionamento [1]-Listagem/Form para manutenção [2]-Listagem e Manutenção [3]-Search
+              'gr5',;                  //Modulo do programa chamador
+              WSet('_USER_INTERFACE'),; //Programa chamador
+              ,;                        //Parametros para linhas clicáveis
+              ,;                        //Botoes (nil)
+              'mnt.acgroup.html',;      //Programa chamado pelos links (linhas clicáveis)
+              'gr5',;                  //Módulo do programa chamado pelos links
+              laJAVA,;                  //Retorno java (nil) - usado apenas no search
+              laQUICK_SEARCH,;          //Campos usados na pesquisa rápida
+              ,;                        //Campos ocultos. Usado apenas em manutenções    ***
+              ,;                        //Campos da área de manutenção/entrada de dados  ***
+              laFIELDS,;                //Campos mostratos no grid
+              laFIELDS)                 //Campos usados no select
+return
+
+

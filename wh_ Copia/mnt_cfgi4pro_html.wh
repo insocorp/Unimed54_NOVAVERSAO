@@ -1,0 +1,125 @@
+/*
+
+Project      : isj_60
+Program      : mnt.cfgi4pro.html
+Function     : mnt_cfgi4pro_html
+Created on   : 30-Oct-2017   18:09:50
+Descripition : 
+
+*/
+
+   local lcACTION       := '' AS String
+
+   local laPARAM        := {},;
+         laINPUT_OBJ    := {},;
+         laSELECT       := {} as array
+
+   private objCfg       := ConfigI4ProNew()
+   
+   objCfg:IdEmpresa     := 1
+
+
+   lcACTION := Upper(WGet('ACTION'))
+   
+   WPut('title','Configuração da Interface I4Pro')
+
+   if (lcACTION == 'SAVE')
+       objCfg:TipoPastas              := WGet('PASTAS')
+       objCfg:Ramos                   := WGet('RAMOS')
+       objCfg:IdConSinistro           := WGet('ID_CONSULTA_SINISTRO')
+       objCfg:IdMarcarJudicial        := WGet('ID_MARCA_JUDICIAL')
+       objCfg:IdDesmarcarJudicial     := WGet('ID_DESMARCA_JUDICIAL')
+       objCfg:IdAtualizarReserva      := WGet('ID_ATUALIZAR_RESERVA')
+       objCfg:IdRealizarPagamento     := WGet('ID_REALIZAR_PAGAMENTO')
+       objCfg:IdConfirmacaoPagamentos := WGet('ID_CONFIRMAR_PAGAMENTO')
+       objCfg:IdConsultaFavorecido    := WGet('ID_CONSULTAR_FAVORECIDO')
+       objCfg:IdIncluirFavorecido     := WGet('ID_INCLUIR_FAVORECIDO')
+       objCfg:PedidoProcesso          := WGet('PEDIDO_PROCESSO')
+       objCfg:TpPfpjResseguradora   := WGet('TP_PESSOA_RESSEGURO')
+       objCfg:TpPfpjCongenere       := WGet('TP_PESSOA_CONGENERE')
+       objCfg:TpPfpjBeneficiario    := WGet('TP_PESSOA_BENEFICIARIO')
+       objCfg:TpPfpjEstipulante     := WGet('TP_PESSOA_ESTIPULANTE')
+       objCfg:TpPfpjSinistrado      := WGet('TP_PESSOA_SINISTRADO')
+       objCfg:TpPfpjReclamante      := WGet('TP_PESSOA_RECLAMANTE')
+       objCfg:TpPfpjAutor           := WGet('TP_PESSOA_AUTOR')
+       objCfg:IdMovimentoSinistroJudicial     := WGet('ID_MOVIMENTO_SINISTRO_JUDICIAL')
+
+       objCfg:Salvar()
+
+
+   endif
+
+   CarregaServicos()
+
+   objCfg:FindOne()
+
+   WPut('PASTAS',                  objCfg:TipoPastas)
+   WPut('RAMOS',                   objCfg:Ramos)
+   WPut('ID_CONSULTA_SINISTRO',    objCfg:IdConSinistro)
+   WPut('ID_MARCA_JUDICIAL',       objCfg:IdMarcarJudicial)
+   WPut('ID_DESMARCA_JUDICIAL',    objCfg:IdDesmarcarJudicial)
+   WPut('ID_ATUALIZAR_RESERVA',    objCfg:IdAtualizarReserva)
+   WPut('ID_REALIZAR_PAGAMENTO',   objCfg:IdRealizarPagamento)
+   WPut('ID_CONFIRMAR_PAGAMENTO',  objCfg:IdConfirmacaoPagamentos)
+   WPut('ID_CONSULTAR_FAVORECIDO', objCfg:IdConsultaFavorecido)
+   WPut('ID_INCLUIR_FAVORECIDO',   objCfg:IdIncluirFavorecido)
+   WPut('PEDIDO_PROCESSO',         objCfg:PedidoProcesso)
+   WPut('TP_PESSOA_RESSEGURO',     objCfg:TpPfpjResseguradora)
+   WPut('TP_PESSOA_CONGENERE',     objCfg:TpPfpjCongenere)
+   WPut('TP_PESSOA_BENEFICIARIO',  objCfg:TpPfpjBeneficiario)
+   WPut('TP_PESSOA_ESTIPULANTE',   objCfg:TpPfpjEstipulante)
+   WPut('TP_PESSOA_SINISTRADO',    objCfg:TpPfpjSinistrado)
+   WPut('TP_PESSOA_RECLAMANTE',    objCfg:TpPfpjReclamante)
+   WPut('TP_PESSOA_AUTOR',         objCfg:TpPfpjAutor)
+   WPut('ID_MOVIMENTO_SINISTRO_JUDICIAL',   objCfg:IdMovimentoSinistroJudicial)   
+
+
+
+return
+
+
+/*
+*
+* Glauber - 11/2017
+*
+* Função....: CarregaServicos()
+* Objetivo..: Gera um array JSON com os serviços utilizado nos combos da tela.
+*
+* Parâmetros:
+*
+*
+*
+* Retorno...:
+*
+*
+*/
+
+Static Function CarregaServicos()
+
+
+
+   local laSELECT       := {} AS array
+   local lcSERVICOS     := '' AS String
+
+
+   if db_select({'NM_SERVICO','ID_SERVICO'},'I4PROSERVICOS') == -1
+      error_sys(db_error())
+   endif
+
+   laSELECT := db_fetchall()
+   
+   if len(laSELECT) > 1
+      lcSERVICOS := "["
+      // Linha em branco
+      lcSERVICOS += '{"' + AllTrim(laSELECT[1,1]) + '"' + ':' +'"'  + '' + '"'  + ',' + '"' + Alltrim(laSELECT[1,2]) + '"' + " : " + '"' + '' + '"' + '},'
+
+      for ii := 2 to len(laSELECT)
+          lcSERVICOS += '{"' + AllTrim(laSELECT[1,1]) + '"' + ':' +'"'  + laSELECT[ii,1] + '"'  + ',' + '"' + Alltrim(laSELECT[1,2]) + '"' + " : " + '"' + AllTrim(laSELECT[ii,2]) + '"' + '}'
+          lcSERVICOS += iif(ii < len(laSELECT), ",", "")
+      next ii
+      lcSERVICOS += "]"
+      
+      WPUT('SERVICOS', lcSERVICOS)
+
+   endif
+return

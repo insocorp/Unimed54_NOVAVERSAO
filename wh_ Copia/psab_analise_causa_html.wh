@@ -1,0 +1,252 @@
+/*
+
+Project      : gr5
+Program      : psab.analise.causa.html
+Function     : psab_analise_causa_html
+Created on   : 21-Oct-2005   10:43:57
+Descripition : Aba Análise de Causa
+
+*/
+
+   local lcACTION      := '' ,;
+         lcNR_PASTA    := '' ,;
+         lcTP_PASTA    := '' ,;
+         lcAUX         := '' ,;
+         lcNR_CONTROLE := '' as string
+   local laFIELDS := {} ,;
+         laRESULT := {} ,;
+         laRES    := {} ,;
+         laAUX    := {} ,;
+         laPUT    := {} ,;
+         laWICDO  := {} ,;
+         laITEM   := {} as array
+   local ii := 0 ,;
+         xx := 0 as int
+
+
+   lcNR_PASTA    := WGet('NR_PASTA','C')
+   lcTP_PASTA    := WGet('TP_PASTA','C')
+   lcACTION      := upper(WGet('ACTION','C'))
+   lcNR_CONTROLE := WGet('NR_CONTROLE','C')
+   if empty(alltrim(lcNR_CONTROLE))
+      lcNR_CONTROLE := '0'
+   endif
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   init_reqfield(WSet('_USER_INTERFACE'))
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   pasta_abas(lcTP_PASTA)
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, {'NR_PASTA',;
+                           'RECLAMA_OPCAO',;
+                           'RECLAMA_ITEM',;
+                           'NR_CONTROLE',;
+                           'CANAL_RELACIONAMENTO',;
+                           'DT_OCORRENCIA',;
+                           'HR_OCORRENCIA',;
+                           'NM_OCORRIDO'})
+
+   // Combo CANAL_RELACIONAMENTO
+   carrega_cbox({{'canais_relacionamento','CANAL_RELACIONAMENTO','Y'}})
+   get2put({'NR_PASTA','TP_PASTA'})
+   if lcACTION == 'SAVE_RECLAMA_ITEM' .and. gbWAC_WRITE //Salvando itens
+      if db_delete('pasta_analise_causa','NR_PASTA='+lcNR_PASTA) == -1
+         error_sys(db_error())
+      endif
+      ii       := 1
+      lcNR_ROW := '1'
+      laSAVE := {{'NR_PASTA','RECLAMA_OPCAO','RECLAMA_ITEM'}}
+      do while WGet('RECLAMA_ITEM'+lcNR_ROW,'B')
+         lcITEM := WGet('RECLAMA_ITEM'+lcNR_ROW)
+         if ! empty(WGet('RECLAMA_ITEM'+lcNR_ROW,'C'))
+            aadd(laSAVE,{WGet('NR_PASTA'),;
+                         WGet('RECLAMA_ITEM'+alltrim(str(ii-1))),;
+                         WGet('RECLAMA_ITEM'+lcNR_ROW)})
+
+            //Compara se item foi alterado
+            if WGet('RECLAMA_ITEM'+lcNR_ROW,'C') != WGet('RECLAMA_ITEM_ANT'+lcNR_ROW,'C')
+               exit
+            endif
+         else
+            exit
+         endif
+         ii++
+         lcNR_ROW := alltrim(str(ii))
+      enddo
+
+      if len(laSAVE) > 1
+         if db_insert(laSAVE,'pasta_analise_causa') == -1
+            error_sys(db_error())
+         endif
+      endif
+   elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+      if verif_reqfield(WSet('_USER_INTERFACE'))
+         laSAVE   := {{'NR_PASTA',;
+                       'NR_CONTROLE',;
+                       'CANAL_RELACIONAMENTO',;
+                       'DT_OCORRENCIA',;
+                       'HR_OCORRENCIA',;
+                       'NM_OCORRIDO'}}
+
+         aadd(laSAVE,{WGet('NR_PASTA'),;
+                      WGet('NR_CONTROLE'),;
+                      WGet('CANAL_RELACIONAMENTO'),;
+                      WGet('DT_OCORRENCIA'),;
+                      WGet('HR_OCORRENCIA'),;
+                      WGet('NM_OCORRIDO')})
+
+         psab_logs(laSAVE,'pasta_canal_relac_ocorrencias','NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE,lcNR_PASTA,'Análise de Causa')
+
+         if db_replace(laSAVE,'pasta_canal_relac_ocorrencias',{'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE}) == -1
+            error_sys(db_error())
+         endif
+      endif
+
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select({'NR_CONTROLE',;
+                    'CANAL_RELACIONAMENTO',;
+                    'DT_OCORRENCIA',;
+                    'HR_OCORRENCIA',;
+                    'NM_OCORRIDO'},;
+                    'pasta_canal_relac_ocorrencias',,{'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE}) == -1
+         error_sys(db_error())
+      endif
+      db2put(db_fetchall())
+
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      if db_delete('pasta_canal_relac_ocorrencias','NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE) == -1
+         error_sys(db_error())
+      endif
+   endif
+
+   //Carregando Itens
+   if db_select({'RECLAMA_OPCAO','RECLAMA_ITEM'},'pasta_analise_causa',,{'NR_PASTA='+lcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+   laAUX := db_fetchall()
+
+   // Ordena resultado de acordo com a lógica.
+   laRESULT := {}
+   if len(laAUX) > 1
+      WPut('ifCANAL_RELACIONAMENTO',.t.) //Exibe grid de canais de relacionamento
+      aadd(laRESULT,laAUX[1])
+      ii := 1
+      do while .t.
+         if ii == 1
+            lcAUX := ''
+         endif
+
+         lnPOS := ascan(laAUX,{| x | x[1]==lcAUX })
+         if lnPOS > 0
+            aadd(laRESULT, laAUX[lnPOS])
+            lcAUX := laAUX[lnPOS,2]
+         else
+            exit
+         endif
+         ii++
+      enddo
+   endif
+
+   if len(laRESULT) > 1
+      //Gera vetor com os Itens
+      for ii := 2 to len(laRESULT)
+         if ! empty(laRESULT[ii,2])
+            aadd(laITEM,laRESULT[ii,2])
+         endif
+      next ii
+
+      laWICDO := {{'VAR_RECLAMA_ITEM','VAR_RECLAMA_ITEM_ANT'}}
+      aadd(laWICDO,{'RECLAMA_ITEM1','RECLAMA_ITEM_ANT1'})
+      if db_select({'RECLAMA_ITEM'},'origem_reclamacao',,{'RECLAMA_OPCAO='+DLAP+DLAP}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT2 := db_fetchall()
+      if len(laRESULT2) > 1
+         laPUT := {''}
+         for xx := 2 to len(laRESULT2)
+            aadd(laPUT,laRESULT2[xx,1])
+         next xx
+         WPut('RECLAMA_ITEM1.option',laPUT)
+      endif
+
+      for ii := 2 to len(laRESULT)
+         lcNR_ROW := alltrim(str(ii))
+
+         WPut('RECLAMA_ITEM'+alltrim(str(ii-1)),laRESULT[ii,2])
+         WPut('RECLAMA_ITEM_ANT'+alltrim(str(ii-1)),laRESULT[ii,2])
+
+         if db_select({'RECLAMA_ITEM'},'origem_reclamacao',,{'RECLAMA_OPCAO='+DLAP+laRESULT[ii,2]+DLAP}) == -1
+            error_sys(db_error())
+         endif
+         laRESULT2 := db_fetchall()
+         if len(laRESULT2) > 1
+            laPUT := {''}
+            for xx := 2 to len(laRESULT2)
+               aadd(laPUT,laRESULT2[xx,1])
+            next xx
+            WPut('RECLAMA_ITEM'+lcNR_ROW+'.option',laPUT)
+            aadd(laWICDO,{'RECLAMA_ITEM'+lcNR_ROW,'RECLAMA_ITEM_ANT'+lcNR_ROW})
+         endif
+      next ii
+      WPut('lstITEM',laWICDO)
+      WPut('GRAPH',mkgraph(laITEM))
+   else
+      if db_select({'RECLAMA_ITEM'},'origem_reclamacao',,{'RECLAMA_OPCAO='+DLAP+DLAP}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT2 := db_fetchall()
+      if len(laRESULT2) > 1
+         laPUT := {''}
+         laWICDO := {{'VAR_RECLAMA_ITEM','VAR_RECLAMA_ITEM_ANT'}}
+         for xx := 2 to len(laRESULT2)
+            aadd(laPUT,laRESULT2[xx,1])
+         next xx
+         WPut('RECLAMA_ITEM1.option',laPUT)
+         aadd(laWICDO,{'RECLAMA_ITEM1','RECLAMA_ITEM_ANT1'})
+         WPut('lstITEM',laWICDO)
+      endif
+   endif
+
+   //Carregando Canais de relacionamentos.
+   if db_select({'NR_CONTROLE',;
+                 'CANAL_RELACIONAMENTO',;
+                 'DT_OCORRENCIA',;
+                 'HR_OCORRENCIA',;
+                 'NM_OCORRIDO'},;
+                 'pasta_canal_relac_ocorrencias',,{'NR_PASTA='+lcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   if len(laRESULT) > 1
+      WPut('lstCANAL_RELACIONAMENTO',laRESULT)
+      //WPut('ifCANAL_RELACIONAMENTO',.t.)
+   endif
+
+return
+
+static function mkgraph(faITEM)
+   lcHTML := '<br><table cellpadding="0" cellspacing="0" align="center">'+CRLF
+   lcHTML += '<tr>'+CRLF
+
+   for ii := 1 to len(faITEM)
+      if ii > 1
+         lcHTML += '<td><img src="wiccomponent/seta_direita.gif"></td>'+CRLF
+      endif
+      lcHTML += '<td style="font-size:12px;padding:20px;border:1px solid #000000;">'
+      lcHTML += faITEM[ii]+'</td>'+CRLF
+
+   next ii
+
+   lcHTML += '</tr>'+CRLF
+   lcHTML += '</table>'+CRLF
+return (lcHTML)
+
+
+
+
+
+
+
+
+
+

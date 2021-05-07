@@ -1,0 +1,113 @@
+
+   local lcACTION   := '' ,;
+         lcTABLE    := '' ,;
+         lcNR_PASTA := '' ,;
+         lcNR_ATA   := '' as string
+   local laRES      := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laWHERE    := {} ,;
+         laFIELDS   := {} ,;
+         laLABELS   := {} ,;
+         laVALIDA   := {} as array
+   local ii := 0 as int
+   local llERRO := .F. as logical
+
+   lcACTION   := upper(alltrim(WGet('ACTION','C')))
+   lcNR_PASTA := WGet('NR_PASTA','C')
+   lcNR_ATA   := WGet('NR_ATA','C')
+   lcTABLE    := 'pasta_sct_ata_deliberacao'
+   laWHERE    := {'NR_PASTA='+lcNR_PASTA+' and NR_ATA='+DLAP+lcNR_ATA+DLAP+;
+                  ' and NR_ITEM='+wGet('NR_ITEM','C')}
+   laFIELDS   := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS   := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   laVALIDA   := {'NR_ITEM','ASSEMBLEIA_DELIBERACAO'}
+
+   for ii := 1 to len(laVALIDA)
+     *WPut(laVALIDA[ii]+'.label.style.color','#FF0000')
+     *WPut(laVALIDA[ii]+'.label.style.font-weight','bold')
+     WPut(laVALIDA[ii]+'.style.border','2px solid red')
+   next ii
+
+   if empty(lcACTION)
+      lcACTION := 'NEW'
+   endif
+
+   wPut('NR_PASTA',lcNR_PASTA)
+   wPut('NR_ATA',lcNR_ATA)
+   wPut('ifNR_ITEMRW',.T.)
+
+   // Glauber 05/01/2011
+   AbasPerfil(WGet('TP_PASTA'), laFIELDS)
+
+   if lcACTION == 'NEW' .and. gbWAC_CREATE
+      wPut('TITLE','Inclusão de Deliberação')
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,laWHERE) = -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      db2put(laRES)
+      wPut('TITLE','Alteração do Deliberação '+getWPut('NR_ATA'))
+      wPut('ifNR_ITEMRO',.T.)
+      wPut('ifNR_ITEMRW',.F.)
+   elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+      for ii := 1 to len(laVALIDA)
+          if empty(alltrim(WGet(laVALIDA[ii],'C')))
+             walert(laLABELS[ascan(laFIELDS,laVALIDA[ii])]+' é um campo obrigatório!')
+             get2Put()
+             llERRO := .T.
+             exit
+          endif
+      next ii
+      if ! llERRO
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+
+         psab_logs(laSAVE,lcTABLE,'NR_PASTA='+lcNR_PASTA+;
+                                  ' and NR_ATA='+DLAP+lcNR_ATA+DLAP+;
+                                  ' and NR_ITEM='+WGet('NR_ITEM','C'),lcNR_PASTA,'Deliberações')
+
+         if db_replace(laSAVE,lcTABLE,laWHERE) = -1
+            error_sys(db_error())
+         endif
+         wPut('TITLE','Inclusão de nova Deliberação')
+      endif
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      psab_logdel(lcNR_PASTA,'NR_ITEM',WGet('NR_ITEM','C'),,'Deliberações')
+
+      if db_delete(lcTABLE,laWHERE[1]) = -1
+         error_sys(db_error())
+      endif
+      wPut('TITLE','Inclusão de nova Deliberação')
+   endif
+
+   /* Listagem */
+   if db_select({'NR_ITEM','ASSEMBLEIA_DELIBERACAO'},lcTABLE,,{'NR_PASTA='+lcNR_PASTA+' and NR_ATA='+DLAP+lcNR_ATA+DLAP}) = -1
+      error_sys(db_error())
+   endif
+   laRES:= db_fetchall()
+   if len(laRES) > 0
+      aadd(laRES[1],'(row)')
+      for ii := 2 to len(laRES)
+         aadd(laRES[ii],'(row)'+wic_action('wicaction/ps.ata.deliberacao.html'+;
+                                           '?ACTION=ALTER'+;
+                                           '&NR_PASTA='+lcNR_PASTA+;
+                                           '&NR_ATA='+lcNR_ATA+;
+                                           '&NR_ITEM='+str(laRES[ii,db_fetchncol(laRES,'NR_ITEM')])))
+      next ii
+      WPut('GRID_DELIBERACAO',grid_create(laRES))
+   endif
+return
+
+
+
+
+
+
+
+
+

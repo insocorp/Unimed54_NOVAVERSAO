@@ -1,0 +1,42 @@
+/*
+
+Project      : gr5
+Program      : sch.afastamento.html
+Function     : sch_afastamento_html
+Created on   : 06/10/2014 15:59:53
+Descripition : Busca de tipos de afastamentos
+
+*/
+
+   local laFIELDS       := {},;
+         laJAVA         := {},;
+         laQUICK_SEARCH := {} as array
+
+
+   laFIELDS       := {'ID_TP_AFASTAMENTO','TP_AFASTAMENTO'}
+   laJAVA         := {'mntform',{{'ID_TP_AFASTAMENTO','ID_TP_AFASTAMENTO'},{'TP_AFASTAMENTO','TP_AFASTAMENTO'}}}
+   laQUICK_SEARCH := {'TP_AFASTAMENTO'}
+   laWHERE        := {'FL_ATIVO <> '+DLAP+'I'+DLAP}
+
+   xbp2('tipo_afastamento',;                                                                       //Tabela Alvo
+        ,;                                                                                    //Join
+        laWHERE,;                                                                             //Where
+        laFIELDS,;                                                                            //Order by
+        'A',;                                                                                 //Sort [A]-Ascendente [D]-Descentende
+        ,;                                                                                    //Group by
+        ,;                                                                                    //Limit
+        ,;                                                                                    //Banco de Dados
+        3,;                                                                                   //Modo de funcionamento [1]-Listagem/Form para manutenção [2]-Listagem e Manutenção [3]-Search
+        'gr5',;                                                                               //Modulo do programa chamador
+        WSet('_USER_INTERFACE'),;                                                             //Programa chamador
+        ,;                                                                                    //Parametros para linhas clicáveis
+        ,;                                                                                    //Botoes (nil)
+        'afastamento.mnt.html',;                                                                   //Programa chamado pelos links (linhas clicáveis)
+        'gr5',;                                                                               //Módulo do programa chamado pelos links
+        laJAVA,;                                                                              //Retorno java (nil) - usado apenas no search
+        laQUICK_SEARCH,;                                                                      //Campos usados na pesquisa rápida
+        ,;                                                           //Campos ocultos. Usado apenas em manutenções    ***
+        ,;                                                                                    //Campos da área de manutenção/entrada de dados  ***
+        laFIELDS,;                                                                            //Campos mostratos no grid
+        laFIELDS)                                                                             //Campos usados no select
+return

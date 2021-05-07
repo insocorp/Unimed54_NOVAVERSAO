@@ -1,0 +1,58 @@
+/*
+Project      : isj_390
+Program      : mnt.life_sinistro_web.html
+Function     : mnt_life_sinistro_web_html
+Created on   : 23-Jan-2009   15:18:04
+Descripition : wh duplicado na equiparação da Cardif 5.0 para 5.3
+            : 26/03/2018 17:14:27
+*/
+
+    local objetoLife                  := IsjLifeNew() as Object
+          objetoLife:NrPasta          := WGet('NR_PASTA')
+          objetoLife:FlApolice        := WGet('FL_APOLICE')
+          objetoLife:NrSinistro       := WGet('NR_SINISTRO')
+          objetoLife:NrCertificado    := WGet('NR_CERTIFICADO')
+          objetoLife:Base             := WGet('BASE')
+
+    local objRetorno                  := objetoLife:ConsultarSinistro() as Object
+
+
+    if (objRetorno != NIL)
+       WPut("ENTERPRISE",        objRetorno:Enterprise)
+       WPut("CLAIM",             objRetorno:Clain)
+       WPut("STATUSCODE"   ,     objRetorno:StatusCode)
+       WPut("STATUSMESSAGE",     objRetorno:StatusMessage)
+       WPut("CPFSEGURADO",       objRetorno:CpfSegurado)
+       WPut("NOMEDOSEGURADO",    objRetorno:NomeSegurado)
+       WPut("CERTIFICADO",       objRetorno:NumeroCertificado)
+       WPut("CARENCIA",          objRetorno:Carencia)
+       WPut("FRANQUIA",          objRetorno:Franquia)
+       WPut("IS",                strtran(objRetorno:Is,'.',','))
+       WPut("VALORPAGOSINISTRO", strtran(objRetorno:ValorPagoSinistro,'.',','))
+       WPut("DT_OCORRENCIA",     objRetorno:DataOcorrencia)
+       WPut("DATAVISO",          objRetorno:DataAviso)
+       WPut("PARCEIRO",          objRetorno:Parceiro)
+       WPut("STATUSSINISTRO",    objRetorno:StatusSinistro)
+       WPut("INICIOVIGENCIA",    objRetorno:InicioVigencia)
+       WPut("FIMVIGENCIA",       objRetorno:FimVigencia)
+       WPut("FL_COSSEGURO",      objRetorno:Cosseguro)
+       WPut("ACEITOCEDIDO",      objRetorno:AceitoCedido)
+       WPut("PERCPARTCARDIF",    objRetorno:PercentualParticipacaoCardif)
+       WPut("LMI_NM_COBERTURA",  objRetorno:Cobertura)
+       WPut("OBJETO_SINISTRO",   objRetorno:ObjetoSinistro)
+    endif
+
+return
+
+
+
+
+
+
+
+
+
+
+
+
+

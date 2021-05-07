@@ -1,0 +1,430 @@
+/*
+
+Project      : isj_45
+Program      : rbschedule.class
+Function     : rbschedule_class
+Created on   : 23-Feb-2017   13:44:51
+Descripition : 
+
+*/
+
+
+
+
+//
+// Glauber - Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+*
+* Glauber - 02/2017
+*
+* Classe...........: RbSchedule
+*
+* Objetivo.........: Classe que realiza a presistência da tabela rbschedule.
+*
+* Atributos........:
+*
+*    EXPORT PkRbschedule
+*    EXPORT NomeAgendamento
+*    EXPORT Descricao
+*    EXPORT DiaExecucao
+*    EXPORT HoraExecucao
+*    EXPORT Report
+*
+*
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD Save()
+*    METHOD Valida()
+*    METHOD Delete()
+*    METHOD FindByPk()
+*    METHOD Filter()
+*    METHOD ToList()
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS RbSchedule
+
+    // Atributos publico
+
+    EXPORT PkRbschedule
+    EXPORT NomeAgendamento
+    EXPORT Descricao
+    EXPORT DiaExecucao
+    EXPORT HoraExecucao
+    EXPORT Report
+    
+    // Atributos privado
+    
+    INSTANCE Filter
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()             CLASS RbSchedule
+    PROTOTYPE METHOD Destroy()          CLASS RbSchedule
+    PROTOTYPE METHOD Save()             CLASS RbSchedule
+    PROTOTYPE METHOD Valida()           CLASS RbSchedule
+    PROTOTYPE METHOD Delete()           CLASS RbSchedule
+    PROTOTYPE METHOD FindByPk()         CLASS RbSchedule
+    PROTOTYPE METHOD Filter()           CLASS RbSchedule
+    PROTOTYPE METHOD ToList()           CLASS RbSchedule
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS RbSchedule
+
+
+    self:PkRbschedule     := 0
+    self:NomeAgendamento  := ''
+    self:Descricao        := ''
+    self:DiaExecucao      := 0
+    self:HoraExecucao     := 0
+    self:Report           := ''
+    self:Filter           := {}
+
+
+
+return(self)
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS RbSchedule
+
+    self:PkRbschedule     := nil
+    self:NomeAgendamento  := nil
+    self:Descricao        := nil
+    self:DiaExecucao      := nil
+    self:HoraExecucao     := nil
+    self:Report           := nil
+    self:Filter           := nil
+
+
+return(nil)
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Save()
+* Objetivo..: Salva um registro.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD Save() CLASS RbSchedule
+
+
+   local laSAVE     := {},;
+         laSAVEAUX  := {} as Array
+
+   local lnPOS      := 0,;
+         lnCODRET   := 0,;
+         lnDESRET   := 0  as Int
+
+   local lcWhere    := '',;
+         lcTmp      := '' as String
+
+
+
+
+
+   if ! self:Valida()
+      return self;
+   endif
+
+
+   laSAVE := {{'PK_RBSCHEDULE',;
+               'NOME_AGENDAMENTO',;
+               'DESCRICAO',;
+               'DIA_EXECUCAO',;
+               'HORA_EXECUCAO',;
+               'REPORT'}}
+
+   aadd(laSAVE, { self:PkRbschedule,;
+                  self:NomeAgendamento,;
+                  self:Descricao,;
+                  self:DiaExecucao,;
+                  self:HoraExecucao,;
+                  self:Report })
+
+
+
+    lcWhere := 'PK_RBSCHEDULE = ' + alltrim(self:PkRbschedule)
+
+
+    if db_replace(laSAVE, 'rbschedule', {lcWhere}) == -1
+       error_sys(db_error())
+    endif
+
+return self
+
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Delete()
+* Objetivo..: Apaga um registro.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD Delete() CLASS RbSchedule
+
+
+
+   local lcWhere    := '',;
+         lcTmp      := '' as String
+
+
+    lcWhere := 'PK_RBSCHEDULE = ' + alltrim(self:PkRbschedule)
+
+    if self:PkRbschedule > 0
+       if db_delete('rbschedule', lcWHERE) == -1
+          error_sys(db_error())
+       endif
+    endif
+
+return self
+
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: FindByPk()
+* Objetivo..: Pesquisa um registro pela chave primaria retornando um objeto.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD FindByPk() CLASS RbSchedule
+
+
+   local laRES      := {}
+
+   local lcWhere    := '',;
+         lcTmp      := '' as String
+
+
+    lcWhere := 'PK_RBSCHEDULE = ' + alltrim(self:PkRbschedule)
+
+
+    if db_select({'NOME_AGENDAMENTO','DESCRICAO','DIA_EXECUCAO','HORA_EXECUCAO','REPORT'}, 'rbschedule',,{lcWhere}) == -1
+       error_sys(db_error())
+    endif
+    laRES := db_fetchall()
+
+    if len(laRES) > 1
+       self:NomeAgendamento  := laRES[2,1]
+       self:Descricao        := laRES[2,2]
+       self:DiaExecucao      := laRES[2,3]
+       self:HoraExecucao     := laRES[2,4]
+       self:Report           := laRES[2,5]
+    endif
+
+
+return self
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Filter()
+* Objetivo..: Pesquisa registros com base nos campos preenchido do objeto corrente.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD Filter() CLASS RbSchedule
+
+
+   local laRES      := {},
+         laWHERE    := {} as Array
+
+   local lcWhere    := '',;
+         lcTmp      := '' as String
+
+
+
+    if (! empty(self:NomeAgendamento)
+       aadd(laWHERE, 'NOME_AGENDAMENTO=' + DLAP + self:NomeAgendamento + DLAP)
+    endif
+
+    if (! empty(self:Descricao)
+       aadd(laWHERE, 'DESCRICAO=' + DLAP + self:Descricao + DLAP)
+    endif
+
+    if (self:DiaExecucao > 0)
+       aadd(laWHERE, 'DIA_EXECUCAO=' + AllTrim(self:DiaExecucao))
+    endif
+
+    if (self:HoraExecucao > 0)
+       aadd(laWHERE, 'HORA_EXECUCAO=' + AllTrim(self:HoraExecucao))
+    endif
+
+    if (! empty(self:Report)
+       aadd(laWHERE, 'REPORT=' + DLAP + self:Report + DLAP)
+    endif
+
+
+    if db_select({'PK_RBSCHEDULE','NOME_AGENDAMENTO','DESCRICAO','DIA_EXECUCAO','HORA_EXECUCAO','REPORT'}, 'rbschedule',,laWHERE) == -1
+       error_sys(db_error())
+    endif
+
+    self:Filter := {} := db_fetchall()
+
+
+return self
+
+
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: ToList()
+* Objetivo..: Retorna um array FlagShip / Wictrix resultado do processamento do metodo Filter.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD ToList() CLASS RbSchedule
+
+
+return  self:Filter
+
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Valida()
+* Objetivo..: Faz a validação e crítica do campos necessário.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+
+
+METHOD Valida() CLASS RbSchedule
+
+
+    if (empty(self:NomeAgendamento)
+       Alert('O campo ' + lblfscreen('NOME_AGENDAMENTO') + ' é obrigatório.')
+       return .F.
+    endif
+
+    if (empty(self:Descricao)
+       Alert('O campo ' + lblfscreen('DESCRICAO') + ' é obrigatório.')
+       return .F.
+    endif
+
+    if (self:DiaExecucao == 0)
+       Alert('O campo ' + lblfscreen('DIA_EXECUCAO') + ' é obrigatório.')
+       return .F.
+    endif
+
+    if (self:HoraExecucao == 0)
+       Alert('O campo ' + lblfscreen('HORA_EXECUCAO') + ' é obrigatório.')
+       return .F.
+    endif
+
+    if (empty(self:Report)
+       Alert('O campo ' + lblfscreen('REPORT') + ' é obrigatório.')
+       return .F.
+    endif
+
+return  .T.

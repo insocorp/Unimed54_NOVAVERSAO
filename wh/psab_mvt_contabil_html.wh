@@ -1,0 +1,212 @@
+/*
+
+Project      : gr5
+Program      : psab.mvt_contabil.html
+Function     : psab_mvt_contabil_html
+Created on   : 09-Aug-2006   17:10:05
+Descripition : Aba para exibição de Lançamentos contábeis.
+
+*/
+
+   local lcNR_PASTA  := '' ,;
+         lcTABLE     := '' ,;
+         lcTP_PASTA  := '' ,;
+         lcPUT       := '' as string
+
+   local ldDT_INICIO ,;
+         ldDT_FIM    as date
+
+   local laRES     := {} ,;
+         laFIELDS  := {} ,;
+         laWHERE   := {} ,;
+         laLIMIT   := {} ,;
+         laCOUNT   := {} ,;
+         laPAGES   := {} as array
+
+   local ii           := 0 ,;
+         lnMAX_PAGES  := 0 ,;
+         lnROWS_PAGE  := 0 ,;
+         lnNR_PAGES   := 0 ,;
+         lnPAGE_INI   := 0 ,;
+         lnPAGE_FIN   := 0 ,;
+         lnGOTO_PAGE  := 0 ,;
+         lnLIMIT1     := 0 ,;
+         lnLIMIT2     := 0 ,;
+         lnPOS        := 0 as int
+
+
+   lcNR_PASTA := WGet('NR_PASTA','C')
+   lcLABEL    := alltrim(WGet('LABEL_WFIELD','C'))
+   lcTP_PASTA := WGet('TP_PASTA','C')
+   lcTABLE    := 'mvt_contabil'
+   laFIELDS   := {'CD_PLCT_CREDITO',;
+                  'CD_PLCT_DEBITO',;
+                  'VL_LANCAMENTO',;
+                  'HISTORICO',;
+                  'DT_LANCAMENTO',;
+                  'HR_LANCAMENTO',;
+                  'LOGIN',;
+                  'FL_CONTABILIZADO'}
+   // Glauber 06/01/2011
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+   lnGOTO_PAGE := WGet('GOTO_PAGE','N')
+   if lnGOTO_PAGE = 0
+      lnGOTO_PAGE := 1
+   endif
+
+   ldDT_INICIO := WGet('DT_INICIO','D')
+   ldDT_FIM    := WGet('DT_FIM','D')
+
+   if ! empty(alltrim(dtos(ldDT_INICIO)))
+      aadd(laWHERE,'DT_LANCAMENTO >= '+DLAP+dtos(ldDT_INICIO)+DLAP)
+   endif
+
+   if ! empty(alltrim(dtos(ldDT_FIM)))
+      aadd(laWHERE,'DT_LANCAMENTO <= '+DLAP+dtos(ldDT_FIM)+DLAP)
+   endif
+
+   pasta_abas(lcTP_PASTA)
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+
+   WPut('NR_PASTA',lcNR_PASTA)
+   WPut('TP_PASTA',lcTP_PASTA)
+   WPut('DT_INICIO',ldDT_INICIO)
+   WPut('DT_FIM',ldDT_FIM)
+
+   aadd(laWHERE,'WTABLE='+DLAP+'pasta'+DLAP+' and WPKEY_NUM='+lcNR_PASTA)
+
+
+   //Contagem de registros e paginação
+   if db_select({'count(*)'},lcTABLE,,laWHERE) == -1
+      error_sys(db_error())
+   endif
+   laCOUNT := db_fetchrow()
+   if laCOUNT[1] > 0 //.and. valtype(laLIMIT) == 'U'
+
+      lnMAX_PAGES := iif(val(WSet('MAX_PAGES'))==0,10,val(WSet('MAX_PAGES')))
+      lnROWS_PAGE := iif(val(WSet('ROWS_PAGE'))==0,10,val(WSet('ROWS_PAGE')))
+      if lnROWS_PAGE > laCOUNT[1]
+         lnROWS_PAGE := laCOUNT[1]
+      endif
+      lnNR_PAGES := laCOUNT[1]/lnROWS_PAGE
+
+      if (laCOUNT[1] % lnROWS_PAGE) > 0
+         lnNR_PAGES += 1
+      endif
+
+      lnMAX_PAGES := iif(lnNR_PAGES < lnMAX_PAGES,lnNR_PAGES,lnMAX_PAGES)
+      if lnGOTO_PAGE == 1
+         lnPAGE_INI := 1                              // Página inicial
+         lnPAGE_FIN := lnMAX_PAGES                    // Página final
+      else
+         if alltrim(WGet('MORE')) == 'Y'              // Visualizar as próximas 10 páginas, se possível
+            lnPAGE_INI := lnGOTO_PAGE
+            lnPAGE_FIN := lnMAX_PAGES+(lnGOTO_PAGE-1)
+            if lnPAGE_FIN > lnNR_PAGES
+               lnPAGE_FIN := lnNR_PAGES
+            endif
+         elseif alltrim(WGet('LESS')) == 'Y'          // Visualizar as 10 páginas anteriores, se possível
+            lnPAGE_INI := lnGOTO_PAGE-lnMAX_PAGES+1
+            lnPAGE_FIN := lnGOTO_PAGE
+         else
+            lnPAGE_INI := WGet('FIRST_PAGE','N')
+            lnPAGE_FIN := WGet('LAST_PAGE','N')
+         endif
+      endif
+
+      aadd(laPAGES,{'PROGRAM_CALL','NR_PAGE'})
+      for ii := lnPAGE_INI to lnPAGE_FIN
+          lcPUT := wic_action('wicaction/psab.mvt_contabil.html?GOTO_PAGE='+alltrim(str(ii)))
+          lcPUT += '&FIRST_PAGE='+alltrim(str(lnPAGE_INI))+'&LAST_PAGE='+alltrim(str(lnPAGE_FIN))
+          if ii == lnPAGE_INI
+             lcPUT += '&LESS=Y'
+          endif
+          if ii == lnPAGE_FIN .and. lnPAGE_FIN < lnNR_PAGES
+             lcPUT += '&MORE=Y'
+          endif
+
+          //Adiciona à paginação, os filtros digitados e os campos selecionados para busca e ordernação
+          if !empty(lcNR_PASTA) //Campo usado na pesquisa
+             lcPUT += '&NR_PASTA='+lcNR_PASTA
+          endif
+          if !empty(lcTP_PASTA) //Campo usado no Tipo de Pasta
+             lcPUT += '&TP_PASTA='+lcTP_PASTA
+          endif
+
+          aadd(laPAGES,{lcPUT,alltrim(str(ii))})
+      next ii
+      WPut('ifRESULT',.T.)
+      WPut('PAGES',laPAGES)
+
+      lnLIMIT1 := iif(lnGOTO_PAGE == 1,0,((lnGOTO_PAGE*lnROWS_PAGE)-1)-(lnROWS_PAGE-1))
+      lnLIMIT2 := lnROWS_PAGE
+      laLIMIT  := {lnLIMIT1,lnLIMIT2}
+
+   elseif laCOUNT[1] == 0// .and. valtype(laLIMIT) == 'U'
+      WPut('ifEMPTY_RESULTSET',.T.)
+   endif
+
+//   if db_select(laFIELDS,lcTABLE,,laWHERE,{'DT_LANCAMENTO','HR_LANCAMENTO'},'D',,laLIMIT) == -1
+   if db_select(laFIELDS,lcTABLE,,laWHERE,{'NR_CONTROLE'},'D',,laLIMIT) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+
+   if len(laRES) > 1
+      for ii := 2 to len(laRES)
+         laRES[ii,db_fetchncol(laRES,'VL_LANCAMENTO')] := wpictrans('VL_LANCAMENTO',laRES[ii,db_fetchncol(laRES,'VL_LANCAMENTO')])
+
+         if laRES[ii,db_fetchncol(laRES,'FL_CONTABILIZADO')] == 'S'
+            laRES[ii,db_fetchncol(laRES,'FL_CONTABILIZADO')] := '<center>Sim</center>'
+         else
+            laRES[ii,db_fetchncol(laRES,'FL_CONTABILIZADO')] := '<center>Não</center>'
+         endif
+
+         lnPOS := db_fetchncol(laRES,'HISTORICO')
+         if lnPOS > 0
+            lcPUT := ''
+            for xx := 1 to mlcount(laRES[ii,lnPOS],80)
+               if xx > 1
+                  lcPUT += '<br>'
+               endif
+               lcPUT += memoline(laRES[ii,lnPOS],80,xx)
+            next xx
+            laRES[ii,lnPOS] := lcPUT
+         endif
+
+      next ii
+
+      // Exibe resumo da quantidade de registros.
+      lcPUT := alltrim(str(lnLIMIT1+1))+'-'
+      if ((len(laRES)-1) < (lnLIMIT2-lnLIMIT1))
+         lcPUT += alltrim(str(len(laRES)-1))
+      elseif lnGOTO_PAGE == lnNR_PAGES
+         lcPUT += alltrim(str(laCOUNT[1]))
+      else
+         lcPUT += alltrim(str(lnLIMIT1+lnROWS_PAGE))
+      endif
+      lcPUT += ' de '+alltrim(str(laCOUNT[1]))
+      if laCOUNT[1] > 1
+         lcPUT := ' Resultados '+lcPUT+' registros'
+      else
+         lcPUT := ' Resultado '+lcPUT+' registro'
+      endif
+      WPut('RESUME_RESULTSET',lcPUT)
+
+      WPut('GRID_CONTABIL',grid_create(laRES))
+   endif
+return
+
+
+
+
+
+
+
+
+
+
+
+
+

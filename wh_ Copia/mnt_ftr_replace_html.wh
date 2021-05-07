@@ -1,0 +1,117 @@
+/*
+
+Project      : gr5
+Program      : mnt.ftr.replace.html
+Function     : mnt_ftr_replace_html
+Created on   : 12-Apr-2007   11:08:28
+Descripition : Filtro Universal de Inclusão/Alteração - Grupos
+
+*/
+
+   local lcACTION   := '' ,;
+         lcWGID     := '' ,;
+         lcWHERE    := '' ,;
+         lcTABLE    := '' as string
+
+   local laFIELDS   := {} ,;
+         laLABELS   := {} ,;
+         laRES      := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laVALIDA   := {} ,;
+         laFWLABELS := {} ,;
+         laFWVALUES := {} as array
+
+   local ii         := 0 ,;
+         lnPOS      := 0 as int
+
+   local llERRO := .f. as logical
+
+   lcACTION := upper(wGet('ACTION','C'))
+   lcWGID   := wGet('WGID','C')
+   if ! empty(lcWGID)
+      if db_select({'WGID','WGROUP'},'acgroup',,{'WGID='+lcWGID}) = -1
+         error_sys(db_error())
+      endif
+      db2Put(db_fetchall())
+   else
+      error_sys('empty WGID')
+   endif
+   lcWHERE    := 'WGID='+lcWGID+;
+                 ' and WTABLE='+DLAP+wGet('WTABLE','C')+DLAP+;
+                 ' and WFIELD='+DLAP+wGet('WFIELD','C')+DLAP
+   lcTABLE    := 'acgroup_filter_replace'
+   laFIELDS   := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+   laLABELS   := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'A')
+   laFWLABELS := {'Igual','Diferente','Intervalo','Maior','Menor','Contendo','Não Contendo'}
+   laFWVALUES := {'1','2','3','4','5','6','7'}
+   laVALIDA   := {{'WTABLE',laLABELS[ascan(laFIELDS,'WTABLE')]},;
+                  {'WFIELD',laLABELS[ascan(laFIELDS,'WFIELD')]}}
+
+   wPut('TITLE','Filtros para Inclusão/Alteração')
+   wPut('FUWHERE_OPT',laFWLABELS)
+
+   if lcACTION == 'SAVE'
+      for ii := 1 to len(laVALIDA)
+         if empty(wGet(laVALIDA[ii,1],'C'))
+            walert(laVALIDA[ii,2]+' é um campo obrigatório')
+            llERRO := .T.
+            exit
+         endif
+      next ii
+      if ! llERRO
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            if laFIELDS[ii] == 'FUWHERE'
+               lnPOS := ascan(laFWLABELS,wGet(laFIELDS[ii]))
+               if lnPOS > 0
+                  aadd(laSAVE_AUX,laFWVALUES[lnPOS])
+               else
+                  aadd(laSAVE_AUX,'1')
+               endif
+            else
+               aadd(laSAVE_AUX,wGet(laFIELDS[ii]))
+            endif
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+         if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+            error_sys(db_error())
+         endif
+      endif
+   elseif lcACTION == 'ALTER'
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) = -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      db2Put(laRES)
+      lnPOS:=ascan(laFWVALUES,laRES[2,db_fetchncol(laRES,'FUWHERE')])
+      if lnPOS > 0
+         wPut('FUWHERE',laFWLABELS[lnPOS])
+      endif
+   elseif lcACTION == 'DELETE'
+      if db_delete(lcTABLE,lcWHERE) = -1
+         error_sys(db_error())
+      endif
+   endif
+
+   if db_select({'WTABLE','WFIELD','FUWHERE','FUCONTENT'},lcTABLE,,{'WGID='+lcWGID}) = -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 0
+      aadd(laRES[1],'(row)')
+      for ii := 2 to len(laRES)
+         aadd(laRES[ii],'(row)'+wic_action('wicaction_gr5/mnt.ftr.replace.html')+;
+                                           '?WGID='+lcWGID+;
+                                           '&WTABLE='+laRES[ii,db_fetchncol(laRES,'WTABLE')]+;
+                                           '&WFIELD='+laRES[ii,db_fetchncol(laRES,'WFIELD')]+;
+                                           '&ACTION=ALTER')
+         lnPOS:=ascan(laFWVALUES,laRES[ii,db_fetchncol(laRES,'FUWHERE')])
+         if lnPOS > 0
+            laRES[ii,db_fetchncol(laRES,'FUWHERE')] := laFWLABELS[lnPOS]
+         endif
+      next ii
+      wPut('GRID_FTRREPLACE',grid_create(laRES))
+   endif
+
+

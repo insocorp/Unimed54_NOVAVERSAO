@@ -1,0 +1,371 @@
+/*
+
+Project      : isj_398
+Program      : jsongridcomp.html
+Function     : jsongridcomp_html
+Created on   : 27-Jun-2012   18:51:17
+Descripition : Programa solicitado pelo Santhiago para exibir os dados da grid de compromisso no programa jsongridcomp.html
+
+
+*/
+    local lcACTION := Wget('ACTION'),;
+          lcTABLE  := 'tarefa_compromisso',;
+          lcOut    := '',;
+          lcFILTRO := '' AS  String
+    local ldDTINI := CTOD('  /  /    '),;
+          ldDTFIM := CTOD('  /  /    ') as Date
+
+    local laFLD_PART := {'tarefa_compromisso.NR_CONTROLE',;
+                         'tarefa_compromisso.TITULO',;
+                         'tarefa_compromisso.NM_TC',;
+                         'tarefa_compromisso.DT_INICIO',;
+                         'tarefa_compromisso.HR_INICIO',;
+                         'tarefa_compromisso.DT_PRAZO',;
+                         'tarefa_compromisso.HR_PRAZO',;
+                         'tarefa_compromisso.DT_FIM',;
+                         'tarefa_compromisso.HR_FIM',;
+                         'tarefa_compromisso.TC_CATEGORIA',;
+                         'tarefa_compromisso.TP_TC',;
+                         'tarefa_compromisso.LOGIN_AGENDADO',;
+                         'tc_status.NM_TC_STATUS'},;
+          laWHERE := {},;
+          laPART  := {},;
+          laTMP   := {},;
+          laCONTROLES := {} AS Array
+
+   aadd(laWHERE,"tc_participante.DT_CONCLUSAO is null and tc_participante.LOGIN_PARTICIPANTE = '"+Wset('LOGIN') + "'")
+
+
+
+// Glauber 01/06/2015
+// Quando a operação é de conclusão, o where fica limitado a seguinte expressão:
+// (tc_participante.DT_CONCLUSAO is null and tc_participante.LOGIN_PARTICIPANTE = 'vrugai')
+//
+// Este where acaba gerando uma quantidade grande de registros, por isto estou fazendo o limit de 100 linhas
+//
+//
+
+    // Caso o action for search, montar a query de complementar do filtro por período
+
+    if lcACTION == 'SEARCH' .or. lcACTION == 'CONCLUIR'
+       ldDTINI := WGet('DT_INICIO','D')
+       ldDTFIM := WGet('DT_FIM','D')
+       if (! empty(dtos(ldDTINI)) .or. ! empty(dtos(ldDTFIM)))
+           if ( ! empty(dtos(ldDTINI))) .and. ( empty(dtos(ldDTFIM)))
+              aadd(laWHERE," tarefa_compromisso.DT_INICIO >= " + DLAP+dtos(ldDTINI)+DLAP + " or tarefa_compromisso.DT_PRAZO >= " + DLAP+dtos(ldDTINI)+DLAP + "")
+           else
+              aadd(laWHERE," tarefa_compromisso.DT_INICIO between " + DLAP+dtos(ldDTINI)+DLAP + " and " + DLAP+dtos(ldDTFIM)+DLAP + " or tarefa_compromisso.DT_PRAZO between " + DLAP+dtos(ldDTINI)+DLAP + " and " + DLAP+dtos(ldDTFIM)+DLAP + "")
+           endif
+       endif
+    endif
+    // Caso o action seja concluir, processar o conteúdo que vem de nr_controle
+
+    if lcACTION == 'CONCLUIR'
+       lcControles := StrTran(WGet('OBJETO','C'),'[','')
+       lcControles := StrTran(lcControles,']','')
+       laControles := Str2Array(lcControles,',')
+       if len(laControles) > 0
+          BaixarTarefa(laControles)
+       endif
+/*
+Acesse a Pasta Nº 6825 e providencie as informações solicitadas pelo Suporte.
+
+Andamento: Bom dia Glauber,
+
+Fiz a homologação do e a grid está da forma que deve ser. Mas temos um problemas quanto a data. Siga as instruções para compreender o erro:
+
+Entre na url: http://192.168.0.4/cgi-bin/isj/dreyfus51/isj/ com o login dgon senha para2016;
+Clique no menu operacional, abra o Concluir Tarefas do Portal;
+Digite o intervalo de 17/02/2016 à 17/02/2016;
+Veja que as tarefas que aparecem são desse intervalo, marque todos e conclua todos;
+Veja que será apresentada várias outras datas que não estão dentro do intervalo (isso não deveria acontecer)
+
+No guardo de vosso retorno.
+*/
+       // Glauber 27/04/2016
+       wout('[[]]')
+       return
+    endif
+
+   if db_select(laFLD_PART,;
+                    lcTABLE,;
+                    {{2,'tc_participante','tarefa_compromisso.NR_CONTROLE=tc_participante.NR_CONTROLE'},;
+                     {2,'tc_status','(tc_status.FL_TC=tarefa_compromisso.TP_TC and tc_status.TC_STATUS=tc_participante.TC_STATUS)'}},;
+                    laWHERE,;
+                    {'tarefa_compromisso.DT_INICIO desc'}) == -1
+          error_sys(db_error())
+   endif
+
+   laPART := db_fetchall()
+
+   // alterar o nome técnico das colunas, para o label
+   for ii := 1 to len(laPART[1])
+       laPART[1,ii] := ALLTRIM(lblfscreen(laPART[1,ii]))
+   next ii
+   for xx := 2 to len(laPART)
+       laPART[xx,3] := strtran(laPART[xx,3], chr(13), '')
+       laPART[xx,3] := strtran(laPART[xx,3], chr(10), '')
+   next xx
+
+   lcOut := Array2Json(laPART)
+   lcOut := strtran(lcOut, chr(13), '')
+   lcOut := strtran(lcOut, chr(10), '')
+   lcOut := strtran(lcOut, chr(182), '')
+
+   Wout(Str2AcenHtml(lcOut))
+
+// Glauber 26/04/2016 - Evandro, pasta 6825
+//   Wout(Str2Html(lcOut))
+
+//   Wout(lcOut)
+
+//debug2(laPART,,30)
+
+
+//   Wout(Array2Json(laPART))
+
+RETURN
+
+
+
+/*
+* Data da Criação: Glauber Vicente Duma
+* Observação.....: Nova funcionalidade Isj
+* Function.......: BaixarTarefa()
+* Objetivo.......: Executar a baixa das tarefas e compromissos do portal com base nos parâmetros recebido.
+*
+* Parâmetros.....:
+*   paNR_CONTROLE          Vetor com o conteúdo do campo NR_CONTROLE da tabela tarefa_compromisso.
+*   pBAIXAR_PARTICIPANTES  Se for passado .T. sera baixado do portal a tarefa ou compromisso do participantes.
+*
+* Retorno........: nenhum.
+*
+*/
+
+Function BaixarTarefa(paNR_CONTROLE, pBAIXAR_PARTICIPANTES )
+
+    local laRESULT := {},;
+          laAUX    := {} as Array
+    local lcStatus := '',;
+          lcWhere  := '' as String
+
+
+    if (pBAIXAR_PARTICIPANTES == nil)
+       pBAIXAR_PARTICIPANTES := .F.
+    endif
+
+    // Verificar se existe a ocorrencia do status "Executado" na tabela tc_participante
+
+/*
+  Glauber 24/06/2013 - Conforme solicitado pela Célia os compromissos devem estar com status Concluído, para apresentação correta na aba agenda do workflow
+
+    if db_select({'TC_STATUS'}, 'tc_status',,{"NM_TC_STATUS="+DLAP+'Executado'+DLAP}) == -1
+       ErrorJson(db_error())
+    endif
+    laRESULT := db_fetchall()
+
+    if len(laRESULT) == 1
+       ErrorJson('Não existe status "Executado" cadastrado no workflow.')
+       return
+    endif
+*/
+    if db_select({'TC_STATUS'}, 'tc_status',,{"NM_TC_STATUS="+DLAP+'Concluído'+DLAP}) == -1
+       ErrorJson(db_error())
+    endif
+    laRESULT := db_fetchall()
+
+    if len(laRESULT) == 1
+       ErrorJson('Não existe status "Concluído" cadastrado no workflow.')
+       return
+    endif
+
+    lcStatus := laRESULT[2,1]
+
+    // Conforme solicitado pela Célia este status sempre vai ser utilizado nesta funcionalidade
+//debug2(paNR_CONTROLE,,20)
+//wout('Status:'+ lcStatus)
+    for ii := 1 to len(paNR_CONTROLE)
+        // Glauber 08/2012
+
+        if ! empty(paNR_CONTROLE[ii]) .and. val(paNR_CONTROLE[ii]) > 0
+
+           // Atualizar a tabela tarefa_compromisso
+
+//           laAUX := {{'TP_TC'},;
+//                     {lcStatus}}
+           laAUX := {{'TP_TC'},;
+                     {'T'}}
+
+           if db_update(laAUX,'tarefa_compromisso',{"NR_CONTROLE="+paNR_CONTROLE[ii] + " and (TP_TC is null or TP_TC = '')"}) == -1
+              Error_Sys(db_error())
+              ErrorJson(db_error())
+           endif
+
+           // Atualizar a tabela tc_participante
+
+           laAUX := {{'TC_STATUS',;
+                      'DT_CONCLUSAO',;
+                      'HR_CONCLUSAO',;
+                      'PC_CONCLUIDO',;
+                      'NM_CONCLUSAO'},;
+                     {lcStatus,;
+                      date(),;
+                      time(),;
+                      100,;
+                      'Conclusão executada via ferramenta do ISJ.'}}
+//wout('<br>Where tc_participante:'+'NR_CONTROLE='+paNR_CONTROLE[ii] + ' and LOGIN_PARTICIPANTE = ' + DLAP + WSet('LOGIN') + DLAP)
+//debug2(laAUX,,30)
+           if pBAIXAR_PARTICIPANTES
+              lcWhere := 'NR_CONTROLE='+paNR_CONTROLE[ii]
+           else
+              lcWhere := 'NR_CONTROLE='+paNR_CONTROLE[ii] + ' and LOGIN_PARTICIPANTE = ' + DLAP + WSet('LOGIN') + DLAP
+           endif
+
+           if db_update(laAUX,'tc_participante',{lcWhere}) == -1
+              Error_Sys(db_error())
+              ErrorJson(db_error())
+           endif
+
+           // Excluir os Avisos
+           if pBAIXAR_PARTICIPANTES
+              lcWhere := 'CHAVE_TC='+paNR_CONTROLE[ii]
+           else
+              lcWhere := 'CHAVE_TC='+paNR_CONTROLE[ii] + ' and LOGIN = ' + DLAP + WSet('LOGIN') + DLAP
+           endif
+
+           if db_delete('avisos',lcWhere) == -1
+              ErrorJson(db_error())
+           endif
+
+           // Atualizar a tabela Tc_login_lembrete
+
+           laAUX := {{'DT_OK',;
+                      'HR_OK'},;
+                     {date(),;
+                      time()}}
+           if pBAIXAR_PARTICIPANTES
+              lcWhere := 'NR_CONTROLE='+paNR_CONTROLE[ii]
+           else
+              lcWhere := 'NR_CONTROLE='+paNR_CONTROLE[ii] + ' and LOGIN_PARTICIPANTE = ' + DLAP + WSet('LOGIN') + DLAP
+           endif
+
+           if db_update(laAUX,'tc_login_lembrete',{lcWhere}) == -1
+              ErrorJson(db_error())
+           endif
+
+        endif
+    next ii
+
+return
+
+
+/*
+* Data da Criação: Glauber Vicente Duma
+* Observação.....: Imprimir um erro no formato Json
+* Function.......: ErrorJson()
+* Objetivo.......: Imprime uma mensagem de erro no formato Json.
+*
+* Parâmetros.....:
+*   pcERRO          Mensagem de erro.
+*
+* Retorno........: nenhum.
+*
+*/
+
+Function ErrorJson(pcERRO)
+
+if (pcErro != null) .and. (! empty(pcERRO))
+   wout('[[ERRO],['+pcERRO+']]')
+endif
+return
+
+
+
+/*
+* Data da Criação: 04/09/2013 - Glauber Vicente Duma
+* Observação.....: Nova funcionalidade Isj
+* Function.......: Str2AcenHtml()
+* Objetivo.......: Converte os acentos de uma string no formato html.
+*
+* Parâmetros.....:
+*   pcStr          String a ser convertida.
+*
+* Retorno........: String convertida.
+*
+*/
+
+Function Str2AcenHtml(pcStr)
+
+    local laTROCA := {{'á','&aacute;'},;
+                      {'é','&eacute;'},;
+                      {'í','&iacute;'},;
+                      {'ó','&oacute;'},;
+                      {'ú','&uacute;'},;
+                      {'ú','&uacute;'},;
+                      {'Á','&Aacute;'},;
+                      {'É','&Eacute;'},;
+                      {'Í','&Iacute;'},;
+                      {'Ó','&Oacute;'},;
+                      {'Ú','&Uacute;'},;
+                      {'ã','&atilde;'},;
+                      {'õ','&otilde;'},;
+                      {'Ã','&Atilde;'},;
+                      {'Õ','&Otilde;'},;
+                      {'ç','&ccedil;'},;
+                      {'Ç','&Ccedil;'},;
+                      {'â','&acirc;'},;
+                      {'ê','&ecirc;'},;
+                      {'î','&icirc;'},;
+                      {'ô','&ocirc;'},;
+                      {'û','&ucirc;'},;
+                      {'Â','&Acirc;'},;
+                      {'Ê','&Ecirc;'},;
+                      {'Î','&Icirc;'},;
+                      {'Ô','&Ocirc;'},;
+                      {'Û','&Ucirc;'},;
+                      {'À','&Agrave;'},;
+                      {'È','&Egrave;'},;
+                      {'Ì','&Igrave;'},;
+                      {'Ò','&Ograve;'},;
+                      {'Ù','&Ugrave;'},;
+                      {'à','&agrave;'},;
+                      {'è','&egrave;'},;
+                      {'ì','&igrave;'},;
+                      {'ò','&ograve;'},;
+                      {'ù','&ugrave;'}} as array
+    local lcRET := '' as String
+    local ii    := 0 as int
+    lcRET       := pcStr
+
+//wout('<br><b> Vai tratar a string:'+lcRET)
+lSet := FS_SET("zero",.T.)
+    for ii := 1 to len(laTROCA)
+//        wout('<br><b>Procurando por:'+laTROCA[ii,1])
+//        wout('<br><b>Para trocar por:'+laTROCA[ii,2])
+        lcRET := strtran(lcRET,laTROCA[ii,1],laTROCA[ii,2])
+    next ii
+FS_SET("zero",lSet)
+//wout('<br><b> String tratada:'+lcRET)
+return lcRET
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

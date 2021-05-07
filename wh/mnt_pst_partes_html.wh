@@ -1,0 +1,1522 @@
+/*
+Project      : gr5
+Program      : mnt.pst.partes.html
+Function     : mnt_pst_partes_html
+Created on   : 17-Jan-2003   15:12:12
+Alter on     : 22-Dez-2008
+               Inclusão de Litsconsorte 
+Descripition : Janela popup para manutenção de Outras Partes.
+*Ultima alteração 10/02/2009 - Inclusao de Lits - Eliana        
+*Chama funcoes : verifica_relacionamento
+*                ver_aba
+*                montar_filho
+*                sincroniza_pasta
+*                
+* Funcoes Incluidas   : Verifica_lits
+*                       gera_pasta_lits
+*                       deleta_lits
+*                       deleta_cascata
+*                       deleta_pasta_relacionamento
+*                       monta_partes_filhos
+*                       monta_master
+*/
+   private paAUTO           := {} ,;
+           paAUTO_LABELS    := {}
+
+   local lcACTION                 := '' ,;
+         lcFL_TT_LITSCONSORTE     := '' ,;
+         lcWHERE                  := '' ,;
+         lcWHEREP                 := '' ,;
+         lcTABLE                  := '' ,;
+         lcNR_PASTA               := '' ,;
+         lcProgram                := 'mnt_pst_partes_html' ,;
+         lcCOD                    := '' ,;
+         lcPOSICAOCOLUNA          := '' ,;
+         llRETORNA                := '' ,;
+         lcTP_PASTA               := '' ,;
+         lcRelac                  := '' ,;
+         lcCodigo                 := '' ,;
+         lcNR_POSICAO_FILHO       := '' ,;
+         lcPOSICAO_PO             := '' ,;
+         lcCIP_PARTE              := '' ,;
+         lcLITS_POSICAO_PARTE     := '' ,;
+         lcNR_AUTOPROC            := ''  as string
+
+   local laRESULT             := {} ,;
+         laSAVE               := {} ,;
+         laSAVE_AUX           := {} ,;
+         laCodigo             := {} ,;
+         laFIELDS             := {} ,;
+         laAUX_AUX            := {} ,;
+         laPASTA              := {} ,;
+         laLABELS             := {} ,;
+         laPASTACONFIG        := {} ,;
+         laPASTA_OUTRASPARTES := {} ,;
+         laVALIDA             := {} ,;
+         laPOSICAO_PARTE      := {} as array
+
+   local ii := 0 as int
+   local lnNR_PASTAW := 0 as int
+   local llDel :=.t. as logical
+   local lnNR_POSICAO_FILHO  := 0 as int
+   
+   lcPOSICAO_PO  := WGet('POSICAO_PARTE','C')
+   lcACTION      := upper(alltrim(WGet('ACTION','C')))
+   lcNR_PASTA    := WGet('NR_PASTA','C')
+   lcCIP_PARTE   := alltrim(WGet('CIP_PARTE','C'))
+   lcNR_AUTOPROC := alltrim(WGet('NR_AUTOPROC','C'))
+   
+   if empty(lcNR_AUTOPROC)
+      lcNR_AUTOPROC := '0'
+   endif
+   
+   lcTP_PASTA   := WGet('TP_PASTA','C')
+   lcTABLE      := 'pasta_outraspartes'
+   lcWHERE      := 'pasta_outraspartes.NR_PASTA = '+lcNR_PASTA+;
+                   ' and pasta_outraspartes.NR_AUTOPROC='+lcNR_AUTOPROC+;
+                   ' and pasta_outraspartes.CIP_PARTE='+DLAP+lcCIP_PARTE+DLAP
+
+   laFIELDS     := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS     := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   laVALIDA     := {'CIP_PARTE'}
+
+   lcWHEREP     := 'pasta.NR_PASTA='+lcCOD                        //'NR_PASTA = '+lcCOD  
+   lcTABLEP     := 'pasta'
+   wPut('TP_PASTA',lcTP_PASTA)
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+
+   // Correcao Sonia - Solicitante Renan - 24/09/2014 11:33:48
+
+
+   AbasPerfil(WGet('TP_PASTA','C'), {'NR_PASTA', 'NM_PARTE','POSICAO_PARTE', 'CIP_PARTE','CIP_REPRESENTANTE','NR_AUTOPROC','NR_PASTA_POSICAO_FILHO','AUTOPROC'})
+
+//------------  Verificando relacionamento    -----------------------------------------
+
+   lcRelac:=verifica_relacionamento(lcNR_PASTA,lcTp_pasta)
+
+//------------ Verificando se Aba pode ser alterada  ------------------------
+
+   if lcRelac = 'F' .or. lcRelac = 'P'
+      llReturn:=Ver_ABA(lcTP_PASTA, lcProgram)
+   endif         
+   
+    if empty(lcACTION)
+      lcACTION = 'NEW'
+   endif
+
+   // Autos -----------------------------------------------------------------------------------------
+   if db_select({'NR_AUTOPROC','AUTOPROC','TP_AUTO','NUMERO_DOC'},'pasta_auto',,;
+                {'NR_PASTA='+lcNR_PASTA},{'AUTOPROC'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   paAUTO        := {''}
+   paAUTO_LABELS := {''}
+   aadd(paAUTO,'0')
+   aadd(paAUTO_LABELS,'Processo Principal')
+   for ii := 2 to len(laRESULT)
+      aadd(paAUTO,alltrim(str(laRESULT[ii,1])))
+      aadd(paAUTO_LABELS,laRESULT[ii,2]+' '+laRESULT[ii,3]+' : '+laRESULT[ii,4])
+   next ii
+   WPut('NR_AUTOPROC.option',paAUTO_LABELS)
+   WPut('NR_AUTOPROC.optionvalue',paAUTO)
+   WPut('NR_AUTOPROC',lcNR_AUTOPROC)
+
+   // Embargo -----------------------------------------------------------------------------------------
+   if db_select({'NR_AUTOPROC','AUTOPROC','NUMERO_DOC'},'pasta_embargo',,;
+                {'NR_PASTA='+lcNR_PASTA},{'AUTOPROC'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   for ii := 2 to len(laRESULT)
+      aadd(paAUTO,alltrim(laRESULT[ii,1]))
+      aadd(paAUTO_LABELS,laRESULT[ii,2]+' : '+laRESULT[ii,3])
+   next ii
+   WPut('NR_AUTOPROC.option',paAUTO_LABELS)
+   WPut('NR_AUTOPROC.optionvalue',paAUTO)
+   WPut('NR_AUTOPROC',lcNR_AUTOPROC)
+
+
+
+   if val(lcNR_AUTOPROC) > 0
+      if db_select({'FL_AUTO'},'pasta_auto',,{'NR_PASTA='+lcNR_PASTA+' and NR_AUTOPROC='+lcNR_AUTOPROC}) = -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if upper(laRESULT[1]) != 'ENCERRADO'
+            WPut('ifMNTFORM',.T.)
+         endif
+      else
+         if db_select({'FL_AUTO'},'pasta_embargo',,{'NR_PASTA='+lcNR_PASTA+' and NR_AUTOPROC='+lcNR_AUTOPROC}) = -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchrow()
+         if len(laRESULT) > 0
+            if upper(laRESULT[1]) != 'ENCERRADO'
+               WPut('ifMNTFORM',.T.)
+            endif
+         endif
+      endif
+   else
+      WPut('ifMNTFORM',.T.)
+   endif
+
+
+   // Autos -----------------------------------------------------------------------------------------
+
+   // Combobox POSICAO PARTE ------------------------------------------------------------------------
+
+   carrega_cbox({{'posicao_parte','POSICAO_PARTE','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+
+   // Combobox POSICAO PARTE ------------------------------------------------------------------------
+
+
+//----------------------Consistindo para verificar se pode alterar -----------------------------------
+// Se llReturn = .T. não pode ser alterado pelo filho
+   
+   if lcRelac = 'F'  .and. llReturn .and. (lcACTION='NEW' .or. lcACTION=='')
+      walert('Somente Para Consulta - Pasta Pertence a Litsconsorte')
+   endif
+     
+//   if lcACTION = 'NEW' .and. gbWAC_CREATE
+//       wPut('TITLE',lcTP_PASTA+' - Inclusão de Parte')
+   if lcACTION = 'ALTER' .and. gbWAC_READ
+      // Criação do link com o GED
+
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      db2Put(laRES)
+
+      WPut('NR_AUTOPROC',alltrim(GetWPut('NR_AUTOPROC')))
+
+      if len(laRES) > 0
+         //CIP_PARTE
+         if db_select({'PFPJ'},'pfpj',,{'CIP='+DLAP+laRES[2,db_fetchncol(laRES,'CIP_PARTE')]+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laPUT := db_fetchrow()
+         if len(laPUT) > 0
+            wPut('CIP_PARTE_PFPJ',laPUT[1])
+         endif
+         //CIP_REPRESENTANTE
+         if db_select({'PFPJ'},'pfpj',,{'CIP='+DLAP+laRES[2,db_fetchncol(laRES,'CIP_REPRESENTANTE')]+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laPUT := db_fetchrow()
+         if len(laPUT) > 0
+            wPut('CIP_REPRESENTANTE_PFPJ',laPUT[1])
+         endif
+      endif
+      walert('Para alterar a Posição Parte, a Parte deve ser excluída e inserida novamente.')
+      amkgedico(lcTABLE, lcNR_PASTA)
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+      if ! verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+         lista_partes(lcNR_PASTA)
+         pasta_abas(lcTP_PASTA)
+         return(.f.)
+      endif
+
+      if lcRelac = 'F'  .and. llReturn 
+          walert('Somente Para Consulta - Pasta Pertence a Litsconsorte')
+          lista_partes(lcNR_PASTA)
+          pasta_abas(lcTP_PASTA)   
+          return(.f.)
+       endif
+      
+//------------------------   Guardando o Cip para gravar na pasta Filho   -------------------------------------------
+
+      lcCip_empresa := WGet('CIP_PARTE','C')
+      
+      aadd(laSAVE,laFIELDS)
+//---------------------------------------------------------------------------------------------------------------------------      
+//                                    <<<< Verifica se é LITSCONSORTE
+      llRETORNA:=verifica_lits(lcTP_PASTA, lcNR_PASTA, lcCIP_PARTE, lcNR_AUTOPROC, lcACTION, lcRelac)  
+      if llRETORNA  = 'T'   // retorno que cria lits   
+         lnNR_PASTAW:=gera_pasta_lits(lcTP_PASTA, lcNR_PASTA, lcCIP_PARTE, lcNR_AUTOPROC,lcCip_empresa)    // Se Lits cria pasta filho
+      endif     
+      
+      if llretorna <> 'D'    // retorno que pode alterar a posicao parte
+         for ii := 1 to len(laFIELDS)
+             if (lnNR_PASTAW > 0 .and. laFIELDS[ii] == 'NR_PASTA_POSICAO_FILHO') 
+                aadd(laSAVE_AUX,lnNR_PASTAW)
+             else 
+                aadd(laSAVE_AUX,WGet(laFIELDS[ii],wmd_wfieldtype(laFIELDS[ii])))
+             endif  
+         next ii
+
+         aadd(laSAVE,laSAVE_AUX)
+//---------------------------------------------------------------------------------------------------------------------------      
+//  Grava partes que esta sendo digitada e atualiza  as abas de partes com este registro incluido
+
+         psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Outras Partes') //Gravar log de alterações da pasta
+
+         if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+            error_sys(db_error())
+         endif
+
+         lcRelac:=verifica_relacionamento(lcNR_PASTA,lcTp_pasta)
+         if lcRelac = 'P'
+            llReturn:=Ver_ABA(lcTP_PASTA, lcProgram)
+            if llReturn
+               monta_partes_filhos(lcNR_PASTA,lcNR_AUTOPROC,lcCIP_PARTE,lcTABLE, lcTp_pasta)
+               monta_master(lcNR_PASTA,lcNR_AUTOPROC,lcCIP_PARTE,lcTABLE,lcTP_Pasta,lcTp_pasta)
+            endif
+         endif  
+      endif
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+       if lcRelac = 'F'  .and. llReturn 
+//          walert('Somente Para Consulta - Pasta Pertence a Litsconsorte')
+       else
+          if db_select({'NR_PASTA_POSICAO_FILHO'},'pasta_outraspartes',,{lcWHERE}) = -1
+             error_sys(db_error())
+          endif
+          laPASTA_OUTRASPARTES:= db_fetchrow()
+          if len(laPASTA_OUTRASPARTES) > 0
+             lnNR_PASTAW:= laPASTA_OUTRASPARTES[1]
+             If lnNR_PASTAW > 0 
+                llDel:=checa_tabela(lnNR_pastaW,lcTP_PASTA,lcRelac)
+                if llDel = .f. 
+                   psab_logdel(lcCOD,'NR_PASTA',lcCOD,'Pasta filho excluida','Outras Partes')   
+                   if db_delete('pasta','NR_PASTA='+str(lnNR_PASTAW)) == -1                
+                      error_sys(db_error())
+                   endif
+                   deleta_cips(lnNR_PASTAW)
+                   psab_logdel(str(lnNR_PASTAW),'NR_PASTA_FILHO',str(lnNR_PASTAW),,'Outras Partes')
+                   if db_delete('pasta_relacionamento','NR_PASTA_FILHO='+str(lnNR_PASTAW)) == -1
+                      error_sys(db_error())
+                   endif
+                   deleta_cascata(lnNR_PASTAW)
+                   psab_logdel(lcNR_PASTA,'CIP_PARTE',lcCIP_PARTE,,'Outras Partes')
+                   if db_delete(lcTABLE,lcWHERE) == -1
+                      error_sys(db_error())
+                   endif
+                   del_partes(lcNr_pasta,lnNR_pastaW,lctable, lcTp_pasta,lcNr_autoproc)
+                endif
+             else
+                psab_logdel(lcCOD,'NR_PASTA',lcCOD,'Pasta outras partes','Outras Partes')   
+                if db_delete(lcTABLE,lcWHERE) == -1
+                   error_sys(db_error())
+                endif
+                psab_logdel(lcNR_PASTA,'CIP_PARTE',lcCIP_PARTE,,'Outras Partes')
+                laFilho:=Montar_filho(lcNR_PASTA, lcTp_pasta)
+                if len(laFilho) > 0
+                   for ii:= 1 to len(lafilho)
+                       if db_select({'NR_AUTOPROC'},'pasta_auto',,{'NR_PASTA='+str(lafilho[ii])+' and NR_AUTO_RELACAO='+lcNR_Autoproc}) == -1
+                          error_sys(db_error())
+                       endif        
+                       laCodigo:=db_fetchrow()
+                       if empty(laCodigo)
+                          lcCodigo:='0'
+                       else
+                          lcCodigo:=str(laCodigo[1])
+                       endif   
+                       
+                       lcWHEREp := 'pasta_outraspartes.NR_PASTA = '+str(lafilho[ii])+;
+                                   ' and pasta_outraspartes.NR_AUTOPROC='+lcCodigo+;
+                                   ' and pasta_outraspartes.CIP_PARTE='+DLAP+lcCIP_PARTE+DLAP
+                       if db_delete(lcTABLE,lcWHEREp) == -1
+                          error_sys(db_error())
+                       endif
+                   next ii   
+                endif   
+             endif
+          endif
+     endif
+   endif                  
+   lista_partes(lcNR_PASTA)
+   pasta_abas(lcTP_PASTA)
+return
+
+/*
+* Function..: del_partes()
+* Objetivo..: deleta os filhos replicados em partes
+* Parâmetros:
+*   fcNR_PASTA: Numero da pasta
+* Retorno...: nil
+*/
+static function del_partes(fcNR_pasta,fnNR_pastaW,fctable, fcTp_pasta,fcNr_autoproc)
+
+ local laFilho :={} as array
+ local lcwherep:='' as string
+ local lcTp_pasta := '' as string
+ 
+ lcTp_pasta := fctp_pasta
+ 
+ laFilho:=Montar_filho(fcNR_PASTA,lcTP_pasta)
+ if len(laFilho) > 0
+    for ii:= 1 to len(lafilho)
+        lcWHEREp:= 'NR_PASTA_POSICAO_FILHO = '+str(fnNR_PASTAW)     //+' and NR_AUTOPROC = '+fcNr_autoproc
+        if db_delete(fcTABLE,lcWHEREp) == -1
+           error_sys(db_error())
+       endif
+    next ii   
+ Endif   
+return(nil)
+
+/*
+* Function..: lista_partes()
+* Objetivo..: Gerar listagem de Partes
+* Parâmetros:
+*   fcNR_PASTA: Numero da pasta
+* Retorno...: nil
+*/
+static function lista_partes(fcNR_PASTA)
+   local lcNR_AUTOPROC := '' as string
+   local laWHERE := {} ,;
+         laRES   := {} as array
+   local ii    := 0 ,;
+         lnPOS := 0 as int
+
+   lcNR_AUTOPROC := alltrim(WGet('NR_AUTOPROC','C'))
+   laWHERE       := {'pasta_outraspartes.NR_PASTA ='+fcNR_PASTA}
+
+   if ! empty(lcNR_AUTOPROC)
+      aadd(laWHERE,'pasta_outraspartes.NR_AUTOPROC ='+lcNR_AUTOPROC)
+   endif
+
+   if db_select({'pasta_outraspartes.NR_AUTOPROC',;
+                 'pasta_outraspartes.CIP_PARTE',;
+                 'pfpj.PFPJ',;
+                 'pasta_outraspartes.POSICAO_PARTE','pasta_outraspartes.NR_PASTA_POSICAO_FILHO'},;
+                 'pasta_outraspartes',;
+                 {{2,'pfpj','pfpj.CIP=pasta_outraspartes.CIP_PARTE'}},;
+                 laWHERE,{'CIP_PARTE'}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 0
+      aadd(laRES[1],'AUTOPROC')
+      for ii := 2 to len(laRES)
+         lnPOS := laRES[ii,db_fetchncol(laRES,'NR_AUTOPROC')]
+         
+         aadd(laRES[ii],paAUTO_LABELS[   iif(ascan(paAUTO,alltrim(lnPOS)) > 0, ascan(paAUTO,alltrim(lnPOS)), 1 ) ])
+      next ii
+      wPut('lstPST_PARTES',laRES)
+   endif
+return(nil)
+
+/*
+* Function..: verifica_lits()
+* Objetivo..: Consistir a existencia de LItsconsorte
+* Parâmetros:
+*   fcNR_PASTA: Numero da pasta
+*   fcTP_PASTA: Tipo de pasta
+*   fcCIP_PARTE 
+*   fcNR_AUTOPROC
+* Retorno...: llreturn
+*/
+
+static function verifica_lits(fcTP_PASTA, fcNR_PASTA, fcCIP_PARTE, fcNR_AUTOPROC, fcACTION, fcRelac)
+       //   <<<<<<<<<<              Pega dados da pasta, pasta_config  para verificar LITS e armazena conteudos              >>>>>>>>>>
+
+  local  lcFL_TT_LITSCONSORTE     := '',;
+         lcAntes_posicaoparte     := '',;
+         lcNR_POSICAO_FILHO       := '',;
+         lcRel                    := '',;
+         lcPOSICAO_PO             := '',;
+         llRETURN                 := 'F',;
+         lcLITS_MASTER            := '',;
+         lcWHERE                  := '',;
+         lcLITS_POSICAO_PARTE     := '' as string
+         
+   local laPASTA              := {} ,;
+         laPASTACONFIG        := {} ,;
+         laPASTA_OUTRASPARTES := {} as array
+
+   local ii := 0 as int
+   lcPOSICAO_PO  := WGet('POSICAO_PARTE','C')
+  
+   lcWHERE      := 'pasta_outraspartes.NR_PASTA = '+fcNR_PASTA+;
+                   ' and pasta_outraspartes.NR_AUTOPROC='+fcNR_AUTOPROC+;
+                   ' and pasta_outraspartes.CIP_PARTE='+DLAP+fcCIP_PARTE+DLAP
+
+   lcTp_pasta := fcTp_pasta
+   lcRel := fcRelac
+//--------------------INICIA -------------------------------------------
+
+      if db_select({'FL_TT_LITSCONSORTE'},'pasta',,{'pasta.NR_PASTA='+fcNR_PASTA}) == -1 
+         error_sys(db_error())
+        return(llRETURN)
+      endif
+      laPASTA= db_fetchrow()
+      lcFL_TT_LITSCONSORTE := laPASTA[1]
+
+      if db_select({'pasta_config.LITS_POSICAO_PARTE','pasta_config.LITS_POSICAO_MASTER'},'pasta_config',,{'TP_PASTA='+DLAP+fcTP_PASTA+DLAP}) == -1 // pasta_config verifica LITS    
+         error_sys(db_error())
+         return(llRETURN)
+      endif
+      laPASTACONFIG:= db_fetchrow()
+
+      if len(lapastaconfig) > 0
+         lcLITS_POSICAO_PARTE := laPASTACONFIG[1]
+         lcLITS_MASTER := laPASTACONFIG[2]
+       endif
+       if db_select({'NR_PASTA_POSICAO_FILHO','POSICAO_PARTE'},'pasta_outraspartes',,{lcWHERE}) = -1
+          error_sys(db_error())
+          return(llRETURN)
+       endif
+       laPASTA_OUTRASPARTES:= db_fetchrow()
+       if len(laPASTA_OUTRASPARTES) > 0
+          lnNR_POSICAO_FILHO:= laPASTA_OUTRASPARTES[1]
+          lcAntes_posicaoparte :=laPASTA_OUTRASPARTES[2]
+       else
+          lcAntes_posicaoparte:=''
+          lnNR_POSICAO_FILHO:=0
+       endif
+
+       if lcPOSICAO_PO <> lcAntes_posicaoparte 
+          if  lcAntes_posicaoparte <> ''  
+              return('D')
+          endif
+       endif
+
+/*       if lcPOSICAO_PO <> lcAntes_posicaoparte 
+          if  lcAntes_posicaoparte = lcLITS_POSICAO_PARTE  
+              llDel:=checa_tabela(lnNR_POSICAO_FILHO,lcTP_PASTA,lcRel)
+              if llDel == .f.
+                 if db_delete('pasta','NR_PASTA='+str(lnNR_POSICAO_FILHO)) == -1                
+                    error_sys(db_error())
+                 endif
+                 deleta_cips(lnNR_POSICAO_FILHO)              
+                 psab_logdel(str(lnNR_POSICAO_FILHO),'NR_PASTA_FILHO',str(lnNR_POSICAO_FILHO),,'Outras Partes')
+                 if db_delete('pasta_relacionamento','NR_PASTA_FILHO='+str(lnNR_POSICAO_FILHO)) == -1
+                    error_sys(db_error())
+                 endif
+                 deleta_cascata(lnNR_POSICAO_FILHO) 
+            
+              else
+                 return('D')   
+              endif
+          endif
+       endif
+*/                   
+        
+       if lcLITS_POSICAO_PARTE = lcPOSICAO_PO .and. lcFL_TT_LITSCONSORTE <> 'Y' 
+          walert('Pasta não configurada para Litsconsorte ')
+          return('D')
+       endif
+
+       if lcLits_Master = lcPOSICAO_PO  
+          walert('Posição Parte não permitida para lançamentos ')
+          return('D')
+       endif
+
+       if lcLITS_POSICAO_PARTE = ''
+          return(llRETURN)
+       endif  
+
+       if lcLITS_POSICAO_PARTE == lcPOSICAO_PO  
+          If !empty(fcACTION)                       // se = 'New'
+                llRETURN:='T'
+          else
+             lnNR_POSICAO_FILHO:= 0
+             llRETURN := 'T'
+          endif
+       endif   
+Return(llRETURN)
+
+//------------------------------------------------------------------------------------------------
+/*
+* Function..: deleta_cascata()
+* Objetivo..: Deletar as pastas criadas pelo LIts
+* * Parâmetros:
+*   fcNR_PASTA: Numero da pasta do filho
+*   Retorno...: nil
+*/
+static function deleta_cascata(fnNR_POSICAO_FILHO)
+
+      local    laDELETE    := {} as array
+      local    lcWHERE     := '' as string
+
+      lcWHERE       := 'NR_PASTA = '+str(fnNR_POSICAO_FILHO)
+
+      /* ExclusÃ£o em cascata */
+      laDELETE := {'pasta',;
+                   'pasta_cip',;
+                   'pasta_analise_causa',;
+                   'pasta_andamento',;
+                   'pasta_andamento_last',;
+                   'pasta_auto',;
+                   'pasta_canal_relac_ocorrencias',;
+                   'pasta_contingencia',;
+                   'pasta_contrato_aditivo',;
+                   'pasta_contrato_anexo',;
+                   'pasta_contrato_sindicancia',;
+                   'pasta_contrato_sindicancia_dist',;
+                   'pasta_deposito',;
+                   'pasta_div_responsabilidade',;
+                   'pasta_garantia',;
+                   'pasta_itens_contrato',;
+                   'pasta_jurisprudencia',;
+                   'pasta_lic_certificado',;
+                   'pasta_log_altera',;
+                   'pasta_outraspartes',;
+                   'pasta_penhora',;
+                   'pasta_poderes_outorgado',;
+                   'pasta_prc_outorgado',;
+                   'pasta_prc_outorgante',;
+                   'pasta_prc_poder',;
+                   'pasta_rateio_ccusto',;
+                   'pasta_relacionamento',;
+                   'pasta_resultado_pedidos',;
+                   'pasta_sct_ata',;
+                   'pasta_sct_ata_deliberacao',;
+                   'pasta_sct_ata_ordemdia',;
+                   'pasta_sct_ato',;
+                   'pasta_sct_conselhos',;
+                   'pasta_sct_diretoria',;
+                   'pasta_sct_participacao',;
+                   'pasta_sct_procedimento',;
+                   'pasta_sct_socios',;
+                   'pasta_sct_superintendencia',;
+                   'pasta_seguro',;
+                   'pasta_seguro_lmi',;
+                   'pst_contrato_prestacao_servico',;
+                   'ra_contrato',;
+                   'ra_contrato_prestacao',;
+                   'ra_ocorrencia',;
+                   'fatura_avulso',;
+                   'mvt_despesa',;
+                   'mvt_servico'}
+
+      for ii:= len(laDELETE) to 1 step -1
+         if db_delete(laDELETE[ii],lcWHERE) == -1
+            error_sys(db_error())
+         endif
+      next ii
+
+return(nil)
+
+/*
+* Function..: gera_pasta_lits()
+* Objetivo..: Gerar pasta do LITS - Cria a pasta filho e sincroniza todos os filhos 
+*             de acordo com a pasta Pai - Não inclui o registro de partes que esta sendo digitado
+* Parâmetros:
+*   fcNR_PASTA: Numero da pasta
+*   fcTP_PASTA: Tipo de pasta
+*   fcCIP_PARTE: 
+*   fcNR_AUTOPROC
+*   
+* Retorno...: nil
+*/
+static function gera_pasta_lits(fcTP_PASTA, fcNR_PASTA, fcCIP_PARTE, fcNR_AUTOPROC,fcCip_empresa) 
+
+   private pcUSER_INTERFACE      := ''
+
+   local laLITS_CAMPOS_NAOCOMUM  := {} ,;
+         laLITS_ABAS_NAOCOMUM    := {} ,;
+         laTYPE                  := {} ,;
+         laFIELDS                := {} ,;
+         laFIELD1                := {} ,;
+         laPastaauto             := {} ,;
+         laVal_cbase             := {} ,;
+         laCstru                 := {} ,;
+         laPARAMS                := {} ,;
+         laFIELDS_AUX            := {} ,;
+         laSAVE                  := {} ,;
+         laSAVE_AUX              := {} ,;
+         laWHERE                 := {} ,;
+         laPUT                   := {} ,;
+         laQUANT                 := {} ,;
+         laAUX                   := {} ,;
+         laABAS                  := {} ,;
+         laRESULT                := {} ,;
+         laVAL_CAMPOS            := {} ,;
+         laVAL_ABAS              := {} ,;
+         laRES                   := {} ,;
+         laPASTACONFIG           := {} as array
+   
+   local lcTABLE              := 'pasta',;
+         lcTABLEI             := 'pasta_outraspartes',;
+         lcTABLEC             := 'pasta_cip',;
+         lcTABLER             := 'pasta_relacionamento' ,;
+         lcTABLES             := '' ,;
+         lcWHERE              := '' ,;
+         lcWHEREP             := '' ,;
+         lcWHERES             := '' ,;
+         lcCam                := '' ,;
+         lcCIP_EMPRESA        := '' ,;
+         lcCIPS               := '' ,;
+         lcOBJ_ID             := '' ,;
+         lcCampos             := '' ,;
+         lcNR_WPASTA          := '' ,;
+         lcNUR_PASTA          := '' ,;
+         lcPFPJ_ATIV          := '' ,;
+         lcGRP_ECONOM         := '' ,;
+         lcLITS_POSICAO_PARTE := '' ,;   
+         lcNR_PASTA           := '' as string
+
+   local lnNR_PASTA  := 0 as int
+   local lnPos       := 0 as int
+   local llReturn    := .f.  as logical
+   local llflag      := .t.  as logical
+   local cc          := 0 as int
+   local ii          := 0 as int
+ 
+   lcWHERE := 'pasta_outraspartes.NR_PASTA = '+fcNR_PASTA+;
+                   ' and pasta_outraspartes.NR_AUTOPROC='+fcNR_AUTOPROC+;
+                   ' and pasta_outraspartes.CIP_PARTE='+DLAP+fcCIP_PARTE+DLAP
+
+   lcWHEREP   := 'NR_PASTA = '+lcNR_WPASTA
+   
+   lcCam     := 'PC_RISCO,VL_AUTOR,VL_RE,VL_HOMOLOGADO,VL_PERITO,DT_ULTIMA_REVISAO,DT_ALTERACAO_PROVISAO,;
+                 EXTRA,VL_ESTIMATIVA_RT,VL_RECLAMADA,VL_RECLAMANTE,VL_TT_PROVISAO,VL_PROVISAO,VL_PROVISAO2'
+
+//-----------------------------------------------------------------------------------------------
+//                      Se filho existe levar o codigo
+
+     if db_select({'NR_PASTA_POSICAO_FILHO'},'pasta_outraspartes',,{lcWHERE}) = -1
+        error_sys(db_error())
+        return(lnNR_PASTA)
+     endif
+     laPASTA_OUTRASPARTES:= db_fetchrow()
+     if len(laPASTA_OUTRASPARTES) > 0
+        lnNR_PASTA:= laPASTA_OUTRASPARTES[1]
+        if lnNR_PASTA > 0
+           return(lnNR_PASTA)
+        endif
+     endif        
+//-----------------------------------------------------------------------------------------------
+//                      Campos/ABAS nao replicados - recuperados da tabela.campo pasta_config.
+
+      if db_select({'LITS_CAMPOS_NAOCOMUM','LITS_ABAS_NAOCOMUM','LITS_POSICAO_PARTE','LITS_POSICAO_MASTER'},'pasta_config',,{'TP_PASTA='+DLAP+fcTP_PASTA+DLAP}) < 0
+         error_sys(db_error())
+      endif
+      laPastaConfig := db_fetchrow()
+      if !empty(laPastaConfig[1])
+         laRES := str2array(laPastaConfig[1],',')
+         for ii := 1 to len(laRES)
+              aadd(laVAL_CAMPOS,laRES[ii])
+         next ii
+      endif
+      if !empty(laPastaConfig[2])
+         laRES := str2array(laPastaConfig[2],',')
+         for ii := 1 to len(laRES)
+              aadd(laVAL_ABAS,laRES[ii])
+         next ii
+      endif
+
+      if len(lapastaconfig) > 0
+         lcLITS_POSICAO_PARTE := laPASTACONFIG[3]
+         lcLITS_MASTER := laPASTACONFIG[4]
+       endif
+
+//----------------------     Mover os campos comuns do LITS     ----------------
+
+     laFIELDS := structtable(WSet("DB_ACTIVE"),'pasta',1,'A')
+     if db_select(laFIELDS,'pasta',,{'NR_PASTA='+fcNR_PASTA}) == -1
+        error_sys(db_error())
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0        
+         for ii := 1 to len(laFIELDS)
+             aadd(laFIELDS_AUX,laFIELDS[ii])     // joga nome dos campos para a tabela aux
+         next ii
+        
+         aadd(laSAVE,laFIELDS_AUX)
+         
+//-------    Campos que nao serão replicados    --------------------------------
+
+         for ii := 1 to len(laRESULT)
+             if ascan(laVAL_CAMPOS,laFields_AUX[ii]) > 0
+                if valtype(laRESULT[ii]) == 'C'
+                   laRESULT[ii] := ''
+                endif
+                if valtype(laRESULT[ii]) == 'N'
+                   laRESULT[ii] := 0
+                endif
+                if valtype(laRESULT[ii]) == 'D'
+                   laRESULT[ii] := ctod('')
+                endif
+                if valtype(laRESULT[ii]) == 'U'
+                   laRESULT[ii] := null
+                endif
+ 
+             endif      
+             //---------- Busca a Atividade e o Grupo Economico relacionados ao CIP_EMPRESA
+             if db_select({'PFPJ_ATIVIDADE','CD_GRP_ECONOMICO'},'pfpj',,{'CIP ='+DLAP+fcCIP_EMPRESA+DLAP}) == -1
+                error_sys(db_error())
+             endif
+             laPFPJ_ATIV := db_fetchrow()
+               
+             if laFields_AUX[ii]  == 'NR_PASTA'             // movendo o conteudo 
+                laRESULT[ii] := '0'
+
+             elseif laFIELDS_AUX[ii] == 'PFPJ_ATIVIDADE'    
+                if ascan(laVAL_CAMPOS,laFields_AUX[ii]) > 0
+                   if len(laPFPJ_ATIV) > 0
+                      if empty(laPFPJ_ATIV[1])
+                         lcPFPJ_ATIV := ''
+                      else   
+                         lcPFPJ_ATIV := laPFPJ_ATIV[1]
+                      endif
+                   else  
+                      lcPFPJ_ATIV := ''
+                   endif
+                   laRESULT[ii] := lcPFPJ_ATIV
+                endif   
+
+             elseif laFIELDS_AUX[ii] == 'CD_GRP_ECONOMICO'    
+                if len(laPFPJ_ATIV) > 0
+                   if empty(laPFPJ_ATIV[2])
+                      lcGRP_ECONOM := ''
+                   else   
+                      lcGRP_ECONOM := laPFPJ_ATIV[2]
+                   endif   
+                endif   
+                laRESULT[ii] := lcGRP_ECONOM
+
+             endif 
+         next ii  
+
+//------------   Verifica se pst_execucao e não replica- zera os campos     --------------------------------------------------------
+
+       if ascan(laVAL_ABAS,'pst_execucao_html')  > 0 
+         laCstru := str2array(lcCam,',')
+         for ii := 1 to len(laCstru)
+             aadd(laVal_cbase,laCstru[ii])
+         next ii
+         for ii := 1 to len(laRESULT)
+             if ascan(laVAL_Cbase,laFields_AUX[ii]) > 0
+                if valtype(laRESULT[ii]) == 'C'
+                   laRESULT[ii] := ''
+                endif
+                if valtype(laRESULT[ii]) == 'N'
+                   laRESULT[ii] := 0
+                endif
+                if valtype(laRESULT[ii]) == 'D'
+                   laRESULT[ii] := ctod('')
+                endif
+                if valtype(laRESULT[ii]) == 'U'
+                   laRESULT[ii] := null
+                endif
+              endif      
+         next ii 
+       endif     
+//------------   Verifica se campos de Pedido e não replica-zera os campos     -----------------------------------
+ 
+/*  
+         Em conversa da Célia com o Alexandre foi retirada esta função,
+         mas como ainda falta homologação da VPar (principal usuária do Lits)
+         não apagá-la do sistema, pois ela pode decidir utilizar desta forma. 
+                
+         for nn:=1 to len(laRESULT)
+              if laFields_AUX[nn] = 'VL_RISCO'
+                 laRESULT[nn] := '0'
+              endif
+          next nn    
+
+         for nn:=1 to len(laRESULT)
+              if laFields_AUX[nn] = 'VL_RISCO_HONORARIO'
+                 laRESULT[nn] := '0'
+              endif
+          next nn    
+
+         for nn:=1 to len(laRESULT)
+              if laFields_AUX[nn] = 'VL_ACAO'
+                 laRESULT[nn] := '0'
+              endif
+          next nn    
+
+         for nn:=1 to len(laRESULT)
+              if laFields_AUX[nn] = 'VL_CAUSA'
+                 laRESULT[nn] := '0'
+              endif
+          next nn    
+
+         for nn:=1 to len(laRESULT)
+              if laFields_AUX[nn] = 'CD_INDICE'
+                 laRESULT[nn] := '0'
+              endif
+          next nn    
+
+*/
+//------------   Verifica se psab_Corporativo e não replica- zera os campos     -----------------------------------
+
+       if ascan(laVAL_ABAS,'psab_corporativo_html')  > 0 
+          for nn:=1 to len(laRESULT)
+              if laFields_AUX[nn] = 'DEPARTAMENTO'
+                 laRESULT[nn] := ''
+              endif
+          next nn    
+       endif     
+
+//------------Se não quiser configurar no Pasta Config FLAG do campos LITS para os filhos
+       for nn:=1 to len(laRESULT)
+          if laFields_AUX[nn] = 'FL_TT_LITSCONSORTE'
+             laRESULT[nn] := ''
+          endif
+       next nn    
+//------------        Movendo os conteudos para o array     --------------------
+
+       for nn:=1 to len(laResult)
+          aadd(laSAVE_AUX,laRESULT[nn])       
+       next nn
+       
+       aadd(laSAVE,laSAVE_AUX) 
+         
+       laSAVE_AUX   := {}
+       laFIELDS_AUX := {}
+
+//-------------  Criando a pasta filho   --------------------------------------
+
+         if db_insert(laSAVE,lcTABLE,) == -1
+            db_rollback()
+            error_sys(db_error())
+         endif            
+
+         lnNR_PASTA := db_insert_id()
+         lcNR_WPASTA := alltrim(str(lnNR_PASTA))
+         lcNUR_PASTA := fcNR_PASTA
+
+         lcTABLES:='pasta_contingencia'
+         lcWHERES:= 'NR_PASTA='+lcNUR_PASTA
+
+         sincroniza_pasta(lcNUR_PASTA,lnNR_PASTA,lcTABLES,lcWHERES)  //contingencia
+
+         lcTABLES:='pasta_resultado_pedidos'
+         sincroniza_pasta(lcNUR_PASTA,lnNR_PASTA, lcTABLES,lcWHERES)  //resultado_pedidos
+
+         lcTABLES:='pasta_itens_contrato'
+         sincroniza_pasta(lcNUR_PASTA,lnNR_PASTA,lcTABLES,lcWHERES)  //itens_pedidos
+         
+//----------------------------------------------------------------------------------
+//                      Relacionamento entre pastas            
+
+         laSAVE := {}
+         laSAVE_AUX:={}
+         aadd(laSAVE,{'NR_PASTA',;
+                      'NR_PASTA_FILHO',;
+                      'TP_PASTA_RELACIONAMENTO'})
+
+                  //Caso a pasta relacionada seja PAI
+                  
+         aadd(laSAVE_AUX,fcNR_PASTA)                              //Pasta Relacionada se torna PAI
+         aadd(laSAVE_AUX,lcNR_WPASTA)                             //Pasta Ativa se torna a filha
+         aadd(laSAVE_AUX,lcLITS_POSICAO_PARTE)                    //Tipo da Relação
+
+//         lcLITS_POSICAO_PARTE 'Filho'
+//         lcLITS_MASTER  'Pai'
+
+         laWHERE := {'NR_PASTA='+fcNR_PASTA+' and NR_PASTA_FILHO='+lcNR_WPASTA}
+         aadd(laSAVE,laSAVE_AUX)
+         if db_replace(laSAVE,lcTABLER,laWHERE) == -1
+            error_sys(db_error())
+         endif
+//-----------------------------------------------------------------------------------------------
+//                       Gravando os campos CIP          /UTILIZAR ROTINA PADRAO
+
+         laSAVE := {}
+         laSAVE_AUX:={}
+         laFIELDS_AUX:={}
+         
+         laFIELDS := structtable(WSet("DB_ACTIVE"),'pasta_cip',1,'N')
+         if db_select(laFIELDS,'pasta_cip',,{'NR_PASTA='+fcNR_PASTA}) == -1
+            error_sys(db_error())
+         endif
+
+         laPUT := db_fetchall()
+         if len(laPUT) > 0 
+            for ii := 1 to len(laFIELDS)
+                aadd(laFIELDS_AUX,laFIELDS[ii])     // joga nome dos campos para a tabela aux
+            next ii
+            aadd(laSAVE,laFIELDS_AUX)
+            for ii := 2 to len(laPUT)
+                for cc := 1 to len(laFIELDS_AUX) 
+                    if ascan(laVAL_CAMPOS,laPUT[ii,cc]) <= 0
+                       if laPUT[1,cc]  == 'NR_PASTA'             // movendo o conteudo 
+                          laPUT[ii,cc] := lcNR_WPASTA
+                       endif 
+                       aadd(laSAVE_AUX,laPUT[ii,cc])
+                     else
+                       llflag:=(.f.)
+                    endif
+                next cc 
+                if llflag  
+                   if laSave_aux[2] == 'CIP_EMPRESA'
+                      laSave_aux[3] := fcCip_empresa
+                   endif   
+
+                   aadd(laSAVE, laSAVE_AUX)   
+                   if db_insert(laSAVE,lcTABLEC,) == -1
+                      db_rollback()
+                      error_sys(db_error())
+                   endif  
+                endif
+          
+                llflag := (.t.)
+                laSAVE:= {}           
+                aadd(laSAVE,laFIELDS_AUX)
+                laSAVE_AUX:= {}           
+            next ii  
+         endif 
+
+
+//------------   Verifica se psab_auto   -----------------------------------
+
+       if ascan(laVAL_ABAS,'psab_auto_html')  <= 0 
+         laFIELD1 := structtable(WSet("DB_ACTIVE"),'pasta_auto',1,'N')
+         if db_select(laFIELD1,'pasta_auto',,{'NR_PASTA='+fcNR_PASTA}) == -1
+            error_sys(db_error())
+         endif
+         laPastaauto:=db_fetchall()
+         if len(laPastaauto) > 0
+            lasavefilho:={} 
+            aadd(laSAVEFILHO,laFIELD1)
+            laSAVE_AUX := {}
+            for ii:= 2 to len(laPastaauto)
+                for jj:= 1 to len(laField1)
+                    if laFIELD1[jj]='NR_PASTA'
+                        aadd(laSAVE_AUX,lcNR_WPASTA)
+                    elseif   laField1[jj] = 'NR_AUTOPROC'
+                        lnAuto:= laPastaauto[ii,jj]
+                        aadd(laSAVE_AUX,'0')
+                    elseif laField1[jj] = 'NR_AUTO_RELACAO'
+                        aadd(laSAVE_AUX,str(lnAuto))
+                    else
+                        aadd(laSAVE_AUX,laPastaauto[ii,jj])
+                    endif                         
+                next jj
+                aadd(laSAVEFILHO,laSAVE_AUX)
+                if db_insert(laSAVEfilho,'pasta_auto') = -1
+                   error_sys(db_error())
+                endif
+                lasavefilho:={} 
+                aadd(laSAVEFILHO,laFIELD1)
+                laSAVE_AUX := {}
+            next ii    
+          endif 
+        endif
+//-----------------------------------------------------------------------------------------
+//------------   Verifica se penhora  -----------------------------------
+
+       if ascan(laVAL_ABAS,'pst_penhora_html')  <= 0 
+         laFIELD1 := structtable(WSet("DB_ACTIVE"),'pasta_penhora',1,'N')
+         if db_select(laFIELD1,'pasta_penhora',,{'NR_PASTA='+fcNR_PASTA}) == -1
+            error_sys(db_error())
+         endif
+         laPastaauto:=db_fetchall()
+         if len(laPastaauto) > 0
+            lasavefilho:={} 
+            aadd(laSAVEFILHO,laFIELD1)
+            laSAVE_AUX := {}
+            for ii:= 2 to len(laPastaauto)
+                for jj:= 1 to len(laField1)
+                    if laFIELD1[jj]='NR_PASTA'
+                        aadd(laSAVE_AUX,lcNR_WPASTA)
+                    elseif   laField1[jj] = 'NR_PENHORA'
+                        lnAuto:= laPastaauto[ii,jj]
+                        aadd(laSAVE_AUX,'0')
+                    elseif laField1[jj] = 'NR_PENHORA_RELACAO'
+                        aadd(laSAVE_AUX,str(lnAuto))
+                    else
+                        aadd(laSAVE_AUX,laPastaauto[ii,jj])
+                    endif                         
+                next jj
+                aadd(laSAVEFILHO,laSAVE_AUX)
+                if db_insert(laSAVEfilho,'pasta_penhora') = -1
+                   error_sys(db_error())
+                endif
+                lasavefilho:={} 
+                aadd(laSAVEFILHO,laFIELD1)
+                laSAVE_AUX := {}
+            next ii    
+          endif 
+        endif
+//-----------------------------------------------------------------------------------------
+//------------   Verifica se garantia  -----------------------------------
+
+       if ascan(laVAL_ABAS,'psab_garantia_html')  <= 0 
+         laFIELD1 := structtable(WSet("DB_ACTIVE"),'pasta_garantia',1,'N')
+         if db_select(laFIELD1,'pasta_garantia',,{'NR_PASTA='+fcNR_PASTA}) == -1
+            error_sys(db_error())
+         endif
+         laPastaauto:=db_fetchall()
+         if len(laPastaauto) > 0
+            lasavefilho:={} 
+            aadd(laSAVEFILHO,laFIELD1)
+            laSAVE_AUX := {}
+            for ii:= 2 to len(laPastaauto)
+                for jj:= 1 to len(laField1)
+                    if laFIELD1[jj]='NR_PASTA'
+                        aadd(laSAVE_AUX,lcNR_WPASTA)
+                    elseif   laField1[jj] = 'NR_CONTROLE'
+                        lnAuto:= laPastaauto[ii,jj]
+                        aadd(laSAVE_AUX,'0')
+                    elseif laField1[jj] = 'NR_GARANTIA_RELACAO'
+                        aadd(laSAVE_AUX,str(lnAuto))
+                    else
+                        aadd(laSAVE_AUX,laPastaauto[ii,jj])
+                    endif                         
+                next jj
+                aadd(laSAVEFILHO,laSAVE_AUX)
+                if db_insert(laSAVEfilho,'pasta_garantia') = -1
+                   error_sys(db_error())
+                endif
+                lasavefilho:={} 
+                aadd(laSAVEFILHO,laFIELD1)
+                laSAVE_AUX := {}
+            next ii    
+          endif 
+        endif
+//-----------------------------------------------------------------------------------------
+//------------   Verifica se andamento-----------------------------------
+
+       if ascan(laVAL_ABAS,'mnt_pst_andamento_html')  <= 0  
+         laFIELD1 := structtable(WSet("DB_ACTIVE"),'pasta_andamento',1,'N')
+         if db_select(laFIELD1,'pasta_andamento',,{'NR_PASTA='+fcNR_PASTA}) == -1
+            error_sys(db_error())
+         endif
+         laPastaauto:=db_fetchall()
+         if len(laPastaauto) > 0
+            lasavefilho:={} 
+            aadd(laSAVEFILHO,laFIELD1)
+            laSAVE_AUX := {}
+            for ii:= 2 to len(laPastaauto)
+                for jj:= 1 to len(laField1)
+                    if laFIELD1[jj]='NR_PASTA'
+                        aadd(laSAVE_AUX,lcNR_WPASTA)
+                    elseif   laField1[jj] = 'NR_ANDAMENTO'
+                        lnAuto:= laPastaauto[ii,jj]
+                        aadd(laSAVE_AUX,'0')
+                    elseif laField1[jj] = 'NR_ANDAMENTO_RELACAO'
+                        aadd(laSAVE_AUX,str(lnAuto))
+                    elseif laField1[jj] = 'NR_AUTOPROC'
+                        lnPaiCdProc:=laPastaauto[ii,jj]
+                        if lnPaiCdProc > 0 
+                           lnFilhoCdProc:=Create_Autoproc(lnPaiCdProc,lcNR_WPASTA, lcNur_pasta)
+                           aadd(laSAVE_AUX,str(lnFilhoCdProc))
+                        else
+                           aadd(laSAVE_AUX,'0')
+                        endif   
+                    else
+                        aadd(laSAVE_AUX,laPastaauto[ii,jj])
+                    endif                         
+                next jj
+                aadd(laSAVEFILHO,laSAVE_AUX)
+                if db_insert(laSAVEfilho,'pasta_andamento') = -1
+                   error_sys(db_error())
+                endif
+                lasavefilho:={} 
+                aadd(laSAVEFILHO,laFIELD1)
+                laSAVE_AUX := {}
+            next ii    
+          endif 
+        endif
+//-----------------------------------------------------------------------------------------
+//------------   Verifica se Partes--------------------------------------------------------
+//-- Vai atualizar a aba partes  que pertencem a pasta filho criada - Já existente
+
+       if ascan(laVAL_ABAS,'mnt_pst_partes_html')  <= 0  
+         laFIELD1 := structtable(WSet("DB_ACTIVE"),'pasta_outraspartes',1,'N')
+         if db_select(laFIELD1,'pasta_outraspartes',,{'NR_PASTA='+fcNR_PASTA}) == -1
+            error_sys(db_error())
+         endif
+         laPastaauto:=db_fetchall()
+         if len(laPastaauto) > 0
+            lasavefilho:={} 
+            aadd(laSAVEFILHO,laFIELD1)
+            laSAVE_AUX := {}
+            for ii:= 2 to len(laPastaauto)
+                for jj:= 1 to len(laField1)
+                    if laFIELD1[jj]='NR_PASTA'
+                        aadd(laSAVE_AUX,lcNR_WPASTA)
+                    elseif laField1[jj] = 'NR_AUTOPROC'
+                        if laPastaauto[ii,jj] > 0 
+                           lnFilhoCdProc:=Autoproc_Partes(laPastaauto[ii,jj],lcNR_WPASTA, lcNur_pasta)
+                           aadd(laSAVE_AUX,str(lnFilhoCdProc))
+                        else
+                           aadd(laSAVE_AUX,0)
+                        endif   
+                    else
+                        aadd(laSAVE_AUX,laPastaauto[ii,jj])
+                    endif                         
+                next jj
+                aadd(laSAVEFILHO,laSAVE_AUX)
+                if db_insert(laSAVEfilho,'pasta_outraspartes') = -1
+                   error_sys(db_error())
+                endif
+                lasavefilho:={} 
+                aadd(laSAVEFILHO,laFIELD1)
+                laSAVE_AUX := {}
+            next ii    
+         endif 
+       endif
+
+//---------------------------------------------------------------------------------------------------------------------
+//                           Gravando nas pastas-abas respectivas
+
+         laSAVE := {}
+         laSAVE_AUX:={}
+         laFIELDS_AUX:={}
+
+         if db_select({'LAYOUT_PASTA'},'pasta_config',,{'TP_PASTA='+DLAP+fcTP_PASTA+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchrow()
+         if len(laRESULT) = 0
+            return(.f.)
+         endif
+         lcMENU := 'PST_'+upper(laRESULT[1])
+         if len(db_findrec({'MENU'},'wmenu','MENU='+DLMT+lcMENU+DLMT)) = 0 // Se o menu de abas relacionado ao layout não existir
+            lcMENU := 'PST_PADRAO'                                         // Traz o menu de abas padrão
+         endif
+         laABAS := structmenu(lcMENU)
+         if len(laABAS) > 0
+            aadd(laABAS[1],'OBJ_ID')
+            for ii := 2 to len(laABAS)
+                lcOBJ_ID := substr( laABAS[ii,1] , rat('/',laABAS[ii,1])+1 ) // Extrai a string depois da ultima barra encontrada.
+                lcOBJ_ID := strtran( lcOBJ_ID , '.' , '_' )                  // Transforma pontos em underline.
+                if ascan(laVAL_ABAS,lcOBJ_ID) <= 0                           // Abas que nao serao replicadas
+                   aadd(laPARAMS,lcOBJ_ID)
+                   aadd(laABAS[ii],lcOBJ_ID)
+                endif
+            next ii
+
+            laQUANT := pasta_quant(lcNUR_PASTA,laPARAMS)
+
+//--------   ABAS PARA SEREM REPLICADAS     -----------------------------------------------------
+            if len(laQUANT) > 0
+               for ii := 2 to len(laQUANT)
+                   for cc := 1 to 2 
+                       if laQUANT[1,cc]  == 'QTD'             // movendo o conteudo 
+                          if laQUANT[ii,cc] > 0
+                             Gerar_Abas(laPARAMS, lcNUR_PASTA, lnNR_PASTA)
+                             return(lnNR_PASTA)
+                          endif
+                       endif
+                   next cc 
+               next ii  
+            endif 
+         endif    
+     endif
+
+Return(lnNR_PASTA)
+
+/*
+* Function..: deleta_cips()
+* Objetivo..: Deletar os cips da pasta
+* Parâmetros:
+*   fcNR_PASTA: Numero da pasta
+*   fcTP_PASTA: Tipo de pasta
+*   fcCIP_PARTE 
+*   fcNR_AUTOPROC
+* Retorno...: nil
+*/
+static function deleta_cips(fnNR_POSICAO_FILHO)
+
+  local ii := 0 as int
+
+         if db_select({'NR_PASTA','WFIELD','CIP'},'pasta_cip',,{'NR_PASTA='+str(fnNR_POSICAO_FILHO)}) == -1
+            error_sys(db_error())
+         endif
+
+         laPUT := db_fetchall()
+         if len(laPUT) > 0 
+            for ii :=1 to len(laPUT)
+                if db_delete('pasta_cip','NR_PASTA='+str(fnNR_POSICAO_FILHO)) == -1
+                   error_sys(db_error())
+                endif
+           next ii
+         endif  
+Return(nil)
+
+/*
+* Function..:  monta_partes_filhos()
+* Objetivo..: Alterar/Incluir partes em todas as  pastas - os filhos que foram incluidod
+* Parâmetros:
+*   fcNR_PASTA: Numero da pasta
+*   fcCIP_PARTE 
+*   fcNR_AUTOPROC
+* Retorno...: nil
+*/
+static function monta_partes_filhos(fcNR_PASTA,fcNR_AUTOPROC,fcCIP_PARTE,fcTABLE, fcTp_Pasta)
+
+   local laFIELDS                := {} ,;
+         laFIELDS_AUX            := {} ,;
+         laSAVE                  := {} ,;
+         laSAVE_AUX              := {} ,;
+         laPUT                   := {} ,;
+         laFilho                 := {} as array
+   
+   local lcWHERE                 := '' ,;
+         lcTp_pasta              := '' ,;         
+         lcNR_PASTA              := '' as string
+
+   local ii                      :=0 as int
+   local ll                      :=0 as int
+   local cc                      :=0 as int
+   local lnAlto                  :=0 as int
+   local llflag                  :=.t. as logical
+   
+   lcTp_pasta := fcTp_pasta
+   
+      laFIELDS := structtable(WSet("DB_ACTIVE"),fcTable,1,'N')
+      if db_select(laFIELDS,fcTable,,{'NR_PASTA='+fcNR_PASTA}) == -1
+         error_sys(db_error())
+      endif
+
+      laPUT := db_fetchall()
+      if len(laPUT) > 0 
+         for ii := 1 to len(laFIELDS)
+             aadd(laFIELDS_AUX,laFIELDS[ii])     // joga nome dos campos para a tabela aux
+         next ii
+         aadd(laSAVE,laFIELDS_AUX)
+         laFilho:=Montar_filho(fcNR_PASTA, lcTp_pasta)
+         if len(laFilho) > 0
+             for ll:=1 to len(laFilho) 
+                  for ii := 2 to len(laPut)
+                      for cc := 1 to len(laFIELDS_AUX) 
+                          if laPut[ii,7] <> lafilho[ll]
+                             if laPut[1,cc]  == 'NR_PASTA'             // movendo o conteudo 
+                                aadd(laSave_aux, lafilho[ll]) 
+                             else
+                                if laPut[1,cc]  == 'NR_AUTOPROC'             // movendo o conteudo 
+                                  if laPut[ii,cc] > 0
+                                     aadd(lasave_aux,Autoproc_partes(laPut[ii,cc],str(lafilho[ll]),fcNr_Pasta))
+                                  else
+                                     aadd(lasave_aux,0)
+                                  endif
+                                else
+                                  aadd(laSave_aux, laPut[ii,cc]) 
+                                endif
+                             endif
+                          else
+                             llflag:=.f.
+                          endif      
+                      next cc 
+                      if llflag 
+                         aadd(laSave,laSave_aux)
+                         lcWHERE  := 'NR_PASTA = '+str(laFilho[ll]) +' and NR_AUTOPROC='+str(lasave[2,6])+;
+                                  ' and CIP_PARTE='+DLAP+laSave[2,4]+DLAP         //+DLAP+fcCIP_PARTE+DLAP
+                         if db_replace(laSAVE,fcTABLE,{lcWHERE}) == -1
+                            error_sys(db_error())
+                         endif
+                      endif  
+                      laSave:={}     
+                      aadd(laSAVE,laFIELDS_AUX)
+                      laSave_aux:={}
+                      llflag:=.t.
+                  next ii
+                  laSave:={}     
+                  aadd(laSAVE,laFIELDS_AUX)
+                  llflag:=.t.
+                  laSave_aux:={}
+             next ll
+         endif      
+      endif
+Return(nil)
+
+/*
+* Function..:  monta_master()
+* Objetivo..: Incluir o tipo Master onde a chave do Pai vira chave do filho
+* Parâmetros:
+*   fcNR_PASTA: Numero da pasta
+*   fcCIP_PARTE 
+*   fcNR_AUTOPROC
+* Retorno...: nil
+*/
+static function monta_master(fcNR_PASTA,fcNR_AUTOPROC,fcCIP_PARTE,fcTABLE,fcTP_PASTA)
+
+   local laFIELDS                := {} ,;
+         laFIELDS_AUX            := {} ,;
+         laSAVE                  := {} ,;
+         laSAVE_AUX              := {} ,;
+         laPUT                   := {} ,;
+         laRes                   := {} ,;
+         laFilho                 := {} as array
+   
+   local lcWHERE                 := '' ,;
+         lcNR_PASTA              := '' as string
+
+   local ii                      :=0 as int
+   local ll                      :=0 as int
+   local cc                      :=0 as int
+   local lnAuto                  :=0 as int
+   local llflag                  :=.t. as logical
+   
+      if db_select({'pasta_config.LITS_POSICAO_MASTER'},'pasta_config',,{'TP_PASTA='+DLAP+fcTP_PASTA+DLAP}) == -1 // pasta_config verifica LITS    
+         error_sys(db_error())
+         return(llRETURN)
+      endif
+      laPASTACONFIG:= db_fetchrow()
+      lcLITS_MAster := laPASTACONFIG[1]
+//---------------------------------------------------------------------------------
+      lcNomecip:= 'CIP_EMPRESA'
+      lcWHEREi := 'NR_PASTA='+fcNR_PASTA+' and WFIELD='+DLAP+LcNomecip+DLAP   
+      if db_select({'CIP'},'pasta_cip',,{lcWherei}) == -1
+         error_sys(db_error())
+      endif
+      laTabCip:=db_fetchrow()
+      if len(laTabCip) <= 0
+         walert('Pasta LitsConsorte, é necessário informar a Empresa')
+      else
+        lcCip_Master:=laTabCip[1]
+//---------------------------------------------------------------------------------
+
+        laFIELDS := structtable(WSet("DB_ACTIVE"),fcTable,1,'N')
+        if db_select(laFIELDS,fcTable,,{'NR_PASTA='+fcNR_PASTA +' AND NR_PASTA_POSICAO_FILHO > '+'0'}) == -1
+           error_sys(db_error())
+        endif
+        laPUT := db_fetchall()
+        if len(laPUT) > 0 
+           for ii := 1 to len(laFIELDS)
+              aadd(laFIELDS_AUX,laFIELDS[ii])     // joga nome dos campos para a tabela aux
+           next ii
+           aadd(laSAVE,laFIELDS_AUX)
+           laFilho:=Montar_filho(fcNR_PASTA, fcTp_pasta)
+
+           if len(laFilho) > 0
+              for ll:=1 to len(laFilho)
+                  for ii:= 2 to len(laPut)
+                     if laPut[ii,7]  == laFilho[ll]             // movendo o conteudo 
+                        Aadd(lasave_aux, laFilho[ll])
+                        Aadd(lasave_aux, laPut[ii,2])
+                        Aadd(lasave_aux, lcLits_master)
+                        Aadd(lasave_aux, lcCip_Master)
+                        Aadd(lasave_aux, laPut[ii,5])
+//                        Aadd(lasave_aux, laPut[ii,6])
+                        Aadd(lasave_aux, 0)
+                        Aadd(lasave_aux, fcNR_PASTA)
+                        aadd(laSave, laSave_Aux)
+                        lcWHERE  := 'NR_PASTA = '+str(laFilho[ll]) +' and NR_AUTOPROC='+'0'+;
+                                    ' and CIP_PARTE='+DLAP+lcCip_Master+DLAP
+                        if db_replace(laSAVE,fcTABLE,{lcWHERE}) == -1
+                           error_sys(db_error())
+                        endif
+                        laSave:={}     
+                        laSave_aux:={}     
+                        aadd(laSAVE,laFIELDS_AUX)
+                     endif  
+                  next ii
+
+                  laSave:={}     
+                  laSave_aux:={}     
+                  aadd(laSAVE,laFIELDS_AUX)
+
+              next ll
+
+              laSave:={}     
+              aadd(laSAVE,laFIELDS_AUX)
+           endif      
+        endif
+     endif   
+Return(nil)
+
+
+/*
+* Function..:  Create_Autoproc(fcPaiCdProc,fcNR_PASTA, lcNur_pasta)
+* Objetivo..:  Achar o NR_Auto de cada filho atraves do NR_AUTO_RELACAO
+* Autor.....:  Eliana 27/03/2009 para Lits projeto VPAR
+* Parâmetros:
+*   fcNR_PASTA: Numero da pasta do filho
+*   fcNUR_PASTA: Numero da pasta do pai
+*   fcPaiCdProc : Codigo NR_autoproc da pasta andamento PAI
+* Retorno...: lcFilhoCdProc --> Nr_Autoproc do AUTO que pertence ao ANDAMENTO deste filho
+*/
+static function Create_Autoproc(fnPaiCdProc,fcNR_PASTA, fcNur_pasta)
+
+local    laAUTO_PAI      := {} ,;
+         laAUTO_FILHO    := {}  as array
+
+Local    lnFilhoCdProc := 0  as int
+
+//--------        Buscando auto processual principal     ----------------------- 
+
+         if db_select({'NUMERO_DOC'},'pasta_auto',,{'NR_PASTA='+fcNUR_PASTA+' and NR_AUTOPROC = '+str(fnPaiCdProc)}) == -1
+             error_sys(db_error())
+         endif
+         laAUTO_PAI := db_fetchrow()  // Numero do Documento do Auto Principal.
+         lcNUM_DOC  := iif(len(laAUTO_PAI) > 0,laAUTO_PAI[1],'')
+//-------        Buscando auto processo secundario    -------------------------
+
+         if fnPaiCdProc > 0
+            if db_select({'NR_AUTOPROC'},'pasta_auto',,{'NR_PASTA='+fcNR_PASTA+' And NR_AUTO_RELACAO = '+str(fnPaiCdProc)+' AND NUMERO_DOC ='+DLAP+lcNUM_DOC+DLAP}) == -1
+               error_sys(db_error())
+            endif
+            laAUTO_FILHO := db_fetchrow()  // Numero do Auto Secundário.
+            if len(laAUTO_FILHO) > 0
+               lnFilhoCdProc := laAUTO_FILHO[1]
+            else
+               lnFilhoCdProc := 0
+            endif   
+         else    
+           lnFilhoCdProc := 0
+         endif    
+
+return(lnFilhoCdProc)         
+
+/*
+* Function..:  Autoproc_Partes(fcPaiCdProc,fcNR_PASTA, lcNur_pasta)
+* Objetivo..:  Achar o NR_Auto de cada filho para gravar na pasta_outraspartes
+* Autor.....:  Eliana 27/03/2009 para Lits projeto VPAR
+* Parâmetros:
+*   fcNR_PASTA: Numero da pasta do filho
+*   fcNUR_PASTA: Numero da pasta do pai
+*   fcPaiCdProc : Codigo NR_autoproc da pasta andamento PAI
+* Retorno...: lcFilhoCdProc --> Nr_Autoproc do AUTO que pertence ao ANDAMENTO deste filho
+*/
+static function Autoproc_Partes(fnPaiCdProc,fcNR_PASTA, fcNur_pasta)
+
+local    laAUTO_PAI      := {} ,;
+         laAUTO_FILHO    := {}  as array
+
+Local    lnFilhoCdProc := 0  as int
+
+//--------        Buscando auto processual principal     ----------------------- 
+
+         if db_select({'NUMERO_DOC'},'pasta_auto',,{'NR_PASTA='+fcNUR_PASTA+' and NR_AUTOPROC = '+str(fnPaiCdProc)}) == -1
+             error_sys(db_error())
+         endif
+         laAUTO_PAI := db_fetchrow()  // Numero do Documento do Auto Principal.
+         lcNUM_DOC  := iif(len(laAUTO_PAI) > 0,laAUTO_PAI[1],'')
+
+//-------        Buscando auto processo secundario    -------------------------
+
+         if fnPaiCdProc > 0
+            if db_select({'NR_AUTOPROC'},'pasta_auto',,{'NR_PASTA='+fcNR_PASTA+' And NR_AUTO_RELACAO = '+str(fnPaiCdProc)+' AND NUMERO_DOC ='+DLAP+lcNUM_DOC+DLAP}) == -1
+               error_sys(db_error())
+            endif
+            laAUTO_FILHO := db_fetchrow()  // Numero do Auto Secundário.
+            if len(laAUTO_FILHO) > 0
+               lnFilhoCdProc := laAUTO_FILHO[1]
+            else
+               lnFilhoCdProc := 0
+            endif   
+         else    
+           lnFilhoCdProc := 0
+         endif  
+return(lnFilhoCdProc)         
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

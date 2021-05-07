@@ -1,0 +1,43 @@
+/*
+Project      : gr5
+Program      : sch.grupo_economico.html
+Function     : sch_grupo_economico_html
+Created on   : 21-Jan-2003   15:40:02
+Descripition : Pesquisa de Grupo Econômico
+*/
+
+local laFIELDS       := {},;
+      laJAVA         := {},;
+      laQUICK_SEARCH := {} as array
+
+laFIELDS       := {'CD_GRP_ECONOMICO','NM_GRP_ECONOMICO'}
+laJAVA         := {'mntform',{{'CD_GRP_ECONOMICO','CD_GRP_ECONOMICO'},{'NM_GRP_ECONOMICO','NM_GRP_ECONOMICO'}}}
+laQUICK_SEARCH := {'NM_GRP_ECONOMICO'}
+laWHERE        := {'FL_ATIVO <> '+DLAP+'I'+DLAP}
+
+build_program('grupo_economico',;         //Tabela Alvo
+              ,;                          //Join
+              laWHERE,;                          //Where
+              ,;                          //Order by
+              ,;                          //Sort [A]-Ascendente [D]-Descentende
+              ,;                          //Group by
+              ,;                          //Limit
+              ,;                          //Banco de Dados
+              3,;                         //Modo de funcionamento [1]-Listagem/Form para manutenção [2]-Listagem e Manutenção [3]-Search
+              'gr5',;                    //Modulo do programa chamador
+              WSet('_USER_INTERFACE'),;   //Programa chamador
+              ,;                          //Parametros para linhas clicáveis
+              ,;                          //Botoes (nil)
+              'mnt.grupo_economico.html',;//Programa chamado pelos links (linhas clicáveis)
+              'gr5',;                    //Módulo do programa chamado pelos links
+              laJAVA,;                    //Retorno java (nil) - usado apenas no search
+              laQUICK_SEARCH,;            //Campos usados na pesquisa rápida
+              ,;                          //Campos ocultos. Usado apenas em manutenções    ***
+              ,;                          //Campos da área de manutenção/entrada de dados  ***
+              laFIELDS,;                  //Campos mostratos no grid
+              laFIELDS)                   //Campos usados no select
+return
+
+
+
+

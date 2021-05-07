@@ -1,0 +1,372 @@
+/*
+
+Project      : gr5
+Program      : cancela_despesa_mnt_html
+Function     : cancela_despesa_mnt_html
+Created on   : 03/12/2014
+Descripition : Cancela Despesas
+
+*/
+
+   local lcACTION := '' ,;
+         lcTABLE  := '' ,;
+         lcCAMPOF1 := '',;
+         lcCAMPOF2 := '',;
+         lcCONTE1  := '',;
+         lcCONTE2  := '',;
+         lcORDEM   := '',;
+         lcMENSAGEM:= '',;
+         lcFILTROAUX := '',;
+         lcNRROW  := '' as string
+
+   local laFIELDS             := {} ,;
+         laRES                := {} ,;
+         laLABEL_FL_REVISAO   := {} ,;
+         laVALUE_FL_REVISAO   := {} ,;
+         laVAR                := {} ,;
+         laPUT                := {} ,;
+         laAUX                := {} ,;
+         laJOIN               := {} ,;
+         laWHERE              := {} ,;
+         laCAMPOSFILTRO       := {} ,;
+         laLABELFILTRO        := {} ,;
+         laALERTA             := {} ,;
+         laSAVE               := {} as array
+
+   local ii                   := 0 ,;
+         lnQUANTOS            := 0 ,;
+         lnTOTAL              := 0 as int
+
+
+   lcACTION     := WGet('ACTION','C')
+   lcTABLE      := 'mvt_despesa'
+   laFIELDS     := {'mvt_despesa.NR_PASTA',;
+                    'mvt_despesa.NR_DESPESA',;     
+                    'mvt_despesa.CD_DESPESA',;
+                    'despesa.NM_DESPESA',;      
+                    'pfpj.PFPJ as PFPJ_FAVORECIDO',;
+                    'mvt_despesa.VL_TOTAL',;
+                    'mvt_despesa.DT_REF',;
+                    'mvt_despesa.FL_REVISAO',;
+                    'mvt_despesa.FL_APROVACAO',;
+                    'mvt_despesa.CANCELAMENTO_MOTIVO'}
+
+   laVAR        := {'VAR_NR_PASTA',;
+                    'VAR_NR_DESPESA',;
+                    'VAR_CANCELAMENTO_MOTIVO',;
+                    'NR_PASTA',;
+                    'NR_DESPESA',;
+                    'CD_DESPESA',;
+                    'NM_DESPESA',;
+                    'PFPJ_FAVORECIDO',;
+                    'VL_TOTAL',;
+                    'DT_REF',;
+                    'FL_REVISAO',;
+                    'FL_APROVACAO'}
+ 
+   *** rufino 04/01/2017 15:24:35
+   laJOIN        := {{2,'despesa','despesa.CD_DESPESA=mvt_despesa.CD_DESPESA'},;
+                     {2,'mvt_despesa_pagamento','mvt_despesa_pagamento.NR_DESPESA = mvt_despesa.NR_DESPESA and mvt_despesa_pagamento.NR_PASTA=mvt_despesa.NR_PASTA'},;
+                     {2,'pfpj','pfpj.CIP=mvt_despesa.CIP_FAVORECIDO'}} 
+
+   *laJOIN        := {{2,'despesa','despesa.CD_DESPESA=mvt_despesa.CD_DESPESA'},;
+   *                  {2,'mvt_despesa_pagamento','mvt_despesa_pagamento.NR_DESPESA = mvt_despesa.NR_DESPESA'},;
+   *                  {2,'pfpj','pfpj.CIP=mvt_despesa.CIP_FAVORECIDO'}}
+
+
+ //  carrega_cbox({{'motivo_cancelamento','CANCELAMENTO_MOTIVO','Y', '{'TP_PASTA='+DLAP+fcTP_PASTA+DLAP}}})
+ 
+
+   WPut('TITLE','Cancelamento de Despesas')
+
+   lcNR_PASTA:= wget('NR_PASTA','C')
+   lcACTION  := upper(Wget('ACTION'))
+
+if lcACTION == 'BUSCA'
+
+   lcQUERY := 'select ' 
+   lcQUERY += 'pasta.NR_PASTA,'
+   lcQUERY += 'pasta.TP_PASTA,'
+   lcQUERY += 'pasta_config.CANC_DESP'
+//   lcQUERY += ' from mvt_despesa' 
+   lcQUERY += ' from pasta' 
+//   lcQUERY += ' left join pasta on pasta.NR_PASTA=mvt_despesa.NR_PASTA'
+//   lcQUERY += ' left join pasta_config on pasta_config.TP_PASTA=pasta.TP_PASTA AND CANC_DESP <> "S"'
+   lcQUERY += ' left join pasta_config on pasta_config.TP_PASTA=pasta.TP_PASTA'
+   lcQUERY += ' where pasta.NR_PASTA='+lcNR_PASTA
+   
+   if db_query(lcQUERY) == -1
+      error_sys(db_error())
+   endif
+   laRES_EXP := db_fetchall()
+   
+   if len(laRES_EXP)==1 
+      walert('Pasta não localizada !')
+      return(nil)
+   else
+      lctp_pasta := LARES_EXP[2,2]  
+      lccanc_desp := LARES_EXP[2,3] 
+   endif
+   
+   if lccanc_desp == ''
+     walert('As despesas para a pasta selecionada não podem ser canceladas !')
+      return(nil)
+   endif
+ 
+   if db_query(lcQUERY) == -1  
+      error_sys(db_error())
+   endif     
+   laRES := db_fetchall()
+
+   if len(laRES)==1 
+      walert('Numero da pasta não localizada !')
+      return(nil)
+   endif  
+
+
+// correção sonia - 16/08/2016 17:32:06
+
+ 
+   if lccanc_desp == 'Aprovado'    
+     aadd(laWHERE,'mvt_despesa.FL_CANCELADO is null')
+     aadd(laWHERE,'mvt_despesa_pagamento.DT_PAGAMENTO IS NULL')
+     aadd(laWHERE,'mvt_despesa.DT_ENVIO_CTPAG IS NULL')
+     aadd(laWHERE,'mvt_despesa.FL_APROVACAO = "A"')
+     aadd(laWHERE,'mvt_despesa.NR_PASTA='+lcNR_PASTA)
+
+   else
+   
+     if lccanc_desp == 'Revisado'
+     
+        aadd(laWHERE,'mvt_despesa.FL_CANCELADO is null')
+        aadd(laWHERE,'mvt_despesa_pagamento.DT_PAGAMENTO IS NULL')
+        aadd(laWHERE,'mvt_despesa.DT_ENVIO_CTPAG IS NULL')
+        aadd(laWHERE,'mvt_despesa.FL_REVISAO = "A"')
+        aadd(laWHERE,'mvt_despesa.FL_APROVACAO = "P" or mvt_despesa.FL_APROVACAO IS NULL')
+        aadd(laWHERE,'mvt_despesa.NR_PASTA='+lcNR_PASTA)
+     
+     else
+  
+        aadd(laWHERE,'mvt_despesa.FL_CANCELADO is null')
+        aadd(laWHERE,'mvt_despesa_pagamento.DT_PAGAMENTO IS NULL')
+        aadd(laWHERE,'mvt_despesa.DT_ENVIO_CTPAG IS NULL')
+        aadd(laWHERE,'mvt_despesa.NR_PASTA='+lcNR_PASTA)
+        
+     endif
+     
+   endif
+
+   if db_select(laFIELDS,lcTABLE,laJOIN,laWHERE,iif(! empty(lcORDEM),{lcORDEM},{'NR_DESPESA'})) == -1
+//   if db_select(laFIELDS,lcTABLE,laJOIN,laWHERE,{'NR_DESPESA'})) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+
+   //DEBUG2(laRES)
+
+   if len(laRES) > 1
+      aadd(laPUT,laVAR)
+      for ii := 2 to len(laRES)
+         lcNRROW := alltrim(str(ii-1))
+         aadd(laPUT,{laVAR[ascan(laVAR,'VAR_NR_PASTA')]+lcNRROW,;
+                     laVAR[ascan(laVAR,'VAR_NR_DESPESA')]+lcNRROW,;
+                     laVAR[ascan(laVAR,'VAR_CANCELAMENTO_MOTIVO')]+lcNRROW,;
+                     laRES[ii,db_fetchncol(laRES,'NR_PASTA')],;
+                     laRES[ii,db_fetchncol(laRES,'NR_DESPESA')],;
+                     laRES[ii,db_fetchncol(laRES,'CD_DESPESA')],;
+                     laRES[ii,db_fetchncol(laRES,'NM_DESPESA')],;
+                     laRES[ii,db_fetchncol(laRES,'PFPJ_FAVORECIDO')],;                  
+                     laRES[ii,db_fetchncol(laRES,'VL_TOTAL')],;
+                     laRES[ii,db_fetchncol(laRES,'DT_REF')],;
+                     laRES[ii,db_fetchncol(laRES,'FL_REVISAO')],;
+                     laRES[ii,db_fetchncol(laRES,'FL_APROVACAO')],;
+                     laRES[ii,db_fetchncol(laRES,'CANCELAMENTO_MOTIVO')]})
+
+         WPut(laVAR[ascan(laVAR,'VAR_NR_PASTA')]+lcNRROW,laRES[ii,db_fetchncol(laRES,'NR_PASTA')])
+         WPut(laVAR[ascan(laVAR,'VAR_NR_DESPESA')]+lcNRROW,laRES[ii,db_fetchncol(laRES,'NR_DESPESA')])
+
+         cmb_motivo(lcTP_PASTA,laVAR[ascan(laVAR,'VAR_CANCELAMENTO_MOTIVO')]+lcNRROW)
+
+         next ii
+
+    else
+        walert('Não existe nenhuma despesa apta para cancelamento nesta pasta !')
+      return(nil)
+
+    endif     
+      
+     WPut('lstDESPESA',laPUT)
+
+   
+elseif lcACTION == 'CANCELA_DESPESA' .and. gbWAC_DELETE
+
+    lcNR_DESPESA          := WGET('NR_DESPESA','C')
+    lcNR_PASTA            := WGET('NR_PASTA','C')
+    lcCANCELAMENTO_MOTIVO := WGET('CANCELAMENTO_MOTIVO','C')
+
+    if lcCANCELAMENTO_MOTIVO = ''
+       walert('Motivo do Cancelamento Inválido')
+       return
+    endif
+
+    laSAVE  := {{'LOGIN_CANCELAMENTO','DT_CANCELAMENTO','FL_CANCELADO','CANCELAMENTO_MOTIVO'}}
+    aadd(laSAVE,{ WSet('LOGIN'), date(), 'S', lcCANCELAMENTO_MOTIVO})
+    aadd(laWHERE,'NR_PASTA='+lcNR_PASTA+' and '+ 'NR_DESPESA='+lcNR_DESPESA)
+    if db_update(laSAVE,lcTABLE,laWHERE) == -1
+       error_sys(db_error())
+    endif
+    
+    ** Sonia 09/12/2016 08:10:32
+    ** Exclui do rateio caso a despesa seja cancelada
+    *   
+    *
+    *
+    lcWHERE := ('NR_PASTA='+lcNR_PASTA+' and '+ 'NR_CONTROLE_DESPESA='+lcNR_DESPESA)                                    
+    if db_delete('mvt_desprat',lcWHERE)  == -1
+       error_sys(db_error())
+    endif
+       
+    if db_delete('mvt_depjud',lcWHERE) = -1
+       error_sys(db_error())
+    endif       
+    
+    psab_logdel(lcNR_PASTA,'FL_CANCELADO','S',,'Cancelamento de Despesas')
+
+    walert('Registro cancelado !')
+
+endif
+
+ WPut('lcACTION','')
+
+return(nil)
+
+
+/*
+* Function....: cmb_motivo(fcTP_PASTA)
+* Retorno.....: Nenhum
+*/
+static function cmb_motivo(fcTP_PASTA,obj1)
+
+local lcWHERE:=''
+local laRES:={}
+local laLST_NOVA:={}
+local laVINCULADO:={}
+
+local paAUTO     :={} as array
+
+
+
+local  laOPT    := {} ,;
+       laOPTV   := {} ,;
+       laPUT    := {} ,;
+       laDEF    := {} ,;
+       laDEFV   := {} ,;
+       laDEFV2  := {} ,;
+       laATI    := {} ,;
+       laATIV   := {} ,;
+       laATIV2  := {} ,;
+       laINA    := {} ,;
+       laINAV   := {} ,;
+       laINAV2  := {} ,;
+       laPUTV   := {} ,;
+       laPUTV2  := {} ,;
+       laFIELD  := {} as array
+
+
+local  jj    := 1  as int
+
+
+laDEF  := {}
+laDEFV := {}
+laDEFV2:= {}
+
+laATI  := {}
+laATIV := {}
+laATIV2:= {}
+
+laINA  := {}
+laINAV := {}
+laINAV2:= {}
+
+laPUT  := {}
+laPUTV := {}
+laPUTV2:= {}
+
+laFIELD:={'CANCELAMENTO_MOTIVO','CANCELAMENTO_MOTIVO','FL_ATIVO'}
+
+if db_select(laFIELD,'motivo_cancelamento',,{'TP_PASTA='+DLAP+fcTP_PASTA+DLAP},{'CANCELAMENTO_MOTIVO'}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+
+
+for jj := 2 to len(laRES)
+    if laRES[jj,3] == 'D'
+       aadd(laDEF,laRES[jj,2]) //TEXTO
+       aadd(laDEFV,laRES[jj,1]) //ID
+
+     elseif laRES[jj,3] == 'I'
+       aadd(laINA,laRES[jj,2])  //TEXTO
+       aadd(laINAV,laRES[jj,1]) //ID
+
+     else
+       aadd(laATI,laRES[jj,2])  //TEXTO
+       aadd(laATIV,laRES[jj,1]) //ID
+    endif
+
+next jj
+
+if len(laDEF) == 0 // Adiciona uma linha vazia no inicio do combo, caso seja solicitado
+   aadd(laDEF,'')   //TEXTO
+   aadd(laDEFV,'') //ID
+endif
+
+for jj=1 to len(laDEF)
+    aadd(laPUT,laDEF[jj]) //TEXTO
+    aadd(laPUTV,laDEFV[jj]) //ID
+next jj
+
+for jj=1 to len(laATI)
+    aadd(laPUT,laATI[jj]) //TEXTO
+    aadd(laPUTV,laATIV[jj]) //ID
+next jj
+
+for jj=1 to len(laINA)
+    aadd(laPUT,'INATIVO - '+laINA[jj]) //TEXTO
+    aadd(laPUTV,laINAV[jj])  //ID
+next jj
+
+laLABEL_CANCELAMENTO_MOTIVO := laPUT
+laVALUE_CANCELAMENTO_MOTIVO := laPUTV
+
+
+WPut(obj1+'.option',laPUT)
+WPut(obj1+'.optionvalue',laPUTV)
+
+return(nil)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,316 @@
+/*
+
+Project      : gr5
+Program      : gera.honorarios.html
+Function     : gera_honorarios_html
+Created on   : 17/12/2012 10:29:51
+Descripition : Geração de Despesas para Honorários Advocatícios
+
+*/
+
+local lcACTION      := '' ,;
+      lcTABLE       := '' ,;
+      lcTABLE_HON   := '' ,;
+      lcTABLE_DET   := '' ,;
+      lcWHERE       := '' ,;
+      lcWHERE1      := '' ,;
+      lcWHERE2      := '' ,;
+      lcINICIO      := '' ,;
+      lcQUERY       := '' as string
+      
+      
+local laRES        := {} ,;
+      laFIELDS_HON := {} ,;
+      laFIELDS_DET := {} ,;
+      laFIELDS     := {} ,;
+      laSAVE       := {} ,; 
+      laSAVE_AUX   := {} ,; 
+      laVALIDA     := {} ,;
+      laTPASTAS    := {} ,;
+      laJOIN       := {} as array 
+      
+local lnII     := 0 ,;
+      lnCOL    := 0 ,;
+      lnNRPASTA:= 0 ,;
+      lnNR_DESPESA := 0 ,;
+      lnXX     := 0 as int 
+      
+local llERRO:=.f. as logical 
+local llJATROCO:=.f. as logical
+         
+
+WPut('TITLE','Gera Despesas de Honorários Advocatícios')
+      
+lcTABLE       := 'log_honorarios'
+lcTABLE_HON   := 'escalonamento_honorarios'
+lcTABLE_DET   := 'honorarios_detalhe'
+
+laFIELDS      := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N') 
+laFIELDS_HON  := structtable(WSet("DB_ACTIVE"),lcTABLE_HON,1,'N')
+laFIELDS_DET  := structtable(WSet("DB_ACTIVE"),lcTABLE_DET,1,'N')
+
+lcACTION      := upper(Wget('ACTION'))
+
+lcUSUARIO := wSet('LOGIN')
+Wput('LOGIN',lcUSUARIO)
+
+lcWHERE_HON         := 'ID_HONORARIOS = '+wget('ID_HONORARIOS','C')
+lcID_HONORARIOS     := wget('ID_HONORARIOS','C')
+
+/* campos obrigatorios */
+
+laVALIDA     := {'ID_HONORARIOS',; 
+                 'DT_PREVISAO_PAGTO'}
+                     
+init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+ 
+ldDT_PREVISAO_PAGTO := ctod(wget('DT_PREVISAO_PAGTO','C'))
+
+lcinicio := time()
+
+lcWHERE := 'ID_HONORARIOS = '+wget('ID_HONORARIOS','C')
+lcWHERE += ' and DT_PREVISAO_PAGTO = '+DLAP+SUBSTR((wget('DT_PREVISAO_PAGTO','C')),7,4)+'-'+SUBSTR((wget('DT_PREVISAO_PAGTO','C')),4,2)+'-'+SUBSTR((wget('DT_PREVISAO_PAGTO','C')),1,2)+DLAP
+  
+ 
+if lcACTION == 'EXECUT' .and. gbWAC_CREATE
+
+   if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+       error_sys(db_error())
+   endif
+   laRESULT := db_fetchrow()
+   lcPROCESSA := .T.
+    
+   if len(laRESULT) > 0
+       walert('Processamento já executado para esta Data de Pagamento') 
+       return
+   endif    
+    
+   llERRO := .f.
+
+    *** verifica se campos obrigatorios estão com dados
+    if ! verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+       llERRO := .t.
+    endif  
+/* Selecionar regra */
+    if db_select(laFIELDS_HON,lcTABLE_HON,,{lcWHERE_HON}) == -1
+       error_sys(db_error())
+    endif
+    laRESULT := db_fetchrow()
+    lcPROCESSA := .T.
+    
+    if len(laRESULT) > 0
+        lcID_HONORARIOS   := laRESULT[1]
+        lcREGRA           := laRESULT[2]
+        lcDT_VIGENCIA_INI := laRESULT[3]
+        ldDT_VIGENCIA_FIN := laRESULT[4]
+        lcTP_PASTA        := laRESULT[5]
+        lcCIP_ESCRITORIO  := laRESULT[6]
+        lcCD_DESPESA      := laRESULT[7]
+        lcTP_FAVORECIDO   := laRESULT[8]
+        lcFORMA_PAGAMENTO := laRESULT[9]
+        lcCD_CCUSTO       := laRESULT[10]
+        
+        IF  ldDT_PREVISAO_PAGTO < lcDT_VIGENCIA_INI .or. ldDT_PREVISAO_PAGTO > ldDT_VIGENCIA_FIN
+            lcPROCESSA := .F.
+            walert('O Prazo para Pagamento está fora da Vigência') 
+            return
+        ENDIF
+
+        IF  ldDT_PREVISAO_PAGTO < date()
+            lcPROCESSA := .F.
+            walert('O Prazo para Pagamento não pode ser anterior a hoje') 
+            return
+        ENDIF
+/*
+        laTPASTAS:=str2array(lcTP_PASTA,',')
+
+        for ii=1 to len(laTPASTAS)                                     
+            if lcTP_PASTA==''                                          
+               lcTP_PASTA:=DLAP+laTPASTAS[ii]+DLAP                     
+              else                                                     
+               lcTP_PASTA:=lcTP_PASTA+','+DLAP+laTPASTAS[ii]+DLAP      
+            endif                                                      
+        next ii                                                        
+*/
+       laTPASTAS:=str2array(alltrim(lcTP_PASTA),',')
+        lxTP_PASTAS := '' 
+        for ii=1 to len(laTPASTAS)                                     
+            if lxTP_PASTA==''                                          
+               lxTP_PASTA:=DLAP+laTPASTAS[ii]+DLAP                     
+              else                                                     
+               lxTP_PASTA:=lxTP_PASTA+','+DLAP+laTPASTAS[ii]+DLAP      
+            endif                                                      
+        next ii                                                        
+
+/* Contar pastas do Escritorio */
+       
+       lcQUERY := ' select distinct count(*) as QTD from pasta '
+       lcQUERY += ' left join pasta_cip  on (pasta.NR_PASTA = pasta_cip.NR_PASTA and wfield = '+DLAP+'CIP_ESCRITORIO'+DLAP+' and pasta_cip.CIP = '+lcCIP_ESCRITORIO+')'
+ //      lcQUERY += ' where FL_PASTA = '+DLAP+'Ativa'+DLAP +' and TP_PASTA in ('+lcTP_PASTA+')'
+       lcQUERY += ' where FL_PASTA = '+DLAP+'Ativa'+DLAP +' and TP_PASTA in ('+lxTP_PASTA+')'
+
+       if db_query(lcQUERY) == -1
+          error_sys(db_error())
+          lcPROCESSA := .F.
+          walert('Erro na busca de Pastas') 
+          return
+       endif
+       laRES := db_fetchrow()
+       if len(laRES)>0  
+          lcQTDE   := laRES[1]
+
+          walert('Foram localizadas '+ alltrim(str(laRES[1])) + ' pastas Ativas.') 
+    
+          lcQUERY1 := ' select VL_BRUTO from detalhe_honorarios '
+          lcQUERY1 += ' where ('+str(lcQTDE)+ ' >=   QTDE_INICIO and '+str(lcQTDE)+' <= QTDE_FINAL) and ID_HONORARIOS = '+str(lcID_HONORARIOS)  
+          if db_query(lcQUERY1) == -1
+             error_sys(db_error())
+          endif
+
+          laRES1 := db_fetchrow()
+          if len(laRES1)>0  
+             lcVL_BRUTO   := laRES1[1]
+          else
+             lcVL_BRUTO := 0
+             walert('Não foram localizadas Valores de Honorários para a quantidade de Pastas Ativas.')
+             lcPROCESSA := .F. 
+             return
+          endif
+       else   
+          walert('Não foram localizadas pastas Ativas.')
+          lcPROCESSA := .F. 
+       endif
+
+       if db_select({'max(NR_DESPESA)'},'mvt_despesa') == -1
+          db_rollback()
+          walert('Erro na Sequence da Despesa.')
+       endif
+
+       laRESN := db_fetchrow()
+       if len(laRESN)>0  
+          lnNR_DESPESA   := laRESN[1]
+
+       endif   
+
+       if lcPROCESSA   
+    
+         laSAVE := {{'NR_PASTA','NR_DESPESA','LOGIN','CD_DESPESA','CD_GRP_DESPESA','DT_REF','DT_PREVISAO_PAGTO',;
+                     'LOGIN_RESP','VL_UNIT','QUANTIDADE','VL_TOTAL',;
+                     'FL_REVISAO','DT_REVISAO','LOGIN_REVISAO','FL_APROVACAO','DT_APROVACAO',;
+                     'LOGIN_APROVACAO','CIP_ESCRITORIO','CIP_FAVORECIDO','FORMA_PAGAMENTO',;
+                     'TP_FAVORECIDO','CD_CCUSTO','CD_BANCO','BANCO_AGENCIA','BANCO_CONTA',;
+                     'EXTRA'}}
+
+          laSAVE_AUX := {}
+
+          lcQUERY2 := ' select distinct pasta.NR_PASTA,escalonamento_honorarios.CD_DESPESA,despesa.CD_GRP_DESPESA,;
+                        pfpj.CIP,pfpj.CD_BANCO,pfpj.BANCO_AGENCIA,pfpj.BANCO_CONTA from pasta'
+          lcQUERY2 += ' left join pasta_cip  on (pasta.NR_PASTA = pasta_cip.NR_PASTA and wfield = '+DLAP+'CIP_ESCRITORIO'+DLAP+' and pasta_cip.CIP = '+lcCIP_ESCRITORIO+')'
+          lcQUERY2 += ' left join escalonamento_honorarios  on (escalonamento_honorarios.ID_HONORARIOS = '+STR(lcID_HONORARIO)+')'
+          lcQUERY2 += ' left join despesa  on (despesa.CD_DESPESA = escalonamento_honorarios.CD_DESPESA)'
+          lcQUERY2 += ' left join pfpj  on (pfpj.CIP = escalonamento_honorarios.CIP_ESCRITORIO)'
+//          lcQUERY2 += ' where FL_PASTA = '+DLAP+'Ativa'+DLAP+' and TP_PASTA in ('+lcTP_PASTA+')'
+          lcQUERY2 += ' where FL_PASTA = '+DLAP+'Ativa'+DLAP+' and TP_PASTA in ('+lxTP_PASTA+')'
+
+          if db_query(lcQUERY2) == -1
+             error_sys(db_error())
+          endif
+
+          laRESULT := db_fetchall()
+          
+          if len(laRESULT) > 0  
+
+             for ii := 2 to len(laRESULT)
+               laSAVE_AUX := {}
+               lnNR_DESPESA := lnNR_DESPESA + 1     
+
+               aadd(laSAVE_AUX,laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')])    
+//               aadd(laSAVE_AUX,lnNR_DESPESA)
+               aadd(laSAVE_AUX,0)
+               aadd(laSAVE_AUX,WSet('LOGIN'))
+               aadd(laSAVE_AUX,laRESULT[ii,2])
+               aadd(laSAVE_AUX,laRESULT[ii,3])
+               aadd(laSAVE_AUX,date())
+               aadd(laSAVE_AUX,ctod(wget('DT_PREVISAO_PAGTO','C')))
+               aadd(laSAVE_AUX,WSet('LOGIN'))
+               aadd(laSAVE_AUX,lcVL_BRUTO)
+               aadd(laSAVE_AUX,1)
+               aadd(laSAVE_AUX,lcVL_BRUTO)
+               aadd(laSAVE_AUX,'A')
+               aadd(laSAVE_AUX,date())
+               aadd(laSAVE_AUX,WSet('LOGIN'))
+               aadd(laSAVE_AUX,'A')
+               aadd(laSAVE_AUX,date())
+               aadd(laSAVE_AUX,WSet('LOGIN'))
+               aadd(laSAVE_AUX,laRESULT[ii,4])
+               aadd(laSAVE_AUX,laRESULT[ii,4])
+               aadd(laSAVE_AUX,lcFORMA_PAGAMENTO)
+               aadd(laSAVE_AUX,lcTP_FAVORECIDO)
+               aadd(laSAVE_AUX,lcCD_CCUSTO)
+               aadd(laSAVE_AUX,laRESULT[ii,5])
+               aadd(laSAVE_AUX,laRESULT[ii,6])
+               aadd(laSAVE_AUX,laRESULT[ii,7])
+               aadd(laSAVE_AUX,'Gerado a partir da Rotina de Honorários Advocatícios.')
+               aadd(laSAVE,laSAVE_AUX)
+            next ii
+      
+            if db_insert(laSAVE,'mvt_despesa') == -1
+               db_rollback()
+               lcERROR := db_error()
+               walert('Ocorreu o erro: ' + str(lcERROR))
+            endif
+
+            walert('Total de Despesas Geradas: ' + str(len(laRESULT)-1))
+            
+            lnTOTAL := len(laRESULT)-1
+            laSAVE := {}
+            laSAVE_LOG := {}
+            laFIELDS := {'ID_HONORARIOS','DT_PREVISAO_PAGTO','LOGIN','DT_EXECUCAO','TOTAL_PASTAS','REGISTROS_GERADOS','HR_INICIO','HR_TERMINO','VL_BRUTO'}
+
+            aadd(laSAVE,laFIELDS)
+            aadd(laSAVE_LOG,val(wget('ID_HONORARIOS','C')))
+            aadd(laSAVE_LOG,ldDT_PREVISAO_PAGTO)
+            aadd(laSAVE_LOG,WSet('LOGIN'))
+            aadd(laSAVE_LOG,date())
+            aadd(laSAVE_LOG,lnTOTAL)
+            aadd(laSAVE_LOG,lnTOTAL)
+            aadd(laSAVE_LOG,lcINICIO)
+            aadd(laSAVE_LOG,time())
+            aadd(laSAVE_LOG,lcVL_BRUTO)
+          
+            aadd(laSAVE,laSAVE_LOG)
+//debug2(lafields)
+//debug2(lasave)
+//debug2(lctable)                  
+            if db_insert(laSAVE,lcTABLE) == -1
+               db_rollback()
+               lcERROR := db_error()
+               walert('Erro ao atualizar o LOG')
+            endif
+            
+          endif
+        endif
+   endif
+   
+endif
+/* Listagem Log */
+if db_select(laFIELDS,lcTABLE,,) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+if len(laRES) > 0
+   WPut('GRID_LOG',grid_create(laRES))
+endif   
+
+return
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,13 @@
+/*
+
+Project      : gr5
+Program      : home.html
+Function     : home_html
+Created on   : 19-Oct-2001   03:35:09
+Descripition :  
+
+*/
+
+gmPAGE := 'menu.html'
+
+

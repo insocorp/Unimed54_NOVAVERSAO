@@ -1,0 +1,115 @@
+/*
+
+Project      : gr5
+Program      : mnt.excl_desp.html
+Function     : mnt_excl_desp.html
+Created on   : 2010-02-10 12:13:14
+Descripition : GEM pendentes para exclusão manual.
+       Autor : Sonia Perdigão
+*/
+
+   local lcACTION   := '' ,;
+         lcTABLE    := 'gem_pendentes' ,;
+         lcProgram  := 'mnt.excl_gem.html' ,;
+         lcWHERE    := '' as string
+
+   local laRESULT   := {} ,;
+         laFIELDS   := {} ,;
+         laWHERE    := {} ,;
+         laORDER_BY := {'NR_PENDENTE'} as array
+
+   local ii := 0 as int
+    
+   lcACTION := upper(WGet('ACTION','C'))
+   lcWHERE  := 'NR_PENDENTE = ' + str(WGet('NR_PENDENTE','N'))
+   laFIELDS := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+
+   aadd(laWHERE,lcWHERE)
+
+   if lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,laWHERE) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2put(laRESULT)
+      endif
+
+   elseif lcACTION == 'EXCLUIR'
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+      db_commit()
+      WPut('NR_PENDENTE'  ,'')
+      WPut('DT_MOVIMENTACAO'   ,'')
+      WPut('NM_TABLE'  ,'')
+      WPut('NR_PASTA'  ,'')
+      WPut('NR_CONTROLE'   ,'')
+      WPut('NUMOSINISTRO'   ,'')
+      WPut('HISTORICO'    ,'')
+
+   elseif empty(lcACTION)
+      if db_select(laFIELDS,lcTABLE,,,laORDER_BY,,,,) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2Put(laRESULT)
+      endif
+      WPut('NR_PENDENTE'  ,'')
+      WPut('DT_MOVIMENTACAO'   ,'')
+      WPut('NM_TABLE'  ,'')
+      WPut('NR_PASTA'  ,'')
+      WPut('NR_CONTROLE'   ,'')
+      WPut('NUMOSINISTRO'   ,'')
+      WPut('HISTORICO'    ,'')
+
+
+   endif
+
+   WPut('lstPENDENTES',laRESULT)
+   
+   lista_gem_pendentes(laFIELDS,lcTABLE,laORDER_BY)
+      
+return(nil)
+
+/*
+* Function..: lista_gem_pendentes(faFIELDS,fcTABLE,faORDER_BY)
+* Objetivo..:
+* Parâmetros:
+*    faFIELDS.....: Campos a selecionar
+*    fcTABLE......: Tabela alvo
+*    faORDER_BY...: Ordenação
+* Retorno...:
+*     Nenhum
+*/
+static function lista_gem_pendentes(faFIELDS,fcTABLE,faORDER_BY)
+   local lcCOR_LINK := '' as string
+
+   local laRESULT := {} as array
+
+   local ii := 0 as int
+
+   for ii := 1 to len(faFIELDS)
+       faFIELDS[ii] := fcTABLE+'.'+faFIELDS[ii]
+   next ii
+
+   if db_select(faFIELDS,fcTABLE,,,faORDER_BY) == -1
+      error_sys('lista_gem_pendentes: '+db_error())
+   endif
+
+   laRESULT := db_fetchall()
+
+   if len(laRESULT) > 0
+      aadd(laRESULT[1],'COR_LINK')
+      for ii := 2 to len(laRESULT)
+         lcCOR_LINK := '#006A00'   //Pendencias para cliente - verde escuro
+         aadd(laRESULT[ii],lcCOR_LINK)
+      next ii
+   endif
+   
+   WPut('lstPENDENTES',laRESULT)
+return(nil)
+
+
+

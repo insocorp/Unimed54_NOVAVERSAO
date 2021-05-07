@@ -1,0 +1,261 @@
+/*Alterado em 31/01/2009 - Eliana inclusao rotina para Lits
+*Chama funcoes : verifica_relacionamento
+*                ver_aba
+*                montar_filho
+*                sincroniza_pasta
+
+Project      : gr5
+Program      : pst.penhora.html
+Function     : pst_penhora_html
+Created on   : 12-May-2003   17:11:12
+Descripition : Janela Popup para manutenção de Penhora.
+
+*/
+   local lcACTION     := '' ,;
+         lcTP_PASTA   := '' ,;
+         lcWHERE      := '' ,;
+         lcTABLE      := '' ,;
+         lcProgram    := 'pst_penhora_html' ,;
+         lcRelac      := '' ,;
+         lcNR_PASTA   := '' ,;
+         lcNR_PENHORA := '' as string
+
+   local laRESULT   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laSAVEFILHO:= {} ,;
+         laFIELDS   := {} ,;
+         laLABELS   := {} ,;
+         laCOMO_OP  := {} ,;
+         laCOMO_OPV := {} ,;
+         laVALIDA   := {} as array
+   local ii         := 0 as int
+   local lnAuto     := 0 as int
+   local llReturn   := .f. as logical
+
+   lcACTION     := upper(alltrim(WGet('ACTION','C')))
+   lcNR_PASTA   := WGet('NR_PASTA','C')
+   lcNR_PENHORA := alltrim(WGet('NR_PENHORA','C'))
+
+   if upper(lcNR_PENHORA) == 'NEW' .or. empty(lcNR_PENHORA)
+      lcNR_PENHORA := '0'
+   endif
+
+   lcTP_PASTA    := WGet('TP_PASTA','C')
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   lcTABLE      := 'pasta_penhora'
+   lcWHERE      := 'pasta_penhora.NR_PASTA='+lcNR_PASTA+' and pasta_penhora.NR_PENHORA='+lcNR_PENHORA
+   laFIELDS     := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS     := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   laVALIDA     := {'TP_PENHORA'}
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+   // Glauber 06/01/2011
+   AbasPerfil(lcTP_PASTA,laFIELDS)
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   make_psthead(lcNR_PASTA,lcTP_PASTA) //Cabeçalho
+
+   carrega_cbox({{'status_penhora','STATUS_PENHORA','Y'}})
+
+   if empty(lcACTION)
+      lcACTION = 'NEW'
+   endif
+
+   wPut('TP_PASTA',lcTP_PASTA)
+   wPut('DT_PENHORA',date())
+   wPut('NR_PENHORA','NEW')
+//    wPut('TITLE',lcTP_PASTA+' - Inclusão de Penhora')
+
+//------------  Verificando relacionamento    -----------------------------------
+
+   lcRelac:=verifica_relacionamento(lcNR_PASTA,lcTp_pasta)
+
+//------------ Verificando se Aba pode ser alterada  ------------------------
+
+   if lcRelac = 'F' .or. lcRelac = 'P'
+      llReturn:=Ver_ABA(lcTP_PASTA, lcProgram)
+   endif
+
+   if lcRelac == 'F'  .and. llReturn .and. (lcACTION='NEW' .or. lcACTION=='')
+      walert('Somente Para Consulta - Pasta Pertence a Litsconsorte')
+   endif
+
+   if lcACTION = 'ALTER' .and. gbWAC_READ
+
+
+// Glauber 13/04/2016 - Erro na montagem do frame do ged
+
+      amkgedico('pasta_penhora', lcNR_PENHORA)
+
+//nmkgedico('pasta', lcNR_PASTA)
+
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      db2put(db_fetchall())
+//       wPut('TITLE',lcTP_PASTA+' - Alteração da Penhora '+getWPut('TP_PENHORA'))
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+      if ! verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+         lista_penhora(lcNR_PASTA)
+         pasta_abas(lcTP_PASTA)
+         return(.f.)
+      endif
+/*      for ii := 1 to len(laVALIDA)
+          if empty(alltrim(WGet(laVALIDA[ii],'C')))
+             wPut('ERROR_MENS',laLABELS[ascan(laFIELDS,laVALIDA[ii])]+' é um campo obrigatório!')
+             get2Put()
+             lista_penhora(lcNR_PASTA)
+             pasta_abas(lcTP_PASTA)
+             return(.f.)
+          endif
+      next ii*/
+      aadd(laSAVE,laFIELDS)
+      for ii := 1 to len(laFIELDS)
+         aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+      next ii
+//--------------------Qdo for gravar  db_update/db_replace/Db_insert
+
+         if lcRelac = '' .or. lcRelac = 'P' .or. (lcRelac = 'F' .and. llReturn = .f.)      // se .f. posso alterar atraves do filho
+            aadd(laSAVE,laSAVE_AUX)
+            lcWHERE := 'pasta_penhora.NR_PASTA='+lcNR_PASTA+' and pasta_penhora.NR_PENHORA='+lcNR_PENHORA
+            psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Peças Processuais')
+            if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+               error_sys(db_error())
+            endif
+            
+            if lcNR_PENHORA = '0' .or. lcNR_PENHORA = ''
+               lnAuto:=db_insert_id()
+            else
+               lnAuto:=val(lcNR_PENHORA)   
+            endif
+
+            if lcRelac = 'P' .and. llReturn 
+               laFilho:=Montar_filho(lcNR_PASTA, lcTp_pasta)
+               if len(laFilho) > 0
+                  for ii :=1 to len(lafilho)
+                     lcWHEREp  := 'NR_PASTA='+str(lafilho[ii])+' AND NR_PENHORA_RELACAO='+str(lnAuto)
+                     if db_select({'NR_PASTA','NR_PENHORA','NR_PENHORA_RELACAO'},lcTable,,{lcWHEREp}) == -1
+                        error_sys(db_error())
+                     endif
+                     laCampos := db_fetchrow()
+                     if len(laCampos) > 0
+                        for jj:=2 to 2
+                            for ll:=1 to len(laFields)
+                               if laSave[1,ll] = 'NR_PASTA'
+                                  laSave[2,ll] := laCampos[1]
+                               endif
+                               if laSave[1,ll] = 'NR_PENHORA'
+                                  laSave[2,ll] := laCampos[2]
+                               endif
+                               if laSave[1,ll] = 'NR_PENHORA_RELACAO'
+                                   laSave[2,ll] := laCampos[3]
+                               endif
+                            next ll   
+                        next jj
+                        if db_replace(laSAVE,lcTABLE,{lcWHEREp}) = -1
+                          error_sys(db_error())
+                        endif
+                     else   
+                        laSAVEfilho := {}
+                        aadd(laSAVEFILHO,laFIELDS)
+                        laSAVE_AUX := {}
+                        for jj:= 1 to len(laFields)
+                            if laFIELDS[jj]='NR_PASTA'
+                               aadd(laSAVE_AUX,laFILHO[ii])
+                            elseif   laFields[jj] = 'NR_PENHORA'
+                               aadd(laSAVE_AUX,'0')
+                            elseif laFields[jj] = 'NR_PENHORA_RELACAO'
+                               aadd(laSAVE_AUX,str(lnAuto))
+                            else
+                              aadd(laSAVE_AUX,WGet(laFIELDS[jj]))
+                            endif                         
+                        next jj
+                        aadd(laSAVEFILHO,laSAVE_AUX)
+                        if db_insert(laSAVEfilho,lcTABLE) = -1
+                          error_sys(db_error())
+                        endif
+                     endif 
+                  next ii
+               endif   
+            endif   
+         endif
+
+      wPut('DT_PENHORA',date())
+//       wPut('TITLE',lcTP_PASTA+' - Inclusão de novo Penhora')
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+//---------------------   Excluindo de Penhora -----------------------------------------------
+        if lcRelac = '' .or. lcRelac = 'P' .or. (lcRelac = 'F' .and. llReturn = .f.)      // se .f. posso alterar atraves do filho
+         if db_delete(lcTABLE,lcWHERE) = -1
+            error_sys(db_error())
+         endif
+         if lcRelac = 'P' .and. llReturn 
+            laFilho:=Montar_filho(lcNR_PASTA, lcTp_pasta)
+            if len(laFilho) > 0
+               for ii := 1 to len(laFilho)                   // gravando abas dos filhos
+                lcWHEREp  := 'NR_PASTA='+str(lafilho[ii])+' AND NR_PENHORA_RELACAO='+lcNR_PENHORA
+                if db_delete(lcTABLE,lcWHEREp) = -1
+                   error_sys(db_error())
+                endif
+               next ii
+            endif   
+         endif
+        endif
+
+      wPut('DT_PENHORA',date())
+//       wPut('TITLE',lcTP_PASTA+' - Inclusão de novo Penhora')
+   endif
+   lista_penhora(lcNR_PASTA)
+   pasta_abas(lcTP_PASTA)
+
+
+
+
+return
+
+/*
+* Function..: lista_penhora(fcNR_PASTA)
+* Objetivo..: Gerar Listagem de Penhoras
+* Parâmetros: fcNR_PASTA
+* Retorno...: nil
+*/
+//static function lista_penhora(fcNR_PASTA)
+
+//   if db_select({'*'},'pasta_penhora',,{'NR_PASTA='+fcNR_PASTA}) == -1
+//      error_sys(db_error())
+//   endif
+//   wPut('lstPENHORA',db_fetchall())
+//return(nil)
+
+
+
+static function lista_penhora(fcNR_PASTA)
+
+   local laFIELDS     := structtable(WSet("DB_ACTIVE"),'pasta_penhora',1,'N'),;
+         laRESULT     := {} as Array
+
+   local ii           := 0 as Int
+
+   if db_select(laFIELDS,'pasta_penhora',,{'NR_PASTA='+fcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+
+   laRESULT := db_fetchall()
+
+//   aadd(laRESULT[1],'DOCUMENTO')
+
+//   for ii := 2 to len(laRESULT)
+//       lcTMP := "winged('open'," + DLAP + amkged('pasta_penhora',{fcNR_PASTA,WGET('TP_PASTA'),laRESULT[ii,db_fetchncol(laRESULT,'NR_PENHORA')],'',''}) + DLAP + ',event)'
+//       lcTMP := '<a href=javascript:void(0) onclick="'+lcTMP+';">GED </a>'
+       //lcTMP := '<a href=javascript:void(0) onclick="'+lcTMP+';">GED ('+totged(fcNR_PASTA,lcANDAMENTO)+')</a>'
+//       aadd(laRESULT[ii],lcTMP)
+//   next ii
+
+   wPut('lstPENHORA',laRESULT)
+
+return(nil)
+
+
+

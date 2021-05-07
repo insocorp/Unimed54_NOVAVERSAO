@@ -1,0 +1,12 @@
+/*
+
+Project      : gr5_368
+Module       : gr5tasks
+Created on   : 11-Dec-2007
+Descripition : No Input/Output (Daemon)
+
+*/
+
+gmLANGUAGE   := 'pt_BR'
+gcPAGE_HOME  := 'home.html'
+WPut ('WIC_ACTION',WGet('SCRIPT_NAME'))

@@ -1,0 +1,240 @@
+/*
+
+Project      : gr5
+Program      : ps.sct.4procedimento.html
+Function     : ps_sct_4procedimento_html
+Created on   : 2010-07-22 15:19:35
+Descripition :
+
+*/
+
+   local lcACTION   := '' ,;
+         lcTP_PASTA := '' ,;
+         lcNR_SCT_SPROCEDIMENTO := '' ,;
+         lcTABLE    := '' ,;
+         lcNR_PASTA := '' ,;
+         lcNR_ATA   := '' ,;
+         lcMANDATO  := ''  as string
+   local laRESULT   := {} ,;
+         laRES      := {} ,;
+         laPUT      := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laWHERE    := {} ,;
+         laFIELDS   := {} ,;
+         laLABELS   := {} ,;
+         laVALIDA   := {} as array
+         
+   local lcWHERE    := {} ,;
+         lcFIELDS   := {} ,;
+         lcJOIN     := {} as array
+               
+   local ii := 0 as int
+   local llERRO := .F. as logical
+
+   lcACTION   := upper(alltrim(WGet('ACTION','C')))
+   lcTP_PASTA := WGet('TP_PASTA','C')
+   lcNR_PASTA := WGet('NR_PASTA','C')
+   lcNR_ATA   := WGet('NR_ATA','C')
+   lcNR_SCT_SCPROCEDIMENTO   := WGet('NR_SCT_SPROCEDIMENTO','C')
+   if upper(lcNR_SCT_SPROCEDIMENTO) = 'NEW' .or. empty(lcNR_SCT_SPROCEDIMENTO)
+      lcNR_SCT_SPROCEDIMENTO := '0'
+   endif
+
+   lcTABLE    := 'pasta_sct_sprocedimento'
+   laWHERE    := {'NR_PASTA='+lcNR_PASTA+;
+                  ' and NR_ATA='+DLAP+lcNR_ATA+DLAP+;
+                  ' and NR_SCT_SPROCEDIMENTO='+wGet('NR_SCT_SPROCEDIMENTO','C')}
+//   laFIELDS   := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laFIELDS   :={'NR_PASTA','DT_ABERTURA','DT_ARQUIVAMENTO','SCT_PROCEDIMENTO','NR_ATA','DT_REGISTRO','NR_JUNTA_COMERCIAL','NR_PROTOCOLO','NR_REGISTRO','DT_RET_JUNTA_COML','PROCEDIMENTO'}                  
+
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+    
+   laLABELS   := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   laVALIDA   := {'NR_SCT_SPROCEDIMENTO'}
+
+   cmb_procedimento(lcTP_PASTA)
+   
+   for ii := 1 to len(laVALIDA)
+     *WPut(laVALIDA[ii]+'.label.style.color','#FF0000')
+     *WPut(laVALIDA[ii]+'.label.style.font-weight','bold')
+     WPut(laVALIDA[ii]+'.style.border','2px solid red')
+   next ii
+
+//   if empty(lcNR_PASTA)
+//      error_sys('Pasta inexistente')
+//      return(.f.)
+//   endif
+
+   wPut('TP_PASTA',lcTP_PASTA)
+   wPut('NR_PASTA',lcNR_PASTA)
+   wPut('NR_SCT_SPROCEDIMENTO',lcNR_SCT_SPROCEDIMENTO)
+   wPut('NR_ATA',lcNR_ATA)
+   // Glauber 19/10/2010 - O campo é sequencial então por padrão passou a ser readonly
+   wPut('ifNR_SCT_PROCEDIMENTORW',.T.)
+   wPut('ifNR_SCT_PROCEDIMENTORO',.F.)
+   
+   lcNR_SCT_SPROCEDIMENTO := iif(!empty(pcNR_SCT_SPROCEDIMENTO),alltrim(pcNR_SCT_SPROCEDIMENTO),alltrim(WGet('NR_SCT_SPROCEDIMENTO','C')))
+   
+
+   if lower(lcNR_SCT_SPROCEDIMENTO) == 'new'
+      lcNR_SCT_SPROCEDIMENTO := '0'
+      wPut('ifNR_SCT_PROCEDIMENTORW',.F.)
+      wPut('ifNR_SCT_PROCEDIMENTORO',.T.)
+   endif
+
+   if lcACTION == 'NEW' .and. gbWAC_CREATE
+      wPut('TITLE','Inclusão de Procedimento')
+      wPut('NR_SCT_SPROCEDIMENTO','New')
+      
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+
+       laFIELDS   := {'NR_SCT_SPROCEDIMENTO','NR_PASTA','DT_ABERTURA','DT_ARQUIVAMENTO','SCT_PROCEDIMENTO','NR_ATA','DT_REGISTRO','NR_JUNTA_COMERCIAL','NR_PROTOCOLO','NR_REGISTRO','DT_RET_JUNTA_COML','PROCEDIMENTO'}                  
+          laWHERE    := {'NR_PASTA='+lcNR_PASTA+;
+                        ' and NR_ATA='+DLAP+lcNR_ATA+DLAP+;
+                        ' and NR_SCT_SPROCEDIMENTO='+wGet('NR_SCT_SPROCEDIMENTO','C')}
+       if db_select(laFIELDS,lcTABLE,,laWHERE) = -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      db2put(laRESULT)
+      wPut('TITLE','Alteração do Procedimento '+str(getWPut('NR_SCT_SPROCEDIMENTO')))
+      
+// Glauber 19/10/2010 - O campo passou a ser readonly
+      wPut('ifNR_SCT_PROCEDIMENTORO',.T.)
+      wPut('ifNR_SCT_PROCEDIMENTORW',.F.)
+      
+   elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+  //    for ii := 1 to len(laVALIDA)
+  //        if empty(alltrim(WGet(laVALIDA[ii],'C')))
+  //           walert(laLABELS[ascan(laFIELDS,laVALIDA[ii])]+' é um campo obrigatório!')
+  //           get2Put()
+  //           llERRO := .T.
+   //          exit
+   //       endif
+   //   next ii
+   //   if ! llERRO
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+
+         psab_logs(laSAVE,lcTABLE, 'NR_PASTA='+lcNR_PASTA+;
+                                   ' and NR_ATA='+DLAP+lcNR_ATA+DLAP,lcNR_PASTA,'Procedimentos')
+//                                   +;
+//                                   ' and NR_SCT_SPROCEDIMENTO='+DLAP+WGet('NR_SCT_SPROCEDIMENTO','C')+DLAP,lcNR_PASTA,'Procedimentos')
+         IF WGET('NR_SCT_SPROCEDIMENTO','C') == ''
+            laWHERE    := {'NR_PASTA='+lcNR_PASTA+;
+                        ' and NR_ATA='+DLAP+lcNR_ATA+DLAP+;
+                        ' and NR_SCT_SPROCEDIMENTO= 0'}
+
+         else
+            laWHERE    := {'NR_PASTA='+lcNR_PASTA+;
+                        ' and NR_ATA='+DLAP+lcNR_ATA+DLAP+;
+                        ' and NR_SCT_SPROCEDIMENTO='+DLAP+WGet('NR_SCT_SPROCEDIMENTO','C')+DLAP}
+         endif   
+//         DEBUG2(LCNR_SCT_SPROCEDIMENTO)
+//         DEBUG2(LASAVE)
+//         debug2(lawhere)
+//         laWHERE    := {'NR_PASTA='+lcNR_PASTA+;
+//                        ' and NR_ATA='+DLAP+lcNR_ATA+DLAP+;
+//                        ' and NR_SCT_SPROCEDIMENTO='+DLAP+WGet('NR_SCT_SPROCEDIMENTO','C')+DLAP}
+//         WOUT(DEBUG2(laWHERE),,100)
+
+         if db_replace(laSAVE,lcTABLE,laWHERE) = -1
+            error_sys(db_error())
+         endif
+         wPut('TITLE','Inclusão de novo Procedimento')
+   //   endif
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      psab_logdel(lcNR_PASTA,'NR_SCT_SPROCEDIMENTO',WGet('NR_SCT_SPROCEDIMENTO','C'),,'Procedimentos')
+
+      if db_delete(lcTABLE,laWHERE[1]) = -1
+         error_sys(db_error())
+      endif
+      wPut('TITLE','Inclusão de novo Procedimento')
+   endif
+
+   /* Listagem */
+   lcFIELDS:= {'NR_SCT_SPROCEDIMENTO','DT_ABERTURA','PROCEDIMENTO','NR_JUNTA_COMERCIAL','DT_RET_JUNTA_COML','NR_REGISTRO','DT_REGISTRO','NR_PROTOCOLO'}
+
+   lcWHERE := {'NR_PASTA='+lcNR_PASTA+' and NR_ATA='+DLAP+lcNR_ATA+DLAP}
+
+
+   if db_select(lcFIELDS,lcTABLE,,lcWHERE,{'NR_SCT_SPROCEDIMENTO'}) = -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 0
+      aadd(laRES[1],'(row)')
+      for ii := 2 to len(laRES)
+         aadd(laRES[ii],'(row)'+wic_action('wicaction/ps.sct.4procedimento.html'+;
+                                           '?ACTION=ALTER'+;
+                                           '&NR_PASTA='+lcNR_PASTA+;
+                                           '&TP_PASTA='+lcTP_PASTA+;
+                                           '&NR_ATA='+lcNR_ATA+;
+                                           '&NR_SCT_SPROCEDIMENTO='+str(laRES[ii,db_fetchncol(laRES,'NR_SCT_SPROCEDIMENTO')])))
+      next ii
+      WPut('GRID_PROCEDIMENTO',grid_create(laRES))
+   endif
+return
+
+
+/*
+Criação : 08/11/2010 04:49:29 PM
+Autor : Sonia Perdigão
+*/
+static function cmb_procedimento(fcTP_PASTA)
+   local laPUT    := {} ,;
+         laRESULT := {} as array
+   local ii := 0 as int
+
+  if db_select({'PROCEDIMENTO'},'procedimento',,{'TP_PASTA='+DLAP+fcTP_PASTA+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   laPUT := {''}
+   if len(laRESULT) > 0
+      for ii:= 2 to len(laRESULT)
+         aadd(laPUT,laRESULT[ii,1])
+      next
+      WPut('PROCEDIMENTO.option',laPUT)
+      WPut('PROCEDIMENTO.optionvalue',laPUT)      
+   endif 
+
+return (nil)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

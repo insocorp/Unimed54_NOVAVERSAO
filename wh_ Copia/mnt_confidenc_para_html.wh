@@ -1,0 +1,61 @@
+/*
+
+Project      : gr5
+Program      : mnt.confidenc.para.html
+Function     : mnt_confidenc_para_html
+Created on   : 02-Apr-2003   15:16:13
+Descripition : Cadastro de Confidencialidade Para
+
+*/
+
+   local lcACTION   := '',;
+         lcWHERE    := '',;
+         lcTABLE    := '',;
+         lcCONTRATO := '' as string
+
+   local laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laFIELDS   := {} as array
+
+   local ii := 0 as int
+
+   local llERRO := .F. as logical
+
+   lcACTION   := upper(alltrim(WGet('ACTION','C')))
+   lcCONTRATO := alltrim(WGet('CONTRATO_CONFIDENC_PARA','C'))
+   lcTABLE    := 'contrato_confidenc_para'
+   lcWHERE    := 'CONTRATO_CONFIDENC_PARA = '+DLAP+lcCONTRATO+DLAP
+   laFIELDS   := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+
+   if lcACTION = 'SAVE' .and. gbWAC_WRITE
+      wPut('TITLE','Inclusão de novo Confidencialidade Para')
+      if len(alltrim(WGet('CONTRATO_CONFIDENC_PARA','C'))) = 0
+         wPut('ERROR_MENS','Confidencialidade Para é um campo obrigatório')
+         Get2Put()
+         llERRO := .T.
+      endif
+      if !llERRO
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+         if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+            error_sys(db_error())
+         endif
+      endif
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+      wPut('TITLE','Inclusão de novo Confidencialidade Para')
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+   endif
+
+   if db_select(laFIELDS,lcTABLE) == -1
+      error_sys(db_error())
+   endif
+   wPut('lstCONTRATO_CONFIDENC_PARA',db_fetchall())
+return
+
+
+

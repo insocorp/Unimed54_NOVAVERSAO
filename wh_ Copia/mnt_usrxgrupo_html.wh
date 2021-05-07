@@ -1,0 +1,120 @@
+/*
+
+Project      : isj_50
+Program      : mnt.usrxgrupo.html
+Function     : mnt_usrxgrupo_html
+Created on   : 14/10/2015 09:18:26
+Descripition :
+
+*/
+
+private lcACTION   := ''
+
+local laRESULT     := {} ,;
+      laRESULT1    := {} ,;
+      laRESULT2    := {} ,;
+      laRES        := {} ,;
+      laSAVE       := {} ,;
+      laIDS        := {} ,;
+      laLINHA_ATUAL:= {} as array
+
+local lcCIP_FILIAL := '',;
+      lcCIP_EMPRESA:= '' as string
+
+local lnID_FILXDIV   := 0 ,;
+      lnID_FILXGRP   := 0 ,;
+      lnID_PLATAFORMA:= 0 as int
+
+local ii             := 0 as int
+local xx             := 0 as int
+local gg             := 0 as int
+
+
+lcACTION          := upper(Wget('ACTION'))
+
+
+WPut('TITLE','Identificação de Usuário por Grupo')
+
+if lcACTION == 'SAVE' .and. gbWAC_WRITE
+
+
+   laRESULT1 := str2array(WGet('GRUPOSSEL','C'),',')
+   laRESULT2 := str2array(WGet('USERSEL','C'),',')
+
+
+   for gg := 1 to len(laRESULT1)
+
+
+   for ii := 1 to len(laRESULT2)
+
+          lcWHERE:='CD_GRUPO='+ laRESULT1[gg]
+
+          if db_select({'NR_CONTROLE','ID_FILXDIV','ID_PLATAFORMA','CIP_FILIAL','CIP_EMPRESA'},'filxgrp',,{lcWHERE}) == -1
+             error_sys(db_error())
+          endif
+          laRES := db_fetchall()
+
+          for xx := 2 to len(laRES)
+
+              lnID_FILXGRP    :=laRES[xx,1]
+              lnID_FILXDIV    :=laRES[xx,2]
+              lnID_PLATAFORMA :=laRES[xx,3]
+              lcCIP_FILIAL    :=laRES[xx,4]
+              lcCIP_EMPRESA   :=laRES[xx,5]
+
+              laLINHA_ATUAL:={}
+
+              laSAVE  := {'WUID',;
+                          'ID_FILXGRP',;
+                          'CD_GRUPO',;
+                          'ID_FILXDIV',;
+                          'ID_PLATAFORMA',;
+                          'CIP_FILIAL',;
+                          'CIP_EMPRESA',;
+                          'DT_CADASTRO',;
+                          'LOGIN_CADASTRO'}
+
+              aadd(laLINHA_ATUAL,laSAVE)
+
+
+              laSAVE  := {laRESULT2[ii],;
+                         lnID_FILXGRP,;
+                         laRESULT1[gg],;
+                         lnID_FILXDIV,;
+                         lnID_PLATAFORMA,;
+                         lcCIP_FILIAL,;
+                         lcCIP_EMPRESA,;
+                         date(),;
+                         gcLOGIN}
+
+              aadd(laLINHA_ATUAL,laSAVE)
+
+              if db_replace(laLINHA_ATUAL,'usrxgrp',{'WUID='+laRESULT2[ii]+' and CD_GRUPO = '+ laRESULT1[gg] +' and CIP_FILIAL = '+lcCIP_FILIAL }) == -1
+                 error_sys(db_error())
+              endif
+
+          next xx
+   next ii
+
+   next gg
+
+elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+    get2put()
+
+    lcWHERE    := 'NR_CONTROLE in (' + WGet('EXCLUIR','C') +')'
+
+    if db_delete('usrxgrp',lcWHERE) == -1
+       error_sys(db_error())
+    endif
+
+    WPut('GRUPO',WGet('CDGRUPO','N'))
+
+endif
+
+
+
+
+WPut('ACTION','')
+lcACTION:=''
+
+return

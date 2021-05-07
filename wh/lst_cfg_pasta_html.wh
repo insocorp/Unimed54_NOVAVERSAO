@@ -1,0 +1,25 @@
+/*
+Project      : gr5
+Program      : lst.cfg.pasta.html
+Function     : lst_cfg_pasta_html
+Created on   : 14-May-2004   11:03:25
+Descripition : Configuração de Pasta
+*/
+local laPARAM := {{'TP_PASTA',''},;
+                  {'ACTION'  ,'ALTER'}} as array
+
+WPut('TITLE','Configuração de Pasta')
+
+make_lst_html(1,;                           //Modo de funcionamento [1]-Listagem [2]-Search
+              'gr5',;                      //Modulo do programa chamador
+              WSet('_USER_INTERFACE'),;     //Programa chamador
+              laPARAM,;                     //Parametros para linhas clicáveis
+              ,;                            //Botoes (nil)
+              'mnt.cfg.pasta.html',;        //Programa chamado pelos links (linhas clicáveis)
+              'gr5',;                      //Módulo do programa chamado pelos links
+              ,;                            //Retorno java (nil) - usado apenas no search
+              {'TP_PASTA','LAYOUT_PASTA'},; //Campos usados na pesquisa rápida
+              {'TP_PASTA','LAYOUT_PASTA'},; //Campos mostratos no grid
+              {'TP_PASTA','LAYOUT_PASTA'},; //Campos usados no select
+              'pasta_config')               //Tabela alvo
+return

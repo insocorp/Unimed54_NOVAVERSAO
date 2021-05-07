@@ -1,0 +1,21 @@
+/*
+
+Project      : gr5
+Program      : pst.desc_reclama.html
+Function     : pst_desc_reclama_html
+Created on   : 01-Sep-2004   14:48:31
+Descripition : Descrição da Reclamação
+
+*/
+
+   local lcNR_PASTA := '' as string
+   
+   lcNR_PASTA := wGet('NR_PASTA','C')
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   pst_cabec(lcNR_PASTA,wGet('TP_PASTA','C'),.F.) //Cabeçalho
+
+   mnt_pasta_html(lcNR_PASTA,'ALTER','desc_reclama')

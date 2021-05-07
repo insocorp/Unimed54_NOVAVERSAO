@@ -1,0 +1,316 @@
+/*
+Alterado em 31/01/2009 - Eliana inclusao rotina para Lits
+*Chama funcoes : verifica_relacionamento
+*                ver_aba
+*                montar_filho
+*                sincroniza_pasta
+
+Project      : gr5
+Program      : mnt.pst.contingencia.html
+Function     : mnt_pst_contingencia_html
+Created on   : 06-Dec-2002   16:51:07
+Descripition : Janela popup para manutenção de Pasta-Contingência
+
+*/
+
+   local lcACTION     := '' ,;
+         lcWHERE      := '' ,;
+         lcTABLE      := '' ,;
+         lcRelac      := '' ,;
+         lcProgram    := 'mnt_pst_contingencia_html' ,;
+         lcNR_PASTA   := '' ,;
+         lcTP_PASTA   := '' ,;
+         lcNR_ROW     := '' ,;
+         lcVAR        := '' as string
+   local laRESULT     := {} ,;
+         laSAVE       := {} ,;
+         laWICDO      := {} ,;
+         laVL_INDICE  := {} as array
+
+   local ii := 0 as int
+
+   local lnVL_CORRIGIDO       := 0.00 ,;
+         lnPC_RISCO           := 0.00 ,;
+         lnVL_RISCO_CALCULADO := 0.00 ,;
+         lnVL_TT_PEDIDO       := 0.00 ,;
+         lnVL_TT_RISCO        := 0.00 ,;
+         lnVL_TT_CORRIGIDO    := 0.00 ,;
+         lnVL_TT_RCALCULADO   := 0.00 as numeric
+
+   local llReturn   := .f. as logical
+
+   lcACTION   := upper(alltrim(WGet('ACTION','C')))
+   lcTP_PASTA := wGet('TP_PASTA','C')
+   lcNR_PASTA := wGet('NR_PASTA','C')
+   lcTABLE    := 'pasta_contingencia'
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   set decimals to 9
+
+   pedproc_contingencia(val(lcNR_PASTA))
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   pasta_abas(lcTP_PASTA)
+
+//------------  Verificando relacionamento    -----------------------------------------
+
+   lcRelac:=verifica_relacionamento(lcNR_PASTA, lcTp_pasta)
+//------------ Verificando se Aba pode ser alterada  ------------------------
+
+   if lcRelac = 'F' .or. lcRelac = 'P'
+      llReturn:=Ver_ABA(lcTP_PASTA, lcProgram)
+   endif         
+
+   if lcRelac = 'F' .and. llReturn = .T. 
+      walert('Somente Para Consulta - Pasta Pertence a Litsconsorte')
+
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+      ii       := 1
+      lcNR_ROW := '1'
+      lcVAR    := 'VAR_PEDIDO_PROCESSO1'
+
+      do while WGet(lcVAR,'B')
+         laSAVE := {{'VL_PEDIDO','VL_RISCO','PC_RISCO'}}
+         aadd(laSAVE,{WGet('VAR_VL_PEDIDO'+lcNR_ROW,'N'),;
+                      WGet('VAR_VL_RISCO'+lcNR_ROW,'N'),;
+                      WGet('VAR_PC_RISCO'+lcNR_ROW,'N')})
+
+         lcWHERE  := 'NR_PASTA='+lcNR_PASTA+' and PEDIDO_PROCESSO='+DLAP+WGet('VAR_PEDIDO_PROCESSO'+lcNR_ROW,'C')+DLAP
+
+         if lcRelac = '' .or. lcRelac = 'P' .or. (lcRelac = 'F' .and. llReturn = .f.)      // se .f. posso alterar atraves do filho
+            psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Contingência')
+            if db_update(laSAVE,lcTABLE,{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+            if lcRelac = 'P' .and. llReturn 
+               laFilho:=Montar_filho(lcNR_PASTA,lcTp_pasta)
+               if len(laFilho) > 0
+                  for nn :=1 to len(lafilho)
+                      lcWHEREp  := 'NR_PASTA='+str(lafilho[nn])
+                      if db_delete(lcTABLE, lcWherep) == -1
+//                            error_sys(db_error())
+                      endif
+                  next nn
+                  lcWHERE  := 'NR_PASTA='+lcNR_PASTA
+                  for nn := 1 to len(laFilho)                   // gravando abas dos filhos
+                      sincroniza_pasta(lcNR_PASTA,laFilho[nn],lcTABLE,lcWhere)  
+                  next nn
+               endif   
+            endif
+         endif
+
+          ii++
+          lcNR_ROW := alltrim(str(ii))
+          lcVAR    := 'VAR_PEDIDO_PROCESSO'+lcNR_ROW
+
+      enddo
+   endif
+   /* Selecionando os pedidos */
+   if db_select({'pasta_contingencia.PEDIDO_PROCESSO',;
+                 'pasta_contingencia.VL_PEDIDO',;
+                 'pasta_contingencia.VL_RISCO',;
+                 'pasta_contingencia.PC_RISCO',;
+                 'exito_riscoperda.RISCOPERDA'},;
+                 lcTABLE,;
+                 {{2,'exito_riscoperda','exito_riscoperda.PC_RISCO=pasta_contingencia.PC_RISCO'}},;
+                 {'NR_PASTA='+lcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      laVL_INDICE := vl_indice(lcNR_PASTA,lcTP_PASTA)
+      laWICDO     := {{'VAR_PEDIDO_PROCESSO',;
+                       'VAR_VL_PEDIDO',;
+                       'VAR_VL_RISCO',;
+                       'VAR_PC_RISCO',;
+                       'PEDIDO_PROCESSO',;
+                       'PC_INDICE',;
+                       'VL_CORRIGIDO',;
+                       'VL_RISCO_CALCULADO'}}
+
+      for ii := 2 to len(laRESULT)
+         lcNR_ROW := alltrim(str(ii-1))
+
+         /* Campos calculados */
+         //lnVL_CORRIGIDO       := round(laRESULT[ii,db_fetchncol(laRESULT,'VL_RISCO')] * ((laVL_INDICE[1]/100)+1),2)
+         lnVL_CORRIGIDO       := round(laRESULT[ii,db_fetchncol(laRESULT,'VL_RISCO')] * (laVL_INDICE[1]),2)
+         lnPC_RISCO           := round(laRESULT[ii,db_fetchncol(laRESULT,'PC_RISCO')],2)
+         lnVL_RISCO_CALCULADO := round(lnVL_CORRIGIDO * (pc_risco(lnPC_RISCO)/100),2)
+
+         /* Totais */
+         lnVL_TT_PEDIDO     += round(laRESULT[ii,db_fetchncol(laRESULT,'VL_PEDIDO')],2)
+         lnVL_TT_RISCO      += round(laRESULT[ii,db_fetchncol(laRESULT,'VL_RISCO')],2)
+         lnVL_TT_CORRIGIDO  += round(lnVL_CORRIGIDO,2)
+         lnVL_TT_RCALCULADO += round(lnVL_RISCO_CALCULADO,2)
+
+         aadd(laWICDO,{'VAR_PEDIDO_PROCESSO'+lcNR_ROW,;
+                       'VAR_VL_PEDIDO'+lcNR_ROW,;
+                       'VAR_VL_RISCO'+lcNR_ROW,;
+                       'VAR_PC_RISCO'+lcNR_ROW,;
+                       laRESULT[ii,db_fetchncol(laRESULT,'PEDIDO_PROCESSO')],;
+                       ((laVL_INDICE[1]-1)*100)  ,;
+                       lnVL_CORRIGIDO,;
+                       wpictrans('VL_RISCO',lnVL_RISCO_CALCULADO)})
+
+         WPut('VAR_PEDIDO_PROCESSO'+lcNR_ROW        ,laRESULT[ii,db_fetchncol(laRESULT,'PEDIDO_PROCESSO')])
+         WPut('VAR_VL_PEDIDO'+lcNR_ROW              ,wpictrans('VL_PEDIDO',laRESULT[ii,db_fetchncol(laRESULT,'VL_PEDIDO')]))
+         WPut('VAR_VL_RISCO'+lcNR_ROW               ,wpictrans('VL_RISCO',laRESULT[ii,db_fetchncol(laRESULT,'VL_RISCO')]))
+         WPut('VAR_PC_RISCO'+lcNR_ROW               ,laRESULT[ii,db_fetchncol(laRESULT,'PC_RISCO')])
+         WPut('VAR_PC_RISCO'+lcNR_ROW+'_RISCOPERDA' ,laRESULT[ii,db_fetchncol(laRESULT,'RISCOPERDA')])
+      next ii
+      WPut('lstCONT'              ,laWICDO)
+      WPut('VL_TT_PEDIDO'         ,wpictrans('VL_PEDIDO',lnVL_TT_PEDIDO))
+      WPut('VL_TT_RISCO'          ,wpictrans('VL_RISCO',lnVL_TT_RISCO))
+      WPut('VL_TT_CORRIGIDO'      ,wpictrans('VL_RISCO',lnVL_TT_CORRIGIDO))
+      WPut('VL_TT_RISCO_CALCULADO',wpictrans('VL_RISCO',lnVL_TT_RCALCULADO))
+      WPut('ERROR_MESS',laVL_INDICE[2])
+   endif
+return
+
+/*
+* Data.Criação: 07.07.2005 - Eduardo
+* Function....: vl_indice()
+* Objetivo....: Retorna indice de reajuste para o Risco
+* Parâmetros..:
+*    fcNR_PASTA.: Número da Pasta
+*    fcTP_PASTA.: Tipo de Pasta
+*
+* Retorno.....: Vetor de 2 posições {VL_INDICE,'Mensagem de erro'}
+*/
+static function vl_indice(fcNR_PASTA,fcTP_PASTA)
+   local lcCD_INDICE := '' ,;
+         lcNM_INDICE := '' ,;
+         lcERRO      := '' ,;
+         lcMENS      := '' ,;
+         lcPC_INDICE := '' ,;
+         lcHTML      := '' ,;
+         lcAM_REF    := '' as string
+   local laFIELDS := {} ,;
+         laRESULT := {} ,;
+         laRETURN := {} ,;
+         laMARKUP := {} ,;
+         laMARKJUR:= {} ,;
+         laAUX    := {} as array
+   local ii := 0 ,;
+         xx := 0 as int
+
+   local lnVL_CORRIGIDO := 0.00 ,;
+         lnMARKUP       := 0.00 ,;
+         lnPC_INDICE    := 0.00 as numeric
+
+
+   local llNO_MARKUP := .f. as logical
+
+   local luDATE, luDATE_JUROS
+
+   /* Selecionando os Campos configurados */
+   if db_select({'pasta_config_valores.WFIELD_VALOR',;
+                 'pasta_config_valores.WFIELD_DATABASE',;
+                 'pasta_config_valores.WFIELD_DATABASE_JUROS',;
+                 'pasta_config_valores.FL_INDICECALC',;
+                 'pasta_config_valores.CD_INDICE',;
+                 'indice_reajuste.NM_INDICE'},;
+                 'pasta_config_valores',;
+                 {{2,'indice_reajuste','indice_reajuste.CD_INDICE=pasta_config_valores.CD_INDICE'}},;
+                 {'pasta_config_valores.TP_PASTA='+DLAP+fcTP_PASTA+DLAP,;
+                  'pasta_config_valores.WFIELD_VALOR='+DLAP+'VL_RISCO'+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      /* Selecionando dados da Pasta ---------------------------------------------------------------------------------------------*/
+      aadd(laFIELDS,'pasta.CD_INDICE')
+      aadd(laFIELDS,'indice_reajuste.NM_INDICE')
+      for ii := 2 to len(laRESULT)
+         aadd(laFIELDS,'pasta.'+laRESULT[ii,db_fetchncol(laRESULT,'WFIELD_VALOR')])
+         aadd(laFIELDS,'pasta.'+laRESULT[ii,db_fetchncol(laRESULT,'WFIELD_DATABASE')])
+         aadd(laFIELDS,'pasta.'+laRESULT[ii,db_fetchncol(laRESULT,'WFIELD_DATABASE_JUROS')])
+      next ii
+
+      if db_select(laFIELDS,'pasta',{{2,'indice_reajuste','indice_reajuste.CD_INDICE=pasta.CD_INDICE'}},{'NR_PASTA='+fcNR_PASTA}) == -1
+         lcERRO := db_error()
+         PutError(lcERRO)
+         laRETURN := {0,'* Houve uma falha ao exibir os Cálculos Atualizados.<br>'+;
+                        'Verifique as Configurações de Valores.<br><br>'+;
+                        'Mensagem de erro retornada:<br><br>'+lcERRO}
+         return laRETURN
+      endif
+      laPASTA := db_fetchall()
+      /*--------------------------------------------------------------------------------------------------------------------------*/
+
+      if laRESULT[2,db_fetchncol(laRESULT,'FL_INDICECALC')] == 'C'
+         lcCD_INDICE := alltrim(laRESULT[2,db_fetchncol(laRESULT,'CD_INDICE')])
+         lcNM_INDICE := laRESULT[2,db_fetchncol(laRESULT,'NM_INDICE')]
+      else
+         lcCD_INDICE := alltrim(laPASTA[2,db_fetchncol(laPASTA,'CD_INDICE')])
+         lcNM_INDICE := laPASTA[2,db_fetchncol(laPASTA,'NM_INDICE')]
+      endif
+
+      luDATE := laPASTA[2,db_fetchncol(laPASTA,laRESULT[2,db_fetchncol(laRESULT,'WFIELD_DATABASE')])]
+
+      luDATE_JUROS := laPASTA[2,db_fetchncol(laPASTA,laRESULT[2,db_fetchncol(laRESULT,'WFIELD_DATABASE_JUROS')])]
+
+      luVALOR := laPASTA[2,db_fetchncol(laPASTA,laRESULT[2,db_fetchncol(laRESULT,'WFIELD_VALOR')])]
+      if valtype(luVALOR) != 'N'
+         laRETURN := {0,'* Houve uma falha ao exibir os Cálculos Atualizados.<br>'+;
+                        'Verifique as Configurações de Valores.<br><br>'+;
+                        'Causa do erro:<br><br>O Campo ['+laRESULT[2,db_fetchncol(laRESULT,'WFIELD_VALOR')]+'] não é um Valor válido.'}
+         return (.f.)
+      endif
+
+      laMARKUP := getmarkup(val(lcCD_INDICE),date2ym(date()),date2ym(luDATE))
+      laMARKJUR := getmarkup_juros(val(lcCD_INDICE),date2ym(date()),date2ym(luDATE_JUROS))
+      lnMARKUP := laMARKUP[1] * laMARKJUR[1]
+      lcAM_REF := laMARKUP[2]
+
+      if lnMARKUP == 0
+         if val(lcCD_INDICE) != 0
+            llNO_MARKUP := .t.
+         endif
+         lnMARKUP := 1
+      endif
+
+      lnVL_CORRIGIDO := luVALOR * lnMARKUP
+      //lnPC_INDICE    := (lnMARKUP - 1) * 100
+      lnPC_INDICE    := lnMARKUP
+
+      laRETURN := {lnPC_INDICE,''}
+
+      if llNO_MARKUP
+         laRETURN := {1,'* Nenhum Markup foi encontrado.'}
+      else
+         if ! empty(lcAM_REF) .and. lcAM_REF != date2ym(date())
+            laRETURN := {lnPC_INDICE,'* Markup de: '+substr(lcAM_REF,5,2)+'/'+substr(lcAM_REF,1,4)}
+         endif
+      endif
+   else
+      laRETURN := {1,'* Não há Configuração definida para o campo ['+lblfscreen('VL_RISCO')+']'}
+   endif
+return laRETURN
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

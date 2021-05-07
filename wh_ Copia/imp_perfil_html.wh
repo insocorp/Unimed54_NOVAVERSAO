@@ -1,0 +1,31 @@
+/*
+
+Project      : isj_60
+Program      : imp.perfil.html
+Function     : imp_perfil_html
+Created on   : 17-Jul-2017   15:42:56
+Descripition : 
+
+*/
+
+
+
+
+    local xml        := '',;
+          lcACTION     := '' AS String
+
+    local objPerfil  := PAToolsNew()
+
+    lcACTION         := wGet('ACTION')
+    xml              := WGETFile('ARQUIVO_Perfil',"V")
+
+// wout('Conteudo:' + conteudo)
+
+   if lcACTION == 'IMPORT'
+      objPerfil:ImportPerfil(xml)
+      WSet('_USER_INTERFACE','lst.acgroup.html')
+      lst_acgroup_html()
+   endif
+
+
+return

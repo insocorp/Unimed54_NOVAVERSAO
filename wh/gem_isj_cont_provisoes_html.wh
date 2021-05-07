@@ -1,0 +1,282 @@
+/*
+
+Project      : gr5
+Program      : gem_isj_cont_provisoes.html
+Function     : gem_isj_cont_provisoes_html
+Created on   : 1/9/2009 16:51:14
+Descripition : Exporta Movim. Contabil GEM
+
+*/
+
+    WSet('_USER_INTERFACE','none.wic')
+
+    local lcXML       := '' ,;
+          lcWHERE     := '' ,;
+          lcFILEOUT   := '' ,;   
+          lcTABLE     := 'mvt_contabil' ,;
+          lcRAMO      := '' ,;
+          lcSini      := '' ,;
+          lcStatus    := '3' ,;
+          lcHORAINI   := time() ,;      
+          lcTABLEINT  := 'seq_interfaces' as string
+
+    local ii       := 0 ,;
+          jj       := 0 ,;
+          lnHAND   := 0 ,;
+          lnValor  := 0 ,;
+          lnIdInt  := 1 ,;
+          lnSEQ    := 0  as int
+
+    local lnV_A    := 0 ,; 
+          lnV_R_C  := 0 ,;
+          lnV_C    := 0 ,;
+          lnV_J    := 0 ,;
+          lnV_S    := 0 ,;
+          lnVSuc   := 0 as numeric
+
+    local laXML       := {} ,;
+          laFIELDS    := {} ,;
+          laRESULT    := {} ,;
+          laJOIN      := {} ,;
+          laFIELDSINT := {} ,;
+          laWHEREINT  := {} ,;
+          laRES_INT   := {} ,;
+          laSAVEINT   := {} as array
+          
+    local ldDIAINI    := date() as date
+          
+    local llEvida     := .F. ,; 
+          llSucum     := .F. ,;
+          llNaoSucum  := .F. as logic
+ 
+     laJOIN := {{2,'pasta_seguro'       , 'pasta_seguro.NR_PASTA            = mvt_contabil.WPKEY_NUM AND pasta_seguro.NR_CONTROLE = mvt_contabil.WPKEY_NUM2'},;
+                {2,'pasta_pedidos'      , 'pasta_pedidos.NR_CONTROLE_SEGURO = pasta_seguro.NR_CONTROLE'},;
+                {2,'pasta_detal_pedidos', 'pasta_detal_pedidos.NR_CONTROLE  = pasta_pedidos.NR_CONTROLE'},;
+                {2,'pasta'              , 'pasta.NR_PASTA                   = pasta_seguro.NR_PASTA'},;
+                {2,'pasta_status'       , 'pasta_status.FL_PASTA            = pasta.FL_PASTA'}}
+
+    laFIELDS := {'DISTINCT pasta_seguro.NR_SINISTRO',;
+                 'pasta_detal_pedidos.VL_RISCO_CALC',;
+                 'pasta_detal_pedidos.VL_CORRECAO',;
+                 'pasta_detal_pedidos.VL_JUROS',;
+                 'CASE pasta_status.FL_PASTA_STATUS' +;
+                     ' WHEN '+DLMT+'A'+DLMT+' THEN '+DLMT+'S'+DLMT+;
+                     ' WHEN '+DLMT+'E'+DLMT+' THEN '+DLMT+'N'+DLMT+;
+                 ' END AS MANTER_ACAO',;
+                 'CASE pasta_status.FL_PASTA_STATUS' +;
+                     ' WHEN '+DLMT+'A'+DLMT+' THEN '+DLMT+'N'+DLMT+;
+                     ' WHEN '+DLMT+'E'+DLMT+' THEN '+DLMT+'S'+DLMT+;
+                 ' END AS ENCERRAR_SINISTRO',;
+                 'pasta_seguro.NR_CONTROLE',;
+                 'pasta_pedidos.PEDIDO_PROCESSO',;
+                 'pasta_seguro.CD_RAMOSRSN',;
+                 'CASE '+; 
+                    'WHEN pasta_seguro.CD_RAMOSRSN IN ('+DLMT+'77'+DLMT+', '+DLMT+'81'+DLMT+', '+DLMT+'82'+DLMT+', '+DLMT+'90'+DLMT+', '+DLMT+'93'+DLMT+','+DLMT+'99'+DLMT+') THEN '+DLMT+'EVIDA'+DLMT+;
+                    'WHEN pasta_seguro.CD_RAMOSRSN IN ('+DLMT+'86'+DLMT+', '+DLMT+'87'+DLMT+') THEN '+DLMT+'TOP'+DLMT +;
+                    'ELSE '+DLMT+'   '+DLMT+;
+                  'END AS SIS_RAMO'}
+                 
+                    /*
+                    'WHEN pasta_seguro.CD_RAMOSRSN IN ('+DLMT+'86'+DLMT+', '+DLMT+'87'+DLMT+') THEN '+DLMT+'TOP'+DLMT +;
+                    */
+
+    // Buscando os Dados contábeis a serem exportados.
+    lcWHERE :=      'pasta_status.FL_PASTA_STATUS = '+DLMT+'A'+DLMT
+    lcWHERE += ' AND pasta_pedidos.PEDIDO_PROCESSO IS NOT NULL'
+    lcWHERE += ' AND ( pasta_detal_pedidos.VL_RISCO_CALC IS NOT NULL OR pasta_detal_pedidos.VL_RISCO_CALC <> 0 )'
+    lcWHERE += ' AND ( pasta_detal_pedidos.VL_CORRECAO   IS NOT NULL OR pasta_detal_pedidos.VL_CORRECAO   <> 0 )'
+    lcWHERE += ' AND ( pasta_detal_pedidos.VL_JUROS      IS NOT NULL OR pasta_detal_pedidos.VL_JUROS      <> 0 )' 
+
+/*
+    lcWHERE += ' AND ( pasta_detal_pedidos.FL_INTERFACEGEM = '+DLMT+'N'+DLMT
+    lcWHERE += '  OR pasta_detal_pedidos.FL_INTERFACEGEM is null )'     // Filtra os não(N) atualizados
+    lcWHERE += ' AND ( pasta_pedidos.FL_INTERFACEGEM = '+DLMT+'N'+DLMT  
+    lcWHERE += '  OR pasta_pedidos.FL_INTERFACEGEM is null )'   // Filtra os não(N) atualizados
+    lcWHERE += ' AND ( mvt_contabil.FL_INTERFACEGEM = '+DLMT+'N'+DLMT   // Filtra os não(N) atualizados
+    lcWHERE += '  OR mvt_contabil.FL_INTERFACEGEM is null )'
+      
+    lcWHERE += ' AND ( mvt_contabil.FL_CONTABILIZADO = '+DLMT+'N'+DLMT   // Filtra somente os não(N) contabilizados.
+    lcWHERE += '  OR mvt_contabil.FL_CONTABILIZADO is null )'
+    lcWHERE += " AND mvt_contabil.CD_PLCT_CREDITO <> '' "
+    lcWHERE += " AND mvt_contabil.CD_PLCT_DEBITO  <> '' "
+    lcWHERE += ' AND mvt_contabil.WTABLE  = '+DLMT+'pasta'+DLMT
+    lcWHERE += ' AND mvt_contabil.WTABLE2 = '+DLMT+'pasta_seguro'+DLMT
+*/
+    if db_select( laFIELDS,lcTABLE,laJOIN,{lcWHERE},{'SIS_RAMO','pasta_seguro.NR_SINISTRO','pasta_pedidos.PEDIDO_PROCESSO'}) == -1
+       db_error()
+    endif
+
+    laRESULT := db_fetchall()
+    
+    if len(laRESULT) > 1
+    
+       For jj := 1 to 2
+           
+          lcRAMO := If(jj == 1, 'EVIDA', 'TOP')
+          ii := 0
+           
+          lcWHERE := ''
+          
+          lcSini  := Alltrim(laRESULT[02,db_fetchncol(laRESULT,'NR_SINISTRO')])
+                    
+          For ii := 2 to len(laRESULT)
+           
+             If lcSini == Alltrim(laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')])
+             
+                If Substr(laRESULT[ii,db_fetchncol(laRESULT,'PEDIDO_PROCESSO')],01,06) <> 'Sucumb' //'Sucumbência de Condenação'
+          
+                   lnV_R_C := lnV_R_C + (laRESULT[ii,db_fetchncol(laRESULT,'VL_RISCO_CALC')]) 
+                   lnV_C   := lnV_C   + (laRESULT[ii,db_fetchncol(laRESULT,'VL_CORRECAO')])
+                   lnV_J   := lnV_J   + (laRESULT[ii,db_fetchncol(laRESULT,'VL_JUROS')])
+                   
+                   If laRESULT[ii,db_fetchncol(laRESULT,'SIS_RAMO')] == 'EVIDA'
+                   
+                      lnV_A := -1
+                                        
+                   Else
+                   
+                      lnV_A := lnV_A + (laRESULT[ii,db_fetchncol(laRESULT,'VL_RISCO_CALC')]) ;
+                                     + (laRESULT[ii,db_fetchncol(laRESULT,'VL_CORRECAO')])   ;
+                                     + (laRESULT[ii,db_fetchncol(laRESULT,'VL_JUROS')])
+                   Endif
+                Else
+                   
+                   lnV_S := lnV_S + (laRESULT[ii,db_fetchncol(laRESULT,'VL_RISCO_CALC')]) ;
+                                  + (laRESULT[ii,db_fetchncol(laRESULT,'VL_CORRECAO')])   ;
+                                  + (laRESULT[ii,db_fetchncol(laRESULT,'VL_JUROS')])
+                Endif
+                
+                If !(ii+1 > len(laRESULT))
+                   Loop
+                Endif
+             Else
+             
+                lcSini := Alltrim(laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')])
+                   
+                ii--
+             Endif
+                       
+             If lcRAMO != Alltrim(laRESULT[ii,db_fetchncol(laRESULT,'SIS_RAMO')])
+                lnV_R_C := lnV_C := lnV_J := lnV_A := lnV_S := 0
+                Loop
+             Endif
+ 
+             If lnV_A <> 0       // sem sucumbência
+                aadd(laXML, {'sinistro_numero='          , laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')]})        //<sinistro_numero="1009308009157">                                
+                aadd(laXML, {'id_integracao valor='      , StrZero(lnIdInt++, 4)                            })        //<id_integracao valor="1"/>   (seqüencial)
+                aadd(laXML, {'tp_integracao valor='      , "2"                                              })        //<tp_integracao valor="2"/>
+                aadd(laXML, {'ramo='                     , laRESULT[ii,db_fetchncol(laRESULT,'CD_RAMOSRSN')]})        //<ramo="93"/>
+                
+                aadd(laXML, {'Valor_reserva='            , lnV_R_C                                          })        //<Valor_reserva=”0,00”                                            
+                aadd(laXML, {'Ajuste_reserva='           , If(lnV_A < 0,'-0,01',lnV_A)                      })        //<Ajuste_reserva="-0,01"/>    (exemplo: zerar saldo anterior)     
+                aadd(laXML, {'Ajuste_correção_monetaria=', lnV_C                                            })        //<Ajuste_correção_monetária="0,00”/>
+                aadd(laXML, {'Ajuste_juros='             , lnV_J                                            })        //<Ajuste_juros="0,00"/>
+                
+                aadd(laXML, {'Ajuste_sucumbencia='       , '0,00'                                           })        //<Ajuste_sucumbencia="0,00"/>
+                
+                aadd(laXML, {'Manter_com_acao='          , laRESULT[ii,db_fetchncol(laRESULT,'MANTER_ACAO')]})        //<Manter_com_ação="S"/>       (Sim ou Não)                        
+                aadd(laXML, {'Encerrar_sinistro='        , laRESULT[ii,db_fetchncol(laRESULT,'ENCERRAR_SINISTRO')]})  //<Encerrar_sinistro=”N”/>     (Sim ou Não)                        
+
+                lnV_R_C := lnV_C := lnV_J := lnV_A := 0
+             Endif
+             
+             If lnV_S <> 0     // com sucumbência
+                aadd(laXML, {'sinistro_numero='          , laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')]})       //<sinistro_numero="1009308009157">                                
+                aadd(laXML, {'id_integracao valor='      , StrZero(lnIdInt++, 4)                            })       //<id_integracao valor="1"/>   (seqüencial)
+                aadd(laXML, {'tp_integracao valor='      , "2"                                              })       //<tp_integracao valor="2"/>
+                aadd(laXML, {'ramo='                     , laRESULT[ii,db_fetchncol(laRESULT,'CD_RAMOSRSN')]})       //<ramo="93"/>
+          
+                aadd(laXML, {'Valor_reserva='            , '0,00'                                           })                                            
+                aadd(laXML, {'Ajuste_reserva='           , '0,00'                                           })     
+                aadd(laXML, {'Ajuste_correção_monetaria=', '0,00'                                           })
+                aadd(laXML, {'Ajuste_juros='             , '0,00'                                           })
+                
+                aadd(laXML, {'Ajuste_sucumbencia='       , lnV_S                                            })        //<Ajuste_sucumbencia="0,00"/>
+                
+                aadd(laXML, {'Manter_com_acao='          , laRESULT[ii,db_fetchncol(laRESULT,'MANTER_ACAO')]})        //<Manter_com_ação="S"/>       (Sim ou Não)                        
+                aadd(laXML, {'Encerrar_sinistro='        , laRESULT[ii,db_fetchncol(laRESULT,'ENCERRAR_SINISTRO')]})  //<Encerrar_sinistro=”N”/>     (Sim ou Não)
+
+                lnV_S := 0
+             Endif
+                                                                                                                                              
+             If len(lcWHERE) > 0
+                lcWHERE += ', '
+             Endif
+             
+             lcWHERE += alltrim(str(laRESULT[ii,db_fetchncol(laRESULT,'NR_CONTROLE')]))
+                             
+          Next ii
+
+          lcXML := array2xml(laXML)
+          
+          If len(lcXML) < 1      // manda arquivo em branco quando ñ há dados
+             lcXML := Space(100)
+          Endif
+          
+          // Gerando arquivo de exportacao
+
+          lnHAND := fcreate('ISJUR' + lcRAMO + dtos(date()) + strtran(time(),':','') + '.TXT', 0)
+          If lnHAND > 0
+             if FWrite(lnHAND,lcXML) <= 0
+                wout("Erro na gravação do arquivo.")
+                return(.f.)
+             endif
+             fclose(lnHAND)
+             
+             lcStatus := '1'  //Atualiza seq_interfaces - processo OK
+          Else
+          
+             wout("Problemas na criacao do arquivo: " + 'ISJUR' + lcRAMO + dtos(date()) + strtran(time(),':','') + '.TXT')
+             lcStatus := '2'  //Atualiza seq_interfaces - erro no processo
+          Endif
+          
+          laXML := {}
+          
+          lnIdInt := 1
+
+       Next jj
+
+       If lcStatus == '1'  //Atualiza seq_interfaces - processo OK
+          lcWHERE := 'pasta_detal_pedidos.NR_CONTROLE in (' + lcWHERE + ')'
+          //if db_update({{"FL_INTERFACEGEM"},{'S'}},'pasta_detal_pedidos',{lcWHERE}) == -1
+          //   wout("Erro Update -> "+db_error())
+          //endif
+       
+          lcWHERE := 'pasta_pedidos.NR_CONTROLE in (' + lcWHERE + ')'
+          //if db_update({{"FL_INTERFACEGEM"},{'S'}},'pasta_pedidos',{lcWHERE}) == -1
+          //   wout("Erro Update -> "+db_error())
+          //endif
+
+          lcWHERE := 'mvt_contabil.NR_CONTROLE in (' + lcWHERE + ')'
+          //if db_update({{"FL_INTERFACEGEM"},{'S'}},'mvt_contabil',{lcWHERE}) == -1
+          //   wout("Erro Update -> "+db_error())
+          //endif
+          
+          // Fazendo o Update nos registros de movimento contabil	  
+          lcWHERE := 'mvt_contabil.NR_CONTROLE in (' + lcWHERE + ')'
+          //if db_update({{"FL_CONTABILIZADO"},{'S'}},'mvt_contabil',{lcWHERE}) == -1
+          //   wout("Erro Update -> "+db_error())
+          //endif
+       Endif
+
+    Else
+       wout("Sem Conteudo para gravação do arquivo.")
+       lcStatus := '2'  //Atualiza seq_interfaces - erro no processo
+    Endif
+    
+    //Atualizar Interfaces - seq_interfaces  
+                                          
+    laFIELDSINT := structtable(WSet("DB_ACTIVE"),lcTABLEINT,1,'N')                      
+    laWHEREINT  := {"PROGRAM = 'gem_isj_cont_provisoes_html'"}                                      
+    if db_select(laFIELDSINT, lcTABLEINT,,laWHEREINT) == -1                             
+       error_sys(db_error())                                                            
+    endif                                                                               
+    laRES_INT := db_fetchrow()                                                          
+    lnSEQ     := laRES_INT[2] + 1                                                     
+    aadd(laSAVEINT,laFIELDSINT)                                                         
+    aadd(laSAVEINT,{laRES_INT[1],lnSEQ, ldDIAINI, lcHORAINI, date(), time(), lcStatus})      
+    if db_replace(laSAVEINT,lcTABLEINT,laWHEREINT) == -1                                
+       error_sys(db_error())                                                            
+    endif
+    
+return

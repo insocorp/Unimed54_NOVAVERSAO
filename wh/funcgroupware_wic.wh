@@ -1,0 +1,1389 @@
+/*
+
+Project      : gr5
+Program      : funcgroupware.wic
+Function     : funcgroupware_wic
+Created on   : 03-May-2003   15:58:10
+Descripition : Funções utilitárias do módulo groupware
+
+*/
+
+/*
+* Function..: compr_create(<faDIARY>)
+* Objetivo..: Criar compromissos individuais ou corporativos
+* Parâmetros:
+*    faDIARY.: Matriz bidimensional contendo os nomes de campos e seus respectivos valores
+*    Ex:
+*      {{'LOGIN'          ,'marcos'  },;
+*       {'DIARY_TYPE'     ,'0'       },;
+*       {'DT_ADD'         ,'20031216'},;
+*       {'TIME_START'     ,'1520'    },;
+*       {'CALENDAR_STATUS','aviso'   },;
+*       {'SEND_EMAIL'     ,'S'       },;
+*       {'NOTFTIME2'      ,60        },;
+*       {'USERS',         ,{'marcos','eduardo','nayma','nobody'},;
+*       {'GROUPS',        ,{'master','mahler','estagiarios'}}}
+*
+* Retorno...:
+*   .T. em caso de sucesso
+*   .F. em caso de falha
+*
+*/
+function compr_create(faDIARY)
+  local lcPASTAS   := '' ,;
+        lcDESCR    := '' ,;
+        lcTABLE    := '' ,;
+        lcCREATOR  := '' ,;
+        lcINSERT   := '' ,;
+        lcUSERS    := '' ,;
+        lcGROUPS   := '' ,;
+        lcINTERVAL := '' ,;
+        lcMSG      := '' ,;
+        lcDT_INI   := '' ,;
+        lcHR_INI   := '' ,;
+        lcDT_END   := '' ,;
+        lcHR_END   := '' ,;
+        lcTITLE    := '' as string
+
+  local laSAVE     := {} ,;
+        laSAVE_AUX := {} ,;
+        laPARAM    := {} ,;
+        laRESULT   := {} ,;
+        laUSERS    := {} ,;
+        laFIELDS   := {} ,;
+        laFLD_PST  := {} ,;
+        laWHERE    := {} ,;
+        laSENDER   := {} ,;
+        laSEND_TO  := {} as array
+
+
+  local x          := 0  ,;
+        y          := 0  ,;
+        liPOS      := 0  ,;
+        liTYPE     := -1 ,;
+        lnCTR_CORP := 0  as int
+
+// Matriz usado no teste de insercao de um compromisso individual
+/*
+faDIARY := {{'LOGIN'            ,'marcos'      },;
+            {'TITLE'            ,'Teste Tit'   },;
+            {'DIARY_TYPE'       ,1             },;
+            {'CALENDAR_STATUS'  ,'aviso'       },;
+            {'CALENDAR_CATEGORY','Agendar'     },;
+            {'PASTAS'           ,'576,577,607' },;
+            {'DESCRIPTION'      ,'Teste COMP'  },;
+            {'DT_ADD'           ,'20040505'    },;
+            {'DT_START'         ,'20040505'    },;
+            {'TIME_START'       ,'170000'      },;
+            {'DT_END'           ,'20040505'    },;
+            {'TIME_END'         ,'180000'      },;
+            {'SEND_EMAIL'       ,'S'           },;
+            {'SEND_SMS'         ,'S'           },;
+            {'NOTFTIME1'        ,2             },;
+            {'COMMENT'          ,'Comment COMP'},;
+            {'CALENDAR_RESULT'  ,'Result '     }}
+*/
+
+// Matriz usado no teste para insercao de um compromisso corporativo
+/*
+faDIARY := {{'LOGIN'               ,'marcos'},;
+            {'DIARY_TYPE'          ,0       },;
+            {'USERS'               ,'assis,eduardo'},;
+            {'GROUPS'              ,'Agenda'       },; //mahler,regis,leo,nayma
+            {'PASTAS'              ,'576,577,607'  },;
+            {'CALENDAR_STATUS'     ,'aviso'   },;
+            {'CALENDAR_CATEGORY'   ,'Calculos'},;
+            {'DESCRIPTION'         ,'Compr. Corp vários usuários, responsável: Marcos'},;
+            {'DT_ADD'              ,'20040505'},;
+            {'DT_START'            ,'20040505'},;
+            {'TIME_START'          ,'170000'  },;
+            {'DT_END'              ,'20040505'},;
+            {'TIME_END'            ,'183000'  },;
+            {'SEND_EMAIL'          ,'S'       },;  //Envia EMAIL na criação
+            {'SEND_SMS'            ,'S'       },;  //Envia SMS na criação
+            {'FL_REJECT'           ,'N'       },;  //Pode rejeitar compromisso ?
+            {'FL_AUTH'             ,'S'       },;  //Requer Autenticacao ?
+            {'FL_CALENDAR_REDIR'   ,'S'       },;  //Pode redirecionar ?
+            {'NOTFTIME1'           ,2         },;
+            {'NOTFTIME2'           ,90        },;
+            {'NOTFEMAIL'           ,'N'       },;
+            {'NOTFSMS'             ,'N'       },;
+            {'REPEAT_INTERVAL_TYPE',1},;
+            {'COMMENT'             ,'Testando compr_create()' },;
+            {'CALENDAR_RESULT'     ,'Teste de compr_create()' },;
+            {'REPEAT_INTERVAL_SIZE',10}}
+*/
+  liTYPE   := faDIARY[ascan2(faDIARY,1,'DIARY_TYPE'),2]
+  laPARAM := {'LOGIN',;
+              'TITLE',;
+              'USERS',;
+              'GROUPS',;
+              'PASTAS',;
+              'DT_ADD',;
+              'CALENDAR_STATUS',;
+              'CALENDAR_CATEGORY',;
+              'DT_START',;
+              'TIME_START',;
+              'DT_END',;
+              'TIME_END',;
+              'DESCRIPTION',;
+              'SEND_EMAIL',;
+              'SEND_SMS',;
+              'FL_REJECT',;
+              'FL_CALENDAR_REDIR',;
+              'FL_AUTH',;
+              'NOTFTIME1',;
+              'NOTFTIME2',;
+              'NOTFEMAIL',;
+              'NOTFSMS',;
+              'COMMENT',;
+              'CALENDAR_RESULT',;
+              'REPEAT_INTERVAL_TYPE',;
+              'REPEAT_INTERVAL_SIZE'}
+
+  /* Validação dos itens do array (apenas para o programador) ----------------------------------------------*/
+  for x := 1 to len(laPARAM)
+    if at(laPARAM[x],;
+          'DIARY_TYPE CALENDAR_STATUS CALENDAR_CATEGORY DESCRIPTION DT_START TIME_START DT_END TIME_END') > 0
+       if ascan2(faDIARY,1,laPARAM[x]) <= 0
+          error_sys('compr_create: '+laPARAM[x]+' - Parâmetro obrigatório')
+          return(.f.)
+       endif
+    elseif at(laPARAM[x],'USERS GROUPS FL_REJECT FL_CALENDAR_REDIR FL_AUTH') > 0
+       if faDIARY[ascan2(faDIARY,1,'DIARY_TYPE'),2]==1 .and. ascan2(faDIARY,1,laPARAM[x]) > 0
+          error_sys('compr_create: '+laPARAM[x]+' - Parâmetro é enviado apenas quando o compromisso for do tipo "[0] - Corporativo"')
+          return(.f.)
+       endif
+    endif
+  next x
+
+  lcTABLE  := iif(liTYPE==0,'calendar_corp','calendar_user')
+
+  //Filtragem dos campos a serem utilizados de acordo com o tipo de compromisso liTYPE
+  aadd(laFIELDS,laPARAM[1])
+  for x := 2 to len(laPARAM)
+      // Parametros para usados apenas na criacao de um compomisso corporativo
+      if at(laPARAM[x],'USERS GROUPS FL_REJECT FL_CALENDAR_REDIR FL_AUTH') > 0 .and. liTYPE==1
+         loop
+      endif
+      aadd(laFIELDS,laPARAM[x])
+  next x
+
+  /* Criação da descrição ao estilo sch.all.pasta.html -----------------------------------------------------*/
+
+  if ascan2(faDIARY,1,'PASTAS') > 0
+     lcPASTAS := faDIARY[ascan2(faDIARY,1,'PASTAS'),2]
+     if left(lcPASTAS,1) == ','
+        lcPASTAS := substr(lcPASTAS,2)
+     endif
+     if right(lcPASTAS,1) == ','
+        lcPASTAS := substr(lcPASTAS,1,len(lcPASTAS)-1)
+     endif
+     aadd(laFLD_PST,'pasta.NR_PASTA')
+     aadd(laFLD_PST,'pasta.NR_PROCESSO')
+     aadd(laFLD_PST,'pasta.CD_CLIENTE')
+     aadd(laFLD_PST,'cliente.NM_CLIENTE')
+     aadd(laFLD_PST,'pasta.PARTE_CONTRARIA')
+     aadd(laFLD_PST,'pasta.VARA')
+     aadd(laFLD_PST,'pasta.COMARCA')
+     aadd(laWHERE,'cliente.CD_CLIENTE = pasta.CD_CLIENTE')
+     aadd(laWHERE,'pasta.NR_PASTA in ('+lcPASTAS+')')
+     if db_select(laFLD_PST,'pasta,cliente',,laWHERE) == -1
+        error_sys('compr_create: ('+alltrim(str(procline()))+') - '+db_error())
+     endif
+     laRESULT := db_fetchall()
+     for x := 2 to len(laRESULT)
+         lcDESCR += 'Pasta: '+strzero(laRESULT[x,1])+CRLF+;
+                    alltrim(laRESULT[x,3])+'-'+alltrim(laRESULT[x,4])+'  X  '+alltrim(laRESULT[x,5])+CRLF+;
+                    alltrim(laRESULT[x,2])+' - Vara: '+laRESULT[x,6]+'  -  '+laRESULT[x,7]+CRLF+;
+                    replicate('-',50)+CRLF
+     next x
+  endif
+  laRESULT := {}
+  aadd(laSAVE,laFIELDS)
+  for x := 1 to len(laPARAM)
+      liPOS := ascan2(faDIARY,1,laPARAM[x])  //posicao do campo na matriz de parametros
+      if laPARAM[x] == 'LOGIN'
+         aadd(laSAVE_AUX,iif(liPOS > 0,faDIARY[liPOS,2],gcLOGIN))
+      elseif laPARAM[x] == 'TITLE'
+         aadd(laSAVE_AUX,iif(liPOS > 0,faDIARY[liPOS,2],faDIARY[ascan2(faDIARY,1,'CALENDAR_CATEGORY'),2]))
+      elseif laPARAM[x] == 'USERS'
+         if liTYPE == 0
+            if liPOS > 0
+               //Validar usuários --------------------------------------------------
+               lcUSERS := alltrim(faDIARY[ascan2(faDIARY,1,'USERS'),2])
+               lcMSG   := FindUG(lcUSERS,'U')
+               if len(lcMSG) > 0
+                  error_sys('compr_create: ('+alltrim(str(procline()))+') - '+lcMSG)
+                  return(.f.)
+               endif
+               aadd(laSAVE_AUX,lcUSERS)
+            else
+               aadd(laSAVE_AUX,nil)
+            endif
+         else
+            loop
+         endif
+      elseif laPARAM[x] == 'GROUPS'
+         if liTYPE == 0
+            if liPOS > 0
+               //Validar grupos ----------------------------------------------------
+               lcGROUPS := alltrim(faDIARY[ascan2(faDIARY,1,'GROUPS'),2])
+               lcMSG    := FindUG(lcGROUPS,'G')
+               if len(lcMSG) > 0
+                  error_sys('compr_create: ('+alltrim(str(procline()))+') - '+lcMSG)
+                  return(.f.)
+               endif
+               aadd(laSAVE_AUX,lcGROUPS)
+            else
+               aadd(laSAVE_AUX,nil)
+            endif
+         else
+            loop
+         endif
+      elseif at(laPARAM[x],'TIME_START TIME_END') > 0
+         aadd(laSAVE_AUX,fmttime(faDIARY[liPOS,2]))
+         loop
+      elseif laPARAM[x] == 'PASTAS'
+         aadd(laSAVE_AUX,iif(liPOS > 0,lcPASTAS,nil))
+      elseif laPARAM[x] == 'DESCRIPTION'
+         if liPOS > 0 .and. !empty(lcPASTAS)
+            aadd(laSAVE_AUX,faDIARY[liPOS,2]+CRLF+CRLF+lcDESCR)
+         else
+            aadd(laSAVE_AUX,iif(liPOS > 0,faDIARY[liPOS,2],nil))
+         endif
+      elseif laPARAM[x] == 'DT_ADD'
+         aadd(laSAVE_AUX,iif(liPOS > 0,faDIARY[liPOS,2],dtos(date())))
+      elseif at(laPARAM[x],'SEND_EMAIL SEND_SMS') > 0
+         aadd(laSAVE_AUX,iif(liPOS > 0,faDIARY[liPOS,2],'N'))
+      elseif at(laPARAM[x],'FL_REJECT FL_CALENDAR_REDIR FL_AUTH') > 0
+         if liTYPE == 0
+            aadd(laSAVE_AUX,iif(liPOS > 0,faDIARY[liPOS,2],'N'))
+         else
+            loop
+         endif
+      elseif laPARAM[x] == 'NOTFTIME1'
+         aadd(laSAVE_AUX,iif(liPOS > 0,faDIARY[liPOS,2],1))
+      elseif laPARAM[x] == 'NOTFTIME2'
+         aadd(laSAVE_AUX,iif(liPOS > 0,faDIARY[liPOS,2],60))
+      elseif at(laPARAM[x],'NOTFEMAIL NOTFSMS') > 0
+         aadd(laSAVE_AUX,iif(liPOS > 0,faDIARY[liPOS,2],'N'))
+      elseif at(laPARAM[x],'COMMENT CALENDAR_RESULT') > 0
+         aadd(laSAVE_AUX,iif(liPOS > 0,faDIARY[liPOS,2],nil))
+      elseif laPARAM[x] == 'REPEAT_INTERVAL_TYPE'
+         if liPOS > 0
+            do case
+               case faDIARY[liPOS,2] == 0
+                 lcINTERVAL := 'Diariamente'
+               case faDIARY[liPOS,2] == 1
+                 lcINTERVAL := 'Semanalmente'
+               case faDIARY[liPOS,2] == 2
+                 lcINTERVAL := 'Mensalmente'
+               case faDIARY[liPOS,2] == 3
+                 lcINTERVAL := 'Anualmente'
+            endcase
+            aadd(laSAVE_AUX,lcINTERVAL)
+         else
+            aadd(laSAVE_AUX,nil)
+         endif
+      elseif laPARAM[x] == 'REPEAT_INTERVAL_SIZE'
+         aadd(laSAVE_AUX,iif(liPOS > 0,faDIARY[liPOS,2],nil))
+      elseif liPOS > 0
+         aadd(laSAVE_AUX,faDIARY[liPOS,2])
+      endif
+      liPOS := 0
+  next x
+  aadd(laSAVE,laSAVE_AUX)
+  if db_insert(laSAVE,lcTABLE) == -1
+     error_sys('compr_create: ('+alltrim(str(procline()))+') - '+db_error())
+     return(.f.)
+  endif
+
+  laWHERE := {'CALENDAR_STATUS = '+DLAP+faDIARY[ascan2(faDIARY,1,'CALENDAR_STATUS'),2]+DLAP}
+  if db_select({'STATUS_NOTF'},'calendar_status',,laWHERE) == -1
+     error_sys('compr_create: ('+alltrim(str(procline()))+') - '+db_error())
+  endif
+  laRESULT := db_fetchrow()
+  if liTYPE == 0
+     lnCTR_CORP := db_insert_id()
+  endif
+
+  // Inclusão do compromisso na tabela de Compromissos Individuais ------------------------------------
+  laFIELDS := {}
+  aadd(laPARAM,'CTR_CALENDAR_CORP')
+  for x := 1 to len(laPARAM)
+      if at(laPARAM[x],'USERS GROUPS FL_REJECT FL_CALENDAR_REDIR FL_AUTH') > 0 .and. liTYPE==0
+         loop
+      endif
+      aadd(laFIELDS,laPARAM[x])
+  next x
+
+  liPOS := ascan2(faDIARY,1,'LOGIN')
+  if liPOS > 0
+     if liTYPE == 0 .and. (ascan2(faDIARY,1,'USERS') .or. ascan2(faDIARY,1,'GROUPS'))
+        laUSERS := lstUG(lcUSERS,lcGROUPS) // para compr. corporativo, adiciona usuários e grupos
+     else
+        aadd(laUSERS,faDIARY[liPOS,2])     // para compr. indiv. adiciona login enviado no array
+     endif
+  else                                     // para compr. indiv. se não encontrar o login, adiciona o default
+     aadd(laUSERS,gcLOGIN)
+  endif
+
+  lcUSERS := chr(39)+laUSERS[1]
+  for x := 1 to len(laUSERS)
+      //Formacao da string usada na instruçao IN logo abaixo para o envio de EMAIL e SMS para os usuários
+      if x > 1
+         lcUSERS += chr(39)+','+chr(39)+laUSERS[x]
+      endif
+
+      if liTYPE == 0 // Inserir nas tabelas [caledar_user] e [calendar_user_ver] n vezes
+         laSAVE     := {}
+         laSAVE_AUX := {}
+         aadd(laSAVE,laFIELDS)
+         for y := 1 to len(laPARAM)
+            if at(laPARAM[y],'USERS GROUPS FL_REJECT FL_CALENDAR_REDIR FL_AUTH') > 0
+               loop
+            endif
+            liPOS := ascan2(faDIARY,1,laPARAM[y])
+            if laPARAM[y] == 'LOGIN'
+               aadd(laSAVE_AUX,laUSERS[x])
+            elseif laPARAM[y] == 'CTR_CALENDAR_CORP'
+               aadd(laSAVE_AUX,lnCTR_CORP)
+            elseif laPARAM[y] == 'TITLE'
+               aadd(laSAVE_AUX,iif(liPOS > 0,faDIARY[liPOS,2],faDIARY[ascan2(faDIARY,1,'CALENDAR_CATEGORY'),2]))
+            elseif at(laPARAM[x],'TIME_START TIME_END') > 0
+               aadd(laSAVE_AUX,fmttime(faDIARY[liPOS,2]))
+               loop
+            elseif laPARAM[y] == 'PASTAS'
+               aadd(laSAVE_AUX,iif(liPOS > 0,lcPASTAS,nil))
+            elseif laPARAM[y] == 'DESCRIPTION'
+               if liPOS > 0 .and. !empty(lcPASTAS)
+                  aadd(laSAVE_AUX,faDIARY[liPOS,2]+CRLF+CRLF+lcDESCR)
+               else
+                  aadd(laSAVE_AUX,iif(liPOS > 0,faDIARY[liPOS,2],nil))
+               endif
+            elseif laPARAM[y] == 'DT_ADD'
+               aadd(laSAVE_AUX,iif(liPOS > 0,faDIARY[liPOS,2],dtos(date())))
+            elseif at(laPARAM[y],'SEND_EMAIL SEND_SMS') > 0
+               aadd(laSAVE_AUX,iif(liPOS > 0,faDIARY[liPOS,2],'N'))
+            elseif laPARAM[y] == 'NOTFTIME1'
+               aadd(laSAVE_AUX,alltrim(str(iif(liPOS > 0,faDIARY[liPOS,2],1))))
+            elseif laPARAM[y] == 'NOTFTIME2'
+               aadd(laSAVE_AUX,alltrim(str(iif(liPOS > 0,faDIARY[liPOS,2],60))))
+            elseif at(laPARAM[y],'NOTFEMAIL NOTFSMS') > 0
+               aadd(laSAVE_AUX,iif(liPOS > 0,faDIARY[liPOS,2],'N'))
+            elseif at(laPARAM[y],'COMMENT CALENDAR_RESULT') > 0
+               aadd(laSAVE_AUX,iif(liPOS > 0,faDIARY[liPOS,2],nil))
+            elseif laPARAM[y] == 'REPEAT_INTERVAL_TYPE'
+               if liPOS > 0
+                  do case
+                     case faDIARY[liPOS,2] == 0
+                       lcINTERVAL := 'Diariamente'
+                     case faDIARY[liPOS,2] == 1
+                       lcINTERVAL := 'Semanalmente'
+                     case faDIARY[liPOS,2] == 2
+                       lcINTERVAL := 'Mensalmente'
+                     case faDIARY[liPOS,2] == 3
+                       lcINTERVAL := 'Anualmente'
+                  endcase
+                  aadd(laSAVE_AUX,lcINTERVAL)
+               else
+                  aadd(laSAVE_AUX,nil)
+               endif
+            elseif laPARAM[y] == 'REPEAT_INTERVAL_SIZE'
+               aadd(laSAVE_AUX,iif(liPOS > 0,alltrim(str(faDIARY[liPOS,2])),nil))
+            elseif liPOS > 0
+               aadd(laSAVE_AUX,faDIARY[liPOS,2])
+            endif
+         next y
+         aadd(laSAVE,laSAVE_AUX)
+         if db_insert(laSAVE,'calendar_user') == -1
+            error_sys('compr_create: ('+alltrim(str(procline()))+') - '+db_error())
+            return(.f.)
+         endif
+      endif
+  next x
+  lcUSERS += chr(39)
+
+  if liTYPE == 0 // Inserir compromissos na tabela de verificacao [calendar_user_ver]
+     if at(laRESULT[1],'0 1 2') > 0
+        compr_ver(db_insert_id(),faDIARY,laUSERS,laRESULT[1])
+     endif
+  else // Inserir na tabela [calendar_user_ver]
+     compr_ver(db_insert_id(),faDIARY,laUSERS,laRESULT[1])
+  endif
+
+  //Selecionar sender para email/sms
+  if db_select({'EMAIL','WUSER','WALIAS'},'acuser',,{'LOGIN='+DLAP+gcLOGIN+DLAP}) == -1
+     error_sys('compr_create: ('+alltrim(str(procline()))+') - '+db_error())
+  endif
+  laSENDER := db_fetchrow()
+  liPOS    := ascan2(faDIARY,1,'SEND_EMAIL')
+  if liPOS > 0 .and. faDIARY[liPOS,2] == 'S'
+     // Enviar email - selecionar dados do remetente ---------------------------------------------------------
+     lcDT_INI := faDIARY[ascan2(faDIARY,1,'DT_START'),2]
+     lcHR_INI := faDIARY[ascan2(faDIARY,1,'TIME_START'),2]
+     lcDT_END := faDIARY[ascan2(faDIARY,1,'DT_END'),2]
+     lcHR_END := faDIARY[ascan2(faDIARY,1,'TIME_END'),2]
+     liPOS    := ascan2(faDIARY,1,'TITLE')
+     lcTITLE  := iif(liPOS > 0,faDIARY[liPOS,2],faDIARY[ascan2(faDIARY,1,'CALENDAR_CATEGORY'),2])
+
+     //Selecionar dados do destinatário
+     if db_select({'empresa_usuaria.NM_FANTASIA','empresa_usuaria.EMAIL_CALENDAR','acuser.EMAIL,acuser.LOGIN'},;
+                  'empresa_usuaria,acuser',,{'acuser.LOGIN in ('+lcUSERS+')'}) == -1
+        error_sys('compr_create: ('+alltrim(str(procline()))+') - '+db_error())
+     endif
+     laSEND_TO := db_fetchall()
+     if len(laSEND_TO) > 0
+        lcMSG += 'Início: '+right(lcDT_INI,2)+'/'+substr(lcDT_INI,5,2)+'/'+left(lcDT_INI,4)+' '
+        lcMSG += left(lcHR_INI,2)+':'+substr(lcHR_INI,3,2)+':'+right(lcHR_INI,2)+CRLF
+        lcMSG += 'Término: '+right(lcDT_END,2)+'/'+substr(lcDT_END,5,2)+'/'+left(lcDT_END,4)+' '
+        lcMSG += left(lcHR_END,2)+':'+substr(lcHR_END,3,2)+':'+right(lcHR_END,2)+CRLF
+        lcMSG += faDIARY[ascan2(faDIARY,1,'DESCRIPTION'),2]
+        for x := 2 to len(laSEND_TO)
+            if !empty(laSEND_TO[x,3])
+               wsendMAIL(laSENDER[1],;             //Remetente
+                         lcTITLE,;                 //Assunto
+                         lcMSG+CRLF+CRLF+lcDESCR,; //Corpo da mensagem
+                         laSEND_TO[x,3],;          //Detinatário
+                         ,;                        //CC
+                         ,;                        //BCC
+                         'Agenda ISJ')             //Nome do remetente
+            else
+               putERROR('Usuário '+DLMT+laSEND_TO[x,4]+DLMT+' não possui email cadastrado!')
+            endif
+        next x
+     else
+        putERROR('Impossível enviar e-mail! É necessário informá-los na Manutençao de Usuários!')
+     endif
+  endif
+
+  // Enviar sms ----------------------------------------------------------------------------------------------
+  liPOS := ascan2(faDIARY,1,'SEND_SMS')
+  if liPOS > 0 .and. faDIARY[liPOS,2] == 'S' //Enviar sms
+     if db_select({'SMS_DEVICE','SMS','LOGIN'},'acuser',,{'LOGIN in ('+lcUSERS+')'}) == -1
+        error_sys('compr_create: ('+alltrim(str(procline()))+') - '+db_error())
+     endif
+     laSEND_TO := db_fetchall()
+     if len(laSEND_TO) > 0
+        lcMSG := right(lcDT_INI,2)+'/'+substr(lcDT_INI,5,2)+'/'+left(lcDT_INI,4)+' '+;
+                 left(lcHR_INI,2)+':'+substr(lcHR_INI,3,2)+':'+right(lcHR_INI,2)+CRLF+;
+                 faDIARY[ascan2(faDIARY,1,'DESCRIPTION'),2]
+        for x := 2 to len(laSEND_TO)
+
+            /*
+            ? 'Tipo.............:',laSEND_TO[x,1]
+            ? 'Codigo...........:',laSEND_TO[x,2]
+            ? 'Assunto..........:',lcTITLE
+            ? 'Mensagem.........:',lcMSG
+            ? 'Apelido..........:','GR5-'+laSENDER[3]
+            ? 'Email Sender.....:',laSENDER[1]
+            ? '---------------------------------------'
+            */
+
+            if !empty(laSEND_TO[x,1]) .and. !empty(laSEND_TO[x,2])
+               wsendSMS(laSEND_TO[x,1],;     //Tipo de dispositivo
+                        laSEND_TO[x,2],;     //Código do dispositivo
+                        lcTITLE,;            //Assunto
+                        lcMSG,;              //Mensagem
+                        'ISJ-'+laSENDER[3],; //Apelido do sender
+                        laSENDER[1])         //Email do sender
+            else
+               if empty(laSEND_TO[x,1])      //Sem nr do celular cadastrado
+                  putERROR('Usuário '+DLMT+laSEND_TO[x,3]+DLMT+' não possui SMS cadastrado!')
+               elseif empty(laSEND_TO[x,2])  //Sem tipo de dispositivo cadastrado
+                  putERROR('Usuário '+DLMT+laSEND_TO[x,3]+DLMT+' não tipo de Dispositvo cadastrado!')
+               endif
+            endif
+        next ii
+     else
+        putERROR('Impossível enviar SMS! É necessário informar o Tipo do Dispositivo e Nr. do celular!')
+     endif
+  endif
+return(.t.)
+
+/*
+* Function..: compr_ver(<fnCTR_USER>,<faCOMPR>,<faUSERS>,<fcSTATUS>)
+* Objetivo..: Inserir compromissos na tabela de verificação [calendar_user_ver]
+* Parâmetros:
+*    fnCTR_USER: código do compromisso
+*    faCOMPR...: matriz bidimensional contendo o compromisso
+*    faUSERS...: vetor contendo os usuários donos dos compromissos
+*    fcSTATUS..: status do compromisso
+* Retorno:
+*   Nenhum
+*/
+static function compr_ver(fnCTR_USER,faCOMPR,faUSERS,fcSTATUS)
+  local lcTSTP   := '' ,;
+        lcHORA   := '' ,;
+        lcDATA   := '' as string
+
+  local laFIELDS   := {} ,;
+        laRESULT   := {} ,;
+        laSAVE     := {} ,;
+        laSAVE_AUX := {} as array
+
+  local liPOS := 0 as int
+
+  liPOS    := ascan2(faCOMPR,1,'TIME_START')
+  lcHORA   := iif(liPOS > 0,faCOMPR[liPOS,2],substr(time(),1,2)+substr(time(),4,2)+'00')
+  liPOS    := ascan2(faCOMPR,1,'DT_START')
+  lcDATA   := iif(liPOS > 0,faCOMPR[liPOS,2],dtos(date()))
+  lcTSTP   := lcDATA+lcHORA
+  laFIELDS := structtable(WSet("DB_ACTIVE"),'calendar_user_ver',1,'N')
+  aadd(laSAVE,laFIELDS)
+  for x := 1 to len(faUSERS)
+      laSAVE_AUX := {}
+      for y := 1 to len(laFIELDS)
+          if laFIELDS[y] = 'LOGIN'
+             aadd(laSAVE_AUX,faUSERS[x])
+             loop
+          elseif laFIELDS[y] = 'CTR_CALENDAR_USER'
+             aadd(laSAVE_AUX,fnCTR_USER)
+             loop
+          elseif laFIELDS[y] = 'TSTP_NOTF'
+             do case
+                case fcSTATUS == '0'
+                   aadd(laSAVE_AUX,dtos(date())+'000000')
+                case fcSTATUS == '1'
+                   liPOS := ascan2(faCOMPR,1,'NOTFTIME1')
+                   aadd(laSAVE_AUX,calcTSTP(lcTSTP, -(iif(liPOS > 0,faCOMPR[liPOS,2],1)*86400)))
+                case fcSTATUS == '2'
+                   liPOS := ascan2(faCOMPR,1,'NOTFTIME2')
+                   aadd(laSAVE_AUX,calcTSTP(lcTSTP, -(iif(liPOS > 0,faCOMPR[liPOS,2],60)*60)))
+             endcase
+             loop
+          elseif laFIELDS[y] = 'STATUS_NOTF'
+             aadd(laSAVE_AUX,fcSTATUS)
+             loop
+          elseif laFIELDS[y] = 'FL_EMAIL_SMS1' .or. laFIELDS[y] = 'FL_EMAIL_SMS2'
+             aadd(laSAVE_AUX,'N')
+             loop
+          endif
+      next y
+      aadd(laSAVE,laSAVE_AUX)
+  next x
+  if db_insert(laSAVE,'calendar_user_ver') == -1
+     error_sys('compr_ver: ('+alltrim(str(procline()))+') - '+db_error())
+  endif
+return(nil)
+
+/*
+* Function..: ascan2(<faARRAY>,<fiCOL>,<fcVALUE>)
+* Objetivo..: Procurar a posição (linha) de um valor em uma matriz bidimensional
+* Parâmetros:
+*    faARRAY.: Matriz bidimensional
+*    fiCOL...: Posição da coluna
+*    fcVALUE.: Valor a procurar
+*
+* Retorno:
+*   Retorna a linha em que o item foi encontrado
+*/
+function ascan2(faARRAY,fiCOL,fcVALUE)
+return(ascan(faARRAY,{|laFIND| upper(laFIND[fiCOL])==upper(fcVALUE)}))
+
+/*
+* Function..: send_quick_msg(fcCTR_IMSG,fcLOGIN_FROM,fcLOGIN_TO,fcWUSER,fcSEND_EMAIL,fcEMAIL,fcSEND_SMS,;
+*                            fcSMS,fcSMS_DEVICE,fcFL_AUTH,fcSUBJECT,fcMSG,flADM,fcSUBJECT_SMS)
+* Objetivo..: Enviar mensagem a um usuário
+* Parâmetros:
+*    fcCTR_IMSG..: Código do quick message enviado. Se não for passado, insere, caso contrário altera a msg
+*    fcLOGIN_TO..: Login do usuário destino.
+*       Quando este parametro é enviado, não é necessário enviar o fcEMAIL (endereco eletronico) ou o fcSMS
+*       (numero do dispositivo SMS) ou o fcWUSER (nome completo do usuário), sendo necessário apenas os
+*       parametros fcSEND_EMAIL ou fcSEND_SMS.
+*    fcLOGIN_FROM: Login do usuário que envia a mensagem.
+*       Parâmetro deve ser enviado SEMPRE
+*    fcWUSER.....: Nome completo do usuário destino
+*       Parâmetro deve ser enviado quando fcLOGIN_TO não for enviado
+*    fcSEND_EMAIL: Enviar email [S] [N]
+*       Parâmetro deve ser enviado caso seja necessário enviar um email
+*    fcEMAIL.....: email do destinatário
+*       Parâmetro deve ser enviado apenas quando fcLOGIN_TO não for enviado
+*    fcSEND_SMS..: Enviar sms [S] [N]
+*       Parâmetro deve ser enviado caso seja necessário enviar um torpedo-sms
+*    fcSMS.......: Numero do dispositivo
+*       Parâmetro deve ser enviado apenas quando fcLOGIN_TO não for enviado
+*    fcSMS_DEVICE: Tipo de dispositivo TELESP-CELULAR, BCP
+*       Parâmetro deve ser enviado apenas quando fcLOGIN_TO não for enviado
+*    fcFL_AUTH...: Requer autenticação
+*       Parametro deve ser enviado apenas quando fcLOGIN_TO for enviado
+*    fcSUBJECT...: Assunto
+*       Parâmetro deve ser enviado SEMPRE
+*    fcMSG.......: Corpo da mensagem com quebras de linha CRLF
+*       Parâmetro deve ser enviado SEMPRE
+*    flADM.......: Seleciona o usuário que envia o EMAIL/SMS usando o cadastro de Empresa Usuária ao invés do
+*                  Cadastro de usuários padrão
+*       Possíveis valores: .T. ou .F.
+*       .T. : Selecionar usuário usando o Cadastro de Empresa usuária
+*       .F. : Selecionar usuário usando o Cadastro de Usuários Padrão
+*       NIL : Selecionar usuário usando o Cadastro de Usuários Padrão
+*    fcSUBJECT_SMS: Assunto curto para sms
+*       Parâmtro opcional
+*
+* Retorno...:
+*   .T. em caso de sucesso
+*   .F. em caso de falha
+*/
+function send_quick_msg(fcCTR_IMSG,fcLOGIN_FROM,fcLOGIN_TO,fcWUSER,fcSEND_EMAIL,fcEMAIL,fcSEND_SMS,fcSMS,;
+                        fcSMS_DEVICE,fcFL_AUTH,fcSUBJECT,fcMSG,flADM,fcSUBJECT_SMS)
+   local lcWHERE     := '' ,;
+         lcCTR_DET   := '' ,;
+         lcHORA      := '' ,;
+         lcTSTP      := '' ,;
+         lcMSG_ERR   := '' ,;
+         lcTB_ORIGEM := '' as string //Origem dos dados do usuário - tabela alvo de db_select()
+
+   local laFIELDS      := {} ,;
+         laUSER_FROM   := {} ,;
+         laUSER_TO     := {} ,;
+         laFLD_ORIGEM  := {} ,; //Origem dos dados do usuário - campos a selecionar
+         laCOND_ORIGEM := {} ,; //Origem dos dados do usuário - condicao where
+         laSAVE        := {} ,;
+         laSAVE_AUX    := {} ,;
+         laSEND        := {} ,;
+         laEMPRESA     := {} as array
+
+   local llERROR  := .F. as logical
+
+   local x := 0 as int
+
+   lcHORA  := time()
+   lcTSTP  := dtos(date())+substr(lcHORA,1,2)+substr(lcHORA,4,2)+'00'
+   lcWHERE := 'LOGIN='+DLAP+gcLOGIN+DLAP+' and CTR_IMESSAGE='+iif(!empty(fcCTR_IMSG),fcCTR_IMSG,'0')
+
+   if empty(fcSUBJECT)
+      error_sys('send_quick_msg: Mensagem sem "Assunto". Verifique!')
+      return(.f.)
+   endif
+   if empty(fcSUBJECT_SMS)
+      fcSUBJECT_SMS := fcSUBJECT
+   endif
+   /* Dados do usuário destino ----------------------------------------------------------------------*/
+   if !empty(fcLOGIN_TO)
+      if db_select({'WUSER','EMAIL','SMS','SMS_DEVICE','WALIAS'},;
+                   'acuser',,{'LOGIN='+DLAP+fcLOGIN_TO+DLAP}) == -1
+         error_sys('send_quick_msg: '+db_error())
+         return(.f.)
+      endif
+      laUSER_TO := db_fetchrow()
+      if len(laUSER_TO) == 0
+         putERROR('send_quick_msg: Destinatário não encontrado - ['+fcLOGIN_TO+']')
+         return(.f.)
+      endif
+   endif
+   /* Dados do usuário destino ----------------------------------------------------------------------*/
+
+   /* Dados do usuário origem -----------------------------------------------------------------------*/
+   if empty(flADM) .or. !flADM
+      laFLD_ORIGEM  := {'EMAIL','WALIAS','WUSER'}
+      lcTB_ORIGEM   := 'acuser'
+      laCOND_ORIGEM := {'LOGIN='+DLAP+fcLOGIN_FROM+DLAP}
+   else
+      laFLD_ORIGEM  := {'EMAIL','NM_EMPRESA','NM_FANTASIA'}
+      lcTB_ORIGEM   := 'empresa_usuaria'
+      laCOND_ORIGEM := {'CD_EMPRESA='+DLAP+'1'+DLAP}
+   endif
+   if db_select(laFLD_ORIGEM,lcTB_ORIGEM,,laCOND_ORIGEM) == -1
+      error_sys('send_quick_msg: '+db_error())
+      return(.f.)
+   endif
+   laUSER_FROM := db_fetchrow()
+   if len(laUSER_FROM) == 0
+      error_sys('send_quick_msg: Usuário não encontrado - ['+fcLOGIN_FROM+']')
+      return(.f.)
+   endif
+   /* Dados do usuário origem -----------------------------------------------------------------------*/
+
+   /* Dados da empresa ------------------------------------------------------------------------------*/
+   if db_select({'NM_EMPRESA'},'empresa_usuaria') == -1
+      error_sys('send_quick_msg: '+db_error())
+      return(.f.)
+   endif
+   laEMPRESA := db_fetchrow()
+   /* Dados da empresa ------------------------------------------------------------------------------*/
+
+   laFIELDS  := structtable(WSet("DB_ACTIVE"),'imessage',1,'A')
+
+   /* Gravação das mensagens no imessage ------------------------------------------------------------*/
+   aadd(laSAVE,laFIELDS)
+   for x := 1 to len(laFIELDS)
+       if alltrim(laFIELDS[x]) == 'LOGIN'           //Login de quem envia a msg
+          aadd(laSAVE_AUX,fcLOGIN_FROM)
+          loop
+       elseif laFIELDS[x] = 'CTR_IMESSAGE'          //Cód. sequencial da msg
+          aadd(laSAVE_AUX,'')
+          loop
+       elseif alltrim(laFIELDS[x]) == 'LOGIN_TO'    //Login do destinatário
+          if !empty(fcLOGIN_TO)
+             aadd(laSAVE_AUX,fcLOGIN_TO)
+          else
+             aadd(laSAVE_AUX,'')
+          endif
+          loop
+       elseif laFIELDS[x] == 'WUSER'                //Nome completo do destinatário
+          if !empty(fcLOGIN_TO)
+             if len(laUSER_TO) > 0
+                aadd(laSAVE_AUX,laUSER_TO[1])
+             endif
+          else
+             aadd(laSAVE_AUX,fcWUSER)
+          endif
+          loop
+       elseif laFIELDS[x] == 'SEND_EMAIL'           //Enviar email [S] [N]
+          aadd(laSAVE_AUX,iif(!empty(fcSEND_EMAIL),fcSEND_EMAIL,'N'))
+          loop
+       elseif laFIELDS[x] == 'EMAIL'                //email do destinatário
+          if !empty(fcLOGIN_TO) .and. fcSEND_EMAIL = 'S'
+             if len(laUSER_TO) > 0
+                aadd(laSAVE_AUX,laUSER_TO[2])
+             endif
+          elseif fcSEND_EMAIL = 'S'
+             aadd(laSAVE_AUX,fcEMAIL)
+          else
+             aadd(laSAVE_AUX,'')
+          endif
+          loop
+       elseif laFIELDS[x] == 'SEND_SMS'             //Enviar sms [S] [N]
+          aadd(laSAVE_AUX,iif(!empty(fcSEND_SMS),fcSEND_SMS,'N'))
+          loop
+       elseif alltrim(laFIELDS[x]) == 'SMS'         //sms do destinatário
+          if !empty(fcLOGIN_TO) .and. fcSEND_SMS = 'S'
+             if len(laUSER_TO) > 0
+                aadd(laSAVE_AUX,laUSER_TO[3])
+             endif
+          elseif fcSEND_SMS = 'S'
+             aadd(laSAVE_AUX,fcSMS)
+          else
+             aadd(laSAVE_AUX,'')
+          endif
+          loop
+       elseif alltrim(laFIELDS[x]) == 'SMS_DEVICE'  //Tipo do dispositivo destino
+          if !empty(fcLOGIN_TO)  .and. fcSEND_SMS = 'S'
+             if len(laUSER_TO) > 0
+                aadd(laSAVE_AUX,laUSER_TO[4])
+             endif
+          elseif fcSEND_SMS = 'S'
+             aadd(laSAVE_AUX,fcSMS_DEVICE)
+          else
+             aadd(laSAVE_AUX,'')
+          endif
+          loop
+       elseif laFIELDS[x] == 'NM_MESSAGE'           //Assunto
+          aadd(laSAVE_AUX,fcSUBJECT)
+          loop
+       elseif laFIELDS[x] == 'TEXT_MESSAGE'         //Mensagem
+          aadd(laSAVE_AUX,fcMSG)
+          loop
+       elseif laFIELDS[x] == 'IMESSAGE_STATUS'      //Status da msg [P]-Pendente [L]-Lida
+          aadd(laSAVE_AUX,'P')
+          loop
+       elseif laFIELDS[x] == 'TSTP_SEND'            //Timestamp envio
+          aadd(laSAVE_AUX,lcTSTP)
+          loop
+       elseif laFIELDS[x] == 'TSTP_READ'            //Timestamp leitura
+          aadd(laSAVE_AUX,'')
+          loop
+       elseif laFIELDS[x] == 'FL_AUTH'              //Requer autenticação
+          aadd(laSAVE_AUX,fcFL_AUTH)
+          loop
+       endif
+   next x
+   aadd(laSAVE,laSAVE_AUX)
+   if db_replace(laSAVE,'imessage',{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+
+   /* Gravação das mensagens no imessage_ver ---------------------------------------*/
+   lcCTR_DET  := alltrim(str(db_insert_id()))
+   lcWHERE    := 'LOGIN='+DLAP+gcLOGIN+DLAP+' and CTR_IMESSAGE='+lcCTR_DET
+   laFIELDS   := structtable(WSet("DB_ACTIVE"),'imessage_ver',1,'A')
+   laSAVE     := {}
+   laSAVE_AUX := {}
+
+   aadd(laSAVE,laFIELDS)
+   for x := 1 to len(laFIELDS)
+       if laFIELDS[x] == 'CTR_IMESSAGE'
+          aadd(laSAVE_AUX,val(lcCTR_DET))
+          loop
+       elseif laFIELDS[x] == 'LOGIN'
+          aadd(laSAVE_AUX,fcLOGIN_FROM)
+          loop
+       elseif laFIELDS[x] == 'LOGIN_TO'
+          if !empty(fcLOGIN_TO)
+             aadd(laSAVE_AUX,fcLOGIN_TO)
+          else
+             aadd(laSAVE_AUX,'')
+          endif
+          loop
+       elseif laFIELDS[x] == 'TSTP_NOTF'
+          aadd(laSAVE_AUX,lcTSTP)
+          loop
+       endif
+   next x
+   aadd(laSAVE,laSAVE_AUX)
+   if db_replace(laSAVE,'imessage_ver',{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+
+   /* Enviar email de notificação */
+   if fcSEND_EMAIL == 'S'
+      if !empty(fcLOGIN_TO)
+         if !empty(laUSER_TO[2])
+            wsendMAIL(laUSER_FROM[1],; //Remetente
+                      fcSUBJECT,;      //Assunto
+                      fcMSG,;          //Corpo da Mensagem
+                      laUSER_TO[2],;   //Email do Destinatário
+                      ,;               //CC
+                      ,;               //BCC
+                      laUSER_FROM[3])  //Nome do remetente
+
+         else
+            llERROR := .T.
+         endif
+      else
+         if !empty(fcEMAIL)
+            wsendMAIL(laUSER_FROM[1],; //Remetente
+                      fcSUBJECT,;      //Assunto
+                      fcMSG,;          //Corpo da Mensagem
+                      fcEMAIL,;        //Email do Destinatário
+                      ,;               //CC
+                      ,;               //BCC
+                      laUSER_FROM[3])  //Nome do Remetente
+         else
+            llERROR := .T.
+         endif
+      endif
+      if llERROR .and. !empty(fcLOGIN_TO)
+         putERROR('Usuário "'+laUSER_TO[1]+'" não possui email cadastrado!')
+      elseif llERROR .and. empty(fcLOGIN_TO)
+         putERROR('email não informado para o usuário "'+fcWUSER+'"')
+      endif
+   endif
+
+   /* Enviar sms de notificaçao */
+   if fcSEND_SMS == 'S'
+      llERROR := .F.
+      if !empty(fcLOGIN_TO)
+         if !empty(laUSER_TO[3]) .and. !empty(laUSER_TO[4])
+            wsendSMS(laUSER_TO[4],;   //Tipo de dispositivo
+                     laUSER_TO[3],;   //Nr. do dispositivo sms
+                     fcSUBJECT_SMS,;  //Assunto curto para sms
+                     fcMSG,;          //Mensagem
+                     laUSER_FROM[2],; //Apelido do sender
+                     laUSER_FROM[1])  //Email do sender
+         else
+            if empty(laUSER_TO[3])     //sem nr do dispositivo
+               lcMSG_ERR := '" não possui o SMS cadastrado!'
+               llERROR   := .T.
+            elseif empty(laUSER_TO[4]) //sem tipo do dispositivo
+               lcMSG_ERR := '" não possui o Tipo de Dispositvo cadastrado!'
+               llERROR   := .T.
+            endif
+         endif
+      else
+         if !empty(fcSMS) .and. !empty(fcSMS_DEVICE)
+            wsendSMS(fcSMS_DEVICE,;   //Tipo de dispositivo
+                     fcSMS,;          //Nr. do dispositivo sms
+                     fcSUBJECT_SMS,;  //Assunto curto para sms
+                     fcMSG,;          //Mensagem
+                     laUSER_FROM[2],; //Apelido do sender
+                     laUSER_FROM[1])  //Email do sender
+         else
+            if empty(fcSMS)            //sem nr do dispositivo
+               lcMSG_ERR := ' SMS não informado para o usuário "'
+               llERROR   := .T.
+            elseif empty(fcSMS_DEVICE) //sem tipo do dispositivo
+               lcMSG_ERR := ' Tipo de Dispositvo não informado para o usuário "'
+               llERROR   := .T.
+            endif
+         endif
+      endif
+      if llERROR .and. !empty(fcLOGIN_TO)
+         putERROR('Usuário "'+laUSER_TO[1]+lcMSG_ERR)
+      else llERROR .and. empty(fcLOGIN_TO)
+         putERROR(lcMSG_ERR+fcWUSER+'"')
+      endif
+   endif
+return(.t.)
+
+/*
+* Function..: info_redir(fcLOGIN,fcLOGIN_REDIR,fnCTR_USER,fcCAL_RESULT)
+* Objetivo..: Alterar o campo [CALENDAR_RESULT] e [CALENDAR_STATUS] na tabela [calendar_user],
+*             informando ao usuário a ocorrência de um redirecionamento do compromisso
+* Parâmetros:
+*    fcLOGIN......: Login do usuário (dono do compromisso)
+*    fcLOGIN_REDIR: Login do usuário destino
+*    fnCTR_USER...: Código do compromisso
+*    fcCAL_RESULT.: Campo [CALENDAR_RESULT], resultado do compromisso
+* Retorno...:
+*   .T. em caso de sucesso
+*   .F. em caso de falha
+*/
+function info_redir(fcLOGIN,fcLOGIN_REDIR,fnCTR_USER,fcCAL_RESULT)
+   local lcWHERE := '' as string
+
+   local laRESULT := {} as array
+
+   if db_select({'CALENDAR_STATUS'},'calendar_status',,{'STATUS_NOTF='+DLAP+'9'+DLAP}) == -1
+      error_sys('info_redir: '+db_error())
+      return(.f.)
+   endif
+   laRESULT := db_fetchrow()
+   if len(laRESULT) = 0
+      error_sys('info_redir: Status de compromisso não econtrado: 9')
+      return(.f.)
+   endif
+   lcWHERE := 'LOGIN = '+DLAP+fcLOGIN+DLAP+' and CTR_CALENDAR_USER = '+alltrim(str(fnCTR_USER))
+   if db_update({{'CALENDAR_STATUS','CALENDAR_RESULT'},;
+                 {laRESULT[1],fcCAL_RESULT+CRLF+CRLF+'Redirecionado para: '+fcLOGIN_REDIR}},;
+                'calendar_user',{lcWHERE}) == -1
+      error_sys('info_redir: [calendar_user] não foi atualizado - '+db_error())
+      return(.f.)
+   endif
+return(.t.)
+
+/*
+* Function..: adic_ccorp(fcTABLE_CORP,fnCTR_CORP,fcLOGIN_REDIR)
+* Objetivo..: Adicionar um novo registro na tabela de compromissos corporativos,
+*             em casos de redirecionamento. Esta função seleciona o compromisso corporativo
+*             de acordo com <fnCTR_CORP> e realiza a "duplicação" do mesmo, atribuido-o para
+*             o usuário passado -> <fcLOGIN_REDIR>
+* Parâmetros:
+*    fcTABLE_CORP.: Tabela de Compromissos Corporativos
+*    fnCTR_CORP...: Código do compromisso
+*    fcLOGIN_REDIR: Login do usuário destino
+* Retorno...:
+*   .T. em caso de sucesso
+*   .F. em caso de falha
+*/
+function adic_ccorp(fcTABLE_CORP,fnCTR_CORP,fcLOGIN_REDIR)
+   local laRESULT   := {} ,;
+         laFIELDS   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} as array
+
+   local x := 0 as int
+
+   lcWHERE  := 'CTR_CALENDAR_CORP='+alltrim(str(fnCTR_CORP))
+   laFIELDS := structtable(WSet("DB_ACTIVE"),fcTABLE_CORP,1,'A')
+   if db_select(laFIELDS,fcTABLE_CORP,,{lcWHERE}) == -1
+      error_sys('adic_ccorp:: '+db_error())
+      return(.f.)
+   endif
+   laRESULT := db_fetchrow()
+   aadd(laSAVE,laFIELDS)
+   for x := 1 to len(laFIELDS)
+      if laFIELDS[x] == 'CTR_CALENDAR_CORP'
+         aadd(laSAVE_AUX,'')
+         loop
+      elseif laFIELDS[x] == 'USERS'
+         aadd(laSAVE_AUX,fcLOGIN_REDIR)
+         loop
+      endif
+      aadd(laSAVE_AUX,laRESULT[x])
+   next x
+   aadd(laSAVE,laSAVE_AUX)
+   //if db_replace(laSAVE,fcTABLE_CORP,{lcWHERE}) == -1
+   if db_insert(laSAVE,fcTABLE_CORP) == -1
+      error_sys(db_error())
+   endif
+return(.t.)
+
+/*
+* Function..: lstUG(fcUSERS,fcGROUPS)
+* Objetivo..: Montar uma lista de usuários aos quais serão replicados os compromissos cadastrados
+* Parâmetros:
+*    fcUSERS..: Lista de usuários separados por vírgula (,)
+*    fcGROUPS.: Lista de grupos separados por vírgula (,)
+* Retorno...: Vetor com os usuários
+*/
+function lstUG(fcUSERS,fcGROUPS)
+   local laLIST := {} ,;
+         laRES  := {} as array
+
+   local lcLIST := '' ,;
+         lcITEM := '' as string
+
+   local ii    := 0 ,;
+         jj    := 0 ,;
+         liPOS := 0 as int
+
+   for ii := 1 to pcount()
+       if ii == 1
+          lcLIST := strtran(fcUSERS,' ','')
+          liPOS  := at(',',lcLIST)
+          do while liPOS > 0
+             lcITEM := alltrim(substr(lcLIST,1,liPOS-1))
+             if ascan(laLIST,lcITEM) <= 0
+                aadd(laLIST,lcITEM)
+             endif
+             lcLIST := substr(lcLIST,liPOS+1,(len(lcLIST)-liPOS)+1)
+             liPOS := at(',',lcLIST)
+          enddo
+          if len(lcLIST) > 0
+             if ascan(laLIST,lcLIST) <= 0
+                aadd(laLIST,substr(lcLIST,1,len(lcLIST)))
+             endif
+          endif
+       else
+          lcLIST  := strtran(fcGROUPS,' ','')
+          if db_select({'LST_LOGIN'},'task_group',,;
+                       {'NM_GROUP_TASK in ('+DLAP+strtran(lcLIST,',',DLAP+','+DLAP)+DLAP+')'}) == -1
+             error_sys(db_error())
+          endif
+          laRES := db_fetchall()
+          for jj := 2 to len(laRES)
+              lcLIST := alltrim(laRES[jj,1])
+              liPOS  := at(',',lcLIST)
+              do while liPOS > 0
+                 lcITEM := alltrim(substr(lcLIST,1,liPOS-1))
+                 if ascan(laLIST,lcITEM) <= 0
+                    aadd(laLIST,lcITEM)
+                 endif
+                 lcLIST := substr(lcLIST,liPOS+1,(len(lcLIST)-liPOS)+1)
+                 liPOS := at(',',lcLIST)
+              enddo
+              if len(lcLIST) > 0
+                 if ascan(laLIST,lcLIST) <= 0
+                    aadd(laLIST,substr(lcLIST,1,len(lcLIST)))
+                 endif
+              endif
+          next jj
+       endif
+   next ii
+return(asort(laLIST))
+
+/*
+* Function..: gera_aviso(fcREGRA,fcCHAVE)
+* Objetivo..: Gerar avisos de Renovações de Pastas/Processos
+* Parâmetros:
+*   fcREGRA....: Nome da regra a usar na geração do aviso
+*   fcCHAVE....: Chave primária para seleção da pasta. Formato: 'pasta.NR_PASTA=123'
+* Retorno...:
+*   .T. em caso de sucesso
+*   .F. em caso de falha
+*/
+function gera_aviso(fcREGRA,fcCHAVE)
+  private laVALUES := {}
+
+  local lcREGRA_SQL := '' ,;
+        lcWHERE     := '' ,;
+        lcTABLE_AR  := 'aviso_regra' ,;  //AR - aviso_regra
+        lcTABLE_AE  := 'aviso_evento',;  //AE - aviso_evento
+        lcTEMPLATE  := '' ,;
+        lcHORA      := '' ,;
+        lcFL_AUTO   := '' as string
+
+  local laAVISO    := {} ,;
+        laREGRA    := {} ,;
+        laFLDS_AR  := {} ,;
+        laFLDS_AE  := {} ,;
+        laSAVE     := {} ,;
+        laSAVE_AUX := {} as array
+
+  local x           := 0 ,;
+        y           := 0 ,;
+        lnNR_EVENTO := 0 as int
+
+  local llINSERT := .F. as logical
+
+  local ldDT_DATA := ctod('//')
+
+  laFLDS_AR := structtable(WSet("DB_ACTIVE"),lcTABLE_AR,1,'A')
+  laFLDS_AE := structtable(WSet("DB_ACTIVE"),lcTABLE_AE,1,'A')
+
+  // Verificar existencia da regra enviada no parametro fcREGRA ----------------------------------------------
+  if db_select(laFLDS_AR,lcTABLE_AR,,{'NM_REGRA='+DLAP+fcREGRA+DLAP}) == -1
+     error_sys('gera_aviso: ('+alltrim(str(procline()))+') - Aviso não pode ser gerado.<br><br>'+db_error())
+  endif
+  laREGRA := db_fetchall()
+  if len(laREGRA) == 0
+     putERROR('gera_aviso: ('+alltrim(str(procline()))+') - Regra "'+fcREGRA+'" não foi encontrada. Aviso não pode ser gerado.')
+     return(.f.)
+  endif
+
+  //Substitui na instrucao SQL, a chave recebida no parametro fcCHAVE
+  lcREGRA_SQL := strtran(laREGRA[2,ascan(laFLDS_AR,'SQL_REGRA')],'[rCHAVE]',fcCHAVE)
+
+  // Seleciona dados de acordo com o SQL montado -------------------------------------------------------------
+  if db_query(lcREGRA_SQL) == -1
+     error_sys('gera_aviso: ('+alltrim(str(procline()))+') - Erro no SQL da regra '+DLMT+fcREGRA+DLMT+'<br><br>'+lcREGRA_SQL)
+     return(.f.)
+  endif
+  laVALUES := db_fetchall()
+  if len(laVALUES) == 0
+     putERROR('gera_aviso: ('+alltrim(str(procline()))+') - Regra "'+fcREGRA+'" não retornou dados. Aviso não pode ser gerado.')
+     return(.f.)
+  endif
+
+  // Verificar existencia do evento --------------------------------------------------------------------------
+  if db_select(laFLDS_AE,lcTABLE_AE,,{'NM_REGRA='+DLAP+fcREGRA+DLAP+' and CHAVE='+DLAP+fcCHAVE+DLAP}) == -1
+     error_sys('gera_aviso: ('+alltrim(str(procline()))+') - Aviso não pode ser gerado.'+CRLF+CRLF+db_error())
+     return(.f.)
+  endif
+  laAVISO := db_fetchrow()
+  if len(laAVISO) > 0  //Alterando
+     lcFL_AUTO   := laAVISO[ascan(laFLDS_AE,'FL_AUTOMATICO')]
+     lnNR_EVENTO := laAVISO[ascan(laFLDS_AE,'NR_EVENTO')]
+  else                 //Inserindo
+     lnNR_EVENTO := 0
+     llINSERT    := .T.
+  endif
+  lcWHERE := 'NR_EVENTO='+alltrim(str(lnNR_EVENTO))
+  if len(laAVISO) >= 0 .and. (lcFL_AUTO == 'S' .or. empty(lcFL_AUTO))
+     aadd(laSAVE,laFLDS_AE)
+     for x := 1 to len(laFLDS_AE)
+         if laFLDS_AE[x] == 'NR_EVENTO'
+            aadd(laSAVE_AUX,lnNR_EVENTO)
+         elseif laFLDS_AE[x] == 'DT_EVENTO'
+            lcTEMPLATE  := upper(laREGRA[2,ascan(laFLDS_AR,'DT_AVISO')])
+            for y := 1 to len(laVALUES[1])
+                lcTEMPLATE := strtran(lcTEMPLATE,'['+upper(laVALUES[1,y])+']','laVALUES[2,'+alltrim(str(y))+']')
+            next
+            ldDATA := eval({|| &lcTEMPLATE})
+            aadd(laSAVE_AUX,dtos(ldDATA))
+         elseif laFLDS_AE[x] == 'HR_EVENTO'
+            lcTEMPLATE  := upper(laREGRA[2,ascan(laFLDS_AR,'HR_AVISO')])
+            for y := 1 to len(laVALUES[1])
+                lcTEMPLATE := strtran(lcTEMPLATE,'['+upper(laVALUES[1,y])+']','laVALUES[2,'+alltrim(str(y))+']')
+            next
+            lcHORA := eval({|| &lcTEMPLATE})
+            aadd(laSAVE_AUX,fmttime(lcHORA))
+         elseif laFLDS_AE[x] == 'NM_REGRA'
+            aadd(laSAVE_AUX,fcREGRA)
+         elseif laFLDS_AE[x] == 'CHAVE'
+            aadd(laSAVE_AUX,fcCHAVE)
+         elseif laFLDS_AE[x] == 'TEMPLATE_RESULT'
+            lcTEMPLATE  := upper(laREGRA[2,ascan(laFLDS_AR,'TEMPLATE')])
+            for y := 1 to len(laVALUES[1])
+                lcTEMPLATE := strtran(lcTEMPLATE,'['+laVALUES[1,y]+']',transform(laVALUES[2,y]))
+            next y
+            aadd(laSAVE_AUX,lcTEMPLATE)
+         elseif laFLDS_AE[x] == 'FL_AUTOMATICO'
+            aadd(laSAVE_AUX,'S')
+         elseif laFLDS_AE[x] == 'TSTP_ENVIO'
+            aadd(laSAVE_AUX,'')
+         endif
+     next x
+     aadd(laSAVE,laSAVE_AUX)
+     if db_replace(laSAVE,lcTABLE_AE,{lcWHERE}) == -1
+        error_sys('gera_aviso: ('+alltrim(str(procline()))+') - '+db_error())
+     endif
+
+     // Inserindo
+     if llINSERT
+        lnNR_EVENTO := db_insert_id()
+        lcWHERE     := 'NR_EVENTO='+alltrim(str(lnNR_EVENTO))
+     endif
+     laSAVE     := {}
+     laSAVE_AUX := {}
+     laFLDS_AE  := structtable(WSet("DB_ACTIVE"),'aviso_evento_ver',1,'A')
+     aadd(laSAVE,laFLDS_AE)
+     for x := 1 to len(laFLDS_AE)
+         if laFLDS_AE[x] == 'NR_EVENTO'
+            aadd(laSAVE_AUX,lnNR_EVENTO)
+         elseif laFLDS_AE[x] == 'DT_EVENTO'
+            aadd(laSAVE_AUX,ldDATA)
+         elseif laFLDS_AE[x] == 'HR_EVENTO'
+            aadd(laSAVE_AUX,fmttime(lcHORA))
+         endif
+     next x
+     aadd(laSAVE,laSAVE_AUX)
+     if db_replace(laSAVE,'aviso_evento_ver',{lcWHERE}) == -1
+        error_sys('gera_aviso: ('+alltrim(str(procline()))+') - '+db_error())
+     endif
+  endif
+return(.t.)
+
+/*
+* Function..: verifica_aviso()
+* Objetivo..: Verificar a existencia de avisos a enviar. Na pesquisa a tabela [aviso_evento_ver] para
+*             obter os avisos pendentes, caso existam, a função envia_aviso() deverá se invocada.
+*             Esta rotina será chamda pelo módulo [daemon].
+* Parâmetros:
+*    Nenhum
+* Retorno...:
+*   .T. em caso de sucesso
+*   .F. em caso de falha
+*/
+function verifica_aviso()
+  local lcMSG      := 'Verificação de Avisos não pode ser completada.<br><br>',;
+        lcMSG1     := 'Avisos enviados mas ocorreram erros na atualização do evento Nr.',;
+        lcTSTP_NOW := '' as string
+
+  local laRESULT := {} ,;
+        laAVISO  := {} ,;
+        laREGRA  := {} ,;
+        laFLD_AE := {} ,;        //AE - [aviso_evento]
+        laFLD_AR := {} as array  //AR - [aviso_regra]
+
+  local x := 0 ,;
+        y := 0 as int
+
+  local liTSTP_NOW := 0 ,; //Declaradas sem tipo explicito pois sao utilizadas com timestamp
+        liTSTP_AVI := 0    //que quando convertidos de string para int, estouram o limite de inteiros no FS
+
+  if db_select({'NR_EVENTO','DT_EVENTO','HR_EVENTO'},'aviso_evento_ver') == -1
+     error_sys('verifica_aviso: ('+alltrim(str(procline()))+') - '+lcMSG+db_error())
+     return(.f.)
+  endif
+  laAVISO := db_fetchall()
+  if len(laAVISO) > 0
+     laFLD_AE   := structtable(WSet("DB_ACTIVE"),'aviso_evento',1,'A')
+     laFLD_AR   := structtable(WSet("DB_ACTIVE"),'aviso_regra',1,'A')
+     lcTSTP_NOW := wtimestamp()
+     liTSTP_NOW := val(lcTSTP_NOW)
+
+     for x := 2 to len(laAVISO)
+         liTSTP_AVI := val(dtos(laAVISO[x,2])+substr(laAVISO[x,3],1,2)+substr(laAVISO[x,3],4,2)+substr(laAVISO[x,3],7,2))
+         if liTSTP_NOW >= liTSTP_AVI
+            if db_select(laFLD_AE,'aviso_evento',,{'NR_EVENTO='+str(laAVISO[x,1])}) == -1
+               error_sys('verifica_aviso: ('+alltrim(str(procline()))+') - '+lcMSG+db_error())
+               return(.f.)
+            endif
+            laRESULT := db_fetchrow()
+            if len(laRESULT) > 0
+               if db_select(laFLD_AR,'aviso_regra',,{'NM_REGRA='+DLAP+laRESULT[ascan(laFLD_AE,'NM_REGRA')]+DLAP}) == -1
+                  error_sys('verifica_aviso: ('+alltrim(str(procline()))+') - '+lcMSG+db_error())
+                  return(.f.)
+               endif
+               laREGRA := db_fetchrow()
+               if len(laREGRA) = 0
+                  error_sys('verifica_aviso: A regra '+laRESULT[ascan(laFLD_AE,'NM_REGRA')]+' não pode ser encontrada')
+                  return(.f.)
+               else
+                  if envia_aviso(laRESULT[ascan(laFLD_AE,'NM_REGRA')],laRESULT[ascan(laFLD_AE,'CHAVE')])
+                     if db_update({{'TSTP_ENVIO'},{lcTSTP_NOW}},'aviso_evento',;
+                                  {'NR_EVENTO='+alltrim(str(laAVISO[x,1]))}) == -1
+                        error_sys('verifica_aviso: ('+alltrim(str(procline()))+') - '+;
+                                  lcMSG1+alltrim(str(laAVISO[x,1]))+'<br><br>'+db_error())
+                        return(.f.)
+                     endif
+                     if db_delete('aviso_evento_ver','NR_EVENTO='+alltrim(str(laAVISO[x,1]))) == -1
+                        error_sys('verifica_aviso: ('+alltrim(str(procline()))+') - '+;
+                                  lcMSG1+alltrim(str(laAVISO[x,1]))+'<br><br>'+db_error())
+                        return(.f.)
+                     endif
+                  endif
+               endif
+            endif
+         endif
+     next x
+  endif
+return(.t.)
+
+/*
+* Function..: envia_aviso(fcNM_REGRA,fcCHAVE)
+* Objetivo..: Enviar avisos pendentes
+* Parâmetros:
+*    fcNM_REGRA: Nome da regra a utilizar
+*    fcCHAVE...: Condição para chave primária. Ex: pasta.NR_PASTA=100
+* Retorno...:
+*   .T. em caso de sucesso
+*   .F. em caso de falha
+*/
+function envia_aviso(fcNM_REGRA,fcCHAVE)
+   local lcMSG       := 'O envio de avisos não pode ser completado.<br><br>',;
+         lcFLD_AE    := '' ,;
+         lcTEXTO     := '' ,;
+         lcREGRA_SQL := '' as string
+
+   local laFLD_AR      := {} ,;
+         laFLD_AE      := {} ,;
+         laREGRA       := {} ,;
+         laEVENTO      := {} ,;
+         laGRUPO_AVISO := {} ,;
+         laUSERS       := {} ,;
+         laVALUES      := {} ,;
+         laEMAIL_EX    := {} ,;
+         laRES         := {} ,;
+         laSEND        := {} as array
+
+   local x := 0 as int
+
+   laFLD_AR := structtable(WSet("DB_ACTIVE"),'aviso_regra',1,'A')
+   fcCHAVE  := alltrim(fcCHAVE)
+   if db_select(laFLD_AR,'aviso_regra',,{'NM_REGRA='+DLAP+fcNM_REGRA+DLAP}) == -1
+      error_sys('envia_aviso: ('+alltrim(str(procline()))+') - '+lcMSG+db_error())
+      return(.f.)
+   endif
+   laREGRA := db_fetchrow()
+   if len(laREGRA) = 0
+      putERROR('A regra '+DLMT+fcNM_REGRA+DLMT+' não pode ser encontrada')
+      return(.f.)
+   else
+      laFLD_AE := structtable(WSet("DB_ACTIVE"),'aviso_evento',1,'A')
+      if db_select(laFLD_AE,'aviso_evento',,;
+                   {'NM_REGRA='+DLAP+fcNM_REGRA+DLAP+' and CHAVE='+DLAP+fcCHAVE+DLAP}) == -1
+         error_sys('verifica_aviso: ('+alltrim(str(procline()))+') - '+lcMSG+db_error())
+         return(.f.)
+      endif
+      laEVENTO := db_fetchrow()
+      if len(laEVENTO) = 0
+         putERROR('Não foi encontrado nenhum evento para a regra '+fcNM_REGRA+'.')
+      else
+         if db_select({'RESPONSAVEL_PRINCIPAL','CO_RESPONSAVEL','SEND_EMAIL','SEND_SMS,EXTRA'},'grupo_aviso',,;
+                      {'NM_GRUPO_AVISO='+DLAP+laREGRA[ascan(laFLD_AR,'NM_GRUPO_AVISO')]+DLAP}) == -1
+            error_sys('verifica_aviso: ('+alltrim(str(procline()))+') - '+lcMSG+db_error())
+            return(.f.)
+         endif
+         laGRUPO_AVISO := db_fetchrow()
+         if laEVENTO[ascan(laFLD_AE,'FL_AUTOMATICO')] = 'N'
+            //Assume texto gravado em [aviso_evento.TEMPLATE_RESULT] ------------------------------------------
+            lcTEXTO := laEVENTO[ascan(laFLD_AE,'TEMPLATE_RESULT')]
+         else
+            // Seleciona dados de acordo com o SQL montado ----------------------------------------------------
+            lcREGRA_SQL := strtran(laREGRA[ascan(laFLD_AR,'SQL_REGRA')],'[rCHAVE]',fcCHAVE)
+            if db_query(lcREGRA_SQL) == -1
+               error_sys('envia_aviso:: Erro no SQL da regra '+DLMT+fcNM_REGRA+DLMT+'<br><br>'+lcREGRA_SQL)
+               return(.f.)
+            endif
+            laVALUES := db_fetchall()
+            lcTEXTO  := laREGRA[ascan(laFLD_AR,'TEMPLATE')]
+            for x := 1 to len(laVALUES[1])
+                lcTEXTO := strtran(lcTEXTO,'['+laVALUES[1,x]+']',transform(laVALUES[2,x]))
+            next x
+         endif
+         laUSERS := comma2array(alltrim(laGRUPO_AVISO[1]+iif(!empty(laGRUPO_AVISO[2]),','+laGRUPO_AVISO[2],'')))
+         if db_select({'LOGIN_RESP','NM_EMPRESA','EMAIL'},'empresa_usuaria',,{'CD_EMPRESA='+DLAP+'1'+DLAP}) == -1
+            error_sys('verifica_aviso: ('+alltrim(str(procline()))+') - '+lcMSG+db_error())
+            return(.f.)
+         endif
+         laRES := db_fetchrow()
+         if laGRUPO_AVISO[3] = 'S' .or. laGRUPO_AVISO[4] = 'S'
+            for x := 1 to len(laUSERS)
+                if ! send_quick_msg(,laRES[1],laUSERS[x],,laGRUPO_AVISO[3],,laGRUPO_AVISO[4],,,;
+                                   'N','Pasta '+substr(fcCHAVE,at('=',fcCHAVE)+1,len(fcCHAVE)-(at('=',fcCHAVE)))+' - '+fcNM_REGRA,;
+                                   lcTEXTO,.T.,'ISJ-Auto aviso')
+                   putERROR('verifica_aviso: ('+alltrim(str(procline()))+') - Erro ao enviar Quick Message para "'+laUSERS[x]+'"')
+                   return(.f.)
+                endif
+            next x
+         endif
+
+         //Envio de mensagens para emails externos -------------------------------------------------------------
+         if !empty(laGRUPO_AVISO[5])
+            laEMAIL_EX := comma2array(strtran(laGRUPO_AVISO[5],CRLF,','))
+            for x := 1 to len(laEMAIL_EX)
+                wsendMAIL(laRES[3],;            //Remetente
+                          'ISJ - '+fcNM_REGRA,; //Assunto
+                          lcTEXTO,;             //Mensagem
+                          laEMAIL_EX[x],;       //Email do Destinatário
+                          ,;                    //CC
+                          ,;                    //BCC
+                          'ISJ-Auto Aviso')     //Nome do Remetente
+
+            next x
+         endif
+      endif
+   endif
+return(.t.)
+
+
+
+
+
+
+
+

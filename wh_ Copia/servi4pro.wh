@@ -1,0 +1,306 @@
+
+//
+// Glauber - 10/2017
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Classe...........: ServicosI4pro
+*
+* Objetivo.........: Classe para manutenção de serviços do I4Pro.
+*
+* Atributos........:
+*
+*    EXPORT IdServico
+*    EXPORT NomeServico
+*    EXPORT XmlJson
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD toString()
+*    METHOD Salvar()                        
+*    METHOD Excluir()                       
+*    METHOD FindOne()                       
+*    METHOD FindAll()                       
+*    METHOD getResultSet()                  
+*
+*
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS ServicosI4Pro
+
+    // Atributos publico
+
+    EXPORT IdServico
+    EXPORT NomeServico
+    EXPORT XmlJson
+
+    // Atributos privado
+
+    INSTANCE _ResultSet
+    
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()                          CLASS ServicosI4Pro
+    PROTOTYPE METHOD Destroy()                       CLASS ServicosI4Pro
+    PROTOTYPE METHOD toString()                      CLASS ServicosI4Pro
+    PROTOTYPE METHOD Salvar()                        CLASS ServicosI4Pro
+    PROTOTYPE METHOD Excluir()                       CLASS ServicosI4Pro
+    PROTOTYPE METHOD FindOne()                       CLASS ServicosI4Pro
+    PROTOTYPE METHOD FindAll()                       CLASS ServicosI4Pro
+    PROTOTYPE METHOD getResultSet()                  CLASS ServicosI4Pro
+
+
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS ServicosI4Pro
+
+    self:IdServico   := 0
+    self:NomeServico := ''
+    self:XmlJson     := 0 
+    self:_ResultSet  := {}
+    
+
+return(self)
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS ServicosI4Pro
+
+    self:IdServico   := nil
+    self:NomeServico := nil
+    self:XmlJson     := nil
+    self:_ResultSet  := nil
+
+
+return(nil)
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: toString()
+* Objetivo..: Retornar uma String com a representação do Objeto.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             String
+*
+*/
+
+METHOD toString() CLASS ServicosI4Pro
+
+return    'ServicosI4Pro [IdServico=' +  Transform(self:IdServico) +;
+          ', NomeServico=' + Transform(self:NomeServico) +;
+          ', XmlJson=' + Transform(self:XmlJson) + ']'
+
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Salvar()
+* Objetivo..: Salva um servico.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             self
+*
+*/
+
+METHOD Salvar() CLASS ServicosI4Pro
+
+    local laSAVE := {} AS Array
+
+    aadd(laSAVE, {'ID_SERVICO','NM_SERVICO','XML_JSON'})
+    aadd(laSAVE, {self:IdServico, self:NomeServico, self:XmlJson })
+
+    if (Empty(self:NomeServico) .OR. Empty(self:XmlJson))
+        WAlert('Nome do Serviço ou conteúdo do Xml/Json não informado')
+        return self
+    endif    
+
+    if db_replace(laSAVE,'I4PROSERVICOS',{'ID_SERVICO='+Transform(self:IdServico)}) == -1
+        error_sys(db_error())     
+    endif    
+
+
+return self    
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Excluir()
+* Objetivo..: Exclui um servico.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             self
+*
+*/
+
+METHOD Excluir() CLASS ServicosI4Pro
+
+
+    if (self:IdServico == nil .OR. self:IdServico == 0)        
+        return self
+    endif    
+
+    if db_delete('I4PROSERVICOS','ID_SERVICO='+Transform(self:IdServico)) == -1
+        error_sys(db_error())     
+    endif    
+
+
+return self    
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: FindOne()
+* Objetivo..: Localiza um registro com base na chave primária.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             self
+*
+*/
+
+METHOD FindOne() CLASS ServicosI4Pro
+
+    local laFIELDS := {},;
+          laRESULT := {} AS Array
+
+    laFIELDS := {'NM_SERVICO','XML_JSON'}   
+
+
+    if (self:IdServico == nil .OR. self:IdServico == 0)        
+        return self
+    endif    
+
+    if db_select(laFIELDS,'I4PROSERVICOS',,{'ID_SERVICO='+Transform(self:IdServico)}) == -1
+        error_sys(db_error())     
+    endif
+    
+    laRESULT := db_fetchall()
+
+    if (Len(laRESULT) > 1)
+       self:NomeServico := laRESULT[2,1] 
+       self:XmlJson     := laRESULT[2,2] 
+    endif    
+
+
+return self    
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: FindAll()
+* Objetivo..: Localiza todos registros.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             self
+*
+*/
+
+METHOD FindAll() CLASS ServicosI4Pro
+
+    local laFIELDS := {} AS Array
+
+    laFIELDS := {'ID_SERVICO','NM_SERVICO','XML_JSON'}   
+
+
+    if db_select(laFIELDS,'I4PROSERVICOS') == -1
+        error_sys(db_error())     
+    endif
+    
+    self:_ResultSet := db_fetchall()
+
+return self    
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: getResultSet()
+* Objetivo..: Retorna o resultset no formato de Array FS/WicTrix.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             resultset
+*
+*/
+
+METHOD getResultSet() CLASS ServicosI4Pro
+
+
+return self:_ResultSet

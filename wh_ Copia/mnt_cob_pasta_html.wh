@@ -1,0 +1,117 @@
+/*
+Project      : gr5
+Program      : mnt.cob.pasta.html
+Function     : mnt_cob_pasta_html
+Created on   : 26-Oct-2002   12:55:47
+Descripition : Manutenção de Cobrança de pasta
+*/
+
+   local lcNR_PASTA := '' ,;
+         lcACTION   := '' ,;
+         lcTABLE    := '' ,;
+         lcVALIDA   := '' ,;
+         lcCAMPO    := '' as string
+   local laFIELDS   := {} ,;
+         laLABELS   := {} ,;
+         laFIND_REC := {} ,;
+         laRES      := {} ,;
+         laRESULT   := {} ,;
+         laFOREIGN  := {} ,;
+         laSELECT   := {} ,;
+         laWHERE    := {} ,;
+         laJOIN     := {} ,;
+         laSAVE     := {} as array
+   local ii := 0 as int
+
+   lcNR_PASTA     := alltrim(WGet('NR_PASTA','C'))
+   lcACTION       := alltrim(upper(WGet('ACTION','C')))
+   lcTABLE        := 'pasta'
+   laFIELDS       := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS       := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   /* Tabelas extrangeiras
+   * Formato do array abaixo
+   * 1 - nome da tabela a pesquisar
+   * 2 - campo do relacionamento
+   * 3 - descricao
+   */
+   laFOREIGN := {{'tabela_honorario','CD_TB_HONORARIO','NM_TB_HONORARIO'},;
+                 {'tabela_servico','CD_TB_SERVICO','NM_TB_SERVICO'},;
+                 {'tabela_despesa','CD_TB_DESPESA','NM_TB_DESPESA'},;
+                 {'cobranca','CD_COBRANCA','NM_COBRANCA'}}
+   /* Relacionamentos que devem ser validados
+   * Formato do array abaixo
+   * 1 - Tabela
+   * 2 - Campo para captura da informação no HTML - WGet()
+   * 3 - Campo para montagem da cláusula WHERE usada em old_db_findrec()
+   * 4 - Parte do label a exibir em caso de erro, está inf. e capturado do Wictrix
+   */
+   laFIND_REC     := {{'tabela_despesa','CD_TB_DESPESA','CD_TB_DESPESA',laLABELS[ascan(laFIELDS,'CD_TB_DESPESA')]},;
+                      {'tabela_honorario','CD_TB_HONORARIO','CD_TB_HONORARIO',laLABELS[ascan(laFIELDS,'CD_TB_HONORARIO')]},;
+                      {'cobranca','CD_COBRANCA','CD_COBRANCA',laLABELS[ascan(laFIELDS,'CD_COBRANCA')]},;
+                      {'tabela_servico','CD_TB_SERVICO','CD_TB_SERVICO',laLABELS[ascan(laFIELDS,'CD_TB_SERVICO')]}}
+   if empty(lcNR_PASTA)
+      lst_cob_pasta_html()
+      return
+   endif
+   laSELECT := {'pasta.NR_PASTA',;
+                'pasta.FL_PASTA',;
+                'pasta.NR_PROCESSO',;
+                'pasta.CIP_EMPRESA',;
+                'pfpj.PFPJ',;
+                'pasta.VARA',;
+                'pasta.COMARCA',;
+                'pasta.PARTE_CONTRARIA',;
+                'pasta.CD_TB_HONORARIO',;
+                'pasta.CD_TB_SERVICO',;
+                'pasta.CD_TB_DESPESA',;
+                'pasta.CD_COBRANCA'}
+   aadd(laJOIN,{2,'pfpj','pasta.CIP_EMPRESA=pfpj.CIP'})
+   aadd(laJOIN,{2,'tabela_honorario','pasta.CD_TB_HONORARIO=tabela_honorario.CD_TB_HONORARIO'})
+   aadd(laJOIN,{2,'tabela_despesa','pasta.CD_TB_DESPESA=tabela_despesa.CD_TB_DESPESA'})
+   aadd(laJOIN,{2,'tabela_servico','pasta.CD_TB_SERVICO=tabela_servico.CD_TB_SERVICO'})
+   aadd(laJOIN,{2,'cobranca','pasta.CD_COBRANCA=cobranca.CD_COBRANCA'})
+   aadd(laWHERE,'pasta.NR_PASTA='+lcNR_PASTA)
+   if db_select(laSELECT,'pasta',laJOIN,laWHERE) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   db2put(laRES)
+   if lcACTION = 'ALTER' .and. gbWAC_READ
+      if len(laRES) > 0
+         for ii := 1 to len(laSELECT)
+             lcCAMPO   := substr(laSELECT[ii],at('.',laSELECT[ii])+1,(len(laSELECT[ii])-at('.',laSELECT[ii])+1))
+             liPOS_COD := ascan2(laFOREIGN,2,lcCAMPO)
+             if liPOS_COD > 0 .and. !empty(laRES[2,ii])
+                if db_select({laFOREIGN[liPOS_COD,3]},laFOREIGN[liPOS_COD,1],,;
+                             {laFOREIGN[liPOS_COD,2]+'='+alltrim(str(laRES[2,ii]))}) == -1
+                   error_sys(db_error())
+                endif
+                laRESULT := db_fetchrow()
+                if len(laRESULT) > 0
+                   wPut(laFOREIGN[liPOS_COD,3],laRESULT[1])
+                endif
+             endif
+         next ii
+      endif
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+      for ii := 1 to len(laFIND_REC)
+          lcVALIDA := alltrim(WGet(laFIND_REC[ii,2],'C'))
+          if ! empty(lcVALIDA) .and. val(lcVALIDA) != 0
+             if len(db_findrec({laFIND_REC[ii,3]},laFIND_REC[ii,1],laFIND_REC[ii,3]+'='+lcVALIDA)) = 0
+                walert(laFIND_REC[ii,4]+' é inválido(a) ou não pode ser encontrado(a)!')
+                get2Put()
+                return(.f.)
+             endif
+          endif
+      next ii
+      aadd(laSAVE,{'CD_TB_HONORARIO','CD_TB_SERVICO','CD_TB_DESPESA','CD_COBRANCA'})
+      aadd(laSAVE,{WGet('CD_TB_HONORARIO','N'),;
+                   WGet('CD_TB_SERVICO','N'),;
+                   WGet('CD_TB_DESPESA','N'),;
+                   WGet('CD_COBRANCA','N')})
+      if db_update(laSAVE,lcTABLE,{'NR_PASTA='+lcNR_PASTA}) == -1
+         error_sys(db_error())
+      endif
+      lst_cob_pasta_html()
+   endif
+return

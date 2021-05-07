@@ -1,0 +1,47 @@
+/*
+
+Project      : gr5
+Program      : sch.sct.atas.html
+Function     : sch_sct_atas_html
+Created on   : 26-Jan-2004   17:23:00
+Descripition : Pesquisa de Atas
+
+*/
+
+local lcNR_PASTA := WGet('NR_PASTA','C') as string
+local laFIELDS       := {},;
+      laJAVA         := {},;
+      laQUICK_SEARCH := {},;
+      laINPUT_HIDDEN := {},;
+      laWHERE        := {} as array
+
+laFIELDS       := {'NR_ATA','ASSEMBLEIA_TITULO'}
+laJAVA         := {'mntform',{{'NR_ATA','NR_ATA'}}}
+laQUICK_SEARCH := {'ASSEMBLEIA_TITULO'}
+laINPUT_HIDDEN := {{'NR_PASTA',lcNR_PASTA}}
+aadd(laWHERE,'NR_PASTA='+lcNR_PASTA)
+
+xbp('pasta_sct_ata',;         //Tabela Alvo
+    ,;                        //Join
+    laWHERE,;                 //Where
+    ,;                        //Order by
+    ,;                        //Sort [A]-Ascendente [D]-Descentende
+    ,;                        //Group by
+    ,;                        //Limit
+    ,;                        //Banco de Dados
+    3,;                       //Modo de funcionamento [1]-Listagem/Form para manutenção [2]-Listagem e Manutenção [3]-Search
+    'gr5',;                   //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),; //Programa chamador
+    ,;                        //Parametros para linhas clicáveis
+    ,;                        //Botoes (nil)
+    'sch.sct.atas.html',;     //Programa chamado pelos links (linhas clicáveis)
+    'gr5',;                   //Módulo do programa chamado pelos links
+    laJAVA,;                  //Retorno java (nil) - usado apenas no search
+    ,;                        //Campos usados na pesquisa rápida
+    laINPUT_HIDDEN,;          //Campos ocultos. Usado apenas em manutenções    ***
+    ,;                        //Campos da área de manutenção/entrada de dados  ***
+    laFIELDS,;                //Campos mostratos no grid
+    laFIELDS)                 //Campos usados no select
+return
+
+

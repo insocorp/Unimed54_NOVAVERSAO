@@ -1,0 +1,217 @@
+/*
+
+Project      : gr5
+Program      : mnt.ts.pr.revisao.html
+Function     : mnt_ts_pr_revisao_html
+Created on   : 17-Oct-2002   15:58:50
+Descripition : Manutenção para a Revisão de Timesheet Preventivo
+
+*/
+
+
+   local lcACTION      := '' ,;
+         lcTABLE       := '' ,;
+         lcCIP_EMPRESA := '' ,;
+         lcPFPJ        := '' ,;
+         lcITEM        := '' ,;
+         lcITEM1       := '' ,;
+         lcAPROVACAO   := '' ,;
+         lcLOGIN       := '' as string
+
+   local laFIELDS    := {} ,;
+         laUPDATE    := {} ,;
+         laWHERE     := {} ,;
+         laAPROVACAO := {} ,;
+         laRESULT    := {} ,;
+         laPUT       := {} ,;
+         laAUX       := {} ,;
+         laVAR_WICDO := {} as array
+
+   local llTM_CONTENC := upper(alltrim(wSet('_USER_INTERFACE'))) == 'MNT.TS.CT.REVISAO.HTML' as logical //Revisão de Timesheet Contencioso
+
+   local x := 0 ,;
+         y := 0 ,;
+         z := 0 as int
+
+   lcACTION      := upper(WGet('ACTION','C'))
+   lcTABLE       := 'mvt_servico'
+   lcCIP_EMPRESA := WGet('CIP_EMPRESA','C')
+   lcPFPJ        := WGet('PFPJ','C')
+   laFIELDS      := {'mvt_servico.NR_PASTA',;      // 1
+                     'mvt_servico.NR_SERVICO',;    // 2
+                     'mvt_servico.CD_SERVICO',;    // 3
+                     'servico.NM_SERVICO',;        // 4
+                     'mvt_servico.LOGIN',;         // 5
+                     'mvt_servico.TIMESHEET',;     // 6
+                     'mvt_servico.QTD_PRODUCAO',;  // 7
+                     'servico.UNIDADE',;           // 8
+                     'mvt_servico.QUANTIDADE',;    // 9
+                     'mvt_servico.VL_UNIT',;       // 10
+                     'mvt_servico.FL_VL_PADRAO',;  // 11
+                     'mvt_servico.FL_APROVADO'}    // 12
+
+   if empty(lcACTION)
+      lcACTION := 'ALTER'
+   endif
+   if empty(lcCIP_EMPRESA) .and. lcACTION = 'ALTER'
+      if !llTM_CONTENC
+         wSet('_USER_INTERFACE','lst.ts.pr.revisao.html')
+         lst_ts_pr_revisao_html()
+      else
+         wSet('_USER_INTERFACE','lst.ts.ct.revisao.html')
+         lst_ts_ct_revisao_html()
+      endif
+      return
+   endif
+
+   laAPROVACAO := {'Pendente','Faturar','Isentar'}
+   laVAR_WICDO := {'VAR_NR_PASTA',;         // 1
+                   'VAR_NR_SERVICO',;       // 2
+                   'CD_SERVICO',;           // 3
+                   'NM_SERVICO',;           // 4
+                   'TIMESHEET',;            // 5
+                   'VAR_QTD_PRODUCAO',;     // 6
+                   'UNIDADE',;              // 7
+                   'VAR_QUANTIDADE',;       // 8
+                   'VAR_VL_UNIT',;          // 9
+                   'VAR_VL_TOTAL',;         // 10
+                   'VAR_FL_VL_PADRAO',;     // 11
+                   'VAR_FL_APROVADO',;      // 12
+                   'VAR_OK'}                // 13
+
+   if lcACTION = 'ALTER'
+      laWHERE := {'pasta.NR_PASTA=mvt_servico.NR_PASTA and '+;
+                  'pfpj.CIP=pasta.CIP_EMPRESA and '+;
+                  'servico.CD_SERVICO=mvt_servico.CD_SERVICO and '+;
+                  'pfpj.CIP='+DLAP+lcCIP_EMPRESA+DLAP+' and '+;
+                  'mvt_servico.FL_APROVADO="0" and '+;
+                  'mvt_servico.CIP_CONSULENTE '+iif(!llTM_CONTENC,'<> ""','= ""')}
+      if db_select(laFIELDS,'pasta,pfpj,servico,'+lcTABLE,,laWHERE,{'mvt_servico.LOGIN'}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         z       := 1
+         lcLOGIN := alltrim(laRESULT[2,ascan(laFIELDS,lcTABLE+'.LOGIN')])
+         aadd(laPUT,{'LOGIN','WUSER','VAR_VL_TT_PRODUCAO','VAR_VL_TT_QTD','lstTIMESHEETS'})
+         aadd(laAUX,laVAR_WICDO)
+         for x := 2 to len(laRESULT)
+             if lcLOGIN != alltrim(laRESULT[x,ascan(laFIELDS,lcTABLE+'.LOGIN')])
+                lcITEM1 := '_'+alltrim(str(z))
+                aadd(laPUT,{lcLOGIN,find_user(lcLOGIN),'VAR_VL_TT_PRODUCAO'+lcITEM1,'VAR_VL_TT_QTD'+lcITEM1,laAUX})
+                lcFLD_PROD   := ''
+                lcFLD_QTD    := ''
+                laAUX        := {}
+                aadd(laAUX,laVAR_WICDO)
+                lcLOGIN := alltrim(laRESULT[x,ascan(laFIELDS,lcTABLE+'.LOGIN')])
+                z++
+             endif
+             if len(laAUX) == 0
+                aadd(laAUX,laVAR_WICDO)
+             endif
+             lcITEM := '_'+alltrim(str(x-1))
+             aadd(laAUX,{laVAR_WICDO[1]+lcITEM,;   //Código da pasta (campo oculto)
+                         laVAR_WICDO[2]+lcITEM,;   //Nr. Servico (campo oculto)
+                         laRESULT[x,3],;           //Cód. Servico
+                         laRESULT[x,4],;           //Nome Servico
+                         laRESULT[x,6],;           //Timesheet
+                         laVAR_WICDO[6]+lcITEM,;   //Producao Aprovada
+                         laRESULT[x,8],;           //Unidade
+                         laVAR_WICDO[8]+lcITEM,;   //Quantidade
+                         laVAR_WICDO[9]+lcITEM,;   //Valor Unitario
+                         laVAR_WICDO[10]+lcITEM,;  //Valor Total
+                         laVAR_WICDO[11]+lcITEM,;  //Calculo Padrao
+                         laVAR_WICDO[12]+lcITEM,;  //Aprovacao
+                         laVAR_WICDO[13]+lcITEM})  //OK
+
+             wPut(laVAR_WICDO[11]+lcITEM+'_OPT','S')         //Calculo Padrão
+             wPut(laVAR_WICDO[12]+lcITEM+'_OPT',laAPROVACAO) //Aprovação
+             wPut(laVAR_WICDO[6]+lcITEM,laRESULT[x,7])       //Produção aprovada
+             wPut(laVAR_WICDO[8]+lcITEM,laRESULT[x,9])       //Qtd
+             wPut(laVAR_WICDO[9]+lcITEM,laRESULT[x,10])      //Vlr. Unit
+             wPut(laVAR_WICDO[11]+lcITEM,laRESULT[x,11])     //Calculo Padrao
+             wPut(laVAR_WICDO[12]+lcITEM,'Faturar')          //Padrao para cbx FL_APROVADO
+
+             //Dados dos campos hidden -------------------------------------------------------------------------------------
+             wPut(laVAR_WICDO[1]+lcITEM,laRESULT[x,1])    //Código da Pasta
+             wPut(laVAR_WICDO[2]+lcITEM,laRESULT[x,2])    //Nr. Servico
+         next x
+         if len(laAUX) > 0
+            lcITEM1 := '_'+alltrim(str(z))
+            aadd(laPUT,{lcLOGIN,find_user(lcLOGIN),'VAR_VL_TT_PRODUCAO'+lcITEM1,'VAR_VL_TT_QTD'+lcITEM1,laAUX})
+         endif
+         wPut('lstLOGIN',laPUT)
+         wPut('CIP_EMPRESA',lcCIP_EMPRESA)
+         wPut('CIP_EMPRESA_PFPJ',lcPFPJ)
+      endif
+   elseif lcACTION = 'SAVE'
+      y         := 1
+      lcITEM    := '_'+alltrim(str(y))
+      lcFLD_VAR := laVAR_WICDO[1]+lcITEM
+      aadd(laUPDATE,{'QUANTIDADE','QTD_PRODUCAO','VL_UNIT','FL_VL_PADRAO','FL_APROVADO'})
+      do while WGet(lcFLD_VAR,'B')
+         lcAPROVACAO := alltrim(WGet(laVAR_WICDO[12]+lcITEM,'C')) //Aprovação
+         if lcAPROVACAO == 'Pendente'
+            lcAPROVACAO := '0'
+         elseif lcAPROVACAO == 'Faturar'
+            lcAPROVACAO := '1'
+         elseif lcAPROVACAO == 'Isentar'
+            lcAPROVACAO := '2'
+         endif
+         aadd(laUPDATE,{WGet(laVAR_WICDO[8]+lcITEM,'N'),;  //Quantidade
+                        WGet(laVAR_WICDO[6]+lcITEM,'N'),;  //Quantidade Produção
+                        WGet(laVAR_WICDO[9]+lcITEM,'N'),;  //Valor unitario
+                        WGet(laVAR_WICDO[11]+lcITEM),; //Calculo padrao
+                        lcAPROVACAO})                  //Aprovacao
+         aadd(laWHERE,'NR_PASTA='+WGet(laVAR_WICDO[1]+lcITEM,'C')+;
+                      ' and NR_SERVICO='+WGet(laVAR_WICDO[2]+lcITEM,'C'))
+         if db_update(laUPDATE,'mvt_servico',laWHERE) == -1
+            error_sys(db_error())
+         endif
+         y++
+         lcITEM    := '_'+alltrim(str(y))
+         lcFLD_VAR := laVAR_WICDO[1]+lcITEM
+      enddo
+      if !llTM_CONTENC
+         wSet('_USER_INTERFACE','lst.ts.pr.revisao.html')
+         lst_ts_pr_revisao_html()
+      else
+         wSet('_USER_INTERFACE','lst.ts.ct.revisao.html')
+         lst_ts_ct_revisao_html()
+      endif
+   else
+      if !llTM_CONTENC
+         wSet('_USER_INTERFACE','lst.ts.pr.revisao.html')
+         lst_ts_pr_revisao_html()
+      else
+         wSet('_USER_INTERFACE','lst.ts.ct.revisao.html')
+         lst_ts_ct_revisao_html()
+      endif
+   endif
+return
+
+
+/*
+* Function..: find_user(<fcLOGIN>)
+* Objetivo..: Buscar e retornar o nome do usuario
+* Parâmetros:
+*    fcLOGIN.: Login do usuário
+* Retorno...: String contendo o nome completo do usuário
+*/
+static function find_user(fcLOGIN)
+   local lcNM_USER := '' as string
+
+   local laRES := {} as array
+
+   if db_select({'pfpj.PFPJ'},'acuser',{{2,'pfpj','pfpj.CIP=acuser.CIP'}},{'LOGIN='+DLAP+fcLOGIN+DLAP}) == -1
+      error_sys('find_user: '+db_error())
+   endif
+   laRES := db_fetchrow()
+   if len(laRES) > 0
+      if !empty(laRES[1])
+         lcNM_USER := laRES[1]
+      else
+         lcNM_USER := '<sem nome>'
+      endif
+   endif
+return(lcNM_USER)

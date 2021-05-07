@@ -1,0 +1,62 @@
+/*
+
+Project      : gr5
+Program      : psab.ra.ocorrencias.html
+Function     : psab_ra_ocorrencias_html
+Created on   : 14-Jun-2005   18:05:33
+Descripition : Visualização de Ocorrencias Negociação.
+
+*/
+
+   local lcNR_PASTA      := WGet('NR_PASTA','C')      ,;
+         lcTP_PASTA      := WGet('TP_PASTA','C')      ,;
+         lcWHERE         := ''                        as string
+   local laRESULT := {} as array
+   local ii    := 0 ,;
+         lnPOS := 0 as int
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   pasta_abas(lcTP_PASTA)
+
+   lcWHERE := 'NR_PASTA='+lcNR_PASTA
+//    WPut('TITLE','Ocorrências Negociação')
+   // Glauber 06/01/2011
+   AbasPerfil(lcTP_PASTA,{'DT_OCORRENCIA',;
+                 'HR_OCORRENCIA',;
+                 'CD_RA_OCORRENCIA',;
+                 'CD_RA_OPERADOR',;
+                 'FL_RA_MONITORA',;
+                 'RA_OCORRENCIA'})
+
+   if db_select({'DT_OCORRENCIA',;
+                 'HR_OCORRENCIA',;
+                 'CD_RA_OCORRENCIA',;
+                 'CD_RA_OPERADOR',;
+                 'FL_RA_MONITORA',;
+                 'RA_OCORRENCIA'},;
+                'ra_ocorrencia',,;
+                {lcWHERE},;
+                {'DT_OCORRENCIA',;
+                 'HR_OCORRENCIA'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      lnPOS := db_fetchncol(laRESULT,'FL_RA_MONITORA')
+      for ii := 2 to len(laRESULT)
+         if alltrim(upper(laRESULT[ii,lnPOS])) == 'M'
+            laRESULT[ii,lnPOS] := 'Sim'
+         else
+            laRESULT[ii,lnPOS] := 'Não'
+         endif
+      next ii
+      WPut('GRID_OCORRENCIAS',grid_create(laRESULT))
+   else
+      WPut('GRID_OCORRENCIAS','<center>Não existem Ocorrências nesta Pasta.</center>')
+   endif
+return
+
+
+
+
+

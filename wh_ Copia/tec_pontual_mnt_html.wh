@@ -1,0 +1,65 @@
+/*
+
+Project      : gr5
+Program      : tec_pontual.mnt.html                                               
+Function     : tec_pontual_mnt_html
+Created on   : 03/10/2014 10:33:53
+Descripition : Pontualidade Técnica
+
+*/
+
+   local laPARAM        := {},;
+         laINPUT_OBJ    := {},;
+         laSELECT       := {} as array
+
+   laPARAM := {{'ID_PONTUALIDADE_TECNICA',''     ,'*'},;
+               {'PONTUALIDADE_TECNICA'     ,''     ,'*'},;
+               {'FL_ATIVO','',},;
+               {'ACTION'       ,'ALTER',   }}
+
+   laINPUT_OBJ := {{'ID_PONTUALIDADE_TECNICA',0, ,'Y',   },;
+                   {               , , ,   ,   },;
+                   {'PONTUALIDADE_TECNICA',0, ,'Y',   },;
+                   {,,,,},;
+                   {'FL_ATIVO',1,,'Y','{"S","I","D"}' }}
+           
+
+   laSELECT := {'ID_PONTUALIDADE_TECNICA','PONTUALIDADE_TECNICA','FL_ATIVO'}
+
+   xbp('pontualidade_tecnica',;                                                     //Tabela alvo
+       ,;                                                                  //Joins
+       ,;                                                                  //Where
+       {'PONTUALIDADE_TECNICA'},;                                             			//Order by
+       ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+       ,;                                                                  //Group by
+       ,;                                                                  //Limit
+       ,;                                                                  //Banco de Dados
+       2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+       'gr5',;                                                             //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;                                           //Programa chamador
+       laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+       ,;                                                                  //Parâmetros para os botões das linhas do grid
+       'tec_pontual.mnt.html',;                                           //Programa que os links/botoes do grid deverao chamar
+       'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+       ,;                                                                  //Retorno java (nil) - usado apenas para Search
+       ,;                                                                  //Campos usados na pesquisa rápida
+       ,;                                                                  //Campos Ocultos
+       laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+       laSELECT ,;                                                         //Campos exibidos no grid
+       laSELECT)                                                           //Campos usados no select
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

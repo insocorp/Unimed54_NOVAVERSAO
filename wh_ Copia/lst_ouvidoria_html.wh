@@ -1,0 +1,672 @@
+/*
+Project      : gr5
+Program      : lst.ouvidoria.html
+Function     : lst_ouvidoria_html
+Created on   : 5/28/2014 2:42:25 PM
+Descripition : Lista de Pastas
+*/
+
+   /* Parametros que este programa recebe
+   *
+   * pcTARGET_PRG: Nome do programa a ser chamado pelo lst. �usado devido a necessidade redirecionar para mnt.pst.andamento.html ou
+   *               mnt.canc.andamento.html. Os programas lst_pst_andamento_html() e lst_canc_andamento_html(),
+   *               chamam lst_pasta_html() passando os nomes de suas respectivas manuten�es para que o lst fa� a gera�o
+   *               do link correto no grid
+   */
+
+   local lcACTION       := '' ,;
+         lcTABLE        := '' ,;
+         lcFIELD        := '' ,;
+         lcFILTER_FIELD := '' ,;
+         lcFILTER_VALUE := '' ,;
+         lcFLT_FIELD2   := '' ,;
+         lcFLT_VALUE2   := '' ,;
+         lcORDER_FIELD  := '' ,;
+         lcTP_PASTA     := '' ,;
+         lcDOCUMENTO    := '' ,;
+         lcPUT          := '' ,;
+         lcAUX          := '' ,;
+         lcPESSOAS      := '' ,;
+         lcWHERE_CONFIG := '' ,;
+         lcWHERE_PFPJ   := '' ,;
+         lcFL_EXECSEL   := '' as string
+
+   local ii           := 0 ,;
+         xx           := 0 ,;
+         jj           := 0 ,;
+         yy           := 0 ,;
+         zz           := 0 ,;
+         lnPOS        := 0 ,;
+         lnMAX_PAGES  := 0 ,;
+         lnROWS_PAGE  := 0 ,;
+         lnNR_PAGES   := 0 ,;
+         lnPAGE_INI   := 0 ,;
+         lnPAGE_FIN   := 0 ,;
+         lnGOTO_PAGE  := 0 ,;
+         lnLIMIT1     := 0 ,;
+         lnLIMIT2     := 0 as int
+
+   local laRES         := {} ,;
+         laAUX         := {} ,;
+         laAUX2        := {} ,;
+         laAUX3        := {} ,;
+         laAUX4        := {} ,;
+         laPUT         := {} ,;
+         laFIELDS      := {} ,;
+         laFIELDLST    := {} ,;
+         laLABELLST    := {} ,;
+         laGRID_FIELDS := {} ,;
+         laGRID_LABELS := {} ,;
+         laTABLES      := {} ,;
+         laWHERE       := {} ,;
+         laORDERBY     := {} ,;
+         laLIMIT       := {} ,;
+         laJOIN        := {} ,;
+         laJOIN2       := {} ,;
+         laJOINS       := {} ,;
+         laCOUNT       := {} ,;
+         laPAGES       := {} ,;
+         laDOCUMENTO   := {} ,;
+         laPSTCONF     := {}  as array
+
+   //local llPST_CLIENTE := .F.
+   local llERRO      := .f. ,;
+         llPFPJ_JOIN := .f. ,;
+         llALERT     := .f. as logical
+
+   pcTARGET_PRG := iif(pcTARGET_PRG == NIL,'mnt.pasta.html',pcTARGET_PRG)
+   lcACTION     := upper(WGet('ACTION','C'))
+   lcFL_EXECSEL := alltrim(WGet('FL_EXECSEL','C'))
+
+   /* Carrega Pesquisa do perfil do usu�io (profilewenv) */
+   if (lcACTION <> 'EXECSEL' .and. lcACTION <> 'EXECTP_PASTA') .and. readWEnv(WSet('_USER_INTERFACE'))
+      lcTP_PASTA     := getWPut('TP_PASTA','C')
+      lcCPF          := getWPut('CPF','C')
+
+      if lcFL_EXECSEL == 'Y'
+         if ! empty(lcCPF)
+            lcACTION := 'EXECSEL'
+         endif
+      endif
+
+   else
+      lcTP_PASTA     := WGet('TP_PASTA','C')
+      lcCPF          := WGet('CPF','C')
+   endif
+   /*------------------------------------------------------*/
+
+   lnGOTO_PAGE := WGet('GOTO_PAGE','N')
+   if lnGOTO_PAGE = 0
+      lnGOTO_PAGE := 1
+   endif
+
+   //llPST_CLIENTE  := upper(alltrim(gmPAGE)) == 'LST.PST.CLIENTES.HTML'
+   laTABLES       := {'pasta','pasta_andamento','pasta_outraspartes','pasta_recurso'}
+
+   /* Carrega Lista de Campos de acordo com Tipo de Pasta -------------------------------------*/
+   if ! empty(lcTP_PASTA)
+      lcWHERE_CONFIG := 'TP_PASTA='+DLAP+lcTP_PASTA+DLAP
+   else
+      lcWHERE_CONFIG := 'TP_PASTA='+DLAP+'Padrao'+DLAP
+   endif
+
+   if db_select({'GRID_FIELDS','SEARCH_FIELDS'},'pasta_config',,{lcWHERE_CONFIG}) = -1
+      error_sys(db_error())
+   endif
+   laPSTCONF := db_fetchrow()
+   if len(laPSTCONF) > 0
+      if ! empty(laPSTCONF[1])
+         laPUT      := str2array(laPSTCONF[1],',')
+         for ii := 1 to len(laPUT)
+            if wmd_fieldtype(substr(laPUT[ii],at('.',laPUT[ii])+1)) != 'TEXT' //N� inclue colunas tipo Text
+               aadd(laGRID_FIELDS,laPUT[ii])
+               aadd(laGRID_LABELS,lbltable(substr(laPUT[ii],1,at('.',laPUT[ii])-1))+;
+                                  ' . . . '+;
+                                  lblfscreen(substr(laPUT[ii],at('.',laPUT[ii])+1)))
+            endif
+         next ii
+      else
+         //Caso n� encontre configua�o para a pasta em quest�,
+         //procura na pasta padr�
+         if db_select({'GRID_FIELDS','SEARCH_FIELDS'},'pasta_config',,{'TP_PASTA='+DLAP+'Padrao'+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laPSTCONF := db_fetchrow()
+         if len(laPSTCONF) > 0
+            if ! empty(laPSTCONF[1])
+               laPUT      := str2array(laPSTCONF[1],',')
+               for ii := 1 to len(laPUT)
+                  if wmd_fieldtype(substr(laPUT[ii],at('.',laPUT[ii])+1)) != 'TEXT' //N� inclue colunas tipo Text
+                     aadd(laGRID_FIELDS,laPUT[ii])
+                     aadd(laGRID_LABELS,lbltable(substr(laPUT[ii],1,at('.',laPUT[ii])-1))+;
+                                        ' . . . '+;
+                                        lblfscreen(substr(laPUT[ii],at('.',laPUT[ii])+1)))
+                  endif
+               next ii
+            endif
+         endif
+      endif
+   endif
+
+   /* Lista de Campos Default da Grid --------------------------------------------------*/
+   if len(laGRID_FIELDS) = 0
+      llALERT := .t.
+      laGRID_FIELDS := {'pasta.NR_PASTA',;
+                        'pasta.NR_PASTA_ARQUIVO',;
+                        'pasta.TP_PASTA',;
+                        'pasta.FL_PASTA',;
+                        'pasta.NR_PROCESSO',;
+                        'pasta_pfpj_empresa.CIP',;
+                        'pasta_pfpj_empresa.PFPJ',;
+                        'pasta.POSICAO_EMPRESA',;
+                        'pasta.POSICAO_PARTE'}
+
+      for ii := 1 to len(laGRID_FIELDS)
+         aadd(laGRID_LABELS,lbltable(substr(laGRID_FIELDS[ii],1,at('.',laGRID_FIELDS[ii])-1))+;
+                            ' . . . '+;
+                            lblfscreen(substr(laGRID_FIELDS[ii],at('.',laGRID_FIELDS[ii])+1)))
+      next
+   endif
+   /*-----------------------------------------------------------------------------------*/
+   // Carregando o combo de Tipo de Pasta
+   if db_select({'TP_PASTA'},'pasta_config',,{'TP_PASTA<>'+DLAP+'Padrao'+DLAP},{'TP_PASTA'}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 1
+      laPUT := {''}
+      for ii := 2 to len(laRES)
+         aadd(laPUT,laRES[ii,1])
+      next ii
+      WPut('TP_PASTA_OPT',laPUT)
+   endif
+
+   /* Combo Status da Pasta */
+   laPUT := loadcbox_build('pasta_status','FL_PASTA',.T.)
+   for ii := 1 to len(laPUT)
+      laPUT[ii] := alltrim(laPUT[ii])
+   next ii
+   WPut('FL_PASTA_OPT',laPUT)
+
+
+   /* Carrega Lista de Campos de acordo com Tipo de Pasta ---------------------------------*/
+   if len(laPSTCONF) > 0
+      if ! empty(laPSTCONF[2])
+         laPUT      := str2array(laPSTCONF[2],',')
+         lcTABLE    := lbltable('pasta')
+         for ii := 1 to len(laPUT)
+            aadd(laFIELDLST,laPUT[ii])
+            aadd(laLABELLST,lbltable(substr(laPUT[ii],1,at('.',laPUT[ii])-1))+;
+                            ' . . . '+;
+                            lblfscreen(substr(laPUT[ii],at('.',laPUT[ii])+1)))
+         next ii
+      endif
+   endif
+
+   /*--------------------------------------------------------------------------------------*/
+
+   /* Carrega Lista de campos Padr� caso n� tenha sido definido no Tipo de Pasta --------*/
+   if len(laFIELDLST) = 0 .or. len(laLABELLST) = 0
+      llALERT := .t.
+      laAUX  := structtable(WSet("DB_ACTIVE"),laTABLES,1,'A')
+      laAUX2 := structtable(WSet("DB_ACTIVE"),laTABLES,11,'A')
+
+      //Ordena�o da Lista de campos pela Label.
+      for ii := 1 to len(laAUX)
+         aadd(laAUX3,{laAUX[ii],laAUX2[ii]})
+      next ii
+
+      laAUX4 := asort(laAUX3,,,{|x,y| x[2] < y[2]})
+      for ii := 1 to len(laAUX4)
+         aadd(laFIELDLST,laAUX4[ii,1])
+         aadd(laLABELLST,laAUX4[ii,2])
+      next ii
+   endif
+
+   if lcACTION == 'EXECTP_PASTA' .and. empty(lcTP_PASTA)
+      if llALERT
+         walert('Nenhuma configura�o definida ou configura�es incompletas para Tipo de Pasta "Padrao".\nA Pesquisa ser�realizada com algumas op�es comuns a todas as pastas!')
+      endif
+   endif
+
+   if lcACTION == 'EXECSEL'
+      /* Criando array com todos os JOINS possiveis */
+      //Relacionamentos padr�s
+      aadd(laJOINS,{2,'pasta_outraspartes','pasta_outraspartes.NR_PASTA=pasta.NR_PASTA'})
+      aadd(laJOINS,{2,'pasta_andamento'   ,'pasta_andamento.NR_PASTA=pasta.NR_PASTA'})
+      aadd(laJOINS,{2,'cobranca'          ,'cobranca.CD_COBRANCA=pasta.CD_COBRANCA'})
+      aadd(laJOINS,{2,'tabela_servico'    ,'tabela_servico.CD_TB_SERVICO=pasta.CD_TB_SERVICO'})
+      aadd(laJOINS,{2,'tabela_honorario'  ,'tabela_honorario.CD_TB_HONORARIO=pasta.CD_TB_HONORARIO'})
+      aadd(laJOINS,{2,'tabela_despesa'    ,'tabela_despesa.CD_TB_DESPESA=pasta.CD_TB_DESPESA'})
+      aadd(laJOINS,{2,'indice_reajuste'   ,'indice_reajuste.CD_INDICE=pasta.CD_INDICE'})
+      aadd(laJOINS,{2,'centrocusto'       ,'centrocusto.CD_CCUSTO=pasta.CD_CCUSTO'})
+      aadd(laJOINS,{2,'pasta_seguro'      ,'pasta_seguro.NR_PASTA=pasta.NR_PASTA'})
+      aadd(laJOINS,{2,'pasta_auto'        ,'pasta_auto.NR_PASTA=pasta.NR_PASTA'})
+
+      //Relacionamentos com as 'views' de pessoas//
+      laAUX := pstcips()  //Retorna todos os CIPS de pasta.
+      for ii := 1 to len(laAUX)
+         aadd(laJOINS,{2,'pasta_pfpj_'+alltrim(lower(substr(laAUX[ii],5))),'pasta_pfpj_'+alltrim(lower(substr(laAUX[ii],5)))+'.NR_PASTA=pasta.NR_PASTA'})
+      next ii
+
+      /* Pesquisa de Pessoas */
+      if ! empty(lcPESSOAS)
+         //Inicio Pesquisa
+         laPESSOAS    := str2array(lcPESSOAS,',')
+         lcWHERE_PFPJ := ''
+         if len(laPESSOAS) > 0
+            for ii := 1 to len(laPESSOAS)
+               laPESSOAS[ii] := lower(lat2char(laPESSOAS[ii]))
+            next ii
+
+            aadd(laJOIN,{2,'pasta_cip','pasta_cip.NR_PASTA=pasta.NR_PASTA'})
+            aadd(laJOIN,{2,'pfpj','pasta_cip.CIP=pfpj.CIP'})
+
+            for ii := 1 to len(laPESSOAS)
+               if ! empty(alltrim(laPESSOAS[ii]))
+
+                  laAUX := str2array(laPESSOAS[ii],' ')
+                  if ! empty(alltrim(lcWHERE_PFPJ))
+                     lcWHERE_PFPJ += ' and '
+                  endif
+                  lcWHERE_PFPJ += 'pasta.NR_PASTA in ('
+                  lcWHERE_PFPJ += 'select distinct pasta_cip.NR_PASTA from pasta_cip '
+                  lcWHERE_PFPJ += 'left join pfpj_pasta_cip on pfpj_pasta_cip.CIP = pasta_cip.CIP '
+                  lcWHERE_PFPJ += 'left join pasta_outraspartes on pasta_outraspartes.NR_PASTA = pasta_cip.NR_PASTA '
+                  lcWHERE_PFPJ += 'left join pfpj_pasta_outraspartes on pfpj_pasta_outraspartes.CIP=pasta_outraspartes.CIP_PARTE '
+                  lcWHERE_PFPJ += 'where '
+
+                  jj := 1
+                  lcWHERE_PFPJ += '('
+                  for xx := 1 to len(laAUX)
+                     if ! empty(alltrim(laAUX[xx]))
+                        if jj > 1
+                           lcWHERE_PFPJ += ' and '
+                        endif
+                        lcWHERE_PFPJ += 'pfpj_pasta_cip.PFPJ_CHAR like '+DLAP+'%'+laAUX[xx]+'%'+DLAP
+                        jj++
+                     endif
+                  next xx
+                  lcWHERE_PFPJ += ') or ('
+                  jj := 1
+                  for xx := 1 to len(laAUX)
+                     if ! empty(alltrim(laAUX[xx]))
+                        if jj > 1
+                           lcWHERE_PFPJ += ' and '
+                        endif
+                        lcWHERE_PFPJ += 'pfpj_pasta_outraspartes.PFPJ_CHAR like '+DLAP+'%'+laAUX[xx]+'%'+DLAP
+                        jj++
+                     endif
+                  next xx
+                  lcWHERE_PFPJ += ')'
+               endif
+               lcWHERE_PFPJ += ')'
+            next ii
+         endif
+         aadd(laWHERE,lcWHERE_PFPJ)
+      endif
+
+      /* Tipo de Pasta */
+      if ! empty(lcTP_PASTA)
+         aadd(laWHERE,'pasta.TP_PASTA='+DLAP+lcTP_PASTA+DLAP)
+      endif
+// teste sonia
+         aadd(laWHERE,'pasta.FL_ATIVO='+DLAP+'S'+DLAP)
+
+      /* Documentos */
+      if ! empty(lcDOCUMENTO)
+         /*
+         Array de campos para pesquisa
+         */
+         laDOCUMENTO := {{'pasta','NR_PASTA'},;
+                         {'pasta','NR_PASTA_ARQUIVO'},;
+                         {'pasta','NR_CONTRATO'},;
+                         {'pasta','NR_PROCESSO'},;
+                         {'pasta','NR_AUTO_INFRACAO'},;
+                         {'pasta','NR_PROCESSO_ADM'},;
+                         {'pasta','NR_EXEC_FISCAL'},;
+                         {'pasta','NR_MPF'},;
+                         {'pasta','NR_PATENTE'},;
+                         {'pasta','NR_MATRICULA'},;
+                         {'pasta','NR_LICITACAO'},;
+                         {'pasta','NR_INQUERITO'},;
+                         {'pasta','NR_SCT_PROCEDIMENTO'},;
+                         {'pasta','NR_NOTIFICACAO'},;
+                         {'pasta','NR_RECURSO'},;
+                         {'pasta','NR_CLASSE'},;
+                         {'pasta','NR_CONCESSAO_RPI'},;
+                         {'pasta','NR_APOLICE'},;
+                         {'pasta','NR_TERMO_INTIMACAO'},;
+                         {'pasta_seguro','NR_SINISTRO'},;
+                         {'pasta_auto','NR_AUTOPROC'},;
+                         {'pasta_auto','NUMERO_DOC'},;
+                         {'pasta','ID_LOJA'}}
+
+         lcAUX := ''
+         for ii := 1 to len(laDOCUMENTO)
+            if ii > 1
+               lcAUX += ' or '
+            endif
+            if wmd_wfieldtype(laDOCUMENTO[ii,2]) == 'N'
+               lcAUX += laDOCUMENTO[ii,1]+'.'+laDOCUMENTO[ii,2]+'='+str(val(lcDOCUMENTO))
+            else
+               lcAUX += laDOCUMENTO[ii,1]+'.'+laDOCUMENTO[ii,2]+'='+DLAP+lcDOCUMENTO+DLAP
+            endif
+         next ii
+         aadd(laWHERE,lcAUX)
+
+         /*
+         aadd(laWHERE,'pasta.NR_PASTA='+alltrim(str(val(lcDOCUMENTO)))+' or '+;
+                      'pasta.NR_PASTA_ARQUIVO='+DLAP+lcDOCUMENTO+DLAP+' or '+;
+                      'pasta.NR_CONTRATO='+DLAP+lcDOCUMENTO+DLAP+' or '+;
+                      'pasta.NR_PROCESSO='+DLAP+lcDOCUMENTO+DLAP+' or '+;
+                      'pasta.NR_AUTO_INFRACAO='+DLAP+lcDOCUMENTO+DLAP+' or '+;
+                      'pasta.NR_PROCESSO_ADM='+DLAP+lcDOCUMENTO+DLAP+' or '+;
+                      'pasta.NR_EXEC_FISCAL='+DLAP+lcDOCUMENTO+DLAP+' or '+;
+                      'pasta.NR_MPF='+DLAP+lcDOCUMENTO+DLAP+' or '+;
+                      'pasta.NR_PATENTE='+DLAP+lcDOCUMENTO+DLAP+' or '+;
+                      'pasta_seguro.NR_SINISTRO='+DLAP+lcDOCUMENTO+DLAP+' or '+;
+                      'pasta_auto.NR_AUTOPROC='+alltrim(str(val(lcDOCUMENTO)))+' or '+;
+                      'pasta_auto.NUMERO_DOC='+DLAP+lcDOCUMENTO+DLAP)
+         */
+
+         /* Inclue os Joins necess�ios para pesquisa em tabelas filhas */
+         aadd(laJOIN,{2,'pasta_seguro','pasta_seguro.NR_PASTA=pasta.NR_PASTA'})
+         aadd(laJOIN,{2,'pasta_auto','pasta_auto.NR_PASTA=pasta.NR_PASTA'})
+      endif
+
+      /* Status de Pasta */
+      if ! empty(lcFL_PASTA)
+         aadd(laWHERE,'pasta.FL_PASTA='+DLAP+lcFL_PASTA+DLAP)
+      endif
+
+      if empty(lcFILTER_FIELD)
+         //lcORDER_FIELD := laLABELLST[ascan(laFIELDLST,'pasta.NR_PASTA')]
+         lcORDER_FIELD := laLABELLST[1]
+      endif
+
+      if ! empty(lcFILTER_VALUE)
+         if ascan(laLABELLST, lcFILTER_FIELD) > 0
+            aadd(laWHERE,mkwherelst({{laFIELDLST[ascan(laLABELLST, lcFILTER_FIELD)],lcFILTER_VALUE}}))
+            // Adiciona campo da Pesquisa na Grid, caso ele ainda n� exista no array laGRID_FIELDS
+            if ascan(laGRID_FIELDS,laFIELDLST[ascan(laLABELLST, lcFILTER_FIELD)]) == 0
+               lcAUX := laFIELDLST[ascan(laLABELLST, lcFILTER_FIELD)]
+               if wmd_fieldtype(substr(lcAUX,at('.',lcAUX)+1)) != 'TEXT' //N� inclue colunas tipo Text
+                  aadd(laGRID_FIELDS, laFIELDLST[ascan(laLABELLST, lcFILTER_FIELD)])
+                  aadd(laGRID_LABELS, laLABELLST[ascan(laLABELLST, lcFILTER_FIELD)])
+               endif
+            endif
+         endif
+      endif
+      if ! empty(lcFLT_VALUE2)
+         if ascan(laLABELLST, lcFLT_FIELD2) > 0
+            //aadd(laWHERE,laFIELDLST[ascan(laLABELLST, lcFLT_FIELD2)]+' like '+DLAP+'%'+lcFLT_VALUE2+'%'+DLAP)
+            aadd(laWHERE,mkwherelst({{laFIELDLST[ascan(laLABELLST, lcFLT_FIELD2)],lcFLT_VALUE2}}))
+            // Adiciona campo da Pesquisa na GRid, caso ele ainda n� exista no array laGRID_FIELDS
+            if ascan(laGRID_FIELDS,laFIELDLST[ascan(laLABELLST, lcFLT_FIELD2)]) = 0
+               lcAUX := laFIELDLST[ascan(laLABELLST, lcFLT_FIELD2)]
+               if wmd_fieldtype(substr(lcAUX,at('.',lcAUX)+1)) != 'TEXT' //N� inclue colunas tipo Text
+                  aadd(laGRID_FIELDS, laFIELDLST[ascan(laLABELLST, lcFLT_FIELD2)])
+                  aadd(laGRID_LABELS, laLABELLST[ascan(laLABELLST, lcFLT_FIELD2)])
+               endif
+            endif
+         endif
+      endif
+
+      if ascan(laGRID_LABELS, lcORDER_FIELD) > 0 // Insere o Campo no array somente se ele foi definido
+         aadd(laORDERBY,laGRID_FIELDS[ascan(laGRID_LABELS, lcORDER_FIELD)])
+      endif
+
+      /* Copia o Array da GRID
+         para o ARRAY que ser�usado em db_select */
+      laFIELDS := aclone(laGRID_FIELDS)
+
+      /* Adiciona os Campos NR_PASTA e TP_PASTA caso n� estejam na GRID */
+      if ascan(laFIELDS,'pasta.NR_PASTA') = 0
+         aadd(laFIELDS,'pasta.NR_PASTA')
+      endif
+      if ascan(laFIELDS,'pasta.TP_PASTA') = 0
+         aadd(laFIELDS,'pasta.TP_PASTA')
+      endif
+
+      /* Controle din�ico de JOINS */
+      for ii := 1 to len(laFIELDS)
+         lcFIELD := substr(laFIELDS[ii],1, (at('.',laFIELDS[ii])-1) )
+         lnPOS   := ascan(laJOINS,{ | y | y[2]==lcFIELD })
+         if lnPOS > 0
+            /* Adiciona a tabela no JOIN caso ainda n� tenha sido incluido anteriormente*/
+            if ascan(laJOIN,{ | z | z[2]==lcFIELD}) = 0
+               aadd(laJOIN,laJOINS[lnPOS])
+            endif
+         endif
+      next ii
+
+      //Contagem de registros e pagina�o
+      if len(laWHERE) == 0
+         if db_select({'count(*)'},'pasta') == -1
+            error_sys('lst_pasta_html: ('+alltrim(str(procline()))+') - '+db_error())
+         endif
+      else
+         //laJOIN2 := aclone(laJOIN)
+         for ii := 1 to len(laWHERE)
+            if 'pfpj' $ laWHERE[ii]
+              llPFPJ_JOIN := .t.
+              exit
+            endif
+         next ii
+         for ii := 1 to len(laJOIN)
+            if substr(laJOIN[ii,2],1,10) == 'pasta_pfpj'
+               if llPFPJ_JOIN
+                  aadd(laJOIN2,laJOIN[ii])
+               endif
+            else
+               aadd(laJOIN2,laJOIN[ii])
+            end
+         next ii
+         if db_select({'count(distinct pasta.NR_PASTA)'},'pasta',laJOIN2,laWHERE) == -1
+            error_sys('lst_pasta_html: ('+alltrim(str(procline()))+') - '+db_error())
+         endif
+      endif
+
+      laCOUNT := db_fetchrow()
+      if laCOUNT[1] > 0 //.and. valtype(laLIMIT) == 'U'
+
+         lnMAX_PAGES := iif(val(WSet('MAX_PAGES'))==0,10,val(WSet('MAX_PAGES')))
+         lnROWS_PAGE := iif(val(WSet('ROWS_PAGE'))==0,10,val(WSet('ROWS_PAGE')))
+         if lnROWS_PAGE > laCOUNT[1]
+            lnROWS_PAGE := laCOUNT[1]
+         endif
+         lnNR_PAGES := laCOUNT[1]/lnROWS_PAGE
+
+         if (laCOUNT[1] % lnROWS_PAGE) > 0
+            lnNR_PAGES += 1
+         endif
+
+         lnMAX_PAGES := iif(lnNR_PAGES < lnMAX_PAGES,lnNR_PAGES,lnMAX_PAGES)
+         if lnGOTO_PAGE == 1
+            lnPAGE_INI := 1                              // P�ina inicial
+            lnPAGE_FIN := lnMAX_PAGES                    // P�ina final
+         else
+            if alltrim(WGet('MORE')) == 'Y'              // Visualizar as pr�imas 10 p�inas, se poss�el
+               lnPAGE_INI := lnGOTO_PAGE
+               lnPAGE_FIN := lnMAX_PAGES+(lnGOTO_PAGE-1)
+               if lnPAGE_FIN > lnNR_PAGES
+                  lnPAGE_FIN := lnNR_PAGES
+               endif
+            elseif alltrim(WGet('LESS')) == 'Y'          // Visualizar as 10 p�inas anteriores, se poss�el
+               lnPAGE_INI := lnGOTO_PAGE-lnMAX_PAGES+1
+               lnPAGE_FIN := lnGOTO_PAGE
+            else
+               lnPAGE_INI := WGet('FIRST_PAGE','N')
+               lnPAGE_FIN := WGet('LAST_PAGE','N')
+            endif
+         endif
+
+         aadd(laPAGES,{'PROGRAM_CALL','NR_PAGE'})
+         for ii := lnPAGE_INI to lnPAGE_FIN
+             lcPUT := wic_action('wicaction/lst.pasta.html?ACTION=EXECSEL&GOTO_PAGE='+alltrim(str(ii)))
+             lcPUT += '&FIRST_PAGE='+alltrim(str(lnPAGE_INI))+'&LAST_PAGE='+alltrim(str(lnPAGE_FIN))
+             if ii == lnPAGE_INI
+                lcPUT += '&LESS=Y'
+             endif
+             if ii == lnPAGE_FIN .and. lnPAGE_FIN < lnNR_PAGES
+                lcPUT += '&MORE=Y'
+             endif
+
+             //Adiciona �pagina�o, os filtros digitados e os campos selecionados para busca e orderna�o
+             if !empty(lcFILTER_FIELD) //Campo usado na pesquisa
+                lcPUT += '&FILTER_FIELD='+lcFILTER_FIELD
+             endif
+             if !empty(lcFLT_FIELD2) //Campo usado na pesquisa
+                lcPUT += '&FILTER_FIELD_2='+lcFLT_FIELD2
+             endif
+             if !empty(lcFILTER_VALUE) //Contedo a pesquisar em lcFILTER_FIELD
+                lcPUT += '&FILTER_CONTENT='+lcFILTER_VALUE
+             endif
+             if !empty(lcFLT_VALUE2) //Contedo a pesquisar em lcFILTER_FIELD
+                lcPUT += '&FILTER_CONTENT_2='+lcFLT_VALUE2
+             endif
+             if !empty(lcORDER_FIELD) //Campo usado na classifica�o
+                lcPUT += '&ORDER_FIELD='+lcORDER_FIELD
+             endif
+             if !empty(lcTP_PASTA) //Campo usado no Tipo de Pasta
+                lcPUT += '&TP_PASTA='+lcTP_PASTA
+             endif
+             if !empty(lcDOCUMENTO) //Campo usado em Documento
+                lcPUT += '&DOCUMENTO='+lcDOCUMENTO
+             endif
+             if !empty(lcPESSOAS) //Campo usado em Pessoas
+                lcPUT += '&PESSOAS='+lcPESSOAS
+             endif
+             if !empty(lcFL_PASTA) //Campo usado no Tipo de Pasta
+                lcPUT += '&FL_PASTA='+lcFL_PASTA
+             endif
+
+             aadd(laPAGES,{lcPUT,alltrim(str(ii))})
+         next ii
+         WPut('ifRESULT',.T.)
+         WPut('PAGES',laPAGES)
+
+         lnLIMIT1 := iif(lnGOTO_PAGE == 1,0,((lnGOTO_PAGE*lnROWS_PAGE)-1)-(lnROWS_PAGE-1))
+         lnLIMIT2 := lnROWS_PAGE
+         laLIMIT  := {lnLIMIT1,lnLIMIT2}
+
+      elseif laCOUNT[1] == 0// .and. valtype(laLIMIT) == 'U'
+         WPut('ifEMPTY_RESULTSET',.T.)
+      endif
+
+      // evitar duplicidade de registros
+      laFIELDS[1] := 'distinct '+ laFIELDS[1]
+
+     /*
+      * Formatar campos CIP para buscarem descri�o no cat�ogo
+      * pasta_cip.CIP as CIP_?
+      */
+      for ii := 1 to len(laFIELDS)
+         if at('.CIP',laFIELDS[ii]) > 0
+            laFIELDS[ii] += ' as CIP_'+upper(substr(substr(laFIELDS[ii],1, at('.',laFIELDS[ii])-1 ), 12))
+         endif
+      next ii
+
+      if db_select(laFIELDS,'pasta',laJOIN,laWHERE,laORDERBY,,,laLIMIT) = -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      if len(laRES) == 2
+         if empty(WGet('PASTA','C'))
+            if lcFL_EXECSEL <> 'Y'
+               saveWenv(WSet('_USER_INTERFACE'),;
+                        {'FILTER_FIELD',;
+                         'FILTER_FIELD_2',;
+                         'FILTER_CONTENT',;
+                         'FILTER_CONTENT_2',;
+                         'ORDER_FIELD',;
+                         'TP_PASTA',;
+                         'DOCUMENTO',;
+                         'PESSOAS',;
+                         'FL_PASTA'})
+            endif
+         endif
+         mnt_pasta_html(str(laRES[2, db_fetchncol(laRES,'NR_PASTA')]),'ALTER')
+         return(.f.)
+
+      elseif len(laRES) > 2
+         // Exibe resumo da quantidade de registros.
+
+         lcPUT := alltrim(str(lnLIMIT1+1))+'-'
+         if ((len(laRES)-1) < (lnLIMIT2-lnLIMIT1))
+            lcPUT += alltrim(str(len(laRES)-1))
+         elseif lnGOTO_PAGE == lnNR_PAGES
+            lcPUT += alltrim(str(laCOUNT[1]))
+         else
+            lcPUT += alltrim(str(lnLIMIT1+lnROWS_PAGE))
+         endif
+         lcPUT += ' de '+alltrim(str(laCOUNT[1]))
+         if laCOUNT[1] > 1
+            lcPUT := ' Resultados '+lcPUT+' registros'
+         else
+            lcPUT := ' Resultado '+lcPUT+' registro'
+         endif
+         WPut('RESUME_RESULTSET',lcPUT)
+
+         lcACTION := iif(pcTARGET_PRG=='mnt.pasta.html' .or. pcTARGET_PRG=='mnt.cob.pasta.html','ALTER','NEW')
+         aadd(laRES[1],'(row)')
+         for ii := 2 to len(laRES)
+            aadd(laRES[ii],'(row)'+wic_action('wicaction_gr5/'+pcTARGET_PRG+;
+                                              '?TP_PASTA='+laRES[ii, db_fetchncol(laRES,'TP_PASTA')]+;
+                                              '&NR_PASTA='+str(laRES[ii, db_fetchncol(laRES,'NR_PASTA')])+;
+                                              '&ACTION='+lcACTION))
+         next ii
+
+         //Remove o Campo NR_PASTA do Select caso o mesmo n� esteja definido em GRID_FIELDS
+         if ascan(laGRID_FIELDS,'pasta.NR_PASTA') = 0
+            lnPOS  := ascan(laRES[1],'NR_PASTA')
+            adel(laRES[1],lnPOS)
+            asize(laRES[1],len(laRES[1])-1)
+            for ii := 2 to len(laRES)
+               adel(laRES[ii],lnPOS)
+               asize(laRES[ii],len(laRES[ii])-1)
+            next ii
+         endif
+
+         //Remove o Campo TP_PASTA do Select caso o mesmo n� esteja definido em GRID_FIELDS
+         if ascan(laGRID_FIELDS,'pasta.TP_PASTA') = 0
+            lnPOS  := ascan(laRES[1],'TP_PASTA')
+            adel(laRES[1],lnPOS)
+            asize(laRES[1],len(laRES[1])-1)
+            for ii := 2 to len(laRES)
+               adel(laRES[ii],lnPOS)
+               asize(laRES[ii],len(laRES[ii])-1)
+            next ii
+         endif
+         WPut('PASTA_GRID',grid_create(laRES)) // Gera a Grid Din�ica.
+      endif
+      if lcFL_EXECSEL <> 'Y'
+         saveWenv(WSet('_USER_INTERFACE'),;
+                  {'TP_PASTA',;
+                   'CPF'})
+      endif
+   endif
+
+   WPut('TITLE','Pesquisa de Pastas')
+
+
+   WPut('TP_PASTA',lcTP_PASTA)
+   WPut('CPF',lcCPF)
+
+   if lcACTION == 'EXECTP_PASTA'
+      WPut('CPF','')
+   endif
+return
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,1941 @@
+/*
+
+Project      : gr5
+Program      : mnt.boleto.html
+Function     : mnt_boleto_html
+Created on   : 30/8/2011 14:20:17
+Descripition : Montagem de Boleto
+
+*/
+
+
+local lcACTION      := '' ,;
+      lcTABLE       := 'mvt_boleto' ,;
+      lcTABLE2      := 'mvt_detal_boleto' ,;
+      lcProgram     := 'mnt_boleto_html' ,;
+      lcWHERE       := '' ,;
+      lcWHERE2      := '' ,;
+      lcFL_RECRIADO := '' ,;
+      lcFL_ENCERRADO:= '' ,;
+      lcFL_PENDENTE := '' ,;  
+      lcNR_CONTROLE := '' ,;
+      lcNR_BOLETO   := '' ,;
+      lcWHERE3      := '' as string
+
+private laRESULT   := {} 
+private la1J := {}
+private la2J := {}
+private sit  :=.T.
+
+
+*local lnVL_TOTAL := WGET('VL_TOTAL_BOLETO','N') 
+
+local laFIELDS   := {} ,;
+      laFIELDS2  := {} ,;
+      laCAMPOS   := {} ,;
+      laCAMPOS2  := {} ,;
+      laCPX      := {} ,;
+      laWHERE    := {} ,;
+      laWHERE2   := {} ,;
+      laWHERE3   := {} ,;
+      laSAVE0    := {} ,;
+      laSAVE1    := {} ,;
+      laSAVE2    := {} ,;
+      laRES      := {} ,;
+      laVALIDA   := {} ,;
+      laORDER    := {'NR_BOLETO'} ,;
+      laORDER2   := {'NR_CONTROLE'} as array
+      
+      
+      
+
+local ii := 0 as int
+local id_desp:='' as string
+
+VAR_NR_PASTA   := wget('NR_PASTA')
+VAR_CD_DESPESA := wget('CD_DESPESA')
+VAR_VL_UNIT    := wget('VL_UNIT')
+
+lcNR_CONTROLE := wGet('NR_CONTROLE','C')
+lcNR_BOLETO   := wGet('NR_BOLETO','C')
+
+wPut('NR_BOLETO',wGet('NR_BOLETO'))
+
+
+local lcCODIGO_BARRA:= wGet('CODIGO_BARRA','C')
+local lcCD_MOEDA    := wGet('CD_MOEDA','C')
+    
+lcACTION := upper(WGet('ACTION','C'))
+
+            
+laFIELDS := {'mvt_boleto.NR_BOLETO',;
+            'LOGIN',; 
+            'CODIGO_BARRA',; 
+            'NR_FATURA',;
+            'CD_MOEDA',;
+            'DT_VENCTO',;    
+            'VL_TOTAL_BOLETO',;    
+            'FORMA_PAGAMENTO',;
+            'CIP_EMPRESA_PAGADORA',;    
+            'CIP_FAVORECIDO',;    
+            'TP_FAVORECIDO',;
+            'TP_DOCFISCAL',;
+            'DT_EMISSAO_DOCFISCAL',;
+            'NR_DOCFISCAL',;
+            'mvt_boleto.EXTRA',;
+            'LOGIN_CANCELAMENTO',;
+            'mvt_boleto.MOTIVO_CANCELAMENTO',;
+            'LOGIN_EXCLUSAO',;    
+            'NR_BOLETO_ANTERIOR',;
+            'FL_HONORARIOS',;
+            'mvt_boleto.DT_CADASTRO'}
+
+laCAMPOS := {'LOGIN',; 
+            'CODIGO_BARRA',; 
+            'NR_FATURA',;
+            'CD_MOEDA',;
+            'DT_VENCTO',;    
+            'VL_TOTAL_BOLETO',;    
+            'FORMA_PAGAMENTO',;
+            'CIP_EMPRESA_PAGADORA',;    
+            'CIP_FAVORECIDO',;    
+            'TP_FAVORECIDO',;
+            'TP_DOCFISCAL',;
+            'DT_EMISSAO_DOCFISCAL',;
+            'NR_DOCFISCAL',;
+            'EXTRA',;
+            'LOGIN_CANCELAMENTO',;
+            'MOTIVO_CANCELAMENTO',;
+            'LOGIN_EXCLUSAO',;    
+            'FL_HONORARIOS',;
+            'DT_CADASTRO'}                       
+
+laFIELDS2 :={'NR_BOLETO',; 
+             'NR_CONTROLE',;                     
+             'NR_PASTA',;               
+             'CD_DESPESA',;
+             'VL_UNIT',;
+             'EXTRA'}
+
+laCAMPOS2 :={'NR_BOLETO',;                                  
+             'NR_PASTA',;               
+             'CD_DESPESA',;
+             'VL_UNIT',;
+             'EXTRA'}      
+               
+private tmp := {} 
+
+     
+*** PARA CRIAR UMA ARRAY APARTIR DA OUTRA
+*** la1J:=laFIELDS NÃO PODE
+
+for xx := 1 to len(laFIELDS)      
+    aadd(la1J, laFIELDS[xx])
+next
+for xx := 1 to len(laFIELDS2)      
+    aadd(la2j, laFIELDS2[xx])
+next
+**************
+
+***COLOCA NOME DO ARQUIVOS NOS CAMPOS CHAVE
+la1J[1]:=lcTABLE +'.'+la1J[1]
+la2J[1]:=lcTABLE2+'.'+la2J[1]
+
+
+*** ACRECENTA MAIS OUTROS CAMPOS
+aadd(la2J,'FL_CANCELADO')  
+aadd(la2J,'FL_CONTABILIZADO') 
+
+*** junta as duas arrays 
+for xx := 1 to len(la2J)      
+    aadd(la1J, la2J[xx])
+next
+
+
+
+*** Carga dos combos              
+//carrega_cbox({{'forma_pagamento','forma_pagamento','Y'}})
+//carrega_cbox({{'tipo_favorecido','tp_favorecido','Y'}})
+//carrega_cbox({{'tipo_docfiscal','tp_docfiscal','Y'}})
+
+
+lcWHERE  := 'NR_BOLETO = ' + lcNR_BOLETO    
+lcWHERE2 := 'NR_BOLETO = ' + lcNR_BOLETO
+lcWHERE3 := 'NR_CONTROLE = '+ lcNR_CONTROLE
+
+
+WPut('FL_HONORARIOS.option','S')
+WPut('FL_HONORARIOS','')
+
+*** Verifica se o boleto está preenchido para liberar o preenchimento 2 parte da tela
+
+if empty(LCNR_BOLETO) 
+   wPut('ifNEWBOLETO',.F.)
+else
+   wPut('ifNEWBOLETO',.T.)
+endif
+
+WPut('ifLIBERADO',.T.)
+
+
+aadd(laWHERE,lcWHERE) 
+aadd(laWHERE2,lcWHERE2)
+aadd(laWHERE3,lcWHERE3)
+                      
+WPut('LOGIN',gcLOGIN)
+WPut('LOGIN.readonly',.t.)
+WPut('LOGIN.class','winputreadonly')   
+
+if ! gbWAC_WRITE
+   WPut('ifBTN_SAVE',.f.)
+endif
+if ! gbWAC_DELETE
+   WPut('ifBTN_DELETE',.f.)
+endif
+
+
+lst_boletos(laFIELDS,lcTABLE,laORDER) 
+
+
+
+
+
+*laVALIDA := {'NR_BOLETO',;
+*             'CODIGO_BARRA',;
+*             'CD_MOEDA',;
+*             'DT_VENCTO',;
+*             'VL_TOTAL_BOLETO',;
+*             'CIP_EMPRESA_PAGADORA',;
+*             'CIP_FAVORECIDO'}
+
+laVALIDA := {'CODIGO_BARRA',;
+             'CD_MOEDA',;
+             'DT_VENCTO',;
+             'VL_TOTAL_BOLETO',;
+             'CIP_EMPRESA_PAGADORA',;
+             'CIP_FAVORECIDO'}
+
+
+
+lcCODIGO_BARRA:= wGet('CODIGO_BARRA','C')
+
+
+if lcACTION = 'NEW' .and. gbWAC_CREATE
+
+    bloqueia('L')
+
+   *** marca em vermelho campos obrigatorios
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+           
+   lcLOGIN := wSet('LOGIN')
+   Wput('LOGIN',lcLOGIN)
+   Wput('DT_CADASTRO',DATE())
+
+   wPut('TITLE','Inclusão de novo Boleto')
+   wPut('NR_BOLETO','New')  
+   wPut('ifNEWBOLETO',.T.)
+   
+   wPut('DT_EMISSAO_DOCFISCAL',DATE())
+   wPut('CD_MOEDA','1')  
+   wPut('NM_MOEDA','Real')
+
+
+
+elseif lcACTION == 'LISTABOLETO' 
+   
+   lst_boletos(laFIELDS,lcTABLE,laORDER)
+ 
+elseif lcACTION == 'VERCODIGO'  
+
+   *** marca em vermelho campos obrigatorios
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+   
+   ***verifica_cod_barras(lcCODIGO_BARRA)
+
+   lcCODIGO_BARRA:= wGet('CODIGO_BARRA','C')
+
+   wPut('ifNEWBOLETO',.T.)
+   wPut('ifDETALBOLETO',.F.)                  
+   get2put()    
+   busca_boleto(laFIELDS,lcTABLE,laWHERE)
+
+   **conta lançamentos       
+   if db_select({'count(*)'},'mvt_detal_boleto',,laWHERE) == -1
+      error_sys()
+   endif
+   laRESULT:=db_fetchrow()
+   
+   if VAL(laRESULT[1])>0 
+      wPut('ifDETALBOLETO',.T.)
+      lst_detal_boletos(laFIELDS2,lcTABLE2,laWHERE2,laORDER2)  
+   endif
+     
+   wPut('DT_EMISSAO_DOCFISCAL',DATE())
+   wPut('CD_MOEDA','1')  
+   wPut('NM_MOEDA','Real')
+  
+elseif lcACTION == 'ALTER' .and. gbWAC_READ
+
+      bloqueia('B')
+
+      IF pode_alterar()== .F.
+         wPut('ifNEWBOLETO',.F.)
+         wPut('ifDETALBOLETO',.F.)                
+         lst_boletos(laFIELDS,lcTABLE,laORDER)
+          
+        else 
+         
+         *** marca em vermelho campos obrigatorios
+         init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+           
+         wPut('TITLE','Alteração de Boleto')
+         wPut('ifNEWBOLETO',.T.)
+         wPut('ifDETALBOLETO',.T.) 
+         busca_boleto(laFIELDS,lcTABLE,laWHERE)      
+         lst_detal_boletos(laFIELDS2,lcTABLE2,laWHERE2,laORDER2) 
+      endif
+
+             
+elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+
+      if len(alltrim(wGet('CODIGO_BARRA','C')))=0
+        bloqueia('L')
+      else
+        bloqueia('B')
+      endif
+
+
+      *** marca em vermelho campos obrigatorios
+      init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+      *** verifica se campos obrigatorios estão com dados
+      if ! verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+         wPut('ifNEWBOLETO',.T.)
+         wPut('ifDETALBOLETO',.F.)
+         get2put() 
+         lst_boletos(laFIELDS,lcTABLE,laORDER) 
+         busca_boleto(laFIELDS,lcTABLE,laWHERE)
+         lst_detal_boletos(laFIELDS2,lcTABLE2,laWHERE2,laORDER2)
+         return(.F.)
+      endif             
+
+      for ii := 1 to len(laCAMPOS)
+         if laCAMPOS[ii]='FORMA_PAGAMENTO'
+            aadd(laSAVE1,'Boleto')
+           else
+            aadd(laSAVE1,wGet(laCAMPOS[ii],wmd_wfieldtype(laCAMPOS[ii])))
+         endif           
+      next ii
+      
+      aadd(laSAVE0,laCAMPOS)
+      aadd(laSAVE0,laSAVE1)       
+      db_query('BEBGIN TRAN')
+      if db_replace(laSAVE0,lcTABLE,laWHERE) == -1
+         db_query('ROLLBACK')
+         error_sys(db_error())
+      endif
+      
+      get2put()
+      
+      *** pega numero do ultimo boleto salvo
+      if db_select({'max(NR_BOLETO)'},'mvt_boleto') == -1
+        db_query('ROLLBACK')
+        error_sys(db_error())
+      endif
+      laBOLETO := db_fetchrow()
+
+      if conta_detalhes(laWHERE,WGET('VL_TOTAL_BOLETO','N')) == .F.      
+         wPut('ifNEWBOLETO',.T.)
+         wPut('ifDETALBOLETO',.T.)
+         wPut('ifGERANOVO',.T.)
+         get2put() 
+         lst_boletos(laFIELDS,lcTABLE,laORDER) 
+         busca_boleto(laFIELDS,lcTABLE,laWHERE)
+         lst_detal_boletos(laFIELDS2,lcTABLE2,laWHERE2,laORDER2) 
+         wput('NR_BOLETO',laBOLETO[1]) 
+      else
+         wPut('ifNEWBOLETO',.F.)
+         wPut('ifDETALBOLETO',.F.)
+         wPut('ifGERANOVO',.F.)       
+         lst_boletos(laFIELDS,lcTABLE,laORDER) 
+      endif
+      db_query('COMMIT')
+      
+elseif lcACTION == 'SALVADET'
+
+      bloqueia('B')
+
+      *** marca em vermelho campos obrigatorios
+      init_reqfield(WSet('_USER_INTERFACE'),laVALIDA) 
+
+      lcNR_PASTA      := WGET('NR_PASTA','C') 
+      lcCD_DESPESA    := WGET('CD_DESPESA','C') 
+      lcVL_UNIT       := WGET('VL_UNIT','C')
+      lcFL_HONORARIOS := WGET('FL_HONORARIOS','C')
+   
+      if empt(WGET('NR_PASTA','C')) .or. empt(WGET('CD_DESPESA','C')) .or. val(WGET('VL_UNIT','C')) == 0
+        
+         walert('Falta informações de detalhe.')         
+         
+         wPut('ifNEWBOLETO',.T.)
+         wPut('ifDETALBOLETO',.T.) 
+         get2put() 
+         lst_boletos(laFIELDS,lcTABLE,laORDER) 
+         busca_boleto(laFIELDS,lcTABLE,laWHERE)
+         lst_detal_boletos(laFIELDS2,lcTABLE2,laWHERE2,laORDER2)         
+         return(.F.)
+      endif
+      
+      
+      *** verifica se a pasta esta encerrada
+      if db_select({'NR_PASTA','FL_PASTA'},'pasta',,{'NR_PASTA=' + lcNR_PASTA}) == -1
+        error_sys(db_error())
+      endif
+      laRESULT := db_fetchrow()
+     
+      if laRESULT[2]=='Encerrada'
+         walert('Pasta encerrada inclusão não permitida.')
+      
+         wPut('ifNEWBOLETO',.T.)
+         wPut('ifDETALBOLETO',.T.) 
+         get2put() 
+         lst_boletos(laFIELDS,lcTABLE,laORDER) 
+         busca_boleto(laFIELDS,lcTABLE,laWHERE)
+         lst_detal_boletos(laFIELDS2,lcTABLE2,laWHERE2,laORDER2)         
+         return(.F.)
+      endif           
+
+
+      if lower( Wset('DRV_GR5')) == 'pgs' // SE FOR POSTGRES
+         if lcFL_HONORARIOS == 'S'     
+             lcWHERE := 'CD_DESPESA = '+DLAP+lcCD_DESPESA+DLAP+' and SUBSTR(despesa.CD_DESPESA_INTERFACE,2,1)='+DLAP+'1'+DLAP
+         else                                                        
+             lcWHERE := 'CD_DESPESA = '+DLAP+lcCD_DESPESA+DLAP+' and SUBSTR(despesa.CD_DESPESA_INTERFACE,2,1)<>'+DLAP+'1'+DLAP
+         endif
+      endif
+      
+      if lower( Wset('DRV_GR5')) == 'odb' // SE FOR SQLSERVER      
+         if lcFL_HONORARIOS == 'S'     
+             lcWHERE := 'CD_DESPESA = '+DLAP+lcCD_DESPESA+DLAP+' and SUBSTRING(despesa.CD_DESPESA_INTERFACE,2,1)='+DLAP+'1'+DLAP
+         else
+             lcWHERE := 'CD_DESPESA = '+DLAP+lcCD_DESPESA+DLAP+' and SUBSTRING(despesa.CD_DESPESA_INTERFACE,2,1)<>'+DLAP+'1'+DLAP
+         endif         
+      endif   
+
+      if db_select({'CD_DESPESA','CD_DESPESA_INTERFACE'},'despesa',,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif      
+      laRESULT := db_fetchrow()
+      
+      if len(laRESULT) == 0  //NÃO ACHOU NADA
+         wAlert('Código da Despesa Incompatível com Flag de Honorários!')
+         
+         wPut('ifNEWBOLETO',.T.)
+         wPut('ifDETALBOLETO',.T.) 
+         get2put() 
+         lst_boletos(laFIELDS,lcTABLE,laORDER) 
+         busca_boleto(laFIELDS,lcTABLE,laWHERE)
+         lst_detal_boletos(laFIELDS2,lcTABLE2,laWHERE2,laORDER2)
+         return
+      endif
+
+      for ii := 1 to len(laCAMPOS2)
+          if laCAMPOS2[ii]='EXTRA'
+             aadd(laSAVE2,wGet('SINDIST_EXTRA','C')) 
+            else     
+             aadd(laSAVE2,wGet(laCAMPOS2[ii],wmd_wfieldtype(laCAMPOS2[ii])))
+          endif           
+      next ii
+            
+      laSAVE0    := {}                 
+      aadd(laSAVE0,laCAMPOS2)
+      aadd(laSAVE0,laSAVE2)
+      db_query('BEBGIN TRAN')      
+      if db_insert(laSAVE0,lcTABLE2) == -1
+         db_query('ROLLBACK')
+         error_sys(db_error())
+      endif        
+      conta_detalhes(laWHERE,WGET('VL_TOTAL_BOLETO','N'))     
+
+             
+      wPut('ifDETALBOLETO',.T.)
+      busca_boleto(laFIELDS,lcTABLE,laWHERE)
+      lst_detal_boletos(laFIELDS2,lcTABLE2,laWHERE2,laORDER2)
+      db_query('COMMIT')
+
+elseif lcACTION == 'EXCLUIDETALHE'
+
+         bloqueia('B')
+   
+         db_query('BEBGIN TRAN')
+         if db_delete(lcTABLE2,lcWHERE3) == -1
+            db_query('ROLLBACK')
+            error_sys(db_error())
+         endif
+
+         walert('Despesa excluida.')
+         
+         wPut('ifNEWBOLETO',.T.)
+         wPut('ifDETALBOLETO',.T.) 
+         get2put() 
+         lst_boletos(laFIELDS,lcTABLE,laORDER) 
+         busca_boleto(laFIELDS,lcTABLE,laWHERE)
+         lst_detal_boletos(laFIELDS2,lcTABLE2,laWHERE2,laORDER2)
+         db_query('COMMIT')
+
+         *** marca em vermelho campos obrigatorios
+         init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)           
+
+elseif lcACTION == 'GERAR'
+
+      bloqueia('B')
+
+      *** marca em vermelho campos obrigatorios
+      init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)      
+      
+      
+      
+      *** cancela boleto atual
+      *      
+
+      laFIELDS2:= {'LOGIN_CANCELAMENTO',;
+                   'MOTIVO_CANCELAMENTO'}
+     
+      laRESBOL    := {}
+      laSAVEBOL   := {}
+      laSAVEB     := {}      
+      lcWHERE     := 'NR_BOLETO = ' + lcNR_BOLETO
+      
+      laWHERDES   := {'NR_BOLETO = '+wget('NR_BOLETO_ANTERIOR','C')} 
+      
+      laCP3       := {} 
+      
+      if pode_gerar() == .F.
+         
+         wPut('ifNEWBOLETO',.T.)
+         wPut('ifDETALBOLETO',.T.)
+         wPut('ifGERANOVO',.T.)
+         get2put() 
+         lst_boletos(laFIELDS,lcTABLE,laORDER) 
+         busca_boleto(laFIELDS,lcTABLE,laWHERE)
+         lst_detal_boletos(laFIELDS2,lcTABLE2,laWHERE2,laORDER2)  
+         return(.F.)
+      endif       
+
+
+      ** PARA CRIAR UMA ARRAY APARTIR DA OUTRA
+      for xx := 1 to len(laFIELDS2)      
+          aadd(laCP3, laFIELDS2[xx])
+      next
+
+      *** ACRECENTA MAIS OUTROS CAMPOS
+      aadd(laCP3,'FL_CONTABILIZADO')      
+      aadd(laCP3,'DT_CANCELAMENTO')  
+
+      for lnXX := 1 to len(laCP3)
+          if laCP3[lnXX] == 'LOGIN_CANCELAMENTO'
+             aadd(laSAVEBOL,gcLOGIN)
+          elseif laCP3[lnXX] == 'FL_CONTABILIZADO'
+             aadd(laSAVEBOL,'G')        
+          elseif laCP3[lnXX] == 'DT_CANCELAMENTO'
+             aadd(laSAVEBOL,date())
+          elseif laCP3[lnXX] == 'MOTIVO_CANCELAMENTO'
+             aadd(laSAVEBOL,wget('MOTIVO_CANCELAMENTO'))            
+          else            
+             aadd(laSAVEBOL,wGet(laCP3[lnXX]))
+          endif   
+      next
+
+      aadd(laSAVEB,laCP3) 
+      aadd(laSAVEB,laSAVEBOL) 
+      db_query('BEBGIN TRAN')
+      if db_update(laSAVEB,lcTABLE,{'NR_BOLETO = '+wget('NR_BOLETO_ANTERIOR','C')}) == -1
+        error_sys(db_error())
+        db_query('ROLLBACK')
+      endif
+      
+      *** grava numero do boleto anterior
+      db_query('BEBGIN TRAN')
+      if db_update({{'NR_BOLETO_ANTERIOR'},{wget('NR_BOLETO_ANTERIOR','C')}},lcTABLE,{'NR_BOLETO = '+lcNR_BOLETO}) == -1
+        error_sys(db_error())
+        db_query('ROLLBACK')
+      endif      
+      
+                  
+      //*** cria novo boleto 
+      //laSAVEBOL := {}
+      //laSAVEB   := {} 
+      
+      laBOLETO  := {}
+
+      //** PARA CRIAR UMA ARRAY APARTIR DA OUTRA
+      //for xx := 1 to len(laCAMPOS)      
+      //    aadd(laCPX, laCAMPOS[xx])
+      //next  
+      //aadd(laCPX,'NR_BOLETO_ANTERIOR')         
+                                         
+      //for lnXX := 1 to len(laCPX)
+      //    if laCPX[lnXX] == 'NR_BOLETO_ANTERIOR'
+      //       aadd(laSAVEBOL,wGet('NR_BOLETO','N')) 
+      //    elseif laCPX[lnXX] == 'MOTIVO_CANCELAMENTO'
+      //       aadd(laSAVEBOL,'') 
+      //    elseif laCPX[lnXX] == 'DT_CADASTRO'
+      //       aadd(laSAVEBOL,date())                 
+      //    else
+      //       aadd(laSAVEBOL,wGet(laCPX[lnXX]))               
+      //    endif   
+      //next
+      //aadd(laSAVEB,laCPX)                    
+      //aadd(laSAVEB,laSAVEBOL)
+
+      //if db_insert(laSAVEB,lcTABLE) == -1
+      //   db_query('ROLLBACK')
+      //   error_sys(db_error())
+      //endif
+      
+      //*** pega numero do ultimo boleto salvo
+      //if db_select({'max(NR_BOLETO)'},'mvt_boleto') == -1
+      //  db_query('ROLLBACK') 
+      //  error_sys(db_error())
+      //endif
+      //laBOLETO := db_fetchrow()     
+      
+
+      aadd(laBOLETO,lcNR_BOLETO)
+      
+      *** cria novas despesas igual as anteriores
+            
+      laCAMPDES := {}
+                  
+      if db_select({'*'},lcTABLE2,,laWHERDES) == -1
+        db_query('ROLLBACK')
+        error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+
+      *** pega nome dos campos
+      for xx:=1 to len(laRESULT[1])
+          if laRESULT[1,xx] <> 'NR_CONTROLE' .and. laRESULT[1,xx] <> 'FL_CANCELADO' .and. laRESULT[1,xx] <> 'FL_CONTABILIZADO'
+             aadd(laCAMPDES,laRESULT[1,xx])
+         endif    
+      next 
+
+      for li:=2 to len(laRESULT)
+          laSAVEBOL := {}         
+          laSAVEB   := {}
+      
+          *** pega campos de cada linha
+          for xx:=1 to len(laRESULT[1])
+              *** isola o campo chave
+              if laRESULT[1,xx] == 'NR_BOLETO'
+                 aadd(laSAVEBOL,laBOLETO[1]) 
+              elseif laRESULT[1,xx] <> 'NR_CONTROLE' .and. laRESULT[1,xx] <> 'FL_CANCELADO' .and. laRESULT[1,xx] <> 'FL_CONTABILIZADO'
+                 aadd(laSAVEBOL,laRESULT[li,xx])                                              
+              endif          
+          next
+     
+          aadd(laSAVEB,laCAMPDES)                    
+          aadd(laSAVEB,laSAVEBOL)
+          
+          *** grava detal boleto
+          if db_insert(laSAVEB,lcTABLE2) == -1
+             db_query('ROLLBACK')
+             error_sys(db_error())
+          endif
+      next
+
+      **** cancela despesas do boleto antigo
+      if db_update({{'FL_CANCELADO','FL_CONTABILIZADO'},{'S','G'}},lcTABLE2,{'NR_BOLETO = '+wget('NR_BOLETO_ANTERIOR','C')}) == -1
+         db_query('ROLLBACK')
+         error_sys()
+      endif
+      
+      **** apaga despesas do lançamento anterior
+      if db_select({'NR_PASTA','NR_DESPESA'},'mvt_despesa',,{'NR_BOLETO = '+wget('NR_BOLETO_ANTERIOR','C')}) == -1
+         error_sys(db_error())
+      endif       
+      laRESULT := db_fetchall()
+      
+      if len(laRESULT)>0      
+         for xx:=2 to len(laRESULT)
+            llERROR := .f.
+            if db_delete('mvt_despesa','NR_DESPESA = '+str(laRESULT[xx,2])) == -1
+               db_query('ROLLBACK')
+               llERROR := .t.
+               error_sys(db_error())
+            endif      
+            
+            if !llERROR
+               psab_logdel(laRESULT[xx,1],'NR_DESPESA' ,laRESULT[xx,2],,'Despesa')
+            endif            
+            
+         next xx
+      endif
+      
+      wPut('ifNEWBOLETO',.F.)
+      wPut('ifDETALBOLETO',.F.) 
+      get2put() 
+      lst_boletos(laFIELDS,lcTABLE,laORDER) 
+      db_query('COMMIT')
+
+elseif lcACTION == 'TRANSFERIR'
+
+      bloqueia('B')
+
+      *** marca em vermelho campos obrigatorios
+      init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+      if pode_transferir()=.F.      
+         wPut('ifNEWBOLETO',.T.)
+         wPut('ifDETALBOLETO',.T.) 
+         get2put() 
+         lst_boletos(laFIELDS,lcTABLE,laORDER) 
+         busca_boleto(laFIELDS,lcTABLE,laWHERE)
+         lst_detal_boletos(laFIELDS2,lcTABLE2,laWHERE2,laORDER2)          
+             
+      else
+         manutencao_mvt_despesa('I')
+           
+         walert('Boleto encerrado')
+         wPut('ifNEWBOLETO',.F.)
+         wPut('ifDETALBOLETO',.F.)
+         lst_boletos(laFIELDS,lcTABLE,laORDER)
+       
+      endif
+
+elseif lcACTION = 'CANCELA'
+
+      bloqueia('B')
+
+      *** marca em vermelho campos obrigatorios
+      init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+      *** no excluir deve fazer a seguinte pergunta 
+      *   nao pode ser excluido deseja cancelar ?
+      *   se sim  wPut('ifCANCELA',.T.)
+      *   abre o campo para incluir o motivo
+      *   quando salvar verificar esse campo                                   
+
+      if pode_cancelar()=.F.
+         wPut('ifCANCELA',.T.)
+         lst_boletos(laFIELDS,lcTABLE,laORDER)
+         wPut('ifDETALBOLETO',.T.)  
+         busca_boleto(laFIELDS,lcTABLE,laWHERE)
+         lst_detal_boletos(laFIELDS2,lcTABLE2,laWHERE2,laORDER2)
+       else       
+         
+         walert('Lançamento cancelado') 
+         ****
+         *incluir update         
+     
+         wPut('ifCANCELA',.F.)         
+         wPut('ifNEWBOLETO',.F.)
+         wPut('ifDETALBOLETO',.F.)
+         lst_boletos(laFIELDS,lcTABLE,laORDER)         
+      endif 
+     
+      
+
+elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+
+       bloqueia('B')
+
+      *** marca em vermelho campos obrigatorios
+      init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+   
+      if pode_excluir()=.F.          
+         lst_boletos(laFIELDS,lcTABLE,laORDER)
+         wPut('ifDETALBOLETO',.T.)  
+         busca_boleto(laFIELDS,lcTABLE,laWHERE)
+         lst_detal_boletos(laFIELDS2,lcTABLE2,laWHERE2,laORDER2)        
+       else         
+         db_query('BEBGIN TRAN')
+         if db_delete(lcTABLE,lcWHERE) == -1
+            db_query('ROLLBACK')
+            error_sys(db_error())
+         endif
+   
+         if db_delete(lcTABLE2,lcWHERE2) == -1
+            db_query('ROLLBACK') 
+            error_sys(db_error())
+         endif 
+         
+         walert('Lançamento foi excluindo')          
+         wPut('ifNEWBOLETO',.F.)
+         wPut('ifDETALBOLETO',.F.)
+         lst_boletos(laFIELDS,lcTABLE,laORDER)
+         db_query('COMMIT')                  
+         
+      endif    
+endif
+
+return
+
+
+
+
+
+
+
+********************************************
+static function manutencao_mvt_despesa(acao)
+********************************************
+
+laMVTSAVE := {'NR_PASTA',;
+              'CIP_ESCRITORIO',;         //pasta
+              'CIP_EMPRESA_PAGADORA',;
+              'DT_REF',;                 //mvt_boleto.DT_CADASTRO
+              'LOGIN',;
+              'CD_DESPESA',; 
+              'CD_GRP_DESPESA',;         //despesa 
+              'QUANTIDADE',;             //1 
+              'VL_UNIT',; 
+              'VL_TOTAL',;               //vl_unit 
+              'DT_PREVISAO_PAGTO',; 
+              'FORMA_PAGAMENTO',;
+              'CIP_FAVORECIDO',;
+              'TP_FAVORECIDO',;
+              'TP_DOCFISCAL',;
+              'DT_EMISSAO_DOCFISCAL',;
+              'NR_DOCFISCAL',;
+              'NR_BOLETO',;
+              'NR_CONTROLE_BOLETO',;
+              'CD_MOEDA',;
+              'FL_REVISAO',;
+              'FL_APROVACAO',;
+              'FL_HONORARIOS'}
+              
+laMVTSAVE2:= {'NR_PASTA',;
+              'CIP_ESCRITORIO',;         //pasta
+              'CIP_EMPRESA_PAGADORA',;
+              'DT_REF',;                 //mvt_boleto.DT_CADASTRO
+              'LOGIN',;
+              'CD_DESPESA',; 
+              'CD_GRP_DESPESA',;         //despesa 
+              'QUANTIDADE',;             //1 
+              'VL_UNIT',; 
+              'VL_TOTAL',;               //vl_unit 
+              'DT_PREVISAO_PAGTO',; 
+              'FORMA_PAGAMENTO',;
+              'CIP_FAVORECIDO',;
+              'TP_FAVORECIDO',;
+              'TP_DOCFISCAL',;
+              'DT_EMISSAO_DOCFISCAL',;
+              'NR_DOCFISCAL',;
+              'NR_BOLETO',;
+              'NR_CONTROLE_BOLETO',;
+              'CD_MOEDA',;
+              'FL_REVISAO',;
+              'FL_APROVACAO',;
+              'BOL_APROVADO',;
+              'EXTRA'}              
+               
+   
+   local ii := 0 as int
+   local xx := 0 as int  
+   
+   laRESULT := {} 
+   laRESULT2:= {}  
+   laRESULT3:= {}  
+                  
+
+if acao='I'
+   laCAMPDES := {}
+   laWHERDES := {'NR_BOLETO = '+wget('NR_BOLETO','C')}    
+   lcTABLE   := 'mvt_boleto' 
+   lcTABLE2  := 'mvt_detal_boleto' 
+   lcTABLE3  := 'mvt_despesa'
+   
+   *** pega dados do boleto     
+   if db_select({'*'},lcTABLE,,laWHERDES) == -1
+     error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+
+
+   for li:=1 to len(laRESULT[1])
+   
+       if laRESULT[1,li]     == 'CIP_ESCRITORIO'        //?
+          VAR_CIP_ESCRITORIO :=laRESULT[2,li]
+       elseif laRESULT[1,li] == 'CIP_EMPRESA_PAGADORA'
+          VAR_CIP_EMPRESA_PAGADORA   :=laRESULT[2,li]
+       elseif laRESULT[1,li] == 'DT_CADASTRO'           //'DT_REF'
+          VAR_DT_REF         :=laRESULT[2,li]
+       elseif laRESULT[1,li] == 'LOGIN'
+          VAR_LOGIN          :=laRESULT[2,li]
+       elseif laRESULT[1,li] == 'DT_VENCTO'             //'DT_PREVISAO_PAGTO'
+          VAR_DT_PREVISAO_PAGTO :=laRESULT[2,li]
+       elseif laRESULT[1,li] == 'FL_HONORARIOS'
+          if laRESULT[2,li]=='S'           
+             VAR_FORMA_PAGAMENTO :='Sim'   // FORMA_PAGAMENTO e utilizado como documentos recebidos
+          else
+             VAR_FORMA_PAGAMENTO :='Nao'
+          endif       
+       elseif laRESULT[1,li] == 'CIP_FAVORECIDO'
+          VAR_CIP_FAVORECIDO  :=laRESULT[2,li]
+       elseif laRESULT[1,li] == 'FORMA_PAGAMENTO' 
+          VAR_TP_FAVORECIDO   :=laRESULT[2,li]    //  'TP_FAVORECIDO' e utilizado como  FORMA_PAGAMENTO 
+                      //elseif laRESULT[1,li] == 'TP_DOCFISCAL'
+          VAR_TP_DOCFISCAL    :=laRESULT[2,li]
+       elseif laRESULT[1,li] == 'DT_EMISSAO_DOCFISCAL'
+          VAR_DT_EMISSAO_DOCFISCAL   :=laRESULT[2,li]
+       elseif laRESULT[1,li] == 'NR_DOCFISCAL'
+          VAR_NR_DOCFISCAL    :=laRESULT[2,li]
+       elseif laRESULT[1,li] == 'NR_BOLETO'
+          VAR_NR_BOLETO       :=laRESULT[2,li]
+       elseif laRESULT[1,li] == 'NR_CONTROLE_BOLETO'    //?
+          VAR_NR_CONTROLE_BOLETO :=laRESULT[2,li]
+       elseif laRESULT[1,li] == 'CD_MOEDA'
+          VAR_CD_MOEDA :=laRESULT[2,li]   
+          
+       endif
+   
+   next li
+    
+   if db_select({'*'},lcTABLE2,,laWHERDES) == -1
+     error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   *** pega nome dos campos
+   for xx:=1 to len(laRESULT[1])
+       if laRESULT[1,xx] <> 'NR_CONTROLE' .and. laRESULT[1,xx] <> 'FL_CANCELADO' .and. laRESULT[1,xx] <> 'FL_CONTABILIZADO'
+          aadd(laCAMPDES,laRESULT[1,xx])
+      endif    
+   next xx
+
+   for li:=2 to len(laRESULT)
+       laSAVEBOL := {}         
+       laSAVEB   := {}
+       laDADOS   := {}
+       
+       *** pega campos de cada linha
+       for xx:=2 to len(laRESULT[1])
+           *** isola outros campos
+           if laRESULT[1,xx] <> 'FL_CANCELADO' .and. laRESULT[1,xx] <> 'FL_CONTABILIZADO'
+              
+              if laRESULT[1,xx] == 'NR_PASTA'
+                 VAR_NR_PASTA           := laRESULT[li,xx]
+              elseif laRESULT[1,xx] == 'NR_CONTROLE'
+                 VAR_NR_CONTROLE_BOLETO := laRESULT[li,xx]   
+              elseif laRESULT[1,xx] == 'CD_DESPESA'
+                 VAR_CD_DESPESA         := laRESULT[li,xx]
+             
+              elseif laRESULT[1,xx] == 'VL_UNIT'
+                 VAR_QUANTIDADE         := 1
+                 VAR_VL_UNIT            := laRESULT[li,xx]
+                 VAR_VL_TOTAL           := laRESULT[li,xx]
+              
+              elseif laRESULT[1,xx] == 'EXTRA'   
+                 VAR_EXTRA              := laRESULT[li,xx]
+                 
+                 
+              endif
+                                             
+           endif          
+       next xx
+
+       *** pega grupo da despesa
+       if db_select({'CD_DESPESA','CD_GRP_DESPESA'},'despesa',,{'CD_DESPESA=' +DLAP+VAR_CD_DESPESA+DLAP}) == -1
+          error_sys(db_error())
+       endif
+       laRESULT2 := db_fetchrow()
+                   
+       VAR_CD_GRP_DESPESA     :=laRESULT2[2] 
+
+       *** pega o cip_escritorio da pasta
+       if db_select({'CIP'},'pasta_cip',,{'NR_PASTA = '+str(VAR_NR_PASTA)+' and WFIELD = '+DLAP+'CIP_ESCRITORIO'+DLAP}) == -1
+          error_sys(db_error())
+       endif
+       laRESULT3 := db_fetchrow()
+        
+       if len(laRESULT3) > 0          
+          VAR_CIP_ESCRITORIO :=laRESULT3[1]
+         else
+          VAR_CIP_ESCRITORIO :=''          
+       endif              
+           
+
+       aadd(laDADOS,VAR_NR_PASTA) 
+       aadd(laDADOS,VAR_CIP_ESCRITORIO)       
+       aadd(laDADOS,VAR_CIP_EMPRESA_PAGADORA) 
+       aadd(laDADOS,VAR_DT_REF)               
+       aadd(laDADOS,VAR_LOGIN)                
+       aadd(laDADOS,VAR_CD_DESPESA) 
+       aadd(laDADOS,VAR_CD_GRP_DESPESA) 
+       aadd(laDADOS,VAR_QUANTIDADE)
+       aadd(laDADOS,VAR_VL_UNIT)   
+       aadd(laDADOS,VAR_VL_TOTAL) 
+       aadd(laDADOS,VAR_DT_PREVISAO_PAGTO)    
+       aadd(laDADOS,VAR_FORMA_PAGAMENTO)      
+       aadd(laDADOS,VAR_CIP_FAVORECIDO)       
+       aadd(laDADOS,VAR_TP_FAVORECIDO)        
+       aadd(laDADOS,VAR_TP_DOCFISCAL)         
+       aadd(laDADOS,VAR_DT_EMISSAO_DOCFISCAL) 
+       aadd(laDADOS,VAR_NR_DOCFISCAL)         
+       aadd(laDADOS,VAR_NR_BOLETO)            
+       aadd(laDADOS,VAR_NR_CONTROLE_BOLETO)
+       aadd(laDADOS,VAR_CD_MOEDA)
+       aadd(laDADOS,'P') //REVISAO
+       aadd(laDADOS,'P') //APROVAÇÃO
+       
+       if VAR_FORMA_PAGAMENTO='Sim' //honorario
+          aadd(laDADOS,'')
+       else
+          aadd(laDADOS,'A') //ja aprova boleto
+       endif
+       
+       aadd(laDADOS,VAR_EXTRA)
+
+       aadd(laSAVEB,laMVTSAVE2)        
+       aadd(laSAVEB,laDADOS) 
+       
+       db_query('BEBGIN TRAN')
+
+       **** grava despesa
+       if db_insert(laSAVEB,lcTABLE3) == -1
+          db_query('ROLLBACK')
+          error_sys(db_error())
+       endif
+       
+
+       **** marca despesas como enviadas
+       if db_update({{'FL_CONTABILIZADO'},{'S'}},lcTABLE2,{'NR_BOLETO = '+wget('NR_BOLETO','C')}) == -1
+          db_query('ROLLBACK')
+          error_sys()
+       endif 
+      
+       **** marca boleto como enviado
+       if db_update({{'FL_CONTABILIZADO'},{'S'}},lcTABLE,{'NR_BOLETO = '+wget('NR_BOLETO','C')}) == -1
+         db_query('ROLLBACK')
+         error_sys()
+       endif 
+                      
+       
+       db_query('COMMIT')       
+                                   
+   next li
+endif
+
+****************************
+static function pode_gerar()
+****************************
+local laRES1 := {} as array
+local laWHEREX:= {} as array
+
+
+
+if db_select({'NR_BOLETO','FL_CONTABILIZADO','DT_CANCELAMENTO'},'mvt_boleto',,{'NR_BOLETO = ' + wget('NR_BOLETO_ANTERIOR','C')}) == -1 
+   error_sys(db_error())
+endif
+laRES1 := db_fetchrow()
+
+if len(laRES1)<=1
+   walert('Boleto anterior informado não encontrado.')
+   return(.F.)
+endif
+
+if laRES1[2]<>'S'
+   walert('Lançamento não foi encerrado.')
+   return(.F.)
+endif
+
+if laRES1[3] <> ctod(' / / ')
+   walert('Este boleto está cancelado.')
+   return(.F.)
+endif
+
+if laRES1[2]=='G'
+   walert('Boleto já foi recriado.')
+   return(.F.)
+endif
+
+//if wget('DT_VENCTO')>=date()
+//   walert('Boleto não está vencido, gerar um novo não e permitido.')
+//   return(.F.)
+//endif  
+
+
+aadd(laWHEREX,'mvt_despesa.NR_BOLETO=' + wget('NR_BOLETO_ANTERIOR','C'))
+aadd(laWHEREX,'(mvt_despesa.FL_REVISAO <>' + DLAP + 'A' + DLAP + ' and mvt_despesa.FL_APROVACAO <>' + DLAP + 'A' + DLAP +')')
+if db_select({'NR_BOLETO','FL_APROVACAO','FL_REVISAO','DT_ENVIO_CTPAG'},'mvt_despesa',,laWHEREX) == -1 
+   error_sys(db_error())
+endif
+laRES1 := db_fetchrow()
+*** se não aparecer nenhum lançamento indica tudo foi aprovado
+if len(laRES1)==0
+   walert('Atenção todas as despesas já foram aprovadas!')
+   ***return(.F.)
+endif
+
+laWHEREX:= {}
+aadd(laWHEREX,'NR_BOLETO=' + wget('NR_BOLETO_ANTERIOR','C'))
+aadd(laWHEREX,'DT_ENVIO_CTPAG is not null')
+
+if db_select({'NR_BOLETO','DT_ENVIO_CTPAG'},'mvt_despesa',,laWHEREX,,,{'NR_BOLETO','DT_ENVIO_CTPAG'}) == -1 
+   error_sys(db_error())
+endif
+laRES1 := db_fetchrow()
+*** algum lançamento ja foi para o pagnet
+if len(laRES1)>0
+   walert('Existe despesa já enviada para o pagnet, gerar um novo boleto não e permitido.')
+   return(.F.)
+endif
+
+wPut('ifNEWBOLETO',.T.)
+get2put()
+
+if len(alltrim(wget('MOTIVO_CANCELAMENTO','C')))==0
+   wPut('ifCANCELA',.T.)   
+   walert('Informar o motivo do cancelamento.')
+   return(.F.)
+endif 
+
+
+
+return(.T.)
+
+******************************
+static function pode_alterar()
+******************************
+local laRES1 := {} as array
+
+if db_select({'NR_BOLETO','FL_CONTABILIZADO'},'mvt_boleto',,{'NR_BOLETO = ' + wget('NR_BOLETO','C')}) == -1 
+   error_sys(db_error())
+endif
+laRES1 := db_fetchrow()
+
+if laRES1[2]=='S'
+   walert('Lançamento já encerrado, alteração não permitida.')
+   wPut('ifLIBERADO',.F.) 
+endif
+
+if laRES1[2]=='G'
+   walert('Boleto já foi recriado, alteração não permitida.')
+   wPut('ifLIBERADO',.F.) 
+endif
+
+conta_detalhes({'NR_BOLETO = ' + wget('NR_BOLETO','C')},wget('VL_TOTAL_BOLETO'))
+
+return(.T.)
+
+******************************
+static function pode_excluir()
+******************************
+local laRES1 := {} as array
+
+if db_select({'NR_BOLETO','LOGIN'},'mvt_boleto',,{'NR_BOLETO = ' + wget('NR_BOLETO','C')}) == -1 
+   error_sys(db_error())
+endif
+laRES1 := db_fetchrow()
+
+if laRES1[2]<>gcLOGIN
+   walert('Cadastro efetuado por outro usuario, exclusão não permitida.')
+   return(.F.)
+endif                              
+
+return(.T.)
+                                  
+*********************************
+static function pode_transferir()
+********************************* 
+local laRES1 := {} as array 
+
+if db_select({'count(*)' ,'sum(vl_unit)'},'mvt_detal_boleto',,{'NR_BOLETO = ' + wget('NR_BOLETO','C')}) == -1
+   error_sys()
+endif
+laRES1:=db_fetchrow()
+if laRES1[1] == 0    
+   walert('Favor detalhar as despesas para esse boleto.')
+   return(.F.)   
+endif
+
+if wget('DT_VENCTO')< date()
+   walert('Boleto está vencido, envio não permitido.')
+   return(.F.)
+endif     
+
+
+return(.T.)
+
+*******************************
+static function pode_cancelar()
+*******************************
+local laRES1 := {} as array 
+
+if len(alltrim(wget('MOTIVO_CANCELAMENTO','C')))==0
+   walert('Informar o motivo do cancelamento.')
+   return(.F.)
+endif
+
+return(.T.)
+ 
+
+**************************************************
+static function conta_detalhes(laWHERE,fnVL_TOTAL)
+**************************************************
+**conta quantos lançamentos e soma os valores      
+if db_select({'count(*)' ,'sum(vl_unit)'},'mvt_detal_boleto',,laWHERE) == -1
+   error_sys()
+endif
+laRESULT:=db_fetchrow()
+wPut('ifGERANOVO',.f.) 
+if val(str(laRESULT[1],12,2)) == 0     
+   walert('Favor detalhar as despesas para esse boleto.')
+   wPut('ifGERANOVO',.t.) 
+   return(.F.)  
+  else
+
+   if val(str(laRESULT[2],18,2)) >0
+      lnDIFERENCA:=fnVL_TOTAL -  val(str(laRESULT[2],18,2)) 
+   
+      if val(str(laRESULT[2],18,2)) <> fnVL_TOTAL
+         walert('Atenção o valor do boleto não bate com a soma das despesas,' + CHR(13) + 'o boleto esta com o valor de R$ ' + strtran(transform(fnVL_TOTAL,'999999999.99'),'.',',') + CHR(13) + 'enquanto a soma das despesas esta em R$ ' +  strtran(strtran(strtran(transform(laRESULT[2],'9999,999,999.99'),'.','#'),',','.'),'#',','))
+         return(.F.)
+      endif 
+   endif
+
+endif 
+return(.T.)
+
+***************************************
+static function total_detalhes(laWHERE)
+***************************************
+if db_select({'count(*)' ,'sum(vl_unit)'},'mvt_detal_boleto',,laWHERE) == -1
+   error_sys()
+endif
+laRESULT:=db_fetchrow()
+
+*wput('VL_TT_BOLETO',strtran(transform(laRESULT[2],'999,999,999,999,999.99'),'.',',')) 
+wput('VL_TT_BOLETO',transform(laRESULT[2],'9999,999,999.99')) 
+
+return(nil) 
+   
+***************************************
+static function vercampo_boleto(campos)
+***************************************
+local verificar:={2,4,5,6,8,9,12,13} as array
+local xx as int  
+local nu as int
+local labelcampo:='' as string
+local erro as logic
+local registra as logic
+
+*laCAMPOS := {'LOGIN',;               1
+*            'CODIGO_BARRA',;         2  *
+*            'NR_FATURA',;            3
+*            'CD_MOEDA',;             4  *
+*            'DT_VENCTO',;            5  *
+*            'VL_TOTAL_BOLETO',;      6  *  
+*            'FORMA_PAGAMENTO',;      7
+*            'CIP_EMPRESA_PAGADORA',; 8  * 
+*            'CIP_FAVORECIDO',;       9  *
+*            'TP_FAVORECIDO',;        10
+*            'TP_DOCFISCAL',;         11
+*            'DT_EMISSAO_DOCFISCAL',; 12 *
+*            'NR_DOCFISCAL',;         13 *          
+*            'EXTRA',;                14
+*            'LOGIN_CANCELAMENTO',;   15
+*            'MOTIVO_CANCELAMENTO',;  16
+*            'LOGIN_EXCLUSAO',;       17
+*            'NR_BOLETO_ANTERIOR',;   18
+*            'FL_HONORARIOS'}         19
+
+erro:=.F.
+registra:=.F.
+nu=0
+for xx:=1 to len(verificar)
+    
+    if wmd_fieldtype(campos[verificar[xx]])=='NUMERIC'
+       if val(wget(campos[verificar[xx]],'C'))== 0  
+           registra:=.T.
+       endif        
+    elseif wmd_fieldtype(campos[verificar[xx]])=='DATE'
+       if len(dtoc(wget(campos[verificar[xx]],'D')))== 0  
+           erregistraro:=.T.
+       endif 
+    else   
+       if len(alltrim(wget(campos[verificar[xx]],'C')))== 0 
+           registra:=.T.
+       endif          
+    endif 
+    
+    if registra==.T.    
+       if len(labelcampo)>0 
+          labelcampo +=',' + CHR(13)  
+       endif
+       labelcampo += lblfscreen(campos[verificar[xx]]) 
+       erro:=.T.
+       registra:=.F.
+       nu:=nu+1    
+    endif
+        
+next xx
+
+if erro==.T.
+   if nu>1
+      walert('Atenção os campos:' + CHR(13)+CHR(13) + labelcampo +CHR(13)+CHR(13) + ' são obrigatórios!')
+   else
+      walert('Atenção o campo ' + labelcampo + ' e obrigatório!')
+   endif
+   
+endif
+return(erro)
+
+******************************************************
+static function busca_boleto(faFIELDS,fcTABLE,faWHERE)
+******************************************************
+local iix := 0 as int
+
+if db_select(faFIELDS,fcTABLE,,faWHERE) == -1
+   error_sys(db_error())
+endif 
+laRES := db_fetchall() 
+
+if len(laRES) > 1
+   for iix:=1 to len(faFIELDS)
+
+       if faFIELDS[iix]= 'mvt_boleto.DT_CADASTRO'
+          wput('DT_CADASTRO',laRES[2,iix])
+       endif 
+       
+       if faFIELDS[iix]= 'mvt_boleto.EXTRA'
+          wput('EXTRA',laRES[2,iix])
+       endif
+
+       if faFIELDS[iix]= 'CODIGO_BARRA'
+          wput('CODIGO_BARRA',laRES[2,iix])
+
+          lcCODIGO_BARRA:= laRES[2,iix]
+
+       endif
+
+       ***se o nome da culuna for o mesmo do campo
+       if faFIELDS[iix] == laRES[1,iix]   
+          wput(faFIELDS[iix],laRES[2,iix])
+       endif
+           
+   next iix
+
+   if db_select({'CD_MOEDA','NM_MOEDA'},'moeda',,{'CD_MOEDA=' + STR(db_fetchcolvalue(laRES,'CD_MOEDA',2))}) == -1
+   *if db_select({'CD_MOEDA','NM_MOEDA'},'moeda') == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchrow()
+
+   if len(laRES) > 1
+       wPut('NM_MOEDA',laRES[2])
+   endif
+
+   if db_select({'CIP_FAVORECIDO','CIP_EMPRESA_PAGADORA'},fctable,,faWHERE ) == -1
+      error_sys('Busca Favorecido: '+db_error())
+   endif
+   laRES := db_fetchrow()
+
+   if len(laRES) > 0
+
+      lcCIP_EMPRESA_PAGADORA := laRES[2]
+       if db_select({'CIP','PFPJ'},'pfpj',,{'CIP = '+LCCIP_EMPRESA_PAGADORA}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) >= 2
+         wPut('CIP_EMPRESA_PAGADORA_PFPJ',laRESULT[2,2])
+      endif
+
+      lcCIP_FAVORECIDO := laRES[1]
+      if db_select({'CIP','PFPJ'},'pfpj',,{'CIP = '+LCCIP_FAVORECIDO}) == -1
+            error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) >= 2
+         wPut('CIP_FAVORECIDO_PFPJ',laRESULT[2,2])
+      endif
+
+   endif
+endif
+
+
+
+
+return
+
+*****************************************************
+static function lst_boletos(faFIELDS,fcTABLE,faORDER)
+*****************************************************
+local laRES1    := {} as array
+local faFIX     := {} as array 
+local laWHERE   := {} as array
+local laJOIN    := {} as array
+local laBUSCAR  := {} as array
+local lcCOR_LIN := '' as string
+local lcBUSCAR  := '' as string
+local lcSELECT  := '' as string
+local lcWHERE   := '' as string
+local li        := 0 as int
+local co        := 0 as int
+
+
+
+
+
+if len(wget('OPCAO','C'))=0
+   return
+endif
+
+WPut('ifLISTABOLETOS',.t.)
+
+
+if wget('OPCAO','C')='A'
+    
+     if lcWHERE=''
+         lcWHERE:='WHERE ' 
+        else 
+         lcWHERE:= lcWHERE + " and  "
+     endif               
+     
+     lcWHERE:= lcWHERE + "FL_CONTABILIZADO='G'"
+     
+  elseif wget('OPCAO','C')='B' 
+
+     if lcWHERE=''
+         lcWHERE:='WHERE ' 
+        else 
+         lcWHERE:= lcWHERE + " and  "
+     endif                
+     
+     lcWHERE:= lcWHERE + "FL_CONTABILIZADO='S' and DT_ENVIO_CTPAG is not null"
+     
+                    
+  elseif wget('OPCAO','C')='C'
+
+     if lcWHERE=''
+         lcWHERE:='WHERE ' 
+        else 
+         lcWHERE:= lcWHERE + " and  "
+     endif               
+     
+     lcWHERE:= lcWHERE + "(FL_CONTABILIZADO='' or FL_CONTABILIZADO is null) and DT_ENVIO_CTPAG is null"   
+     
+  elseif wget('OPCAO','C')='D'
+
+     if lcWHERE=''
+         lcWHERE:='WHERE ' 
+        else 
+         lcWHERE:= lcWHERE + " and  "
+     endif               
+
+     lcWHERE:= lcWHERE + "(FL_CONTABILIZADO='S' and DT_ENVIO_CTPAG is null)"      
+               
+endif 
+  
+
+
+
+lcSELECT:='select '
+lcSELECT:=lcSELECT+ array2str(faFIELDS,',')
+lcSELECT:=lcSELECT+',FL_CONTABILIZADO,pfpj_empresa_pagadora.PFPJ as PFPJ_PAG,pfpj_favorecido.PFPJ as PFPJ_FAV,pagnet.DT_ENVIO_CTPAG'
+lcSELECT:=lcSELECT+' from mvt_boleto'
+lcSELECT:=lcSELECT+' left join pfpj_empresa_pagadora on pfpj_empresa_pagadora.CIP = mvt_boleto.CIP_EMPRESA_PAGADORA'
+lcSELECT:=lcSELECT+' left join pfpj_favorecido on pfpj_favorecido.CIP=mvt_boleto.CIP_FAVORECIDO'
+lcSELECT:=lcSELECT+' left join ('
+lcSELECT:=lcSELECT+'select mvt_despesa.NR_BOLETO,mvt_despesa.DT_ENVIO_CTPAG'
+lcSELECT:=lcSELECT+' from mvt_despesa'
+lcSELECT:=lcSELECT+' where mvt_despesa.NR_BOLETO is not null'
+lcSELECT:=lcSELECT+' group by mvt_despesa.NR_BOLETO,mvt_despesa.DT_ENVIO_CTPAG) pagnet on pagnet.NR_BOLETO = mvt_boleto.NR_BOLETO'
+lcSELECT:=lcSELECT+' '+lcWHERE
+
+lcSELECT:=lcSELECT+' order by mvt_boleto.DT_VENCTO asc'
+
+if db_query(lcSELECT) == -1
+   error_sys(db_error())
+endif                       
+laRES1 := db_fetchall()
+
+
+     
+
+*if db_select(faFIX,fcTABLE,laJOIN,laWHERE,faORDER) == -1
+*   error_sys(db_error())
+*endif                       
+*laRES1 := db_fetchall() 
+
+if len(laRES1) > 0
+   aadd(laRES1[1],'COR_LIN')
+
+   for li := 2 to len(laRES1) //numero de linhas              
+       if laRES1[li,db_fetchncol(laRES1,'FL_CONTABILIZADO')] == 'S' .AND. len(laRES1[li,db_fetchncol(laRES1,'DT_ENVIO_CTPAG')]) >0      
+             lcCOR_LIN := 'black'
+          elseif laRES1[li,db_fetchncol(laRES1,'FL_CONTABILIZADO')] == 'S' .AND. len(laRES1[li,db_fetchncol(laRES1,'DT_ENVIO_CTPAG')]) == 0
+             lcCOR_LIN := 'Green'              
+          elseif laRES1[li,db_fetchncol(laRES1,'FL_CONTABILIZADO')] == 'G'
+             lcCOR_LIN := 'blue' 
+          else
+             lcCOR_LIN := 'red'                    
+       endif 
+
+       laRES1[li,db_fetchncol(laRES1,'CIP_EMPRESA_PAGADORA')] := laRES1[li,db_fetchncol(laRES1,'PFPJ_PAG')]
+       laRES1[li,db_fetchncol(laRES1,'CIP_FAVORECIDO')] := laRES1[li,db_fetchncol(laRES1,'PFPJ_FAV')]
+
+       aadd(laRES1[li],lcCOR_LIN)
+   next li   
+   WPut('lstBOLETO',laRES1)
+endif   
+                            
+return
+                                         
+******************************************************************
+static function lst_detal_boletos(faFIELDS,fcTABLE,faWHERE,faORDER)
+*******************************************************************
+local laRES1    := {} as array 
+local lcSELECT  := '' as string
+local fcWHERE   := '' as string
+
+lcSELECT:='select'
+lcSELECT:=lcSELECT+' mvt_detal_boleto.NR_CONTROLE,'
+lcSELECT:=lcSELECT+' mvt_detal_boleto.NR_PASTA,'
+lcSELECT:=lcSELECT+' mvt_detal_boleto.CD_DESPESA,'
+lcSELECT:=lcSELECT+' despesa.NM_DESPESA,'
+lcSELECT:=lcSELECT+' mvt_detal_boleto.VL_UNIT,'
+lcSELECT:=lcSELECT+' mvt_detal_boleto.EXTRA,'
+lcSELECT:=lcSELECT+' pasta.NR_PROCESSO,'
+lcSELECT:=lcSELECT+' pfpj.pfpj as PARTECONTRARIA'
+lcSELECT:=lcSELECT+' from mvt_detal_boleto'
+lcSELECT:=lcSELECT+' left join despesa on despesa.CD_DESPESA=mvt_detal_boleto.CD_DESPESA'
+lcSELECT:=lcSELECT+' left join pasta on pasta.NR_PASTA=mvt_detal_boleto.NR_PASTA'
+lcSELECT:=lcSELECT+' left join pasta_cip on pasta_cip.nr_pasta=mvt_detal_boleto.nr_pasta and pasta_cip.wfield=' + DLAP + 'CIP_PARTE_CONTRARIA' + DLAP
+lcSELECT:=lcSELECT+' left join pfpj on pfpj.CIP = pasta_cip.cip'
+
+fcWHERE:=array2str(faWHERE,',')
+fcWHERE:=strtran(fcWHERE,',',' and ')
+
+
+
+lcSELECT:=lcSELECT+ ' WHERE ' + fcWHERE  
+
+
+if db_query(lcSELECT) == -1
+   error_sys(db_error())
+endif
+laRES1 := db_fetchall()
+if len(laRES1) > 0
+   WPut('lst_DETAL_BOLETO',laRES1)
+endif
+
+total_detalhes(faWHERE)   
+return
+
+*******************************************
+static function verifica_cod_barras(codigo)
+*******************************************
+local lcLIDG as string // linha digitada
+local lcC5   as string // campo 5
+local lcFTVC as string // fator de conversao
+local ldDTBS as date   // data base
+local lcVLBO as string // valor do boleto
+local llsegue as logic // digitação correta ou nao
+
+local laRES1 := {} as array 
+
+sit :=.T.
+
+*verifica_cod_barras('23790.14810 48000.000041 95200.026474 2 27200000010358')
+*
+*** 34191.48006 00495.270142 80264.790009 8 27200000010358
+*** BBBMl.lllld lllll.llllld lllll.llllld D VVVVVVVVVVVVVV
+
+*** CAMPO LIVRE   
+*** l = 1480000495270148026479000 (25)
+
+***lcLIDG := '34191.48006 00495.270142 80264.790009 8 27200000010358'
+
+
+*** modelos abaixo
+
+***03391.48132 02647.800040 95200.033066 1 27200000010358
+
+***03399167022040001008614181201022157250000008513
+
+***34191.48006 00495.270142 80264.790009 2 27200000033000
+
+***34191.48006 00495.270142 80264.790009 2 27200000020000
+
+
+
+
+
+*if len(lcLIDG)<>47 .or. len(lcLIDG)<>44
+*
+*   *** falta caracter
+*   walert('Atenção tamanho da Linha digitavel incorreto!')
+*   sit :=.F.
+*   wPut('ifNEW',.T.)
+*   wPut('ifOLD',.F.)
+*   return(sit)
+*endif
+
+*if len(lcLIDG)==44 //retornou codigo bancario ao inves da linha digitavel
+*   *** converte para linha digitavel
+*   lcLIDG:=cnvdigitavel(lcLIDG)
+*endif
+
+*** recoloca pontos e corrige o que esta na tela
+*codigo:=colocapontos(lcLIDG)
+
+laWHARE6:={'CODIGO_BARRA = ' + DLAP + codigo + DLAP,'DT_CANCELAMENTO is null'}
+
+if db_select({'NR_BOLETO','CODIGO_BARRA'},'mvt_boleto',,laWHARE6) == -1 
+   error_sys(db_error())
+endif
+laRES1 := db_fetchrow()
+
+if len(laRES1)<>0
+   walert('Já existe boleto cadastrado com esse codigo de barras.')
+   sit :=.F.
+   
+   wPut('ifNEW',.T.)
+   wPut('ifOLD',.F.)
+      
+   return(sit)   
+endif   
+
+***tira pontos e espaços
+lcLIDG :=strtran(strtran(codigo,".","")," ","")
+   
+*** data base
+ldDTBS :=ctod("07/10/1997")
+
+*** campo 5
+lcC5   := substr(lcLIDG,34,14)
+lcFTVC := substr(lcC5,1,4)  //fator de conversao
+lcVLBO := substr(lcC5,5,10) //valor do boleto
+
+***llsegue:=verifica_linha_digitavel(lcLIDG)
+
+llsegue:=.T.
+
+if llsegue == .T.
+   if lcFTVC<>"0000" 
+      *** mostra vencimento
+      *** vencimento:=   
+                  
+      WPut('DT_VENCTO',ldDTBS + val(lcFTVC))
+      sit :=.T. 
+
+      wPut('ifNEW',.F.)
+      wPut('ifOLD',.T.)      
+                             
+     else
+      *** não tem vencimento
+      walert('boleto sem vencimento!')
+      sit :=.T. 
+
+      wPut('ifNEW',.F.)
+      wPut('ifOLD',.T.)      
+ 
+   endif
+   
+   if lcVLBO<>"0000000000"
+      *** mostra valor
+      *** valor_boleto:=      
+
+      lcVLBO:=strtran(transform(val(lcVLBO),'999999999,99'),',','.')   
+           
+      WPut('VL_TOTAL_BOLETO',lcVLBO)  
+      sit :=.T.       
+ 
+      wPut('ifNEW',.F.)
+      wPut('ifOLD',.T.)   
+   else
+      *** não tem valor
+      walert('boleto sem valor!') 
+      sit :=.T. 
+      
+      wPut('ifNEW',.F.)
+      wPut('ifOLD',.T.)
+         
+   endif    
+
+else
+    sit :=.F. 
+    
+    wPut('ifNEW',.T.)
+    wPut('ifOLD',.F.)    
+    
+endif
+
+
+return(sit)
+
+
+**************************************************
+static function verifica_linha_digitavel(digitado) 
+**************************************************
+local lnCTDG as int //conta digito
+
+local lcCDBC as string  // codigo do banco
+local lcTPMO as string  // tipo moeda   
+local lcCPLV as string  // campo livre  
+
+local lcDVC1 as string  // digito campo 1 
+local lcDVC2 as string  // digito campo 2
+local lcDVC3 as string  // digito campo 3
+ 
+local lcDVCB as string // campo 4 ou digito codigo de barras
+                                          
+local lcC1SD as string  // campo 1 sem digito
+local lcC2SD as string  // campo 2 sem digito
+local lcC3SD as string  // campo 3 sem digito
+
+for lnCTDG:=1 to len(digitado)
+    *** posicao=33 e do digito geral do codigo de barras
+    *** em alguns bancos pode ser letra     
+
+    if lnCTDG<>33
+       if substr(digitado,lnCTDG,1)<>"0"
+          if val(substr(digitado,lnCTDG,1))==0
+          
+             *** avisa digitou letra em lugar de numero
+             walert('Atenção foi digitado letra em lugar de numero!')             
+       
+             return(.F.)
+          endif
+       endif
+    endif
+    
+next  
+
+/*                                                               
+         1         2         3         4
+12345678901234567890123456789012345678901234567
+
+34191480060049527014280264790009827200000010358
+         *          *          **
+lcCPLV := '1480000495270148026479000'
+
+*/
+
+*** campo livre com 25 caracteres
+lcCPLV := substr(digitado,5,5) 
+lcCPLV := lcCPLV+substr(digitado,11,10)
+lcCPLV := lcCPLV+substr(digitado,22,10) 
+
+*** digito dos campos digitados
+lcDVC1 :=  substr(digitado,10,1) //digito campo 1
+lcDVC2 :=  substr(digitado,21,1) //digito campo 2
+lcDVC3 :=  substr(digitado,32,1) //digito campo 3
+
+*** digito codigo de barras
+lcDVCB :=  substr(digitado,33,1) 
+
+*** banco
+lcCDBC := substr(digitado,1,3) 
+
+*** tipo moeda
+lcTPMO := substr(digitado,4,1) 
+
+*** campos digitados sem os digitos
+lcC1SD := lcCDBC+lcTPMO+substr(lcCPLV,1,5) //campo 1 
+lcC2SD := substr(lcCPLV,6,10)              //campo 2 
+lcC3SD := substr(lcCPLV,16,10)             //campo 3 
+
+if lcDVC1<>calculo_DV10(lcC1SD)
+   *** digito verificador do primeiro campo não bate
+   walert('Digito verificardo do primeiro campo não bate!')
+   return(.F.)
+endif
+
+if lcDVC2<>calculo_DV10(lcC2SD)
+   *** digito verificador do segundo campo não bate
+   walert('Digito verificardo do segundo campo não bate!')
+   return(.F.)
+endif
+
+if lcDVC3<>calculo_DV10(lcC3SD)
+   *** digito verificador do terceiro campo não bate
+   walert('Digito verificardo do terceiro campo não bate!')
+   return(.F.)
+endif
+return(.T.)
+
+***********************************
+static function calculo_DV10(campo)
+***********************************
+local lnVLDG as int //valor digito
+local lnCTDG as int //conta digito
+local lnRSDV as int //resto da divisao
+local lcDCMD as string  //digito controle modulo
+local lnSMDM as int //soma dos digitos do modulo
+
+local multiplicador as numeric
+
+lnSMDM:=0
+
+multiplicador:=2
+
+for lnCTDG:=1 to len(campo)
+
+   *** pega cada caracter do campo partindo da direita para esquerda
+   *** multiplica pelo multiplicador  
+      
+   lnVLDG:=val(substr(campo,(len(campo)+1) - lnCTDG ,1)) * multiplicador
+
+   if multiplicador=2
+      multiplicador=1
+     else
+      multiplicador=2 
+   endif
+      
+   *** se o resultado for maior que 9 soma os algarismos do resultdado
+   *** o maximo que pode dar e 18 (algarismo 9 * multiplicador 2)
+   *** 18 - 9 = 9  o mesmo que 1+8     
+
+   if lnVLDG>9 
+      lnVLDG:=lnVLDG - 9
+   endif
+          
+   lnSMDM+=lnVLDG
+
+next
+
+lnRSDV:=mod(lnSMDM,10)
+
+*** se o resto for igual a 0 retorna zero
+*** caso contrario retorna o inteiro 
+lcDCMD:=iif(lnRSDV==0,"0",str(10-lnRSDV,1))
+
+return(lcDCMD)
+
+
+************************************
+static function cnvdigitavel(codigo)
+************************************
+local lnCTDG as int //conta digito
+
+local lcCDBC as string  // codigo do banco
+local lcTPMO as string  // tipo moeda
+local lcFTVL as string  // fator de vencimento e valor
+
+local lcDVC1 as string  // digito campo 1
+local lcDVC2 as string  // digito campo 2
+local lcDVC3 as string  // digito campo 3
+
+local lcDVCB as string // campo 4 ou digito codigo de barras
+
+local lcC1SD as string  // campo 1 sem digito
+local lcC2SD as string  // campo 2 sem digito
+local lcC3SD as string  // campo 3 sem digito
+
+local lcLDIG as string
+
+
+lcCDBC:=substr(codigo,1,3)
+lcTPMO:=substr(codigo,4,1)
+lcDVCB:=substr(codigo,5,1)
+lcFTVL:=substr(codigo,6,14)
+
+lcC1SD:=substr(codigo,15,5)
+lcC2SD:=substr(codigo,25,10)
+lcC3SD:=substr(codigo,35,10)
+
+lcDVC1:=calculo_DV10(lcC1SD)
+lcDVC2:=calculo_DV10(lcC2SD)
+lcDVC3:=calculo_DV10(lcC3SD)
+
+
+lcLDIG:= lcCDBC
+lcLDIG+= lcTPMO
+lcLDIG+= lcC1SD + lcDVC1
+lcLDIG+= lcC2SD + lcDVC2
+lcLDIG+= lcC3SD + lcDVC3
+lcLDIG+= lcDVCB
+lcLDIG+= lcFTVL
+
+return(lcLDIG)
+
+************************************
+static function colocapontos(codigo)
+************************************
+
+local lnCTDG as int //conta digito
+
+local lcCDBC as string  // codigo do banco
+local lcTPMO as string  // tipo moeda
+local lcFTVL as string  // fator de vencimento e valor
+
+local lcDVC1 as string  // digito campo 1
+local lcDVC2 as string  // digito campo 2
+local lcDVC3 as string  // digito campo 3
+
+local lcDVCB as string // campo 4 ou digito codigo de barras
+
+local lcC1SD as string  // campo 1 sem digito
+local lcC2SD as string  // campo 2 sem digito
+local lcC3SD as string  // campo 3 sem digito
+
+local lcLDIG as string
+
+lcCDBC:=substr(codigo,1,3)
+lcTPMO:=substr(codigo,4,1)
+
+lcC1SD:=substr(codigo,5,5)
+lcDVC1:=substr(codigo,6,1)
+
+lcC2SD:=substr(codigo,11,10)
+lcDVC2:=substr(codigo,21,1)
+
+lcC3SD:=substr(codigo,22,10)
+lcDVC3:=substr(codigo,32,1)
+
+lcDVCB:=substr(codigo,33,1)
+lcFTVL:=substr(codigo,34,14)
+
+lcLDIG:= lcCDBC
+lcLDIG+= lcTPMO
+lcLDIG+= substr(lcC1SD,1,1) + '.' + substr(lcC1SD,2,4) + lcDVC1
+lcLDIG+= substr(lcC2SD,1,5) + '.' + substr(lcC2SD,6,5) + lcDVC2
+lcLDIG+= substr(lcC3SD,1,5) + '.' + substr(lcC3SD,6,5) + lcDVC3
+lcLDIG+= lcDVCB
+lcLDIG+= lcFTVL
+
+wPut('CODIGO_BARRA',lcLDIG)
+wget('CODIGO_BARRA','C')
+
+return(lcLDIG)
+
+
+********************************************
+static function bloqueia(fcACAO)
+********************************************
+
+if fcACAO=='L'
+
+   WPut('CODIGO_BARRA.readonly',.f.)
+   WPut('CODIGO_BARRA.class','winput')
+
+   WPut('DT_VENCTO.readonly',.f.)
+   WPut('DT_VENCTO.class','winput')
+
+   WPut('VL_TOTAL_BOLETO.readonly',.f.)
+   WPut('VL_TOTAL_BOLETO.class','winput_right')
+
+endif
+
+if fcACAO=='B'
+
+   WPut('CODIGO_BARRA.readonly',.t.)
+   WPut('CODIGO_BARRA.class','winputreadonly')
+
+   WPut('DT_VENCTO.readonly',.t.)
+   WPut('DT_VENCTO.class','winputreadonly')
+
+   WPut('VL_TOTAL_BOLETO.readonly',.t.)
+   WPut('VL_TOTAL_BOLETO.class','winputreadonly_right')
+
+endif
+
+return(nil)
+
+
+

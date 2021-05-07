@@ -1,0 +1,1209 @@
+
+//#define DLAP '
+//#define CRLF chr(10) + chr(13)
+
+
+    local lnHeader  := 0,;
+          lnTamanho := 0,;
+          lnLidos   := 0,;
+          lnLog     := 0 as int
+    local lcBuffer  := '' as String
+    local laBuffer      := {},;
+          laSAVE_PASTA  := {},;
+          laSAVE_SEGURO := {},;
+          laSAVE_PEDIDO := {},;
+          laSAVE_CIP    := {},;
+          laAUX         := {},;
+          laPASTAS      := {},;
+          laSEGUROS     := {},;
+          laRECEITAS    := {},;
+          laCACHEPFPJ   := {} as array
+    local ii            := 0,;
+          lnAUX         := 0 as numeric      
+    local lcWHERE       := "",;
+          lcTMP         := "",;
+          lcTMP1        := "" as string    
+    
+    // Criação do Log          
+    
+    lnLog := CriaLog("new_ressarc.log")
+    GravaLog(lnLog,"Inicio da conversão:"+dtoc(date()) + " - "+time(),0)
+    GravaLog(lnLog,"Etapa 1 - Popular pfpj:",11)
+    
+    // Popular tabela pfpj
+    
+    lnHeader  := fopen("Advogados_CSV.csv")
+    lnTamanho := fseek(lnHeader,0,0) // Obtem o tamanho o csv
+    lcBuffer  := space(lnTamanho)
+    lnLidos   := Fread(lnHeader,@lcBuffer,lnTamanho)
+    if lnLidos != lnTamanho
+       error_sys("Erro de leitura ao arquivo Advogados_CSV.csv, tamanho do arquivo " + str(lnTamanho)+ " caracteres lidos "+str(lnLidos))
+    endif              
+    fclose(lnHeader)
+    laCACHEPFPJ := {{"NR_CONTROLE","CIP","PFPJ","ID"}}
+    laBuffer := Str2Array(lcBuffer,{";", CRLF})
+    TrataSql(@laBuffer,{3,4,5,6,9,10,11,12,13,14,15,16,17,18,21,22}) // Tratamento do array de dados antes da gravação na tabela pfpj
+    PopulaPfpj(laBuffer, lnLog, @laCACHEPFPJ)
+
+    // Popular despesas
+    
+    GravaLog(lnLog,"Etapa 2 - Popular tabela despesas:",11)
+    lnHeader  := fopen("TabHistoricoDespesas_CSV.csv")
+    lnTamanho := fseek(lnHeader,0,0) // Obtem o tamanho o csv
+    lcBuffer  := space(lnTamanho)
+    lnLidos   := Fread(lnHeader,@lcBuffer,lnTamanho)
+    if lnLidos != lnTamanho
+       error_sys("Erro de leitura ao arquivo TabHistoricoDespesas_CSV.csv, tamanho do arquivo " + str(lnTamanho)+ "  caracteres lidos "+str(lnLidos))
+    endif              
+    fclose(lnHeader)
+    
+    laBuffer := Str2Array(lcBuffer,{";", CRLF})
+    TrataSql(@laBuffer,{2}) // Tratamento do array de dados antes da gravação na tabela despesa
+    PopulaDespesa(laBuffer, fnLog, @laCACHEPFPJ)
+
+    // Popular comarca_regiao
+    
+    GravaLog(lnLog,"Etapa 3 - Popular tabela comarca_regiao:",11)
+    lnHeader  := fopen("Processos_CSV.csv")
+    lnTamanho := fseek(lnHeader,0,0) // Obtem o tamanho o csv
+    lcBuffer  := space(lnTamanho)
+    lnLidos   := Fread(lnHeader,@lcBuffer,lnTamanho)
+    if lnLidos != lnTamanho
+       error_sys("Erro de leitura ao arquivo Processos_CSV.csv, tamanho do arquivo " + str(lnTamanho)+ "  caracteres lidos "+str(lnLidos))
+    endif              
+    fclose(lnHeader)
+    
+    laBuffer := Str2Array(lcBuffer,{";", CRLF})
+    TrataSql(@laBuffer,{5,6}) // Tratamento do array de dados antes da gravação na tabela comarca_regiao
+    laAUX := aclone(laBuffer) // Salvamos o conteudo de laBuffer, para depois incluir estas informações no array de gravação da tabela pasta
+    PopulaComarcaRegiao(laBuffer,fnLog)
+
+    // Processamento das pastas
+
+    lnHeader  := fopen("Ressarc_CSV.csv")
+    lnTamanho := fseek(lnHeader,0,0) // Obtem o tamanho o csv
+    lcBuffer  := space(lnTamanho)
+    lnLidos   := Fread(lnHeader,@lcBuffer,lnTamanho)
+    if lnLidos != lnTamanho
+       error_sys("Erro de leitura ao arquivo Ressarc_CSV.csv, tamanho do arquivo " + str(lnTamanho)+ "  caracteres lidos "+str(lnLidos))
+    endif              
+    fclose(lnHeader)
+    
+    laBuffer := Str2Array(lcBuffer,{";", CRLF})
+    TrataSql(@laBuffer,{9,10}) // Tratamento do array de dados antes da gravação na tabela pfpj
+
+    // Popular Vitimas e Reus na tabela pfpj
+    
+    GravaLog(lnLog,"Etapa 4 - Popular vitimas e réus na tabela pfpj:",11)
+    PopulaPartes(faDados,fnLog)
+
+    // Popular pastas
+
+    GravaLog(lnLog,"Etapa 5 - Popular pastas:",11)
+
+        
+    // Preparar array para salvar as pastas
+    laSAVE_SEGURO := {{"NR_PASTA",;
+                       "CD_CCUSTO",;
+                       "CD_CAUSA_NIS",;
+                       "CIP_SEGURADO",;
+                       "NR_SINISTRO",;
+                       "NR_APOLICE",;
+                       "CD_RAMOSRSN",;
+                       "FL_VICIOCONSTR"}}
+    laSAVE_PEDIDO := {{"NR_PASTA",;
+                       "PEDIDO_PROCESSO",;
+                       "NR_CONTROLE_SEGURO",;
+                       "DT_RISCO",;
+                       "VL_RISCO",;
+                       "PC_RISCO",;
+                       "DT_MOVTO_PED"}}
+    laSAVE_PASTA := {{"NR_PASTA_ARQUIVO",;
+                      "TP_SEGMENTO",;
+                      "TP_PASTA",;
+                      "OBJETO",;
+                      "DT_CADASTRO",;
+                      "UF",;
+                      "COMARCA",;
+                      "VL_RISCO_HONORARIO",;
+                      "VL_CAUSA",;
+                      "VL_ACAO",;
+                      "DT_ENCERRAMENTO",;
+                      "FL_PASTA",;
+                      "MOTIVO_ENCERRAMENTO",;
+                      "NR_PROCESSO",;
+                      "NR_VARA",;
+                      "FORUM",;
+                      "NR_PASTA"}}
+    laSAVE_CIP := {{"NR_PASTA","WFIELD","CIP"}}
+    lcWHERE := "NR_PASTA_ARQUIVO IN("                  
+    for ii := 2 to len(laBuffer)
+        // Prepara o laSAVE da tabela pasta
+        aadd(laSAVE_PASTA,{laBuffer[ii,GetNcol(laBuffer,"NumeroAcao")],;              // NR_PASTA_ARQUIVO
+                           laBuffer[ii,GetNcol(laBuffer,"TpAcao")],;                  // TP_SEGMENTO
+                           "RESSARCIMENTO ADMINISTRATIVO",;                           // TP_PASTA
+                           "RESSARCIMENTO ADMINISTRATIVO",;                           // OBJETO
+                           ctod(laBuffer[ii,GetNcol(laBuffer,"DataCadastro")]),;       // DT_CADASTRO
+                           laBuffer[ii,GetNcol(laBuffer,"AcaoUf")],;                  // UF
+                           laBuffer[ii,GetNcol(laBuffer,"AcaoCidade")],;              // COMARCA                          
+                           val(laBuffer[ii,GetNcol(laBuffer,"VlrSalvado")]),;         // VL_RISCO_HONORARIO
+                           val(laBuffer[ii,GetNcol(laBuffer,"VlrIndeniz")]),;         // VL_CAUSA
+                           val(laBuffer[ii,GetNcol(laBuffer,"VlrIndeniz")]),;         // VL_ACAO
+                           ctod(laBuffer[ii,GetNcol(laBuffer,"DataEncerram")]),;      // DT_ENCERRAMENTO
+                           RetSituacao(laBuffer[ii,GetNcol(laBuffer,"Situacao")]),;   // FL_PASTA
+                           "",;                                                       // MOTIVO_ENCERRAMENTO
+                           "",;                                                       // NR_PROCESSO
+                           "",;                                                       // NR_VARA
+                           ""})                                                       // FORUM
+                           
+        // Prepara o laSAVE da tabela laSAVE_SEGURO para aproveitar o laço for                   
+        aadd(laSAVE_SEGURO,{0,;                                                       // NR_PASTA
+                            laBuffer[ii,GetNcol(laBuffer,"CentroCusto")],;            // CD_CCUSTO
+                            laBuffer[ii,GetNcol(laBuffer,"Grupo")],;                  // CD_CAUSA_NIS
+                            GetCip(laBuffer[ii,GetNcol(laBuffer,"Vitima")],;          
+                                  @laCACHEPFPJ),;                                     // CIP_SEGURADO
+                            laBuffer[ii,GetNcol(laBuffer,"Sinistro")],;               // NR_SINISTRO
+                            laBuffer[ii,GetNcol(laBuffer,"Apolice")],;                // NR_APOLICE
+                            laBuffer[ii,GetNcol(laBuffer,"Ramo_ID")],;                // CD_RAMOSRSN
+                            iif(laBuffer[ii,GetNcol(laBuffer,"DataSalvado")] != "  /  /    ","S","N"),;   // FL_VICIOCONSTR
+                            })
+        // Prepara o laSAVE dos pedidos
+        aadd(laSAVE_PEDIDO,{0,;                                                                        // NR_PASTA
+                            iif(empty(laBuffer[ii,GetNcol(laBuffer,"TipoAcao")]),"RESSARCIMENTO",""),; // PEDIDO_PROCESSO
+                            0,;                                                                        // NR_CONTROLE_SEGURO
+                            laBuffer[ii,GetNcol(laBuffer,"DataIndeniz")],;                             // DT_RISCO
+                            0,;                                                                        // VL_RISCO
+                            Date(),;                                                                   // DT_MOVTO_PED
+                            })
+        lcWHERE += DLAP +laBuffer[ii,GetNcol(laBuffer,"NumeroAcao")] + DLAP + iif(ii < len(laBuffer),",","")
+                            
+    next ii
+    lcWhere += ")"
+    
+    // Atualizar os dados da pasta com as informações de NR_PROCESSO, NR_VARA E FORUM
+    
+    for ii := 2 to len(laAUX)
+        lnAUX := ascan(laSAVE_PASTA,{|x| x[1] == laAUX[ii,1]})
+        if (lnAUX > 0 .and. ! empty(laAUX[ii,3]))
+           laSAVE_PASTA[lnAUX,15] := laAUX[ii,3]                 // NR_PROCESSO
+           laSAVE_PASTA[lnAUX,16] := Val(SoNumeros(laAUX[ii,7])) // NR_VARA
+           laSAVE_PASTA[lnAUX,17] := laAUX[ii,6]                 // FORUM
+        endif
+    next ii
+    laAUX := {} // Limpa o conteudo de laAUX
+    
+    // Inserir as pastas
+    
+    if db_insert(laSAVE_PASTA,'pasta') == -1
+       error_sys('new_ressarc: pastas não incluida - '+db_error())
+       return(.f.)
+    endif
+    
+    // Recuperar o numero das pastas para tratar pasta_pedidos e pasta_seguro antes de salvar
+    
+    if db_select({'NR_PASTA','to_number(pasta.nr_pasta_arquivo) NR_PASTA_ARQUIVO'},'pasta',,{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+    laPASTAS := db_fetchall()
+    aadd(laSAVE_PASTA[1],'NR_PASTA')
+    // Adicionando o número da pasta no array que vai salvar os pedidos e os seguros
+    GravaLog(fnLog,"Pastas Incluidas: ",18)
+    lcWhere := "NR_PASTA IN(" 
+    for ii := 2 to len(laPASTAS)
+        GravaLog(fnLog,"Pasta........:"+str(laPASTAS[ii,1]),24)
+        GravaLog(fnLog,"Pasta Arquivo:"+str(laPASTAS[ii,2]),24)
+        GravaLog(fnLog,"Objeto.......:"+laBuffer[ii,4],24)
+        GravaLog(fnLog,"Valor Causa..:"+str(laBuffer[ii,9],12,2),24)
+        GravaLog(fnLog,"Valor Acao...:"+str(laBuffer[ii,10],12,2),24)
+        GravaLog(fnLog,"--- Dados do Seguro -------------------------------------------------",24)
+        GravaLog(fnLog,"Centro Custo.:"+laBuffer[ii,GetNcol(laBuffer,"CentroCusto")],24)
+        GravaLog(fnLog,"Causa NIS....:"+laBuffer[ii,GetNcol(laBuffer,"Grupo")],24)
+        GravaLog(fnLog,"Segurado.....:"+GetCip(laBuffer[ii,GetNcol(laBuffer,"Vitima")],@laCACHEPFPJ),24)
+        GravaLog(fnLog,"Sinistro.....:"+laBuffer[ii,GetNcol(laBuffer,"Sinistro")],24)
+        GravaLog(fnLog,"Apolice......:"+laBuffer[ii,GetNcol(laBuffer,"Apolice")],24)
+        GravaLog(fnLog,"Ramo SRSN....:"+laBuffer[ii,GetNcol(laBuffer,"Ramo_ID")],24)
+        GravaLog(fnLog,"--- Dados do Pedido -------------------------------------------------",24)
+        GravaLog(fnLog,"Pedido.......:"+iif(empty(laBuffer[ii,GetNcol(laBuffer,"TipoAcao")]),"RESSARCIMENTO",""),24)
+        GravaLog(fnLog,"Data Risco...:"+laBuffer[ii,GetNcol(laBuffer,"DataIndeniz")],24)
+        GravaLog(fnLog,"=====================================================================",24)
+        laSAVE_SEGURO[ii,1] := laPASTAS[ii,1]
+        laSAVE_PEDIDO[ii,1] := laPASTAS[ii,1]
+        aadd(laSAVE_PASTA[ii], laPASTAS[ii,1])
+        // Adicionamos o cip do advogado interno para depois salvar os dados na tabela pasta_cip
+        aadd(laSAVE_CIP,{laPASTAS[ii,1],'CIP_ADVOGADO_INTERNO',ascan(laCACHEPFPJ,{|x|x[4] == laBuffer[ii,4]})})
+        lcWhere += str(laPASTAS[ii,1])
+    next ii
+    lcWhere += ")"
+    
+    // Salvando os CIPS dos advogados internos
+
+    if db_insert(laSAVE_CIP,'pasta_cip') == -1
+       error_sys('new_ressarc: cips dos advogados interno não incluido - '+db_error())
+       return(.f.)
+    endif
+
+    // Salvando os Seguros
+
+    if db_insert(laSAVE_SEGURO,'pasta_seguro') == -1
+       error_sys('new_ressarc: seguros não incluido - '+db_error())
+       return(.f.)
+    endif
+    
+    // Recuperando o numero de controle do seguro para alimentar a pasta_pedidos
+
+    if db_select({'NR_PASTA','NR_CONTROLE'},'pasta_seguro',,{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+    laSEGUROS := db_fetchall()
+
+    // Adicionando o numero de controle do seguro nos pedidos
+    
+    for ii := 2 to len(laSEGUROS)
+        laSAVE_PEDIDO[ii,3] := laSEGUROS[ii,2]
+    next ii
+    
+    // Processamos primeiramente as receitas porque nela contem o valor do risco 
+
+    lnHeader  := fopen("Receitas_CSV.csv")
+    lnTamanho := fseek(lnHeader,0,0) // Obtem o tamanho o csv
+    lcBuffer  := space(lnTamanho)
+    lnLidos   := Fread(lnHeader,@lcBuffer,lnTamanho)
+    if lnLidos != lnTamanho
+       error_sys("Erro de leitura ao arquivo Receitas_CSV.csv, tamanho do arquivo " + str(lnTamanho)+ " caracteres lidos "+str(lnLidos))
+    endif              
+    fclose(lnHeader)
+    laReceitas := Str2Array(lcBuffer,{";", CRLF})
+    
+    // Agora vamos percorer as pastas para atualizar o valo do risco nos pedidos
+    aadd(laRECEITAS[1],'NR_PASTA')
+    
+    for ii := 2 to len(laRECEITAS)
+        lnINDICE := ascan(laSAVE_PASTA,{|x|alltrim[1] == alltrim(laRECEITAS[ii,2])})
+        if lnINDICE > 0
+           laSAVE_PEDIDO[lnINDICE,5] := val(sonumeros(laReceitas[lnINDICE,9])) + val(sonumeros(laReceitas[lnINDICE,10])) // VL_RISCO DOS PEDIDOS
+           aadd(laRECEITAS[ii],laSAVE_PASTA[ii,GetNcol(laSAVE_PASTA,"NR_PASTA")])
+        else
+           aadd(laRECEITAS[ii],0)
+        endif        
+    next ii
+    
+    // Finalmente salvamos os pedidos
+    
+    if db_insert(laSAVE_PEDIDO,'pasta') == -1
+       error_sys('new_ressarc: pastas não incluida - '+db_error())
+       llErro := .t.
+    endif
+    
+    // Agora Alimentamos a tabela mvt_parc_ressarc
+    if ! llErro 
+       lcWHERE := "mvt_parc_ressarc.NR_PASTA IN ("
+       for ii := 2 to len(laRECEITAS)
+           if laRECEITAS[ii,GetNcol(laRECEITAS,"NR_PASTA")] > 0
+              lcWHERE += laRECEITAS[ii,GetNcol(laRECEITAS,"NR_PASTA")] + iif(ii < len(laRECEITAS),',','')
+              if db_insert({{"NR_PASTA",;
+                             "NR_CONTROLE_REC",;
+                             "DT_VENCTO_REC",;
+                             "CD_BANCO",;
+                             "BANCO_AGENCIA",;
+                             "NR_CHEQUE",;
+                             "VL_PARC_REC",;
+                             "VL_JUROS_REC",;
+                             "DT_PAGTO_REC",;
+                             "VL_RECEBIDO_REC"},;
+                             {laRECEITAS[ii,GetNcol(laRECEITAS,"NR_PASTA")],;
+                             laRECEITAS[ii,GetNcol(laRECEITAS,"Sequencia")],;
+                             laRECEITAS[ii,GetNcol(laRECEITAS,"Vcto")],;
+                             laRECEITAS[ii,GetNcol(laRECEITAS,"Banco")],;
+                             laRECEITAS[ii,GetNcol(laRECEITAS,"Agencia")],;
+                             laRECEITAS[ii,GetNcol(laRECEITAS,"NumeroCheque")],;
+                             laRECEITAS[ii,GetNcol(laRECEITAS,"Valor")],;
+                             laRECEITAS[ii,GetNcol(laRECEITAS,"ValorJuros")],;
+                             laRECEITAS[ii,GetNcol(laRECEITAS,"DtEntRec")],;
+                             iif(laRECEITAS[ii,GetNcol(laRECEITAS,"Situacao")] <> "L",0,val(sonumeros(laRECEITAS[ii,GetNcol(laRECEITAS,"Valor")])) + val(sonumeros(laRECEITAS[ii,GetNcol(laRECEITAS,"ValorJuros")])))}},;
+                             'mvt_parc_ressarc') == -1
+                 error_sys('new_ressarc: mvt_parc_ressarc não incluida - '+db_error())
+                 llErro := .t.
+                 break
+              endif
+           endif
+       next ii    
+       lcWhere += ")"
+       
+       // Agora Alimentamos a tabela receb_ressarcimento
+    
+       lcQuery := "INSERT INTO receb_ressarcimento(NR_PASTA,VL_TT_REC,VENCTO_1_PARC_REC,NR_PARC_TT_REC,LOGIN_CADASTRO) "+; 
+                  "SELECT mvt_parc_ressarc.NR_PASTA, "+; 
+                  "       sum(coalesce(mvt_parc_ressarc.VL_PARC_REC,0,mvt_parc_ressarc.VL_PARC_REC) + coalesce(mvt_parc_ressarc.VL_JUROS_REC,0,mvt_parc_ressarc.VL_JUROS_REC)) as VL_TT_REC, "+;
+                  "       min(mvt_parc_ressarc.DT_VENCTO_REC) as VENCTO_1_PARC_REC,"+;
+                  "       max(mvt_parc_ressarc.NR_CONTROLE_REC) as NR_PARC_TT_REC,"+;
+                  "       'CONVERSAO' AS LOGIN_CADASTRO "+;
+                  "FROM  mvt_parc_ressarc"+;
+                  "GROUP BY mvt_parc_ressarc.NR_PASTA " +;
+                  "WHERE " + lcWhere 
+    
+       if db_query(lcQUERY) == -1
+          error_sys(db_error())
+          llErro := .t.
+       endif
+    endif
+    // Agora Alimentamos a tabela mvt_despesa
+    if ! llErro
+       lnHeader  := fopen("Despesas_CSV.csv")
+       lnTamanho := fseek(lnHeader,0,0) // Obtem o tamanho o csv
+       lcBuffer  := space(lnTamanho)
+       lnLidos   := Fread(lnHeader,@lcBuffer,lnTamanho)
+       if lnLidos != lnTamanho
+          error_sys("Erro de leitura ao arquivo Despesas_CSV.csv, tamanho do arquivo " + str(lnTamanho)+ " caracteres lidos "+str(lnLidos))
+       endif              
+       fclose(lnHeader)
+       // Utilizo laReceitas somente para aproveitar array
+       laReceitas := Str2Array(lcBuffer,{";", CRLF})
+       // Acrescentamos o número da pasta no array
+       aadd(laDespesas[1],"NR_PASTA")
+       for ii := 1 to len(laReceitas)
+           lnINDICE := ascan(laSAVE_PASTA,{|x|alltrim[1] == alltrim(laRECEITAS[ii,2])})
+           if lnINDICE > 0
+              aadd(laDespesas[ii],laSAVE_PASTA[ii,GetNcol(laSAVE_PASTA,"NR_PASTA")])
+           else
+               aadd(laDespesas[ii],0)
+           endif
+           if laDespesas[ii,GetNcol(laDespesas,"NR_PASTA")] > 0
+              
+              if db_insert({{"NR_PASTA",;
+                             "DT_REF",;
+                             "DT_PREVISAO_PAGTO",;
+                             "CD_DESPESA",;
+                             "VL_UNIT",;
+                             "QUANTIDADE",;
+                             "CIP_FAVORECIDO",;
+                             "CD_MOEDA",;
+                             "DT_APROVACAO",;
+                             "LOGIN_APROVACAO",;
+                             "LOGIN_RESP"},;
+                             {laDespesas[ii,GetNcol(laDespesas,"NR_PASTA")],;     // NR_PASTA
+                             laDespesas[ii,GetNcol(laDespesas,"DtVctoDesp")],;    // DT_REF
+                             laDespesas[ii,GetNcol(laDespesas,"DtVctoDesp")],;    // DT_PREVISAO_PAGTO
+                             laDespesas[ii,GetNcol(laDespesas,"HistDesp_ID")],;   // CD_DESPESA
+                             laDespesas[ii,GetNcol(laDespesas,"VlrDesp")],;       // VL_UNIT
+                             1,;                                                  // QUANTIDADE
+                             '0',;                                                // CIP_FAVORECIDO
+                             1,;                                                  // CD_MOEDA
+                             Date(),;                                             // DT_APROVACAO
+                             'CONVERSÃO',;                                        // LOGIN_APROVACAO
+                             'CONVERSÃO'}},;                                      // LOGIN_RESP
+                             'mvt_despesa') == -1
+                 error_sys('new_ressarc: mvt_despesa não incluida - '+db_error())
+                 llErro := .t.
+                 break
+              endif
+           endif
+                      
+       next ii
+    
+    endif
+    
+    // Agora Alimentamos a tabela pasta_andamento e pasta_andamento_last
+    
+    if ! llErro
+       lnHeader  := fopen("Historico_CSV.csv")
+       lnTamanho := fseek(lnHeader,0,0) // Obtem o tamanho o csv
+       lcBuffer  := space(lnTamanho)
+       lnLidos   := Fread(lnHeader,@lcBuffer,lnTamanho)
+       if lnLidos != lnTamanho
+          error_sys("Erro de leitura ao arquivo Historico_CSV.csv, tamanho do arquivo " + str(lnTamanho)+ " caracteres lidos "+str(lnLidos))
+       endif              
+       fclose(lnHeader)
+       // Utilizo laReceitas somente para aproveitar array
+       laReceitas := Str2Array(lcBuffer,{";", CRLF})
+       // Acrescentamos o número da pasta no array
+       aadd(laDespesas[1],"NR_PASTA")
+       for ii := 1 to len(laReceitas)
+           lnINDICE := ascan(laSAVE_PASTA,{|x|alltrim[1] == alltrim(laRECEITAS[ii,1])})
+           if lnINDICE > 0
+              aadd(laDespesas[ii],laSAVE_PASTA[ii,GetNcol(laSAVE_PASTA,"NR_PASTA")])
+           else
+               aadd(laDespesas[ii],0)
+           endif
+           if laDespesas[ii,GetNcol(laDespesas,"NR_PASTA")] > 0
+              
+              if db_insert({{"NR_PASTA",;
+                             "DT_ANDAMENTO",;
+                             "ANDAMENTO",;
+                             "FL_ANDAMENTO_CANCELADO",;
+                             "DT_CADASTRO",;
+                             "TP_ANDAMENTO",;
+                             "DT_CRIACAO",;
+                             "LOGIN"},;
+                             {laDespesas[ii,GetNcol(laDespesas,"NR_PASTA")],;     // NR_PASTA
+                             Date(),;                                             // DT_ANDAMENTO
+                             laDespesas[ii,GetNcol(laDespesas,"Historico")],;     // ANDAMENTO
+                             "N",;                                                // FL_ANDAMENTO_CANCELADO
+                             Date(),;                                             // DT_CADASTRO
+                             "HISTORICO",;                                        // TP_ANDAMENTO
+                             Date(),;                                             // DT_CRIACAO
+                             "CONVERSÃO"}},;                                      // LOGIN
+                             'pasta_andamento') == -1
+                 error_sys('new_ressarc: pasta_andamento não incluida - '+db_error())
+                 llErro := .t.
+                 break
+              endif
+              if db_insert({{"NR_PASTA",;
+                             "DT_ANDAMENTO",;
+                             "ANDAMENTO",;
+                             "TP_ANDAMENTO"},;
+                             {laDespesas[ii,GetNcol(laDespesas,"NR_PASTA")],;     // NR_PASTA
+                             Date(),;                                             // DT_ANDAMENTO
+                             laDespesas[ii,GetNcol(laDespesas,"Historico")],;     // ANDAMENTO
+                             "HISTORICO"}},;                                      // TP_ANDAMENTO
+                             'pasta_andamento_last') == -1
+                 error_sys('new_ressarc: pasta_andamento_last não incluida - '+db_error())
+                 llErro := .t.
+                 break
+              endif
+           endif
+       next ii
+    endif
+    
+    // Agora Alimentamos a tabela pasta_andamento e pasta_andamento_last com a transferencia de escritório
+    
+    if ! llErro
+       lnHeader  := fopen("AdvogadosDaAcao_CSV.csv")
+       lnTamanho := fseek(lnHeader,0,0) // Obtem o tamanho o csv
+       lcBuffer  := space(lnTamanho)
+       lnLidos   := Fread(lnHeader,@lcBuffer,lnTamanho)
+       if lnLidos != lnTamanho
+          error_sys("Erro de leitura ao arquivo Historico_CSV.csv, tamanho do arquivo " + str(lnTamanho)+ " caracteres lidos "+str(lnLidos))
+       endif              
+       fclose(lnHeader)
+       // Utilizo laReceitas somente para aproveitar array
+       laReceitas := Str2Array(lcBuffer,{";", CRLF})
+       // Acrescentamos o número da pasta no array
+       aadd(laDespesas[1],"NR_PASTA")
+       for ii := 1 to len(laReceitas)
+           lnINDICE := ascan(laSAVE_PASTA,{|x|alltrim[1] == alltrim(laRECEITAS[ii,3])})
+           if lnINDICE > 0
+              aadd(laDespesas[ii],laSAVE_PASTA[ii,GetNcol(laSAVE_PASTA,"NR_PASTA")])
+           else
+               aadd(laDespesas[ii],0)
+           endif
+           if laDespesas[ii,GetNcol(laDespesas,"NR_PASTA")] > 0
+              
+              if db_insert({{"NR_PASTA",;
+                             "DT_ANDAMENTO",;
+                             "ANDAMENTO",;
+                             "FL_ANDAMENTO_CANCELADO",;
+                             "DT_CADASTRO",;
+                             "TP_ANDAMENTO",;
+                             "DT_CRIACAO",;
+                             "LOGIN"},;
+                             {laDespesas[ii,GetNcol(laDespesas,"NR_PASTA")],;     // NR_PASTA
+                             laDespesas[ii,GetNcol(laDespesas,"DataDaAlteracao")],; // DT_ANDAMENTO
+                             GetCipId(laDespesas[ii,GetNcol(laDespesas,"Advogado_ID")],@laCACHEPFPJ) + "-"+ laDespesas[ii,GetNcol(laDespesas,"NroTentativas")],;     // ANDAMENTO
+                             "N",;                                                // FL_ANDAMENTO_CANCELADO
+                             Date(),;                                             // DT_CADASTRO
+                             "TRANS ESCRITÓRIO",;                                 // TP_ANDAMENTO
+                             Date(),;                                             // DT_CRIACAO
+                             "CONVERSÃO"}},;                                      // LOGIN
+                             'pasta_andamento') == -1
+                 error_sys('new_ressarc: pasta_andamento não incluida - '+db_error())
+                 llErro := .t.
+                 break
+              endif
+ 
+              if db_insert({{"NR_PASTA",;
+                             "DT_ANDAMENTO",;
+                             "ANDAMENTO",;
+                             "TP_ANDAMENTO"},;
+                             {laDespesas[ii,GetNcol(laDespesas,"NR_PASTA")],;     // NR_PASTA
+                             Date(),;                                             // DT_ANDAMENTO
+                             GetCipId(laDespesas[ii,GetNcol(laDespesas,"Advogado_ID")],@laCACHEPFPJ) + "-"+ laDespesas[ii,GetNcol(laDespesas,"NroTentativas")],;     // ANDAMENTO
+                             "TRANS ESCRITÓRIO"}},;                                      // TP_ANDAMENTO
+                             'pasta_andamento_last') == -1
+                 error_sys('new_ressarc: pasta_andamento_last não incluida - '+db_error())
+                 llErro := .t.
+                 break
+              endif
+           endif
+       next ii
+    endif
+
+
+
+
+    // Colunas faltantes na tabela pasta:
+    // MOTIVO_ENCERRAMENTO -> RESSARCIMENTO.Descricao_Encerramento
+    
+    
+    
+
+
+
+
+
+
+    GravaLog(lnLog,"Término da conversão:"+dtoc(date()) + " - "+time(),0)
+    Fclose(lnLog) // Fecha o arquivo de log
+    
+    return
+    
+    
+/*
+* Data......: 22/12/2009 - Glauber
+* Function..: PopulaPfpj(faDados, fnLog, faCache)
+* Objetivo..: Popula a tabela pfpj com os cips ainda não inclusos. 
+* Parâmetros:
+*    faDados......: Array com os dados.
+*    fnLog........: Header do arquivo de log
+*    faCache......: Array recebido por referencia para gravação no cache dos pfpjs inclusos 
+* Retorno...: Nenhum
+*
+*/
+
+    Static Function PopulaPfpj(faDados,fnLog, faCACHE)
+    
+    local laRESULT   := {},;
+          laFIELDS   := {},;
+          laSAVE     := {},;
+          laSAVE_AUX := {} as Array
+    local lcWHERE    := "" as String
+    local ii         := 0,;
+          lnElemento := 0 as int
+   
+    laSAVE := {{'NR_CONTROLE',;
+                'CIP',;
+                'CIP_EMPRESA',;
+                'PFPJ',;
+                'NM_FANTASIA',;
+                'PFPJ_CHAR',;
+                'PFPJ_TIPOS',;
+                'PFPJ_CATUREZA',;
+                'CNPJ_CPF',;
+                'OAB',;
+                'ENDERECO',;
+                'BAIRRO',;
+                'CIDADE',;
+                'UF',;
+                'CEP',;
+                'TELEFONE',;
+                'TELEFONE2',;
+                'FAX',;
+                'DT_CADASTRO',;
+                'CD_BANCO',;
+                'BANCO_AGENCIA',;
+                'BANCO_CONTA',;
+                'LOGIN_CADASTRO',;
+                'DT_APROVACAO',;
+                'FL_APROVADO',;
+                'LOGIN_APROVACAO'}}
+    // Monta o where para retornar quais os pjpf's devem ser inclusos. Como o oracle é case sensitive, convertemos tudo para minúsculo na montagem do where.
+    
+    lcWHERE := "lower(PFPJ) IN ("
+    for ii := 2 to len(faDados)
+        lcWHERE += DLAP + lower(faDados[ii,GetNcol(faDados,"Nome")]) + DLAP
+        if ii < len(faDados)
+           lcWHERE += ","
+        endif
+    next ii
+    lcWHERE += ")"
+    
+    if db_select({'PFPJ'},'pfpj',,{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+    laRESULT := db_fetchall()
+        
+    // Incluir os dados
+    if (len(laRESULT) < len(faDados))
+       GravaLog(fnLog,"Pfpj Incluido:",18)
+    endif
+    for ii := 2 to len(faDADOS)
+        lnElemento := ascan(laRESULT,{|x| x[1] == faDados[2,2]})
+        if lnElemento > 0
+           GravaLog(fnLog,faDados[ii,2] + " - Advogado.",24)
+           laSAVE_AUX := {}
+           aadd(laSAVE_AUX,'ipfpj.NextVal')                               // NR_CONTROLE
+           aadd(laSAVE_AUX,'to_char(NR_CONTROLE)')                        // CIP
+           aadd(laSAVE_AUX,faDados[ii,1])                                 // CIP_EMPRESA
+           aadd(laSAVE_AUX,faDados[ii,2])                                 // PFPJ
+           aadd(laSAVE_AUX,faDados[ii,2])                                 // NM_FANTASIA
+           aadd(laSAVE_AUX,lat2char(faDados[ii,2]))                       // PFPJ_CHAR
+           aadd(laSAVE_AUX,"#ESC#FAV#")                                   // PFPJ_TIPOS
+           aadd(laSAVE_AUX,iif(faDados[ii,4] == "F","Fisica","Juridica")) // PFPJ_NATUREZA
+           aadd(laSAVE_AUX,faDados[ii,5])                                 // CNPJ_CPF
+           aadd(laSAVE_AUX,faDados[ii,6])                                 // OAB
+           aadd(laSAVE_AUX,faDados[ii,7])                                 // ENDERECO
+           aadd(laSAVE_AUX,faDados[ii,8])                                 // BAIRRO
+           aadd(laSAVE_AUX,faDados[ii,9])                                 // CIDADE
+           aadd(laSAVE_AUX,faDados[ii,10])                                // UF
+           aadd(laSAVE_AUX,faDados[ii,11])                                // CEP
+           aadd(laSAVE_AUX,faDados[ii,12])                                // TELEFONE
+           aadd(laSAVE_AUX,faDados[ii,13])                                // TELEFONE2
+           aadd(laSAVE_AUX,faDados[ii,14])                                // FAX
+           aadd(laSAVE_AUX,faDados[ii,16])                                // DT_CADASTRO
+           aadd(laSAVE_AUX,faDados[ii,17])                                // CD_BANCO
+           aadd(laSAVE_AUX,faDados[ii,19])                                // BANCO_AGENCIA
+           aadd(laSAVE_AUX,faDados[ii,20])                                // BANCO_CONTA
+           aadd(laSAVE_AUX,"NEW_RESSARC")                                 // LOGIN_CADASTRO
+           aadd(laSAVE_AUX,Date())                                        // DT_APROVACAO
+           aadd(laSAVE_AUX,"S")                                           // FL_APROVADO
+           aadd(laSAVE_AUX,"NEW_RESSARC")                                 // LOGIN_APROVACAO
+           aadd(laSAVE, laSAVE_AUX)
+        endif
+    next ii
+    
+    if db_insert(laSAVE,'pfpj') == -1
+       error_sys('new_ressarc: pfpj não incluido - '+db_error())
+       return(.f.)
+    endif
+    
+    // Fazer o select dos pfpjs que acabaram de ser incluidos para alimentar o cache
+    
+    if db_select({'NR_CONTROLE','CIP','PFPJ','CIP_EMPRESA'},'pfpj',,{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+    laRESULT := db_fetchall()
+    for ii := 2 to len(laRESULT)
+        aadd(faCACHE,{laRESULT[ii,1],laRESULT[ii,2],laRESULT[ii,3],laRESULT[ii,4]})
+    next ii
+    
+    return    
+
+/*
+* Data......: 22/12/2009 - Glauber
+* Function..: PopulaPfpj(faDados)
+* Objetivo..: Popula a tabela pfpj com os cips ainda não inclusos. 
+* Parâmetros:
+*    faDados......: Array com os dados.
+* Retorno...: Nenhum
+*
+*/
+/*
+    Static Function PopulaPfpj(faDados,fnLog)
+    
+    local laRESULT   := {},;
+          laFIELDS   := {},;
+          laSAVE     := {},;
+          laSAVE_AUX := {} as Array
+    local lcWHERE    := "" as String
+    local ii         := 0,;
+          lnElemento := 0 as int
+   
+    laSAVE := {{'NR_PASTA',;
+                'NR_PASTA_ARQUIVO',;
+                'CIP_EMPRESA',;
+                'PFPJ',;
+                'NM_FANTASIA',;
+                'PFPJ_CHAR',;
+                'PFPJ_TIPOS',;
+                'PFPJ_CATUREZA',;
+                'CNPJ_CPF',;
+                'OAB',;
+                'ENDERECO',;
+                'BAIRRO',;
+                'CIDADE',;
+                'UF',;
+                'CEP',;
+                'TELEFONE',;
+                'TELEFONE2',;
+                'FAX',;
+                'DT_CADASTRO',;
+                'CD_BANCO',;
+                'BANCO_AGENCIA',;
+                'BANCO_CONTA',;
+                'LOGIN_CADASTRO',;
+                'DT_APROVACAO',;
+                'FL_APROVADO',;
+                'LOGIN_APROVACAO'}}
+    // Monta o where para retornar quais os pjpf's devem ser inclusos. 
+    // Como o oracle é case sensitive, convertemos tudo para minúsculo na montagem do where.
+    
+    lcWHERE := "lower(PFPJ) IN ('
+    for ii := 2 to len(faDados)
+        lcWHERE += DLAP + lower(faDados[ii,2]) + DLAP + + iif(ii < len(faDados),",","")
+    next ii
+    lcWHERE += ")"
+    
+    if db_select({'PFPJ'},'pfpj',,{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+    laRESULT := db_fetchall()
+        
+    // Incluir os dados
+    if (len(laRESULT) < len(faDADOS))
+       GravaLog(fnLog,"Pfpj Incluido:",18)
+    endif
+    
+    for ii := 2 to len(faDados)
+        lnElemento := ascan(laRESULT, {|x|lower(x[1]) == lower(faDados[ii,2])})
+        if lnElemento == 0
+           GravaLog(fnLog,faDados[ii,2],24)
+           laSAVE_AUX := {}
+           aadd(laSAVE_AUX,'ipfpj.NextVal')                               // NR_CONTROLE
+           aadd(laSAVE_AUX,'to_char(NR_CONTROLE)')                        // CIP
+           aadd(laSAVE_AUX,faDados[ii,1])                                 // CIP_EMPRESA
+           aadd(laSAVE_AUX,faDados[ii,2])                                 // PFPJ
+           aadd(laSAVE_AUX,faDados[ii,2])                                 // NM_FANTASIA
+           aadd(laSAVE_AUX,lat2char(faDados[ii,2]))                       // PFPJ_CHAR
+           aadd(laSAVE_AUX,"ESC,FAV")                                     // PFPJ_TIPOS
+           aadd(laSAVE_AUX,iif(faDados[ii,4] == "F","Fisica","Juridica")) // PFPJ_NATUREZA
+           aadd(laSAVE_AUX,SoNumeros(faDados[ii,5]))                      // CNPJ_CPF
+           aadd(laSAVE_AUX,faDados[ii,6])                                 // OAB
+           aadd(laSAVE_AUX,faDados[ii,7])                                 // ENDERECO
+           aadd(laSAVE_AUX,faDados[ii,8])                                 // BAIRRO
+           aadd(laSAVE_AUX,faDados[ii,9])                                 // CIDADE
+           aadd(laSAVE_AUX,faDados[ii,10])                                // UF
+           aadd(laSAVE_AUX,faDados[ii,11])                                // CEP
+           aadd(laSAVE_AUX,faDados[ii,12])                                // TELEFONE
+           aadd(laSAVE_AUX,faDados[ii,13])                                // TELEFONE2
+           aadd(laSAVE_AUX,faDados[ii,14])                                // FAX
+           aadd(laSAVE_AUX,faDados[ii,16])                                // DT_CADASTRO
+           aadd(laSAVE_AUX,faDados[ii,17])                                // CD_BANCO
+           aadd(laSAVE_AUX,faDados[ii,19])                                // BANCO_AGENCIA
+           aadd(laSAVE_AUX,faDados[ii,20])                                // BANCO_CONTA
+           aadd(laSAVE_AUX,"NEW_RESSARC")                                 // LOGIN_CADASTRO
+           aadd(laSAVE_AUX,Date())                                        // DT_APROVACAO
+           aadd(laSAVE_AUX,"S")                                           // FL_APROVADO
+           aadd(laSAVE_AUX,"NEW_RESSARC")                                 // LOGIN_APROVACAO
+           aadd(laSAVE, laSAVE_AUX)
+        endif
+    next ii
+    
+    if db_insert(laSAVE,'pfpj') == -1
+       error_sys('new_ressarc: pfpj não incluido - '+db_error())
+       return(.f.)
+    endif
+    return
+*/
+
+/*
+* Data......: 28/12/2009 - Glauber
+* Function..: PopulaDespesa(faDados,fnLog)
+* Objetivo..: Popula a tabela de despesas com as despesas ainda não inclusas. 
+* Parâmetros:
+*    faDados......: Array com os dados.
+*    fnLog........: Handle do arquivo de log
+* Retorno...: Nenhum
+*
+*/
+
+    Static Function PopulaDespesa(faDados,fnLog)
+    local laRESULT   := {},;
+          laFIELDS   := {},;
+          laSAVE     := {},;
+          laSAVE_AUX := {} as Array
+    local lcWHERE    := "" as String
+    local ii         := 0,;
+          lnElemento := 0 as int
+   
+    laSAVE := {{'CD_DESPESA',;
+                'NM_DESPESA',;
+                'CD_MOEDA'}}
+    // Monta o where para retornar quais as despesas devem ser incluidas. 
+    // Como o oracle é case sensitive, convertemos tudo para minúsculo na montagem do where.
+    
+    lcWHERE := "CD_DESPESA IN ("
+    for ii := 2 to len(faDados)
+        lcWHERE += DLAP + faDados[ii,1] + DLAP + iif(ii < len(faDados),",","")
+    next ii
+    lcWHERE += ")"
+    
+    if db_select({'NM_DESPESA'},'despesa',,{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+    laRESULT := db_fetchall()
+        
+    // Incluir os dados
+    
+    if (len(laRESULT) < len(faDADOS))
+       GravaLog(fnLog,"Despesas Incluidas:",18)
+    endif
+    
+    for ii := 2 to len(faDados)
+        lnElemento := ascan(laRESULT,faDados[ii,2])
+        if lnElemento == 0
+           GravaLog(fnLog,faDados[ii,2],24)
+           laSAVE_AUX := {}
+           aadd(laSAVE_AUX,faDados[ii,1],;     // CD_DESPESA
+                           faDados[ii,2],;     // NM_DESPESA
+                           1)                  // CD_MOEDA
+           aadd(laSAVE, laSAVE_AUX)
+        endif
+    next ii
+    
+    if db_insert(laSAVE,'despesa') == -1
+       error_sys('new_ressarc: despesa não incluida - '+db_error())
+       return(.f.)
+    endif
+    return
+
+/*
+* Data......: 28/12/2009 - Glauber
+* Function..: PopulaComarcaRegiao(faDados,fnLog)
+* Objetivo..: Popula a tabela de comarca_regiao. 
+* Parâmetros:
+*    faDados......: Array com os dados.
+*    fnLog........: Handle do arquivo de log
+* Retorno...: Nenhum
+*
+*/
+
+    Static Function PopulaComarcaRegiao(faDados,fnLog)
+    local laRESULT   := {},;
+          laFIELDS   := {},;
+          laSAVE     := {},;
+          laSAVE_AUX := {} as Array
+    local lcWHERE    := "" as String
+    local ii         := 0,;
+          lnElemento := 0 as int
+   
+    laSAVE := {{'COMARCA',;
+                'REGIAO',;
+                'UF'}}
+    // Monta o where para retornar quais as comarcas devem ser inclusos. 
+    // Como o oracle é case sensitive, convertemos tudo para minúsculo na montagem do where.
+    
+    lcWHERE := ""
+    for ii := 2 to len(faDados)
+        lcWHERE += "(upper(COMARCA) = " + DLAP + UPPER(faDados[ii,5]) + DLAP + " AND upper(UF) = "+DLAP + UPPER(faDados[ii,4]) +DLAP+ ") " + iif(ii < len(faDados)," AND ","")  
+    next ii
+    lcWHERE += ")"
+    
+    if db_select({'COMARCA','UF'},'comarca_regiao',,{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+    laRESULT := db_fetchall()
+        
+    // Incluir os dados
+    
+    if (len(laRESULT) < len(faDADOS))
+       GravaLog(fnLog,"Comarcas Incluidas:",18)
+    endif
+    
+    for ii := 2 to len(faDados)
+        lcTMP  := upper(faDados[ii,5])
+        lcTMP1 := upper(faDados[ii,4])
+        lnElemento := ascan(laRESULT,{|x| upper(x[1]) == lcTMP .and. upper(x[2]) == lcTMP1})
+        if lnElemento == 0
+           GravaLog(fnLog,faDados[ii,5] + ' - ' + faDados[ii,4],24)
+           laSAVE_AUX := {}
+           aadd(laSAVE_AUX,{faDados[ii,5],;     // COMARCA
+                            faDados[ii,6],;     // REGIAO
+                            faDados[ii,4]})     // UF
+           aadd(laSAVE, laSAVE_AUX)
+        endif
+    next ii
+    
+    if db_insert(laSAVE,'comarca_regiao') == -1
+       error_sys('new_ressarc: comarca_regiao não incluida - '+db_error())
+       return(.f.)
+    endif
+    return
+
+/*
+* Data......: 22/12/2009 - Glauber
+* Function..: CriaLog(fcLog)
+* Objetivo..: Cria o arquivo de log, retornando o seu header. 
+* Parâmetros:
+*    fcLog......: Nome do arquivo de log.
+* Retorno...: Header do arquivo
+*
+*/
+
+    Static Function CriaLog(fcLog)
+    
+    local lnHeader := 0 as int
+    
+    if ! empty(fcLog) 
+       lnHeader :=  FCreate(fcLog,2)
+    endif
+    return(lnHeader)   
+
+
+/*
+* Data......: 22/12/2009 - Glauber
+* Function..: GravaLog(fnHeader,fcConteudo,fnMargen)
+* Objetivo..: Cria o arquivo de log, retornando o seu header. 
+* Parâmetros:
+*    fnHeader......: Header do log.
+*    fcConteudo....: Conteúdo a ser gravado.
+*    fnMargem......: Quantidade de espaços para identação do arquivo de log.
+* Retorno...: nada
+*
+*/
+
+    Static Function GravaLog(fnHeader,fcConteudo,fnMargem)
+
+    Fwrite(fnHeader,iif(fnMargem > 0,space(fnMargem),"") + fcConteudo + CRLF)
+    return
+
+/*
+* Data......: 28/12/2009 - Glauber
+* Function..: TrataSQL(@faArray,faColunas)
+* Objetivo..: Trata o array faArray recebido por referencia, eliminando os caracteres inválidos. 
+* Parâmetros:
+*    faArray......: Array com os dados passado por referencia.
+*    faColunas....: Vetor simples contendo o numero das colunas a passar por tratamento.
+* Retorno...: nada
+*
+*/
+
+    Static Function TrataSQL(@faArray,faColunas)
+
+    local laPROC := {{"'", ""},;
+                     {'"', ""},;
+                     {"€","C"},;
+                     {"‡","c"},;
+                     {"µ","A"}} as array
+    local ii     := 0,;
+          xx     := 0,;
+          zz     := 0 as numeric
+          
+    for ii := 2 to len(faArray)
+        for xx := 1 to len(faColunas)
+            for zz := 1 to len(laPROC)
+                faArray[ii,xx] := StrTran(faArray[ii,xx],laPROC[zz,1],laPROC[zz,2])
+            next zz
+        next xx
+    next ii                       
+    return
+
+/*
+* Data......: 28/12/2009 - Glauber
+* Function..: SoNumeros(fcStr)
+* Objetivo..: Recebe uma string e retorna seu conteudo somente com os números. 
+* Parâmetros:
+*    fcStr........: String a ser tratada.
+* Retorno...: String somente com os numeros
+*
+*/
+
+    Static Function SoNumeros(fcStr)
+
+    local laNumeros := {'0','1','2','3','4','5','6','7','8','9'} as array
+    local ii        := 0 as numeric
+    local lcRetorno := "" as string 
+          
+    for ii := 1 to len(fcStr)
+        if (ascan(laNumeros,substr(fcStr,ii,1)) > 0)
+           lcRetorno += substr(fcStr,ii,1)
+        endif
+    next ii                       
+    return(lcRetorno)
+
+/*
+* Data......: 28/12/2009 - Glauber
+* Function..: GetNCol(faVetor,fcStr)
+* Objetivo..: Pesquisa em um array no formato de laRESULT se a coluna fcStr existe no mesmo, retornando sua posição.
+*             Esta pesquisa não é case sensitive 
+* Parâmetros:
+*    faVetor......: Array a ser pesquisado.
+*    fcStr........: String a ser tratada.
+* Retorno...: Numero da posição, caso não encontre, retorna 0
+*
+*/
+
+    Static Function GetNCol(faVetor, fcStr)
+
+    return(ascan(faVetor,{|x| lower(x[1]) == lower(fcStr)}))
+
+/*
+* Data......: 28/12/2009 - Glauber
+* Function..: RetSituacao(fcTipo)
+* Objetivo..: Retorna a situação do tipo de pasta de acordo com fcTipo
+* Parâmetros:
+*    fcTipo.......: String com a situação.
+* Retorno...: Tipo da situação
+*
+*/
+
+    Static Function RetSituacao(fcTipo)
+
+    local lcRetorno := "" as string
+
+    if fcTipo == "E"
+       lcRETORNO := "Encerrada"
+    elseif fcTipo == "A" .or. fcTipo == "D" .or. fcTipo == "R"
+       lcRETORNO := "Ativa" 
+    endif
+    
+    return(lcRetorno)
+
+
+/*
+* Data......: 29/12/2009 - Glauber
+* Function..: PopulaPartes(faDados, fnLog)
+* Objetivo..: Popula a tabela pfpj com as vitimas e reus do processo. 
+* Parâmetros:
+*    faDados......: Array com os dados.
+*    fnLog........: Header com o arquivo de Log.
+*    faCACHE......: Array recebido por referencia com o conteudo do cache da tabela pfpj
+* Retorno...: Nenhum
+*
+*/
+
+    Static Function PopulaPartes(faDados,fnLog, faCACHE)
+    
+    local laRESULT   := {},;
+          laFIELDS   := {},;
+          laSAVE     := {},;
+          laSAVE_AUX := {} as Array
+    local lcWHERE    := "" as String
+    local ii         := 0,;
+          lnElemento := 0 as int
+   
+    // Monta o where para retornar quais os pjpf's devem ser inclusos. Como o oracle é case sensitive, convertemos tudo para minúsculo na montagem do where.
+
+    lcWHERE := "lower(PFPJ) IN ("
+    for ii := 2 to len(faDados)
+        if ! empty(faDados[ii,GetNcol(faDados,"Vitima")])
+           lcWHERE += DLAP + lower(faDados[ii,GetNcol(faDados,"Vitima")]) + DLAP
+        endif
+        if ! empty(faDados[ii,GetNcol(faDados,"Reu")])
+           lcWHERE += ", " + DLAP + lower(faDados[ii,GetNcol(faDados,"Reu")]) + DLAP
+        endif
+        if ii < len(faDados)
+           lcWHERE += ","
+        endif
+    next ii
+    lcWHERE += ")"
+    
+    if db_select({'PFPJ'},'pfpj',,{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+    laRESULT := db_fetchall()
+        
+    // Incluir os dados
+    if (len(laRESULT) < len(faDados))
+       GravaLog(fnLog,"Pfpj Incluido:",18)
+    endif
+    laSAVE := {{'NR_CONTROLE',;
+                'CIP',;
+                'PFPJ',;
+                'NM_FANTASIA',;
+                'PFPJ_CHAR',;
+                'PFPJ_TIPOS',;
+                'PFPJ_CATUREZA',;
+                'CNPJ_CPF',;
+                'OAB',;
+                'ENDERECO',;
+                'BAIRRO',;
+                'CIDADE',;
+                'UF',;
+                'CEP',;
+                'TELEFONE',;
+                'TELEFONE2',;
+                'FAX',;
+                'DT_CADASTRO',;
+                'CD_BANCO',;
+                'BANCO_AGENCIA',;
+                'BANCO_CONTA',;
+                'LOGIN_CADASTRO',;
+                'DT_APROVACAO',;
+                'FL_APROVADO',;
+                'LOGIN_APROVACAO'}}
+    
+    for ii := 2 to len(faDados)
+        
+        // Inclusão da Vitima
+        lcTMP := alltrim(faDados[ii,9])         
+        lnElemento := ascan(laRESULT,{|X| X[1] == lcTMP})
+        
+        if lnElemento == 0 .and. ! empty(faDados[ii,9])
+           GravaLog(fnLog,faDados[ii,9],24)
+           laSAVE_AUX := {}
+           aadd(laSAVE_AUX,'ipfpj.NextVal',;                                       // NR_CONTROLE
+                           'to_char(NR_CONTROLE)',;                                // CIP
+                           faDados[ii,GetNcol(faDados,"Vitima")],;                 // PFPJ
+                           faDados[ii,GetNcol(faDados,"Vitima")],;                 // NM_FANTASIA
+                           lat2char(faDados[ii,GetNcol(faDados,"Vitima")]),;       // PFPJ_CHAR
+                           "#VIT#",;                                               // PFPJ_TIPOS
+                           "Fisica",;                                              // PFPJ_NATUREZA
+                           date(),;                                                // DT_CADASTRO
+                           "NEW_RESSARC",;                                         // LOGIN_CADASTRO
+                           Date(),;                                                // DT_APROVACAO
+                           "S",;                                                   // FL_APROVADO
+                           "NEW_RESSARC")                                          // LOGIN_APROVACAO
+           aadd(laSAVE, laSAVE_AUX)
+        endif
+        
+        // Inclusão do Réu
+        lcTMP      := alltrim(faDados[ii,10])        
+        lnElemento := ascan(laRESULT,{|X| X[1] == lcTMP})
+        
+        if lnElemento == 0 .and. ! empty(faDados[ii,10])
+           GravaLog(fnLog,faDados[ii,10],24)
+           laSAVE_AUX := {}
+           aadd(laSAVE_AUX,'ipfpj.NextVal',;                                    // NR_CONTROLE
+                           'to_char(NR_CONTROLE)',;                             // CIP
+                           faDados[ii,GetNcol(faDados,"Reu")],;                 // PFPJ
+                           faDados[ii,GetNcol(faDados,"Reu")],;                 // NM_FANTASIA
+                           lat2char(faDados[ii,GetNcol(faDados,"Reu")]),;       // PFPJ_CHAR
+                           "#PRT#",;                                            // PFPJ_TIPOS
+                           "Juridica",;                                         // PFPJ_NATUREZA
+                           date(),;                                             // DT_CADASTRO
+                           "NEW_RESSARC",;                                      // LOGIN_CADASTRO
+                           Date(),;                                             // DT_APROVACAO
+                           "S",;                                                // FL_APROVADO
+                           "NEW_RESSARC")                                       // LOGIN_APROVACAO
+           aadd(laSAVE, laSAVE_AUX)
+        endif
+        
+    next ii
+    
+    if db_insert(laSAVE,'pfpj') == -1
+       error_sys('new_ressarc: pfpj não incluido - '+db_error())
+       return(.f.)
+    endif
+    
+    // Fazer o select dos pfpjs que acabaram de ser incluidos para alimentar o cache
+    
+    if db_select({'NR_CONTROLE','CIP','PFPJ'},'pfpj',,{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+    laRESULT := db_fetchall()
+    for ii := 2 to len(laRESULT)
+        aadd(faCACHE,{laRESULT[ii,1],laRESULT[ii,2],laRESULT[ii,3],0})
+    next ii
+    
+    return    
+ 
+ /*
+* Data......: 29/12/2009 - Glauber
+* Function..: GetCip(fcPFPJ,faCACHE)
+* Objetivo..: Retorna o CIP do PFPJ pesquisado. Este pesquisa é feita no cache em vez de pesquisar no banco. 
+* Parâmetros:
+*    fcPFPJ.......: Nome a ser pesquisado
+*    faCACHE......: Array com os dados do Cache.
+* Retorno...: O número do CIP, caso não seja encontrado é retornado 0.
+*
+*/
+
+ static function GetCip(fcPFPJ,faCACHE)
+ 
+ return(str(ascan(faCACHE,{|x|x[3] == fcPFPJ})))
+ 
+ /*
+* Data......: 06/01/2009 - Glauber
+* Function..: GetCipId(fnID,faCACHE)
+* Objetivo..: Retorna o PFPJ do Id pesquisado. Este pesquisa é feita no cache em vez de pesquisar no banco. 
+* Parâmetros:
+*    fnId.........: Id do advogado no formato do dado origem
+*    faCACHE......: Array com os dados do Cache.
+* Retorno...: O PFPJ.
+*
+*/
+
+ static function GetCipId(fnID,faCACHE)
+ 
+ local lcRET := "" as string
+ local lnIDX :=  0 as numeric
+ 
+ lnIDX := ascan(faCACHE,{|x|x[4] == fnID})
+ if lnIDX > 0
+    lcRET := faCACHE[lnIDX,3]
+ endif   
+ return(lcRET)
+ 
+ 
+ 
+ 
+ 

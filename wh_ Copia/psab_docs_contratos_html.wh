@@ -1,0 +1,269 @@
+/*
+Project      : gr5
+Program      : psab.docs_contratos.html
+Function     : psab_docs_contratos_html
+Created on   : 2010-02-04 14:00:13
+               Sonia Perdigão
+Descripition : Aba de Documentos Obrigatorios por pessoa jurídica
+*/
+
+   local lcNR_PASTA    := WGet('NR_PASTA','C') ,;
+         lcTP_PASTA    := WGet('TP_PASTA','C') ,;
+         lcACTION      := upper(WGet('ACTION','C')) ,;
+         lcTABLE       := 'pasta_documento' ,;
+         lcPROGRAM     := 'psab_docs_contratos_html',;
+         lcNR_ROW      := '1',;
+         lcWHERE       := '' ,;
+         lcAUX         := '' ,;
+         lcAUX2        := '' ,;
+         lcVAR         := '' ,;
+         lcNATUREZA    := '' ,;
+         lcMSG         := '' as string
+
+   local laFIELDS       := {} ,;
+         laFIELDS_AUX   := {} ,;
+         laRESULT       := {} ,;
+         laSAVE         := {} ,;
+         laSAVEAUX      := {} ,;
+         lcWHEREAUX     := {} ,;
+         laSAVELOG_AUX  := {} ,;
+         laCAMPO        := {} ,;
+         laRES          := {} ,;
+         laRESULT_PAS   := {} ,;
+         laRESULT_OCOR  := {} ,;
+         laLINHA_ATUAL  := {} ,;
+         laFOREIGN      := {} as array
+
+   local ii            := 0 ,;
+         qq            := 0 ,;
+         lnPOS         := 0 ,;
+         lnSAVE        := 0 ,;
+         lnLINHASAVE   := 0  as int
+
+   local llAUX    := .t. ,;
+         llRETURN := .t. ,;
+         llERROR  := .f. as logical
+
+   local ldDT_CADASTRO as date
+   local ldDT_PRAZO as date
+   lcNR_PASTA    := WGet('NR_PASTA','C') 
+   lcTP_PASTA    := WGet('TP_PASTA','C')  
+   lcNR_CONTROLE := WGet('NR_CONTROLE','C')  
+   init_reqfield(WSet('_USER_INTERFACE'))
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   make_psthead(lcNR_PASTA,lcTP_PASTA) //Cabeçalho
+   lcTABLE       := 'pasta_documento'
+   laLABELS      := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+ 
+
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   make_psthead(lcNR_PASTA,lcTP_PASTA) //Cabeçalho
+   lcWHERE := 'NR_CONTROLE = '+lcNR_CONTROLE
+   WPut('TP_PASTA',lcTP_PASTA)
+   WPut('LOGIN',gcLOGIN)
+   WPut('ifALTERA',.f.)
+   WPut('ifNOVO',.t.)
+   WPut('FL_DOCUMENTO_FALTA_OPT','Y')
+   
+   laFIELDS := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+
+/*------------------ Seleciona a natureza da pfpj através da parte contraria ---------*/          
+       lcwherex := 'NR_PASTA='+lcNR_PASTA +' and WFIELD = '+DLAP+'CIP_PARTE_CONTRARIA'+DLAP
+       if db_select({'NR_PASTA','WFIELD','CIP'},'pasta_cip',,{lcwherex }) == -1
+          error_sys(db_error())
+       endif
+       laRES := db_fetchrow()
+
+/*------------------ Verificando parte contraria -------------------------------------*/
+       if len(lares) > 1
+          lcCIP := lares[3]
+          if db_select({'CIP','PFPJ_NATUREZA'},'pfpj',,{'CIP = '+lcCIP }) == -1
+             error_sys(db_error())
+          endif   
+          laRES1 := db_fetchrow()
+          if len(lares1) > 1
+             lcNATUREZA := lares1[2]
+          endif
+       else
+          lcwherex := 'NR_PASTA='+lcNR_PASTA +' and WFIELD = '+DLAP+'CIP_CONTRATADO'+DLAP
+          if db_select({'NR_PASTA','WFIELD','CIP'},'pasta_cip',,{lcwherex }) == -1
+             error_sys(db_error())
+          endif
+          laRES := db_fetchrow()
+
+/*------------------ Verificando contratado -------------------------------------*/
+          if len(lares) > 1
+             lcCIP := lares[3]
+             if db_select({'CIP','PFPJ_NATUREZA'},'pfpj',,{'CIP = '+lcCIP }) == -1
+                error_sys(db_error())
+             endif   
+             laRES1 := db_fetchrow()
+             if len(lares1) > 1
+                lcNATUREZA := lares1[2]
+             endif
+          endif
+       endif
+
+       WPut('PFPJ_NATUREZA',lcNATUREZA)
+
+   carrega_cbox({{'documentos_contrato','DOCUMENTO','Y','PFPJ_NATUREZA='+DLAP+lcNATUREZA+DLAP}})
+
+
+/* Sonia - 24/01/2014 17:57:03
+    if db_select({'DOCUMENTO'},'documentos_contrato',,{'PFPJ_NATUREZA='+DLAP+lcNATUREZA+DLAP}) == -1
+      error_sys(db_error())
+    endif
+    laRESULT := db_fetchall()
+    laPUT := {''}
+    if len(laRESULT) > 0
+       for ii:= 2 to len(laRESULT)
+           aadd(laPUT,laRESULT[ii,1])
+       next
+       WPut('DOCUMENTO.option',laPUT)
+       WPut('DOCUMENTO.optionvalue',laPUT)      
+    endif 
+*/
+/*------------------ Seleciona os documentos a serem salvos na pasta_documento -------*/                                          
+    if db_select(laFIELDS,'pasta_documento',,{'NR_PASTA = '+lcNR_PASTA}) == -1
+       error_sys(db_error())
+    endif
+    laRES := db_fetchall()
+    if len(lares) <  2
+       lcWHERE_AUX := 'PFPJ_NATUREZA = '+DLAP+lcNATUREZA+DLAP
+       if db_select({'PFPJ_NATUREZA','DOCUMENTO','FL_OBRIGATORIO'},'documentos_contrato',,{lcWHERE_AUX}) == -1
+          error_sys(db_error())
+       endif
+       laRES := db_fetchall()
+//debug2(lares)
+       lx := len(lares)
+       laSAVEAUX := {}
+       if len(laRES) > 1
+          for x := 2 to len(laRES)
+              laSAVE := {{'NR_PASTA','PFPJ_NATUREZA','DOCUMENTO','FL_OBRIGATORIO','DT_CADASTRO','FL_DOCUMENTO_FALTA' }}
+              aadd(laSAVE,{val(lcNR_PASTA),lcNATUREZA,laRES[x,2],laRES[x,3],date(),'S'} )
+              if db_replace(laSAVE,'pasta_documento',{'NR_PASTA = '+ lcNR_PASTA + ' AND DOCUMENTO = ' + DLAP + laRES[x,2] + DLAP}) == -1
+                 error_sys(db_error())
+              endif
+          next x
+          pasta_abas(lcTP_PASTA)
+          if db_select(laFIELDS,'pasta_documento',,{'NR_PASTA='+lcNR_PASTA}) == -1
+             error_sys(db_error())
+          endif
+          laRESULT := db_fetchall()
+          if len(laRESULT) > 1
+             db2Put(laRESULT)
+          else
+             walert('Não existem documentos nesta pasta!')   
+          endif
+       endif 
+    endif     
+    
+    if lcACTION = 'ALTER' .and. gbWAC_READ
+
+       if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+          error_sys(db_error())
+       endif
+       laRESULT := db_fetchall()
+       if len(laRESULT) > 1
+          db2Put(laRESULT)
+       endif
+       WPut('ifALTERA',.T.)
+       WPut('ifNOVO',.F.)
+    elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+       lcwhere_aux := 'PFPJ_NATUREZA='+DLAP+WGET('PFPJ_NATUREZA','C') + DLAP+' and DOCUMENTO = '+DLAP+WGET('DOCUMENTO','C')+DLAP
+
+       if db_select({'PFPJ_NATUREZA','DOCUMENTO','FL_OBRIGATORIO'},'documentos_contrato',,{lcWHERE_AUX}) == -1
+          error_sys(db_error())
+       endif
+       laRES := db_fetchall()
+//debug2(lares)
+       lx := len(lares)
+       lcFL_OBRIGATORIO := ' '
+       if len(laRES) > 1
+          for x := 2 to len(laRES) 
+          lcFL_OBRIGATORIO :=  laRES[2,3]
+          next
+       endif 
+       if lcFL_OBRIGATORIO == 'S'
+          lcFL_OBRIGATORIO := 'Y'
+       else
+          lcFL_OBRIGATORIO := ' '
+       endif
+       wput('FL_OBRIGATORIO',lcFL_OBRIGATORIO)
+//debug2(lcfl_obrigatorio)  
+          lcDOCUMENTO           := WGET('DOCUMENTO','C')
+//          lcFL_OBRIGATORIO      := WGET('FL_OBRIGATORIO','C')
+
+          lcFL_DOCUMENTO_FALTA  := WGET('FL_DOCUMENTO_FALTA','C')
+          lcDT_PRAZO            := WGET('DT_PRAZO','D')
+          lcDT_RECEBIMENTO      := WGET('DT_RECEBIMENTO','D')
+          lcEXTRA               := WGET('EXTRA','C') 
+          if EMPTY(lcDT_PRAZO) 
+             lcDT_PRAZO := CTOD('  /  /    ')
+          endif
+          if EMPTY(lcDT_RECEBIMENTO) 
+             lcDT_RECEBIMENTO := CTOD('  /  /    ')
+          endif
+          laSAVE := {{'NR_PASTA','PFPJ_NATUREZA','DOCUMENTO','FL_OBRIGATORIO','DT_CADASTRO','FL_DOCUMENTO_FALTA','DT_PRAZO','DT_RECEBIMENTO','EXTRA' }}
+          aadd(laSAVE,{val(lcNR_PASTA),lcNATUREZA,lcDOCUMENTO,lcFL_OBRIGATORIO,date(),lcFL_DOCUMENTO_FALTA,lcDT_PRAZO,lcDT_RECEBIMENTO,lcEXTRA} )
+          if db_replace(laSAVE,'pasta_documento',{'NR_PASTA = '+ lcNR_PASTA + ' AND DOCUMENTO = ' + DLAP + lcDOCUMENTO + DLAP}) == -1
+             error_sys(db_error())
+          endif
+    elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+       lcTP_PASTA  := WGET('TP_PASTA','C')
+       lcNR_PASTA  := WGET('NR_PASTA','C')
+       lcNR_CONTROLE  := WGET('NR_CONTROLE','C')
+       lcDOCUMENTO := WGET('DOCUMENTO','C')
+       lcWHEREDEL := 'NR_CONTROLE='+lcNR_CONTROLE
+       if !empty(lcNR_PASTA) 
+          psab_logdel(lcNR_PASTA,'DOCUMENTO',lcDOCUMENTO,,'Documentos_Contratos')
+          if db_delete(lcTABLE,lcWHEREDEL) == -1
+             error_sys(db_error())
+          endif
+       endif
+    endif
+  
+   if db_select({'PFPJ_NATUREZA','DOCUMENTO','FL_OBRIGATORIO','DT_CADASTRO','FL_DOCUMENTO_FALTA','DT_PRAZO','DT_RECEBIMENTO','EXTRA','NR_CONTROLE'},;
+                 'pasta_documento',,{'NR_PASTA='+lcNR_PASTA},) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      aadd(laRESULT[1],'(row)')
+      for ii := 2 to len(laRESULT)
+         aadd(laRESULT[ii],'(row)'+wic_action('wicaction/psab.docs_contratos.html?'+;
+                                              'TP_PASTA='+lcTP_PASTA+;
+                                              '&NR_PASTA='+lcNR_PASTA+;
+                                              '&NR_CONTROLE='+STR(laRESULT[ii, db_fetchncol(laRESULT,'NR_CONTROLE')],9)+;
+                                              '&ACTION=ALTER'))
+      next ii
+      WPut('GRID_DOCUMENTOS',grid_create(laRESULT))
+   endif
+   pasta_abas(lcTP_PASTA)
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

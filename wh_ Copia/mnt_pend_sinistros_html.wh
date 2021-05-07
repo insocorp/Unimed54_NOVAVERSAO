@@ -1,0 +1,110 @@
+/*
+
+Project      : gr5
+Program      : mnt.pend_sinistros.html
+Function     : mnt_pend_sinistros_html
+Created on   : 30/9/2009
+Descripition : Sinistros Pendentes - Estrutura HTML
+       Autor : Hélio ( baseado em mnt_andamentos_pendentes_html de Valdimari Martins )
+               Sinistros Pendentes para exclusão manual. 
+*/
+
+   local lcACTION   := '' ,;
+         lcTABLE    := 'sinistros_pendentes' ,;
+         lcProgram  := 'mnt_pend_sinistros_html' ,;
+         lcWHERE    := '' as string
+
+   local laRESULT   := {} ,;
+         laFIELDS   := {} ,;
+         laWHERE    := {} ,;
+         laORDER_BY := {'NR_SINISTRO'} as array
+
+   local ii := 0 as int
+    
+   lcACTION := upper(WGet('ACTION','C'))
+   lcWHERE  := 'NR_PENDENTE = ' + str(WGet('NR_PENDENTE','N'))
+   laFIELDS := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+
+   aadd(laWHERE,lcWHERE)
+
+   if lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,laWHERE) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2put(laRESULT)
+      endif
+
+   elseif lcACTION == 'EXCLUIR'
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+      db_commit()  
+      WPut('NR_PENDENTE'  ,'')
+      WPut('NR_SINISTRO'  ,'')
+      WPut('NR_EXPEDIENTE','')
+      WPut('TP_EXPEDIENTE','')
+      WPut('NR_PASTA_JUI' ,'')
+      WPut('PRG_ORIGEM'   ,'')
+
+   elseif empty(lcACTION)
+      if db_select(laFIELDS,lcTABLE,,,laORDER_BY,,,,) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2Put(laRESULT)
+      endif
+      WPut('NR_PENDENTE'  ,'')
+      WPut('NR_SINISTRO'  ,'')
+      WPut('NR_EXPEDIENTE','')
+      WPut('TP_EXPEDIENTE','')
+      WPut('NR_PASTA_JUI' ,'')
+      WPut('PRG_ORIGEM'   ,'')
+   endif
+
+   WPut('lstSINISTROS_PENDENTES',laRESULT)
+   
+   lista_sinistros_pendentes(laFIELDS,lcTABLE,laORDER_BY)
+      
+return(nil)
+
+/*
+* Function..: lista_sinistros_pendentes(faFIELDS,fcTABLE,faORDER_BY)
+* Objetivo..:
+* Parâmetros:
+*    faFIELDS.....: Campos a selecionar
+*    fcTABLE......: Tabela alvo
+*    faORDER_BY...: Ordenação
+* Retorno...:
+*     Nenhum
+*/
+static function lista_sinistros_pendentes(faFIELDS,fcTABLE,faORDER_BY)
+   local lcCOR_LINK := '' as string
+
+   local laRESULT := {} as array
+
+   local ii := 0 as int
+
+   for ii := 1 to len(faFIELDS)
+       faFIELDS[ii] := fcTABLE+'.'+faFIELDS[ii]
+   next ii
+
+   if db_select(faFIELDS,fcTABLE,,,faORDER_BY) == -1
+      error_sys('lista_sinistros_pendentes: '+db_error())
+   endif
+
+   laRESULT := db_fetchall()
+
+   if len(laRESULT) > 0
+      aadd(laRESULT[1],'COR_LINK')
+      for ii := 2 to len(laRESULT)
+         lcCOR_LINK := '#006A00'   //Sinistro para cliente - verde escuro
+         aadd(laRESULT[ii],lcCOR_LINK)
+      next ii
+   endif
+   
+   WPut('lstSINISTROS_PENDENTES',laRESULT)
+return(nil)
+

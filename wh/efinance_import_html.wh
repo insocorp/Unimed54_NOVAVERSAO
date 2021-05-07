@@ -1,0 +1,329 @@
+/*
+
+Project      : isj_391
+Program      : efinance_import.html
+Function     : efinance_import_html
+Created on   : 9/10/2009
+Description  : Importação do retorno do E-Finance (Pagamentos Pendentes)
+       Autor : Hélio( baseado em imp_andamentos_html de Valdimari Martins )
+*/
+
+     local lcPATHIN   := '' ,;
+           lcFILEIN   := '' ,;
+           lcStatus   := '3' ,;
+           lcHORAINI  := time() ,;
+           lcTABLEINT := 'seq_interfaces',;
+           lcFILELOG  := '' as string
+
+     local ii      := 0 ,;
+           hh      := 0 ,;
+           lnHAND  := 0 ,;
+           lnHAND1 := 0 ,;
+           lnSEQ   := 0 ,;
+           lnANO   := 0 ,;
+           lnMES   := 0 ,;
+           lnDIA   := 0 as int
+
+     local ldData   := date() ,;
+           ldDIAINI := date() as date
+
+     local laFIELDSINT := {} ,;
+           laSAVEINT   := {} ,;
+           laWHEREINT  := {} ,;
+           laRESULT    := {} ,;
+           laRESULTINT := {} ,;
+           laLOG       := {} ,;
+           laEMP       := {} as array
+           
+           /*
+           016    MAPFRE NOSSA CAIXA VIDA E PREVIDÊNCIA S/A.
+           020    MAPFRE VERA CRUZ SEGURADORA SA
+           021    MAPFRE VERA CRUZ VIDA E PREVIDÊNCIA S/A
+           022    MARES-MAPFRE RISCOS ESPECIAIS SEGURADORA S/A
+           026    VIDA SEGURADORA S/A
+           */
+           
+
+     laEMP := {'016','020','021','022','026'}
+
+     For hh := 1 to len(laEMP)
+     
+        laFIELDSINT := structtable(WSet("DB_ACTIVE"),lcTABLEINT,1,'N')
+        laWHEREINT  := {"PROGRAM = 'efinance_import_html'"}
+        if db_select(laFIELDSINT, lcTABLEINT,,laWHEREINT) == -1
+           error_sys(db_error())
+        endif
+        laRESULTINT := db_fetchrow()
+        
+        lnANO  := If(!Empty(laRESULTINT[3]),  year(laRESULTINT[3]),  year(date()))  //2009
+        lnMES  := If(!Empty(laRESULTINT[3]), month(laRESULTINT[3]), month(date()))  //01
+        lnDIA  := If(!Empty(laRESULTINT[3]),   day(laRESULTINT[3]),   day(date()))  //06
+        
+        ldDATA := ctod(strzero(lnDIA,2)+'/'+strzero(lnMES,2)+'/'+strzero(lnANO,4))
+        
+        laLOG     := {}
+        lcFILEIN  := ''
+        lcFILELOG := ''
+        
+        If ldDATA <= date()
+           Do while !file(lcFILEIN)
+
+              if lnDIA > 31
+                 lnDIA := 1
+                 lnMES := lnMES + 1
+              endif
+              if lnMES > 12
+                 lnMES := 1
+                 lnANO := lnANO + 1
+              endif
+
+              lcFILEIN := lcPATHIN + 'MAPFRE_EFINANCE_RETORNO_' + laEMP[hh] + '_' + strzero(lnANO,4) + ;
+                                      strzero(lnMES,2) + strzero(lnDIA,2) + '.CSV'
+
+              lcFILELOG := 'MAPFRE_EFINANCE_LOG_' + laEMP[hh] + '_'  + dtos(date()) +'.TXT'
+
+              //EXEMPLO: /home/wproject/wictrix/isj_391/MAPFRE_EFINANCE_RETORNO_20091022.CSV
+
+              ldDATA := ctod(strzero(lnDIA,2)+'/'+strzero(lnMES,2)+'/'+strzero(lnANO,4))
+
+              if ldDATA > date()
+                lcFILEIN := ''
+
+                lcStatus := '2'  //Atualiza seq_interfaces - erro no processo
+
+                exit
+
+              else
+                lnDIA++
+              endif
+
+           Enddo
+
+           If !empty(lcFILEIN)
+           
+              aadd(laLOG, space(10)+'Ocorrencias de Importacao de Pagamentos (titulos)')
+              aadd(laLOG, 'Data: '+ dtoc(date())+' - Hora: '+time())
+              aadd(laLOG, 'Arquivo de Log: '+lcFILELOG)
+              aadd(laLOG, '     ')
+              aadd(laLOG, '     ')
+
+              lnHAND := fopen(lcFILEIN)
+
+              If lnHAND >= 0
+
+                 aadd(laLOG,'Importação do(s) arquivo(s): '+lcFILEIN)
+                 aadd(laLOG, '     ')
+
+                 If !(f_import(lnHAND, @laLOG))
+                    lcStatus := '2'  //Atualiza seq_interfaces - erro no processo
+
+                    aadd(laLOG,'Nenhum arquivo foi importado.')
+                 Else
+                    lcStatus := '1'  //Atualiza seq_interfaces - processo ok
+
+                 Endif
+              Else
+                 lcStatus := '2'  //Atualiza seq_interfaces - erro no processo
+                 aadd(laLOG,'Erro ao abrir arquivo ' + lcFILEIN)
+              Endif
+
+              fclose(lnHAND)
+
+           Else
+              lcStatus := '2'  //Atualiza seq_interfaces - erro no processo
+              aadd(laLOG,'Nenhum arquivo retorno encontrado')
+              
+              Loop
+           Endif
+        Else
+           lcStatus := '2'  //Atualiza seq_interfaces - erro no processo
+           aadd(laLOG,'Data do sistema menor que data do ultimo lote registrado.')
+        EndIf
+
+        aadd(laLOG, '     ')
+        aadd(laLOG, '     ')
+        aadd(laLOG, 'Importação Encerrada: '+ dtoc(date())+' - Hora: '+time())
+
+        lnHAND1 := fcreate(lcFILELOG, 0)
+        if lnHAND1 > 0
+           for ii := 1 to len(laLOG)
+              if !dispmess(laLOG[ii], lnHAND1 , 0, 0)
+                 return
+              endif
+           next ii
+           fclose(lnHAND1)
+
+        else
+           wout("Problemas na criação do arquivo de log: "+lcFILELOG)
+        endif
+
+     Next hh
+     
+     //Atualizar Interfaces - seq_interfaces
+     laFIELDSINT := structtable(WSet("DB_ACTIVE"),lcTABLEINT,1,'N')
+     laWHEREINT  := {"PROGRAM = 'efinance_import_html'"}
+     if db_select(laFIELDSINT, lcTABLEINT,,laWHEREINT) == -1
+        error_sys(db_error())
+     endif
+     laRESULTINT := db_fetchrow()
+     lnSEQ       := laRESULTINT[2] + 1
+     aadd(laSAVEINT,laFIELDSINT)
+     aadd(laSAVEINT,{laRESULTINT[1],lnSEQ, ldDIAINI, lcHORAINI, date(), time(), lcStatus})
+     if db_replace(laSAVEINT,lcTABLEINT,laWHEREINT) == -1
+        error_sys(db_error())
+     endif
+
+return
+
+
+* Function  : f_import(fnHAND,laLOG)
+* Objetivo  : Importa os dados para as devidas tabelas.
+* Parâmetros:
+*             fnHAND    : confirmação de abertura do arquivo de importação
+*             laLOG     : Array do arquivo Log
+
+
+static function f_import(fnHAND, laLOG)
+
+     local lcLINE     := '' ,;
+           lcTABLEP   := 'retorno_efinance' ,;
+           lcProgram  := 'imp_efinance_html' ,;
+           lcCONT     := '' ,;
+           lcWHERE    := '' ,;
+           lcWHERED   := '' ,;
+           lcCPF      := '' ,;
+           lcCHAR     := '' as string
+
+     local ii         := 0 ,;
+           hh         := 0 as int
+     
+     local lnPUBL     := 0 as numeric
+
+     local laDETALHE  := {} ,;
+           laFIELDS   := {} ,;
+           laFIELDSP  := {} ,;
+           laSAVEP    := {} ,;
+           laJOIN     := {} ,;
+           laRESULT   := {} as array
+
+     laFIELDS  := {'pfpj.CNPJ_CPF',;
+                   'mvt_despesa.NR_PASTA',;
+                   'mvt_despesa.NR_DESPESA'}
+
+     laJOIN    := { { 2,'pfpj', 'mvt_despesa.cip_favorecido = pfpj.cip'} }
+     
+     lcWHERE   := ' mvt_despesa.FL_APROVACAO   = ' + DLMT + 'A' + DLMT
+     lcWHERE   += ' AND mvt_despesa.FL_REVISAO = ' + DLMT + 'A' + DLMT
+     lcWHERE   += ' AND mvt_despesa.FL_PGINTERFACE = ' + DLMT + 'Y' + DLMT
+     lcWHERE   += ' AND pfpj.CNPJ_CPF IN (SELECT CNPJ_CPF FROM retorno_efinance)'
+     
+     laFIELDSP := {'NR_TITULO'   ,;
+                   'CNPJ_CPF'    ,;
+                   'FL_PAGAMENTO',;
+                   'DT_PAGAMENTO',;
+                   'VL_BRUTO'    ,;
+                   'VL_LIQUIDO'  ,;
+                   'NR_DOC_PAGTO',;
+                   'CD_BANCO'    ,;
+                   'MVT_RECUSA'  ,;
+                   'VL_IRRF'     ,;
+                   'VL_ISS'      ,;
+                   'VL_PIS'      ,;
+                   'VL_INSS'}
+
+     aadd(laSAVEP,laFIELDSP)
+
+     Do while .t.
+        lcLINE := freadtxt(fnHAND)
+        
+        If len(lcLINE) == 0
+           Exit
+        Endif
+
+        laDETALHE := {}
+        
+        For ii := 1 to len(lcLINE)
+           lcCHAR := substr(lcLINE,ii,1)
+           If lcCHAR == ';'
+              aadd(laDETALHE,lcCONT)
+              lcCONT := ''
+           Else
+              lcCONT := lcCONT + lcCHAR
+           Endif
+
+        Next ii
+
+        If len(laDETALHE[09]) > 0  // len(MVT_RECUSA) > 0
+
+           aadd(laSAVEP,{laDETALHE[01],;
+                         laDETALHE[02],;
+                         laDETALHE[03],;
+                         dtos(ctod(laDETALHE[04])),;
+                         val(strtran(laDETALHE[05], "," , "." )),;
+                         val(strtran(laDETALHE[06], "," , "." )),;
+                         laDETALHE[07],;
+                         laDETALHE[08],;
+                         laDETALHE[09],;
+                         val(strtran(laDETALHE[10], "," , "." )),;
+                         val(strtran(laDETALHE[11], "," , "." )),;
+                         val(strtran(laDETALHE[12], "," , "." )),;
+                         val(strtran(laDETALHE[13], "," , "." ))})
+
+           if len(lcCPF) > 0
+              lcCPF += ', '
+           endif
+
+           lcCPF += laDETALHE[01]
+           
+           lnPUBL := lnPUBL + val(strtran(laDETALHE[05], "," , "." ))
+        Endif
+     Enddo
+     
+     //--------- Incluindo Pagamentos Pendentes ----------
+           
+     if len(laSAVEP) > 1
+     
+        lcWHERED :=  ''
+        
+        For hh := 2 to len(laSAVEP)
+           If len(lcWHERED) > 0
+              lcWHERED += ','
+           Endif
+           
+           lcWHERED += laSAVEP[hh,01]
+
+        Next hh
+
+        lcWHERED := 'NR_TITULO IN (' + lcWHERED + ')'
+        If db_delete('retorno_efinance',lcWHERED) == -1
+           wout("Erro Delete retorno_efinance -> " + db_error())
+           Return(.f.)
+        endif
+
+        if db_insert(laSAVEP,lcTABLEP) == -1
+           wout("Erro Insert retorno_efinance -> " + db_error())
+           Return(.f.)
+        endif
+        
+        aadd(laLOG,'     Total de Numero de Titulos...: '+ strzero(len(laSAVEP)-1,05))
+        aadd(laLOG,'     Total Valor Bruto dos Titulos: '+ strtran(alltrim(str(lnPUBL,18,02)),'.',','))
+
+     endif
+
+     //----------
+     if db_select(laFIELDS,'mvt_despesa',laJOIN,{lcWHERE}) == -1
+        db_error()
+     endif
+     
+     laRESULT := db_fetchall()
+     
+     For ii := 2 to len(laRESULT)
+        lcWHERE := ' NR_PASTA = ' + alltrim(str(laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')]))
+        lcWHERE += ' AND NR_DESPESA = ' + alltrim(str(laRESULT[ii,db_fetchncol(laRESULT,'NR_DESPESA')]))
+        
+        if db_update({{"FL_PGINTERFACE","DT_ENVIO_CTPAG"},{"N",ctod('')}},'mvt_despesa',{lcWHERE}) == -1
+           wout("Erro Update -> " + db_error())
+        endif
+     Next ii
+     
+return(.t.)

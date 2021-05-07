@@ -1,0 +1,75 @@
+/*
+
+Project      : isj_60
+Program      : mnt.i4pro.service.html
+Function     : mnt_i4pro_service_html
+Created on   : 30-Oct-2017   16:15:16
+Descripition : 
+
+*/
+
+   local laVALIDA   := {} AS Array
+
+   local lcACTION   := ''  as string
+
+
+
+   private servico := ServicosI4ProNew()
+
+
+   lcACTION  := alltrim(upper(WGet('ACTION')))
+   laVALIDA  := {'NM_SERVICO', 'XML_JSON'}
+
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+   
+   WPut('title','Manutenção de Serviços I4Pro')
+
+   servico:IdServico := WGET('ID_SERVICO')
+
+   if lcACTION == 'ALTER'
+
+      servico:FindOne()
+      WPut('ID_SERVICO', servico:IdServico)
+      WPut('NM_SERVICO', servico:NomeServico)
+      WPut('XML_JSON',   servico:XmlJson)
+
+   elseif lcACTION == 'DELETE'
+          servico:Excluir()
+   elseif lcACTION == 'SAVE'
+          if verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+             servico:NomeServico := WGet('NM_SERVICO')
+             servico:XmlJson     := WGet('XML_JSON')
+
+             servico:Salvar()
+          endif
+
+   endif
+
+   Grid()
+
+
+return
+
+
+
+static Function Grid()
+
+   local laRESULT := {} AS Array
+   local ii       := 0  AS Int
+
+
+   servico:FindAll()
+   laRESULT := servico:getResultSet()
+
+
+    aadd(laRESULT[1],'(row)')
+    for ii := 2 to len(laRESULT)
+        aadd(laRESULT[ii],'(row)'+wic_action('wicaction/mnt.i4pro.service.html?'+;
+                                                 'ID_SERVICO='+ALLTRIM(laRESULT[ii, db_fetchncol(laRESULT,'ID_SERVICO')])+;
+                                                 '&ACTION=ALTER'))
+    next ii
+    wPut('lstSERVICOS',grid_create(laRESULT))
+
+
+

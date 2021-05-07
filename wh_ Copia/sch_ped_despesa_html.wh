@@ -1,0 +1,226 @@
+/*
+Project      : gr5
+Program      : sch.ped_despesa.html
+Function     : sch_ped_despesa_html
+Created on   : 03-Set-2009   11:20:00
+Descripition : Pesquisa de Despesa com Refresh ao retornar.
+               Criado especificamente para a aba de Despesas,
+               com o objetivo de abrir ou não a grid de Pedidos. 
+*/
+
+   local lcACTION   := '' ,;
+         lcTABLE    := '' ,;
+         lcQUERY    := '' ,;
+         lcNM_FIELD := '' ,;
+         lcPASTAS   := '' ,;
+         lcWSCRIPT  := '' ,;
+         lcITEM     := '' ,;
+         lcCHECKLST := '' as string
+
+   local laRES         := {} ,;
+         laCOND        := {} ,;
+         laFIELDLST    := {} ,;
+         laLABELLST    := {} ,;
+         laTP_FILTER   := {} ,;
+         laORDERBY     := {} ,;
+         laWHERE       := {'SUBSTRING(despesa.CD_DESPESA_INTERFACE,3,1) <> 1 and FL_ATIVO <> '+DLAP+'I'+DLAP} ,;
+         laRESULTS     := {} ,;
+         laCHECKLST    := {} ,;
+         laRESULT_OCOR := {} ,;
+         laPROFILE     := {} as array
+         
+   local ii       := 0 ,;
+         lnbEXEC  := 0 ,;
+         lnbEXEC2 := 0 ,;
+         lnPOS    := 0 as int
+
+
+   lcACTION     := alltrim(upper(WGet('ACTION','C')))
+   lcTABLE      := 'despesa'
+   lcNM_FIELD   := 'CD_DESPESA'
+   lcNR_PASTA   := WGet('NR_PASTA','C')    
+   lcTP_PASTA   := WGet('TP_PASTA','C')
+   laFIELDLST   := structtable(WSet('DB_ACTIVE'),lcTABLE,1,'A')
+   laLABELLST   := structtable(WSet('DB_ACTIVE'),lcTABLE,11,'A')
+   laTPFILTER   := {'Contendo',;
+                    'Igual',;
+                    'Intervalo',;
+                    'Não contém'}
+
+   if empty(lcACTION)
+      lcACTION   := 'EXECSEL'
+   endif
+
+   wPut('TITLE','Localizar Despesa')
+   wPut('NR_PASTA',lcNR_PASTA)
+   wPut('TP_PASTA',lcTP_PASTA)
+   laLABELLST := {'Nome da Despesa', 'Código da Despesa'}
+   laFIELDS1  := {'NM_DESPESA','CD_DESPESA'}
+   wPut('FDFILTER1_OPT',laLABELLST)
+   wPut('TPFILTER1_OPT',laTPFILTER)
+   wPut('FDORDER1_OPT',laLABELLST)
+
+   if lcACTION == 'EXECSEL'
+      ii := 1
+      do while .t.    // Filter
+         if WGet('FDFILTER'+alltrim(str(ii)),'B')
+            if ! empty(WGet('VLFILTER'+alltrim(str(ii)),'C')) .or. ! empty(WGet('VL2FILTER'+alltrim(str(ii)),'C'))
+               laCOND := {}
+               if WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Igual'
+//                  aadd(laWHERE,mkwheresch({{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')}},1))
+                  aadd(laWHERE,mkwheresch({{laFIELDS1[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')}},1))
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Intervalo'
+//                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+//                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDS1[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDS1[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laWHERE,mkwheresch(laCOND,2))
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Não contém'
+//                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+//                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDS1[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDS1[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laWHERE,mkwheresch(laCOND,3))
+               else  // Contendo
+
+//                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+//                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDS1[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDS1[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laWHERE,mkwheresch(laCOND,4))
+               endif
+            endif
+         else
+            exit
+         endif
+         aadd(laPROFILE,'FDFILTER'+alltrim(str(ii)))
+         aadd(laPROFILE,'TPFILTER'+alltrim(str(ii)))
+         aadd(laPROFILE,'VLFILTER'+alltrim(str(ii)))
+//         aadd(laPROFILE,'VL2FILTER'+alltrim(str(ii)))
+         ii ++
+      enddo
+      ii := 1
+      do while .t.     // Order
+         if WGet('FDORDER'+alltrim(str(ii)),'B')
+            if ! empty(WGet('FDORDER'+alltrim(str(ii)),'C'))
+               aadd(laORDERBY,laFIELDLST[ascan(laLABELLST,WGet('FDORDER'+alltrim(str(ii)),'C'))])
+            endif
+         else
+            exit
+         endif
+         aadd(laPROFILE,'FDORDER'+alltrim(str(ii)))
+         ii ++
+      enddo
+//wout(debug2(lafieldlst),,200)
+//wout(debug2(lctable),,200)
+//wout(debug2(lawhere),,200)
+//wout(debug2(laorderby),,200)
+      laorderby := {'NM_DESPESA'}
+      if db_select(laFIELDLST,lcTABLE,,laWHERE,laORDERBY) = -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      if len(laRES) > 0
+         lnPOS := db_fetchncol(laRES,'CD_DESPESA')
+
+         aadd(laRES[1],'VAR_CD_DESPESA')
+         aadd(laRES[1],'VAR_DESPESA')  // Campo para controle
+         for ii:= 2 to len(laRES)
+            lcITEM := alltrim(str(ii-1))
+            aadd(laRES[ii],'VAR_CD_DESPESA_'+lcITEM)
+            aadd(laRES[ii],'VAR_DESPESA_'+lcITEM)
+            wPut('VAR_CD_DESPESA_'+lcITEM+'_OPT',laRES[ii,lnPOS])
+            wPut('VAR_DESPESA_'+lcITEM,laRES[ii,lnPOS])
+         next ii
+         wPut('schDESPESA',laRES)
+      endif
+      if len(laPROFILE) > 0
+         SaveWEnv('sch.ped_despesa.html',laPROFILE)
+      endif
+   elseif lcACTION == 'EXECSEND'
+
+      lcCD_DESPESA := alltrim(WGet('CD_DESPESA','C'))
+      if db_select({'despesa.NM_DESPESA',;
+                    'despesa.CD_MOEDA',;
+                    'moeda.NM_MOEDA',;
+                    'despesa.CD_GRP_DESPESA',;
+                    'grupo_despesa.NM_GRP_DESPESA',;
+                    'despesa.SET_VL_REVISAO',;
+                    'despesa.SET_VL_APROVACAO',;
+                    'despesa.FL_AJUSTA_PEDIDO',;
+                    'despesa.FL_ZERAR_PROVISAO',;
+                    'despesa.FL_CONTABILIZA_PEDIDO',;
+                    'despesa.FL_CONTABILIZA_LANCTOS_CONT',;
+                    'despesa.CD_DESPESA_INTERFACE',;
+                    'despesa.INCIDENCIA_IMPOSTOS',;
+                    'despesa.OCOR_PEDIDO_QUITA'},;
+                    'despesa',;
+                    {{2,'moeda','moeda.CD_MOEDA=despesa.CD_MOEDA'},;
+                     {2,'grupo_despesa','grupo_despesa.CD_GRP_DESPESA=despesa.CD_GRP_DESPESA'}},;
+                    {'CD_DESPESA ='+DLAP+lcCD_DESPESA+DLAP +' and SUBSTRING(despesa.CD_DESPESA_INTERFACE,3,1) <> 1'}) == -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+
+      if len(laRES) > 1   
+
+         lcAJUSTA_PEDIDO := laRES[2,db_fetchncol(laRES,'FL_AJUSTA_PEDIDO')]   
+         
+         lcWSCRIPT := '{opener.document.mntform.CD_DESPESA.value='+DLAP+lcCD_DESPESA+DLAP+'};' 
+         lcWSCRIPT += '{opener.document.mntform.NM_DESPESA.value='+DLAP+laRES[2,db_fetchncol(laRES,'NM_DESPESA')]+DLAP+'};' 
+         lcWSCRIPT += '{opener.document.mntform.CD_GRP_DESPESA.value='+DLAP+laRES[2,db_fetchncol(laRES,'CD_GRP_DESPESA')]+DLAP+'};' 
+         lcWSCRIPT += '{opener.document.mntform.NM_GRP_DESPESA.value='+DLAP+laRES[2,db_fetchncol(laRES,'NM_GRP_DESPESA')]+DLAP+'};'
+         lcWSCRIPT += '{opener.document.mntform.FL_AJUSTA_PEDIDO.value='+DLAP+laRES[2,db_fetchncol(laRES,'FL_AJUSTA_PEDIDO')]+DLAP+'};' 
+   
+         
+         //if lcAJUSTA_PEDIDO == 'S'
+            lcWSCRIPT += '{opener.document.mntform.ACTION.value='+DLAP+'PEDIDO'+DLAP+'};'
+            lcWSCRIPT += '{opener.document.mntform.submit()};'
+            lcWSCRIPT += '{self.close()};'
+         //endif
+               
+         wPut('WSCRIPT',lcWSCRIPT)
+         WSet('_USER_INTERFACE','close.wic')
+      else
+         walert('Despesa não escolhida ou inválida')
+      endif   
+   endif
+   ReadWEnv('sch.ped_despesa.html')
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

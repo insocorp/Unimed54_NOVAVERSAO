@@ -1,0 +1,364 @@
+/*
+Project      : isj_398
+Program      : fecha_vpar_html
+Function     : fecha_vpar_html
+Created on   : 17-Set-2014
+Descripition :
+*/
+
+
+local lcACTION  := '' ,;
+      lcABERTOS := '' ,;
+      lcMSG     := '' ,;
+      lcTABELA  := '' as string
+
+local laTABELAS   := {} ,;
+      laXFECHADOS := {} ,;
+      laFECHADOS  := {} ,;
+      laIDFECHADOS:= {} as array
+
+local tt        := 1 as int
+
+private pnHAND
+
+lcACTION    := upper(Wget('ACTION'))
+
+
+***make_psthead(lcNR_PASTA,lcTP_PASTA)
+***pasta_abas(lcTP_PASTA)
+
+WPut('TITLE','Congelar Relatórios de Provisão Geral')
+
+WPut('DT_FECHA',date())
+
+if lcACTION=='FECHAR'
+
+   pnHAND := fcreate(WSet('_WTEMP')+'congela_rel'+dtos(date())+'_'+strtran(time(),':')+'.log',0)
+
+   writelog({date(),'Início da execução - V1',0})
+
+   for tt :=1 to 3
+
+       laXFECHADOS := verifica(tt,{})
+
+       if len(laXFECHADOS)>0
+          aadd(laIDFECHADOS,laXFECHADOS[1])
+          aadd(laFECHADOS,laXFECHADOS[2])
+       endif
+
+   next tt
+
+   if len(laFECHADOS)>0
+      lcMSG:='O(s) relatório(s) de painel ( '+array2str(laFECHADOS,',')+' )\nserão ignorados pois já se encontram congelado(s) para esse ano/mes !'
+      writelog({date(),lcMSG,5})
+      walert(lcMSG)
+   endif
+
+   if len(laFECHADOS)==3
+      lcMSG:='Não há relatório a ser congelado!'
+      writelog({date(),lcMSG,5})
+      walert(lcMSG)
+   else
+
+      *** so congela relatorio não congelado que não estao na array  laIDFECHADOS
+      if len(laIDFECHADOS)<3
+         for tt :=1 to 3
+             if ascan(laIDFECHADOS,tt)==0
+                congela(tt)
+             endif
+         next tt
+      endif
+
+   endif
+
+   lcMSG:='Fim da execução'
+   writelog({date(),lcMSG,0})
+   walert(lcMSG)
+
+   fclose(pnHAND)
+
+endif
+
+
+
+
+
+return
+
+***********************************
+function verifica(idtab,laXFECHADOS)
+***********************************
+
+local lcTABDEST   := '' ,;
+      lcRELREF    := '' ,;
+      lcIDFECHA   := '' ,;
+      lcFECHADOS  := '' as string
+
+local laRES     := {} ,;
+      laFIELDS  := {} ,;
+      laWHERE   := {} as array
+
+local ldCONGELADO as date
+
+local lnMES       := 0 ,;
+      lnANO       := 0 as int
+
+ldCONGELADO:= WGet('CONGELAMENTO','D')
+
+lnMES:=MONTH(ldCONGELADO)
+lnANO:=YEAR(ldCONGELADO)
+
+laWHERE   :={"EXTRACT(YEAR FROM dt_fecha)="+STR(lnANO)+" and EXTRACT(MONTH FROM dt_fecha)="+STR(lnMES)}
+laFIELDS  := {'DT_FECHA'}
+
+if idtab=1
+   lcTABDEST :='vpar_sf_g'
+   lcRELREF  :='Provisão Geral Sem Filial'
+elseif idtab=2
+   lcTABDEST :='vpar_cf_g'
+   lcRELREF  :='Provisão Geral Com Filial'
+else
+   lcTABDEST :='vpar_dp_g'
+   lcRELREF  :='Movimentações dos Depósitos Judiciais'
+endif
+
+if db_select(laFIELDS,lcTABDEST,,laWHERE) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+if len(laRES) > 1
+
+   aadd(laXFECHADOS,STR(idtab,1,0))
+   aadd(laXFECHADOS,alltrim(lcRELREF))
+
+endif
+
+return(laXFECHADOS)
+
+
+
+
+
+
+
+
+************************
+function congela(idtab)
+************************
+
+local lcTABDEST   := '' ,;
+      lcVIEWORIG  := '' ,;
+      lcVALOR     := '' ,;
+      lcCAMPOSCHAR:= '' ,;
+      lcHTMLcar2  := '' ,;
+      lcTABELA    := '' as string
+
+
+local laRES     := {} ,;
+      laFIELDS  := {} ,;
+      laFIELDS2 := {} ,;
+      laORDER   := {} ,;
+      laSAVE    := {} ,;
+      laSAVEAUX := {} as array
+
+local ldCONGELADO as date
+
+local lnMES       := 0 ,;
+      lnANO       := 0 as int
+
+local ii          := 1 ,;
+      xx          := 1 as int
+
+local lnVALOR     := 0.00 as numeric
+
+
+if idtab=1
+   lcTABDEST :='vpar_sf_g'
+   lcVIEWORIG:='vw_ppg_vpar_sf_g'
+   laORDER   :={'PFPJ','PFPJ_ATIVIDADE','TP_PASTA'}
+
+   laFIELDS := {'PFPJ',;
+                'PFPJ_ATIVIDADE',;
+                'TP_PASTA',;
+                'SALANT',;
+                'PNP',;
+                'PPP',;
+                'PPS',;
+                'PRP',;
+                'PRS',;
+                'PAP',;
+                'PAS',;
+                'HEVR',;
+                'HEVC',;
+                'RHE_VLRC',;
+                'RHE_VLC',;
+                'BPHE_VLRC',;
+                'BPHE_VLC',;
+                'AP',;
+                'ATF',;
+                'IOF',;
+                'SATU',;
+                'IR',;
+                'APHE'}
+
+elseif idtab=2
+   lcTABDEST :='vpar_cf_g'
+   lcVIEWORIG:='vw_ppg_vpar_cf_g'
+   laORDER   :={'PFPJ','PFPJ_FILIAL','PFPJ_ATIVIDADE','TP_PASTA'}
+
+   laFIELDS := {'PFPJ',;
+                'PFPJ_FILIAL',;
+                'PFPJ_ATIVIDADE',;
+                'TP_PASTA',;
+                'SALANT',;
+                'PNP',;
+                'PPP',;
+                'PPS',;
+                'PRP',;
+                'PRS',;
+                'PAP',;
+                'PAS',;
+                'HEVR',;
+                'HEVC',;
+                'RHE_VLRC',;
+                'RHE_VLC',;
+                'BPHE_VLRC',;
+                'BPHE_VLC',;
+                'AP',;
+                'ATF',;
+                'IOF',;
+                'SATU',;
+                'IR',;
+                'APHE'}
+
+
+else
+   lcTABDEST :='vpar_dp_g'
+   lcVIEWORIG:='vw_rel_pmdj'
+   laORDER   :={'TP_PASTA','PFPJ_ATIVIDADE','EMPRESA'}
+
+   laFIELDS := {'TP_PASTA',;
+                'PFPJ_ATIVIDADE',;
+                'EMPRESA',;
+                'DN',;
+                'LH',;
+                'LS',;
+                'CRH',;
+                'CRS',;
+                'EAM',;
+                'CM',;
+                'SA',;
+                'SH',;
+                'PRO',;
+                'NA'}
+
+endif
+
+writelog({date(),'Chamando View: '+lcVIEWORIG,5})
+
+ldCONGELADO:=WGet('CONGELAMENTO','D')
+lnMES:=MONTH(ldCONGELADO)
+lnANO:=YEAR(ldCONGELADO)
+
+if db_select(laFIELDS,lcVIEWORIG,,,laORDER) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+if len(laRES) > 1
+
+   laFIELDS2:={'DT_FECHA'}
+
+   for i=1 to len(laFIELDS)
+       aadd(laFIELDS2,laFIELDS[i])
+   next i
+
+   laSAVE:={}
+   aadd(laSAVE,laFIELDS2)
+
+   for xx :=2 to len(laRES)
+       laSAVEAUX:={ldCONGELADO}
+
+       for ii := 1 to len(laFIELDS) //prepara campos
+
+          if ascan(laORDER,laFIELDS[ii])==0 // verifica se o campo e caracter utilizo os dados a array laORDER
+              lcVALOR:= STR(laRES[xx,ii],len(laRES[xx,ii]),2)
+              lnVALOR:= val(lcVALOR)
+              aadd(laSAVEAUX,lnVALOR)
+          else
+              aadd(laSAVEAUX,laRES[xx,ii])
+          endif
+
+
+
+       next ii
+       
+       if idtab==1 .or. idtab==2
+       for ii := 1 to len(laSAVEAUX) //prepara campos
+           if ascan(laORDER,laFIELDS2[ii])==0 // verifica se o campo e caracter utilizo os dados a array laORDER
+
+           *** vw_ppg_vpar_sf_g.SATU-(salant+PNP+PAS+IOF+ATF+PPP+PPS+PRP+PAP+PRS+HEVR+HEVC+RHE_VLRC+RHE_VLC+BPHE_VLRC+BPHE_VLC+APHE)
+
+           lnAP:= laSAVEAUX[ascan(laFIELDS2,'SALANT')]+;
+                  laSAVEAUX[ascan(laFIELDS2,'PNP')]+;
+                  laSAVEAUX[ascan(laFIELDS2,'PAS')]+;
+                  laSAVEAUX[ascan(laFIELDS2,'IOF')]+;
+                  laSAVEAUX[ascan(laFIELDS2,'ATF')]+;
+                  laSAVEAUX[ascan(laFIELDS2,'PPP')]+;
+                  laSAVEAUX[ascan(laFIELDS2,'PPS')]+;
+                  laSAVEAUX[ascan(laFIELDS2,'PRP')]+;
+                  laSAVEAUX[ascan(laFIELDS2,'PAP')]+;
+                  laSAVEAUX[ascan(laFIELDS2,'PRS')]+;
+                  laSAVEAUX[ascan(laFIELDS2,'HEVR')]+;
+                  laSAVEAUX[ascan(laFIELDS2,'HEVC')]+;
+                  laSAVEAUX[ascan(laFIELDS2,'RHE_VLRC')]+;
+                  laSAVEAUX[ascan(laFIELDS2,'RHE_VLC')]+;
+                  laSAVEAUX[ascan(laFIELDS2,'BPHE_VLRC')]+;
+                  laSAVEAUX[ascan(laFIELDS2,'BPHE_VLC')]+;
+                  laSAVEAUX[ascan(laFIELDS2,'APHE')]
+
+           lnAP:= laSAVEAUX[ascan(laFIELDS2,'SATU')] - lnAP
+
+           laSAVEAUX[ascan(laFIELDS2,'AP')]:= lnAP
+           endif
+
+       next ii
+       endif
+
+       aadd(laSAVE,laSAVEAUX)
+   next xx
+
+endif
+
+if len(laSAVE) > 1
+
+   writelog({date(),'Gravando dados na tabela:  '+lcTABDEST,5})
+   db_query('BEGIN TRANS') //Iniciando Transação
+
+   if db_insert(laSAVE,lcTABDEST) == -1
+      writelog({date(),'Erro ao gravando dados na tabela:  '+lcTABDEST,5})
+      writelog({date(),db_error(),5})
+      db_query('ROLLBACK')
+      error_sys(db_error())
+   endif
+
+   db_query('COMMIT')     //Efetivando alterações no Banco de Dados
+
+endif
+*******************************
+static function writelog(faLOG)
+*******************************
+local lcNEWLINE := chr(10) as string
+if pnHAND > 0
+   fwrite(pnHAND, dtos(faLOG[1])+'_'+strtran(time(),':')+space(faLOG[3])+faLOG[2]+lcNEWLINE)
+else
+   walert('Erro ao criar arquivo de Log.')
+endif
+
+return
+
+
+
+
+

@@ -1,0 +1,59 @@
+/*
+
+Project      : gr5
+Program      : psab.autoaprova.html
+Function     : psab_autoaprova_html
+Created on   : 06-Oct-2004   09:59:16
+Descripition : Aprovação de Auto
+
+*/
+
+
+   local lcACTION      := WGet('ACTION','C') ,;
+         lcNR_PASTA    := WGet('NR_PASTA','C') ,;
+         lcNR_AUTOPROC := WGet('NR_AUTOPROC','C') as string
+
+   WPut('TITLE','Aprovação')
+   WPut('NR_PASTA',lcNR_PASTA)
+   WPut('NR_AUTOPROC',lcNR_AUTOPROC)
+   WPut('DT_APROVA',date())
+   WPut('LOGIN_APROVA',gcLOGIN)
+
+   // Glauber 05/01/2011
+   AbasPerfil(WGet('TP_PASTA'), {'DT_APROVA','LOGIN_APROVA','FL_APROVADO','FL_AUTO'})
+
+   if ! empty(lcACTION)
+      if lcACTION == 'APROVAR'
+         laSAVE := {{'DT_APROVA','LOGIN_APROVA','FL_APROVADO','FL_AUTO'}}
+         aadd(laSAVE, {WGet('DT_APROVA'),;
+                       WGet('LOGIN_APROVA'),;
+                       'S',;
+                       'Ativo'})
+      elseif lcACTION == 'NEGAR'
+         if ! empty(alltrim(WGet('JUSTIF_REPROVA')))
+            laSAVE := {{'DT_APROVA','LOGIN_APROVA','FL_APROVADO','JUSTIF_REPROVA','FL_AUTO'}}
+            aadd(laSAVE, {WGet('DT_APROVA'),;
+                          WGet('LOGIN_APROVA'),;
+                          'N',;
+                          WGet('JUSTIF_REPROVA'),;
+                          'Ativo'})
+         else
+            walert('['+lblfscreen('JUSTIF_REPROVA')+']  um campo obrigatrio!')
+            Get2Put()
+            return (.F.)
+         endif
+      endif
+
+      psab_logs(laSAVE,'pasta_auto','NR_PASTA='+lcNR_PASTA+' and NR_AUTOPROC='+lcNR_AUTOPROC,lcNR_PASTA,'Aprovação de Auto')
+
+      if db_update(laSAVE,'pasta_auto',{'NR_PASTA='+lcNR_PASTA+' and NR_AUTOPROC='+lcNR_AUTOPROC}) = -1
+         error_sys(db_error())
+      endif
+      WPut('WSCRIPT','opener.wreload();')
+      WSet('_USER_INTERFACE','close.wic')
+   endif
+
+
+
+
+

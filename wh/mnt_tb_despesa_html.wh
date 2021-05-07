@@ -1,0 +1,272 @@
+/*
+
+Project      : gr5
+Program      : mnt.tb.despesa.html
+Function     : mnt_tb_despesa_html
+Created on   : 15-Oct-2002   10:56:04
+Descripition :
+
+*/
+
+   private lcACTION     := '' ,;
+           lcCD_TB_DESP := '' ,;
+           lcWHERE      := '' ,;
+           lcTABLE      := '' ,;
+           lcTABLE_DET  := '' ,;
+           lcFIELDS     := '' ,;
+           lcITEM       := '' ,;
+           lcVALIDA     := ''
+
+   private laRESULT    := {} ,;
+           laFIELDS    := {} ,;
+           laSAVE      := {} ,;
+           lASAVE_AUX  := {} ,;
+           laVAR_WICDO := {} ,;
+           laVAR_WRITE := {} ,;
+           laAUX_WICDO := {} ,;
+           laAUX       := {} ,;
+           laPUT       := {} ,;
+           laAPROVACAO := {} ,;
+           laVALIDA    := {}
+
+   private x     := 0 ,;
+           liPOS := 0
+
+   local laWHERE := {} as array
+
+   lcACTION     := upper(WGet('ACTION','C'))
+   lcCD_TB_DESP := WGet('CD_TB_DESPESA','C')
+   lcTABLE      := 'tabela_despesa'
+   lcTABLE_DET  := 'vl_tabela_despesa'
+   laFIELDS     := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+   laLABELS     := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'A')
+   if lcCD_TB_DESP = 'New'
+      lcCD_TB_DESP := '0'
+   endif
+   lcWHERE     := 'CD_TB_DESPESA='+lcCD_TB_DESP
+
+   laAPROVACAO := {'Pendente',; //Gravar 0
+                   'Faturar' ,; //Gravar 1
+                   'Isentar'}   //Gravar 2
+
+   laVAR_WICDO := {'VAR_CD_DESPESA',;
+                   'VAR_NM_DESPESA',;
+                   'VAR_VL_UNIT',;
+                   'VAR_QUANTIDADE',;
+                   'VAR_FL_VL_FIXO',;
+                   'VAR_FL_N_LC_DEBITO',;
+                   'VAR_FL_APROVADO'}
+
+   laVAR_WRITE := {'CD_TB_DESPESA',;
+                   'CD_DESPESA',;
+                   'VL_UNIT',;
+                   'QUANTIDADE',;
+                   'FL_VL_FIXO',;
+                   'FL_N_LC_DEBITO',;
+                   'FL_APROVADO'}
+
+   /* Campos obrigatórios
+   * Formato do array abaixo
+   * 1 - Campo para captura da informação no HTML - WGet()
+   * 2 - Parte do label a exibir em caso de erro, está inf. e capturado do Wictrix
+   */
+   laVALIDA := {{'NM_TB_DESPESA',laLABELS[ascan(laFIELDS,'NM_TB_DESPESA')]}}
+
+   if lcACTION='NEW' .or. lcACTION='ALTER'
+      despesas()
+   endif
+
+   if lcACTION='NEW' .and. gbWAC_CREATE
+     wPut('CD_TB_DESPESA','New')
+     aadd(laPUT,laVAR_WICDO)
+     for x := 2 to len(laRESULT)
+         lcITEM := '_'+alltrim(str(x-1))
+         aadd(laPUT,{laVAR_WICDO[1]+lcITEM,; //Código da Despesa
+                     laVAR_WICDO[2]+lcITEM,; //Descrição
+                     laVAR_WICDO[3]+lcITEM,; //Valor
+                     laVAR_WICDO[4]+lcITEM,; //Quantidade
+                     laVAR_WICDO[5]+lcITEM,; //Valor Fixo [S] [N]
+                     laVAR_WICDO[6]+lcITEM,; //Lançar como débito na fatura [S] [S]
+                     laVAR_WICDO[7]+lcITEM}) //Pré Aprovado [0] - Pendente, [1] - Faturar, [2] - Isentar
+
+         wPut(laVAR_WICDO[1]+lcITEM,laRESULT[x,1])
+         wPut(laVAR_WICDO[2]+lcITEM,laRESULT[x,2])
+         wPut(laVAR_WICDO[3]+lcITEM,'0.00')
+         wPut(laVAR_WICDO[4]+lcITEM,'0.00')
+
+         // Inicialização de objetos Combo e Check ---------------------
+         wPut(laVAR_WICDO[5]+lcITEM+'_OPT','S')         //Chk Valor Fixo
+         wPut(laVAR_WICDO[6]+lcITEM+'_OPT','S')         //Chk Debitar
+         wPut(laVAR_WICDO[7]+lcITEM+'_OPT',laAPROVACAO) //Cbx Aprovação
+
+         wPut(laVAR_WICDO[5]+lcITEM+'_OPT','N')         //Chk Valor Fixo
+         wPut(laVAR_WICDO[6]+lcITEM+'_OPT','N')         //Chk Debitar
+     next x
+     wPut('lstDESPESA',laPUT)
+   elseif lcACTION='ALTER' .and. gbWAC_READ
+     monta_grid()
+   elseif lcACTION='SAVE' .and. gbWAC_WRITE
+      for x := 1 to len(laVALIDA)
+          lcVALIDA := alltrim(WGet(laVALIDA[x,1],'C'))
+          if len(lcVALIDA) = 0 .or. lcVALIDA == '0'
+             walert(laVALIDA[x,2]+' é um campo obrigatório!')
+             get2Put()
+             monta_grid()
+             return(.f.)
+          endif
+      next ii
+
+      //Apaga todos os lançamentos e os insere novamente,
+      //de acordo com as alterações realizadas pelo usuário
+      if lcCD_TB_DESP <> '0' .and. !empty(lcCD_TB_DESP)
+         if db_delete(lcTABLE_DET,lcWHERE) == -1
+            error_sys(db_error())
+         endif
+      endif
+
+      aadd(laSAVE,laFIELDS)
+      for x := 1 to len(laFIELDS)
+          aadd(laSAVE_AUX,WGet(laFIELDS[x]))
+      next x
+      aadd(laSAVE,laSAVE_AUX)
+      if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+         error_sys(db_error())
+      endif
+
+      if alltrim(lcCD_TB_DESP) == '0'
+         lcCD_TB_DESP := alltrim(str(db_insert_id()))
+      endif
+      laSAVE       := {}
+      y            := 1
+      lcITEM       := '_'+alltrim(str(y))
+      lcFIELD_VAR  := 'VAR_'+laVAR_WRITE[2]+lcITEM  //Controle do laço - Cód da Despesa
+      aadd(laSAVE,laVAR_WRITE)
+      do while WGet(lcFIELD_VAR,'B')
+         lcAPROVACAO := upper(WGet('VAR_'+laVAR_WRITE[7]+lcITEM,'C')) //Flag de Aprovacao
+         if lcAPROVACAO = 'PENDENTE'
+            lcAPROVACAO := '0'
+         elseif lcAPROVACAO = 'FATURAR'
+            lcAPROVACAO := '1'
+         else
+            lcAPROVACAO := '2'
+         endif
+
+         if WGet('VAR_'+laVAR_WRITE[3]+lcITEM,'N') <> 0
+            aadd(laSAVE,{val(lcCD_TB_DESP),;
+                         WGet('VAR_'+laVAR_WRITE[2]+lcITEM,'N'),; //Cód da Despesa
+                         WGet('VAR_'+laVAR_WRITE[3]+lcITEM,'N'),; //Quantidade
+                         WGet('VAR_'+laVAR_WRITE[4]+lcITEM,'N'),; //Valor Unitário
+                         WGet('VAR_'+laVAR_WRITE[5]+lcITEM),; //Valor Fixo [S] [N]
+                         WGet('VAR_'+laVAR_WRITE[6]+lcITEM),; //Lançar como débito na fatura [S] [S]
+                         lcAPROVACAO}) //Pré Aprovado [0] - Pendente, [1] - Faturar, [2] - Isentar
+            aadd(laWHERE,'CD_TB_DESPESA='+lcCD_TB_DESP+' and CD_DESPESA='+WGet('VAR_'+laVAR_WRITE[2]+lcITEM,'C'))
+         endif
+         y++
+         lcITEM      := '_'+alltrim(str(y))
+         lcFIELD_VAR := 'VAR_'+laVAR_WRITE[2]+lcITEM  //Controle do laço - Cód da Despesa
+      enddo
+
+      if len(laSAVE) > 1
+         if db_replace(laSAVE,lcTABLE_DET,laWHERE) = -1
+            error_sys(db_error())
+         endif
+      endif
+      wSet('_USER_INTERFACE','lst.tb.despesa.html')
+      lst_tb_despesa_html()
+   endif
+
+/*
+* Function..: monta_grid()
+* Objetivo..: Montar a lista de Despesas com seus respectivos valores, caso esteja cadastrados
+* Parâmetros:
+*    Nenhum
+* Retorno...: Nenhum
+*/
+static function monta_grid()
+   local laFLD_GRID := {} as array
+
+   despesas()
+   if lcACTION = 'ALTER'
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys('monta_grid: '+db_error())
+      endif
+      db2put(db_fetchall())
+      laFLD_GRID := {lcTABLE_DET+'.CD_DESPESA',;
+                     'despesa.NM_DESPESA',;
+                     lcTABLE_DET+'.VL_UNIT',;
+                     lcTABLE_DET+'.QUANTIDADE',;
+                     lcTABLE_DET+'.FL_VL_FIXO',;
+                     lcTABLE_DET+'.FL_N_LC_DEBITO',;
+                     lcTABLE_DET+'.FL_APROVADO'}
+      if db_select(laFLD_GRID,lcTABLE_DET+',despesa',,;
+                   {lcWHERE+' and '+lcTABLE_DET+'.CD_DESPESA=despesa.CD_DESPESA'},;
+                   {lcTABLE_DET+'.CD_DESPESA'}) == -1
+         error_sys('monta_grid: '+db_error())
+      endif
+      laAUX := db_fetchall()
+   else
+      laAUX := {}
+   endif
+
+   aadd(laAUX_WICDO,laVAR_WICDO)
+   for x := 2 to len(laRESULT)
+       lcITEM := alltrim(str(laRESULT[x,1]))  // Cód. Despesa
+       liPOS  := ascan(laAUX, {|laFIND| alltrim(str(laFIND[1])) == lcITEM})
+
+       /* Se econtrar o Despesa no lançamento, junta com a matriz primaria */
+       if liPOS > 0
+          aadd(laAUX_WICDO,laAUX[liPOS])
+       else
+          aadd(laAUX_WICDO,laRESULT[x]) //Adiciona Código da Despesa e Descrição de uma vez!
+          aadd(laAUX_WICDO[x],'0.00')   //Valor unitário
+          aadd(laAUX_WICDO[x],'0.00')   //Quantidade
+          aadd(laAUX_WICDO[x],'N')      //Valor Fixo [S]-Sim [N]-Não
+          aadd(laAUX_WICDO[x],'N')      //Debitar    [S]-Sim [N]-Não
+          aadd(laAUX_WICDO[x],'')       //Flag de aprovação (FL_APROVADO)
+       endif
+   next x
+
+   laRESULT := {}
+   aadd(laRESULT,laVAR_WICDO)
+   for x := 2 to len(laAUX_WICDO)
+       lcITEM := '_'+alltrim(str(x-1))
+       aadd(laRESULT,{laVAR_WICDO[1]+lcITEM,; //Código da Despesa
+                      laVAR_WICDO[2]+lcITEM,; //Descrição
+                      laVAR_WICDO[3]+lcITEM,; //Valor
+                      laVAR_WICDO[4]+lcITEM,; //Quantidade
+                      laVAR_WICDO[5]+lcITEM,; //Valor Fixo [S] [N]
+                      laVAR_WICDO[6]+lcITEM,; //Lançar como débito na fatura [S] [S]
+                      laVAR_WICDO[7]+lcITEM}) //Pré Aprovado [0] - Pendente, [1] - Faturar, [2] - Isentar
+       for y := 1 to len(laVAR_WICDO)
+           if laVAR_WICDO[y] = 'VAR_FL_VL_FIXO' .or. laVAR_WICDO[y] = 'VAR_FL_N_LC_DEBITO'
+              wPut(laVAR_WICDO[y]+lcITEM+'_OPT','S')
+              wPut(laVAR_WICDO[y]+lcITEM,laAUX_WICDO[x,ascan(laVAR_WICDO,laVAR_WICDO[y])])
+              loop
+           elseif laVAR_WICDO[y] = 'VAR_FL_APROVADO'
+              wPut(laVAR_WICDO[y]+lcITEM+'_OPT',laAPROVACAO)
+              wPut(laVAR_WICDO[y]+lcITEM,laAPROVACAO[val(laAUX_WICDO[x,ascan(laVAR_WICDO,'VAR_FL_APROVADO')])+1])
+              loop
+           endif
+           wPut(laVAR_WICDO[y]+lcITEM,laAUX_WICDO[x,y])
+       next y
+   next x
+   wPut('lstDESPESA',laRESULT)
+return(nil)
+
+/*
+* Function..: despesas()
+* Objetivo..: Selecionar despeas
+* Parâmetros:
+*    Nenhum
+* Retorno...: Nenhum
+*/
+static function despesas()
+   if db_select({'CD_DESPESA','NM_DESPESA'},'despesa',,,{'CD_DESPESA'}) == -1
+      error_sys('despesas: '+db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) == 0
+      wSet('_USER_INTERFACE','lst.tb.despesa.html')
+      lst_tb_despesa_html()
+   endif
+return(nil)

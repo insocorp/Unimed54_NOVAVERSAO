@@ -1,0 +1,149 @@
+/*
+
+Project      : gr5
+Program      : psab.trab.analise.interna.html
+Function     : psab_trab_analise_interna_html
+Created on   : 07/07/2017 10:39:37
+Descripition : Análise Interna Trabalhista (Pedidos/Causa Raiz)
+
+*/
+
+*teste na pasta 11000
+
+   local lcACTION   := upper(WGet('ACTION','C')) ,;
+         lcNR_PASTA := WGet('NR_PASTA','C') ,;
+         lcTP_PASTA := WGet('TP_PASTA','C') ,;
+         lctable    := '' ,;
+         lcWHERE    := '' ,;
+         lcAUX      := '' as string
+
+   local laAUX0   := {} ,;
+         laAUX1   := {} ,;
+         laAUX2   := {} ,;
+         laFIELDS := {} ,;
+         laSAVE   := {} as array
+
+   local ii := 0 as int      
+   
+   Wput('LOGIN_CADASTRO',gcLOGIN)
+   Wput('DT_CADASTRO', date())    
+   Wput('TP_PASTA',lcTP_PASTA)   
+ 
+
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   pasta_abas(lcTP_PASTA)
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+
+
+
+    if lcACTION == 'EXCLU' .and. gbWAC_DELETE     
+   
+      lcWHERE := 'NR_CONTROLE = ' + str(WGet('NR_CONTROLE','N')) 
+            
+      if db_delete('pasta_analise_interna',lcWHERE) == -1
+         error_sys(db_error())
+      endif 
+    
+     
+    elseif lcACTION == 'SAVE' .and. gbWAC_CREATE
+         laAUX:={} 
+         if WGet('GRAVAR','C')<>''
+            laAUX0 := str2array(WGet('GRAVAR','C'),'|')
+         endif 
+         
+         lcNR_PASTA := laAUX0[1]
+         
+         laFIELDS := {'NR_PASTA',;
+                      'NR_CONTROLE',;
+                      'LOGIN_CADASTRO',;
+                      'DT_CADASTRO',;
+                      'CAUSA_RAIZ',;
+                      'ID_PRIMEIRA_ANALISE',;
+                      'ID_SEGUNDA_ANALISE',;
+                      'ID_TERCEIRA_ANALISE',;
+                      'ID_QUARTA_ANALISE',;
+                      'ID_QUINTA_ANALISE',;
+                      'ID_SEXTA_ANALISE',;
+                      'OBSERVACAO',;
+                      'PEDIDO_PROCESSO'}          
+       
+                      
+         lcTable = 'pasta_analise_interna' 
+         
+         if laAUX0[2]=='New'
+            laAUX0[2] := '0'
+         endif 
+         
+         lcWhere = "NR_PASTA = " + lcNR_PASTA + " and NR_CONTROLE = " + laAUX0[2]
+         
+         laAUX0[4] := ctod(laAUX0[4])        
+         
+         if laAUX0[6]=='' .or. laAUX0[6]=='0'
+            laAUX0[6] := 0
+         endif
+         if laAUX0[7]=='' .or. laAUX0[7]=='0'
+            laAUX0[7] := 0
+         endif
+         if laAUX0[8]=='' .or. laAUX0[8]=='0'
+            laAUX0[8] := 0
+         endif         
+         if laAUX0[9]=='' .or. laAUX0[9]=='0'
+            laAUX0[9] := 0
+         endif
+         if laAUX0[10]=='' .or. laAUX0[10]=='0'
+            laAUX0[10] := 0
+         endif
+         if laAUX0[11]=='' .or. laAUX0[11]=='0'
+            laAUX0[11] := 0
+         endif       
+
+         aadd(laAUX1,laAUX0[1])
+         aadd(laAUX1,laAUX0[2])
+         aadd(laAUX1,laAUX0[3])
+         aadd(laAUX1,laAUX0[4])
+         aadd(laAUX1,laAUX0[5])
+         aadd(laAUX1,laAUX0[6])
+         aadd(laAUX1,laAUX0[7])
+         aadd(laAUX1,laAUX0[8])
+         aadd(laAUX1,laAUX0[9])
+         aadd(laAUX1,laAUX0[10])
+         aadd(laAUX1,laAUX0[11])
+         aadd(laAUX1,laAUX0[12])
+         aadd(laAUX1,laAUX0[13])
+         
+         aadd(laSAVE,laFIELDS)
+         aadd(laSAVE,laAUX1) 
+         
+
+         *** grava log de alteração da observação
+         laAUX1:={'OBSERVACAO'}         
+         aadd(laAUX2,laAUX0[12])
+         
+         laAUX0:={}
+         aadd(laAUX0,laAUX1)
+         aadd(laAUX0,laAUX2)
+         
+         psab_logs(laAUX0,lcTable,lcWHERE,lcNR_PASTA,'Analise Interna')          
+         *** 
+
+         if db_replace(laSAVE,lcTable,{lcWhere}) == -1
+            error_sys(db_error())
+         endif            
+  
+ 
+    endif
+    
+return
+
+
+
+
+
+
+
+
+
+
+
+
+

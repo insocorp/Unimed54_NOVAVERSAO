@@ -1,0 +1,283 @@
+/*
+
+Project      : gr5
+Program      : psab.abatimentos.html
+Function     : psab_abatimentos_html
+Created on   : 08-Nov-2006   08:33:21
+Descripition : psab.abatimentos.html
+
+*/
+
+   local lcACTION   := upper(WGet('ACTION','C')) ,;
+         lcNR_PASTA := WGet('NR_PASTA','C') ,;
+         lcTP_PASTA := WGet('TP_PASTA','C') ,;
+         lcNR_ROW   := '' ,;
+         lcTABLE    := '' ,;
+         lcWHERE    := '' ,;
+         lcAUX      := '' ,;
+         lcAUX2     := '' as string
+
+   local laAF     := {} ,;
+         laAA     := {} ,;
+         laAUX    := {} ,;
+         laWICDO  := {} ,;
+         laRESULT := {} ,;
+         laSAVE   := {} as array
+
+   local ii := 0 as int
+
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   pasta_abas(lcTP_PASTA)
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   if gbWAC_WRITE
+      WPut('ifWAC_WRITE',.t.)
+   endif
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, {'NR_PASTA','NM_ABATIMENTO_FIXO','PC_ABATIMENTO_FIXO','VL_INICIAL','VL_FINAL','PC_ABATIMENTO_VARIAVEL','NM_ABATIMENTO_AUTORIZADO','PC_ABATIMENTO_AUTORIZADO'})
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      /* Fixo */
+      lcTABLE := 'pasta_abatimento_fixo'
+      if db_select({'NR_PASTA','NM_ABATIMENTO_FIXO','PC_ABATIMENTO_FIXO'},lcTABLE,,{'NR_PASTA='+lcNR_PASTA}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      laAUX    := {}
+      for ii := 1 to WGet('NR_ROWS_FIXO','N')
+         lcNR_ROW := alltrim(str(ii))
+         laSAVE   := {{'NR_PASTA','NM_ABATIMENTO_FIXO','PC_ABATIMENTO_FIXO'}}
+         lcWHERE  := ''
+
+         if ! empty(WGet('NM_ABATIMENTO_FIXO'+lcNR_ROW,'C'))
+            aadd(laAUX,WGet('NM_ABATIMENTO_FIXO'+lcNR_ROW,'C'))
+
+            aadd(laSAVE,{WGet('NR_PASTA','N'),;
+                         WGet('NM_ABATIMENTO_FIXO'+lcNR_ROW,'C'),;
+                         WGet('PC_ABATIMENTO_FIXO'+lcNR_ROW,'N')})
+            lcWHERE := 'NR_PASTA='+lcNR_PASTA+' and NM_ABATIMENTO_FIXO='+DLAP+WGet('NM_ABATIMENTO_FIXO'+lcNR_ROW,'C')+DLAP
+
+            psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Abatimentos')
+
+            if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+         endif
+      next ii
+
+      if len(laRESULT) > 1
+         for ii := 2 to len(laRESULT)
+            lcAUX := laRESULT[ii,db_fetchncol(laRESULT,'NM_ABATIMENTO_FIXO')]
+            if ascan(laAUX,lcAUX) == 0
+               psab_logdel(lcNR_PASTA,'NM_ABATIMENTO_FIXO',lcAUX,,'Abatimentos')
+
+               if db_delete(lcTABLE,'NR_PASTA='+lcNR_PASTA+' and NM_ABATIMENTO_FIXO='+DLAP+lcAUX+DLAP) == -1
+                  error_sys(db_error())
+               endif
+            endif
+         next ii
+      endif
+
+      /* Variável */
+      lcTABLE := 'pasta_abatimento_variavel'
+      if db_select({'NR_PASTA','VL_INICIAL','VL_FINAL','PC_ABATIMENTO_VARIAVEL'},lcTABLE,,{'NR_PASTA='+lcNR_PASTA}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      laAUX    := {}
+      for ii := 1 to WGet('NR_ROWS_VARIAVEL','N')
+         lcNR_ROW := alltrim(str(ii))
+         laSAVE   := {{'NR_PASTA','VL_INICIAL','VL_FINAL','PC_ABATIMENTO_VARIAVEL'}}
+         lcWHERE  := ''
+
+         if WGet('VL_INICIAL'+lcNR_ROW,'N') > 0 .or. WGet('VL_FINAL'+lcNR_ROW,'N') > 0
+            aadd(laAUX,{WGet('VL_INICIAL'+lcNR_ROW,'N'),WGet('VL_FINAL'+lcNR_ROW,'N')})
+
+            aadd(laSAVE,{WGet('NR_PASTA','N'),;
+                         WGet('VL_INICIAL'+lcNR_ROW,'N'),;
+                         WGet('VL_FINAL'+lcNR_ROW,'N'),;
+                         WGet('PC_ABATIMENTO_VARIAVEL'+lcNR_ROW,'N')})
+            lcWHERE := 'NR_PASTA='+lcNR_PASTA+' and VL_INICIAL='+str(WGet('VL_INICIAL'+lcNR_ROW,'N'))+' and VL_FINAL='+str(WGet('VL_FINAL'+lcNR_ROW,'N'))
+            psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Abatimentos')
+
+            if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+         endif
+      next ii
+
+      if len(laRESULT) > 1
+         for ii := 2 to len(laRESULT)
+            lcAUX  := alltrim(str(laRESULT[ii,db_fetchncol(laRESULT,'VL_INICIAL')]))
+            lcAUX2 := alltrim(str(laRESULT[ii,db_fetchncol(laRESULT,'VL_FINAL')]))
+
+            if ascan(laAUX,{| x | alltrim(str(x[1])) == lcAUX .and. alltrim(str(x[2])) == lcAUX2 }) == 0
+               psab_logdel(lcNR_PASTA,'VL_INICIAL',lcAUX,,'Abatimentos')
+
+               if db_delete(lcTABLE,'NR_PASTA='+lcNR_PASTA+' and VL_INICIAL='+lcAUX+' and VL_FINAL='+lcAUX2) == -1
+                  error_sys(db_error())
+               endif
+            endif
+         next ii
+      endif
+
+      /* Autorizado */
+      lcTABLE := 'pasta_abatimento_autorizado'
+      if db_select({'NR_PASTA','NM_ABATIMENTO_AUTORIZADO','PC_ABATIMENTO_AUTORIZADO'},lcTABLE,,{'NR_PASTA='+lcNR_PASTA}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      laAUX    := {}
+      for ii := 1 to WGet('NR_ROWS_AUTORIZADO','N')
+         lcNR_ROW := alltrim(str(ii))
+         laSAVE  := {{'NR_PASTA','NM_ABATIMENTO_AUTORIZADO','PC_ABATIMENTO_AUTORIZADO'}}
+         lcWHERE := ''
+         if ! empty(WGet('NM_ABATIMENTO_AUTORIZADO'+lcNR_ROW,'C'))
+            aadd(laAUX,WGet('NM_ABATIMENTO_AUTORIZADO'+lcNR_ROW,'C'))
+
+            aadd(laSAVE,{WGet('NR_PASTA','N'),;
+                         WGet('NM_ABATIMENTO_AUTORIZADO'+lcNR_ROW,'C'),;
+                         WGet('PC_ABATIMENTO_AUTORIZADO'+lcNR_ROW,'N')})
+            lcWHERE := 'NR_PASTA='+lcNR_PASTA+' and NM_ABATIMENTO_AUTORIZADO='+DLAP+WGet('NM_ABATIMENTO_AUTORIZADO'+lcNR_ROW,'C')+DLAP
+
+            psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Abatimentos')
+
+            if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+         endif
+      next ii
+      if len(laRESULT) > 1
+         for ii := 2 to len(laRESULT)
+            lcAUX := laRESULT[ii,db_fetchncol(laRESULT,'NM_ABATIMENTO_AUTORIZADO')]
+            if ascan(laAUX,lcAUX) == 0
+               psab_logdel(lcNR_PASTA,'NM_ABATIMENTO_AUTORIZADO',lcAUX,,'Abatimentos')
+
+               if db_delete(lcTABLE,'NR_PASTA='+lcNR_PASTA+' and NM_ABATIMENTO_AUTORIZADO='+DLAP+lcAUX+DLAP) == -1
+                  error_sys(db_error())
+               endif
+            endif
+         next ii
+      endif
+   endif
+
+   /* Carregando os combos */
+   if db_select({'NM_ABATIMENTO_FIXO','FL_DEFAULT'},'abatimento_fixo') == -1
+      error_sys(db_error())
+   endif
+   laAF := db_fetchall()
+
+   if db_select({'NM_ABATIMENTO_AUTORIZADO','FL_DEFAULT'},'abatimento_autorizado') == -1
+      error_sys(db_error())
+   endif
+   laAA := db_fetchall()
+
+   /* Gerando as 3 grids */
+   if db_select({'NM_ABATIMENTO_FIXO','PC_ABATIMENTO_FIXO'},'pasta_abatimento_fixo',,{'NR_PASTA='+lcNR_PASTA},{'PC_ABATIMENTO_FIXO'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   laWICDO  := {{'VAR_NM_ABATIMENTO_FIXO','VAR_PC_ABATIMENTO_FIXO','TITLE'}}
+
+   laAUX    := {''}
+   for ii := 2 to len(laAF)
+      aadd(laAUX,laAF[ii,1])
+   next ii
+   WPut('NM_ABATIMENTO_FIXO1.option',laAUX)
+
+   if len(laRESULT) > 1
+      for ii := 2 to len(laRESULT)
+         lcNR_ROW := alltrim(str(ii))
+         aadd(laWICDO,{'NM_ABATIMENTO_FIXO'+lcNR_ROW,;
+                       'PC_ABATIMENTO_FIXO'+lcNR_ROW,;
+                       alltrim(str(ii+1))})
+
+
+         WPut('NM_ABATIMENTO_FIXO'+lcNR_ROW+'.option',laAUX)
+         WPut('NM_ABATIMENTO_FIXO'+alltrim(ii-1),laRESULT[ii,db_fetchncol(laRESULT,'NM_ABATIMENTO_FIXO')])
+         WPut('PC_ABATIMENTO_FIXO'+alltrim(ii-1),wpictrans('PC_ABATIMENTO_FIXO',laRESULT[ii,db_fetchncol(laRESULT,'PC_ABATIMENTO_FIXO')]))
+      next ii
+      WPut('lstFIXO',laWICDO)
+   elseif len(laAF) > 1
+      for ii := 2 to len(laAF)
+         lcNR_ROW := alltrim(str(ii))
+         if laAF[ii,2] == 'S'
+            aadd(laWICDO,{'NM_ABATIMENTO_FIXO'+lcNR_ROW,;
+                          'PC_ABATIMENTO_FIXO'+lcNR_ROW,;
+                          alltrim(str(ii+1))})
+
+            WPut('NM_ABATIMENTO_FIXO'+lcNR_ROW+'.option',laAUX)
+            WPut('NM_ABATIMENTO_FIXO'+alltrim(str(ii-1)),laAF[ii,1])
+         endif
+      next ii
+      WPut('lstFIXO',laWICDO)
+      WPut('NR_ROWS_FIXO',len(laWICDO))
+   endif
+
+   if db_select({'VL_INICIAL','VL_FINAL','PC_ABATIMENTO_VARIAVEL'},'pasta_abatimento_variavel',,{'NR_PASTA='+lcNR_PASTA},{'VL_INICIAL'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   laWICDO  := {{'VAR_VL_INICIAL','VAR_VL_FINAL','VAR_PC_ABATIMENTO_VARIAVEL','TITLE'}}
+
+   if len(laRESULT) > 1
+      for ii := 2 to len(laRESULT)
+         lcNR_ROW := alltrim(str(ii))
+         aadd(laWICDO,{'VL_INICIAL'+lcNR_ROW,;
+                       'VL_FINAL'+lcNR_ROW,;
+                       'PC_ABATIMENTO_VARIAVEL'+lcNR_ROW,;
+                       alltrim(str(ii+1))})
+
+         WPut('VL_INICIAL'+alltrim(str(ii-1)),wpictrans('VL_INICIAL',laRESULT[ii,db_fetchncol(laRESULT,'VL_INICIAL')]))
+         WPut('VL_FINAL'+alltrim(str(ii-1)),wpictrans('VL_FINAL',laRESULT[ii,db_fetchncol(laRESULT,'VL_FINAL')]))
+         WPut('PC_ABATIMENTO_VARIAVEL'+alltrim(str(ii-1)),wpictrans('PC_ABATIMENTO_VARIAVEL',laRESULT[ii,db_fetchncol(laRESULT,'PC_ABATIMENTO_VARIAVEL')]))
+      next ii
+      WPut('lstVARIAVEL',laWICDO)
+   endif
+
+   if db_select({'NM_ABATIMENTO_AUTORIZADO','PC_ABATIMENTO_AUTORIZADO'},'pasta_abatimento_autorizado',,{'NR_PASTA='+lcNR_PASTA},{'PC_ABATIMENTO_AUTORIZADO'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   laWICDO  := {{'VAR_NM_ABATIMENTO_AUTORIZADO','VAR_PC_ABATIMENTO_AUTORIZADO','TITLE'}}
+   laAUX    := {''}
+   for ii := 2 to len(laAA)
+      aadd(laAUX,laAA[ii,1])
+   next ii
+   WPut('NM_ABATIMENTO_AUTORIZADO1.option',laAUX)
+
+   if len(laRESULT) > 1
+      for ii := 2 to len(laRESULT)
+         lcNR_ROW := alltrim(str(ii))
+         aadd(laWICDO,{'NM_ABATIMENTO_AUTORIZADO'+lcNR_ROW,;
+                       'PC_ABATIMENTO_AUTORIZADO'+lcNR_ROW,;
+                       alltrim(str(ii+1))})
+
+         WPut('NM_ABATIMENTO_AUTORIZADO'+lcNR_ROW+'.option',laAUX)
+         WPut('NM_ABATIMENTO_AUTORIZADO'+alltrim(str(ii-1)),laRESULT[ii,db_fetchncol(laRESULT,'NM_ABATIMENTO_AUTORIZADO')])
+         WPut('PC_ABATIMENTO_AUTORIZADO'+alltrim(str(ii-1)),wpictrans('PC_ABATIMENTO_AUTORIZADO',laRESULT[ii,db_fetchncol(laRESULT,'PC_ABATIMENTO_AUTORIZADO')]))
+      next ii
+      WPut('lstAUTORIZADO',laWICDO)
+   elseif len(laAA) > 1
+      for ii := 2 to len(laAA)
+         lcNR_ROW := alltrim(str(ii))
+         if laAA[ii,2] == 'S'
+            aadd(laWICDO,{'NM_ABATIMENTO_AUTORIZADO'+lcNR_ROW,;
+                          'PC_ABATIMENTO_AUTORIZADO'+lcNR_ROW,;
+                          alltrim(str(ii+1))})
+
+
+            WPut('NM_ABATIMENTO_AUTORIZADO'+lcNR_ROW+'.option',laAUX)
+            WPut('NM_ABATIMENTO_AUTORIZADO'+alltrim(str(ii-1)),laAA[ii,1])
+         endif
+      next ii
+      WPut('lstAUTORIZADO',laWICDO)
+   endif
+return
+
+
+
+
+
+
+
+

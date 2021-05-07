@@ -1,0 +1,70 @@
+/*
+
+Project      : gr5
+Program      : mnt.objeto.html
+Function     : mnt_objeto_html
+Created on   : 20-Oct-2001   03:20:34
+Descripition : Manutenção do Cadastro de Objetos
+
+*/
+
+   local lcACTION := '',;
+         lcWHERE  := '',;
+         lcTABLE  := '' as string
+
+   local laRESULT   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laFIELDS   := {} as array
+
+   local ii := 0 as int
+
+   lcACTION    := upper(WGet('ACTION','C'))
+   lcRESULTADO := WGet('FL_RESULTADO_PROCESSO','C')
+   if lcRESULTADO = 'New'
+      lcRESULTADO := ''
+   endif
+   lcTABLE  := 'resultado_processo'
+   lcWHERE  := 'FL_RESULTADO_PROCESSO = '+DLAP+lcRESULTADO+DLAP+' and FL_ATIVO = '+DLAP+'S'+DLAP
+   laFIELDS := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+
+   if lcACTION = 'NEW' .and. gbWAC_CREATE
+      wPut('TITLE','Inclusão de novo Resultado de Processo')
+   elseif lcACTION = 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchrow()
+      for ii := 1 to len(laFIELDS)
+          wPut(laFIELDS[ii],laRESULT[ii])
+      next ii
+      wPut('TITLE','Alteração do cadastro de Resultado de Processo')
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+      if len(alltrim(WGet('FL_RESULTADO_PROCESSO','C'))) = 0
+         WPut('ERROR_MENS','O Resultado Processo é um campo obrigatório')
+         get2Put()
+         return(.f.)
+      endif   
+      aadd(laSAVE,laFIELDS)
+      for ii := 1 to len(laFIELDS)
+         aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+      next ii
+      aadd(laSAVE,laSAVE_AUX)
+      if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+         error_sys(db_error())
+      endif
+      wSet('_USER_INTERFACE','lst.resultado_processo.html')
+      lst_resultado_processo_html()
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+      if db_delete(lcTABLE,lcWHERE) = -1
+         error_sys(db_error())
+      endif
+      wSet('_USER_INTERFACE','lst.resultado_processo.html')
+      lst_resultado_processo_html()
+   else
+      wSet('_USER_INTERFACE','lst.resultado_processo.html')
+      lst_resultado_processo_html()
+   endif
+return
+
+

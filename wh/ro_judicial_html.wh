@@ -1,0 +1,849 @@
+/*
+
+Project      : gr5
+Program      : ro_judicial.html
+Function     : ro_judicial_html
+Created on   : 16-Oct-2006   18:00:42
+Descripition : Exportação de valores RO_JUDICIAL
+
+*/
+
+
+    WSet('_USER_INTERFACE','none.wic')     // Declara que não usa interface
+
+    #define NEWLINE chr(13) + chr(10)
+    #define ENDLINE chr(59)
+    set exact on
+
+    local lcFILEOUT := WSet("RO_JUDICIAL") as string      //captura o nome do arq. de saída
+
+    local lcPARAM := pcPARAM
+
+    local lcWHERE       := '' ,;
+          lcLOG         := '' ,;
+          lcLINE        := '' ,;
+          lcUPDATE      := ''  as string
+
+    local ii        := 0 ,;
+          zz        := 0 ,;
+          xx        := 0 ,;
+          lnPOS     := 0 ,;
+          lnHAND1   := 0 ,;
+          lnHAND    := 0  as int
+
+    local lnVL_RESSEGURO := 0.0,;
+          lnVL_COSSEGURO := 0.0,;
+          lnVL_LIDER     := 0.0,;
+          lnPC_COSSEGURO := 0.0,;
+          lnPC_RESSEGURO := 0.0 as numeric
+
+    local laFIELDS   := {},;
+          laRESULT   := {},;
+          laRESULT1  := {},;
+          laDETVAL   := {},;
+          laJOIN     := {},;
+          laHISTORICO:= {},;
+          laPROP     := {},;
+          laTEMP     := {},;
+          laPendenteAviso:={},;
+          laMES      := {} ,;
+          laRES      := {}  as array
+
+    local llPRINT    := .t. as logical
+
+    laMES := {'Janeiro','Fevereiro','Marco','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'}
+
+    lcFILEOUT := strtran(lcFILEOUT,'[date]',dtos(date()))   // substitui [date] se houver no nome do arquivo.
+    lcFILEOUT := strtran(lcFILEOUT,'[DATE]',dtos(date()))   // substitui [date] se houver no nome do arquivo.
+    lcFILEOUT := strtran(lcFILEOUT,'[time]',strtran(time(),':','-'))  // substitui [time] se houver no nome do arquivo.
+    lcFILEOUT := strtran(lcFILEOUT,'[TIME]',strtran(time(),':','-'))  // substitui [time] se houver no nome do arquivo.
+
+    if Empty(lcFILEOUT)
+       qout('Arquivo não Informado.')       // Se o arq. não foi informado retorna .f.
+       return(.f.)
+    endif
+
+    if !datevalid(ctod('01/'+lcPARAM))
+       qout('Informe uma data válida.')
+       return(.f.)
+    endif
+
+    //***********************************************************************************************
+    //                                  DADOS DOS PAGAMENTOS EFETUADOS
+    //***********************************************************************************************
+
+    lcWHERE := 'mvt_despesa_pagamento.dt_cadastro >= '+DLAP+dtos(ctod('01/'+lcPARAM))+DLAP
+    lcWHERE += ' and '
+
+    if (val(substr(lcPARAM,1,2))+1) > 12
+       lcWHERE += 'mvt_despesa_pagamento.dt_cadastro < '+DLAP+dtos(ctod('01/01/'+alltrim(str(val(substr(lcPARAM,4))+1))))+DLAP
+    else
+       lcWHERE += 'mvt_despesa_pagamento.dt_cadastro < '+DLAP+dtos(ctod('01/'+strzero(val(substr(lcPARAM,1,2))+1,2)+substr(lcPARAM,3)))+DLAP
+    endif
+    //lcWHERE += ' and pasta.TP_PASTA = "Civel Securitaria Contabil"'
+
+    laJOIN := { {2,'pasta'                   ,'pasta.nr_pasta = mvt_despesa_pagamento.nr_pasta'},;
+                {2,'pasta_cip as pasta_cip1' ,"pasta.nr_pasta = pasta_cip1.nr_pasta and pasta_cip1.wfield = 'CIP_EMPRESA'"},;
+                {2,'pfpj as pfpj1'           ,'pasta_cip1.cip = pfpj1.cip'},;
+                {2,'pasta_cip as pasta_cip2' ,"pasta.nr_pasta = pasta_cip2.nr_pasta and pasta_cip2.wfield = 'CIP_PARTE_CONTRARIA'"},;
+                {2,'pfpj as pfpj2'           ,'pasta_cip2.cip = pfpj2.cip'},;
+                {2,'exito_riscoperda'        ,'pasta.pc_risco = exito_riscoperda.pc_risco'},;
+                {2,'mvt_despesa'             ,'mvt_despesa.nr_pasta = mvt_despesa_pagamento.nr_pasta and mvt_despesa.nr_despesa = mvt_despesa_pagamento.nr_despesa'},;
+                {2,'despesa'                 ,'mvt_despesa.cd_despesa = despesa.cd_despesa'},;
+                {2,'grupo_despesa'           ,'despesa.cd_grp_despesa = grupo_despesa.cd_grp_despesa'},;
+                {2,'pasta_seguro'            ,'pasta_seguro.nr_pasta = mvt_despesa.nr_pasta and pasta_seguro.nr_sinistro = mvt_despesa.nr_sinistro'} }
+
+    laFIELDS := { 'mvt_despesa_pagamento.VL_PAGO'    ,;
+                  'pasta.NR_PROCESSO'                ,;
+                  'pasta.DT_CADASTRO'                ,;
+                  'pasta.DT_ARQUIVAMENTO'            ,;
+                  'pasta.POSICAO_EMPRESA'            ,;
+                  'pasta.POSICAO_PARTE'              ,;
+                  'pasta.PC_RISCO'                   ,;
+                  'mvt_despesa.CD_CCUSTO'            ,;
+                  'mvt_despesa.NR_SINISTRO'          ,;
+                  'mvt_despesa.CD_DESPESA'           ,;
+                  'mvt_despesa.NR_DESPESA'           ,;
+                  'grupo_despesa.NM_GRP_DESPESA'     ,;
+                  'exito_riscoperda.PC_RISCO_CALCULO',;
+                  'exito_riscoperda.RISCOPERDA'      ,;
+                  'pfpj1.pfpj as autor'              ,;
+                  'pfpj1.cnpj_cpf as cpf1'           ,;
+                  'pfpj2.pfpj as reu'                ,;
+                  'pfpj2.cnpj_cpf as cpf2'           ,;
+                  'pasta_seguro.CD_RAMOSRSN'         ,;
+                  'pasta_seguro.NR_PASTA'            ,;
+                  'pasta_seguro.NR_CONTROLE'         ,;
+                  'pasta_seguro.CD_PRODUTO'          ,;
+                  'pasta_seguro.CIP_FILIAL'          ,;
+                  'pasta_seguro.DT_SINISTRO'         ,;
+                  'pasta_seguro.NR_APOLICE'          ,;
+                  'pasta_seguro.VL_RESSEGURO'        ,;
+                  'pasta_seguro.DT_EMISSAO'          ,;
+                  'pasta_seguro.PC_COSSEGURO'        ,;
+                  'pasta_seguro.PC_RESSEGURO'        ,;
+                  'pasta_seguro.NR_SINISTRO'         ,;
+                  'pasta_seguro.UF'                  ,;
+                  'pasta.TP_PASTA'                    }
+
+    // Buscando os Dados a serem exportados e gerando arquivo de Log.
+    lnHAND1 := fcreate(strtran(strtran(lcFILEOUT,'.TXT','.log'),'.txt','.log'), 0)
+    if lnHAND1 < 0
+       qout('Problemas na criacao do arquivo de Log: '+strtran(lcFILEOUT,'.txt','.log'))
+       return
+    endif
+    lnHAND := fcreate(lcFILEOUT, 0)
+    if lnHAND < 0
+       qout('Problemas na criacao do arquivo de envio: '+lcFILEOUT)
+       return
+    endif
+    lcLOG := 'Relatório de Geração do arquivo RO_JUDICIAL'+space(20)+'Em: '+dtoc(date())+' '+time()+NEWLINE
+    lcLOG += replicate('-',86)+NEWLINE
+
+    // Cabeçalho
+    lcLINE := '   ;    ;    ;  REGISTRO OFICIAL DE CAUSAS JUDICIAIS  ;DE ;SINISTRO;   EM   ;'+substr(laMES[month(date())]+space(10),1,13)+';                   DE                   ;'+str(year(date()))+'      ;          ;         CAIXA SEGURADORA S.A.          ;   DATA :    ;'+dtoc(date())+'        ;      HORA :      ;'+time()+'          ;                  ;      ;INPC:     ;DATA ÚLTIMO INPC:           ;'+NEWLINE
+    lcLINE += 'ORG;RAMO;PROD;        MOVIMENTO                       ;DIA;FTE PREM;FTE AVIS;  SINISTRO   ;               FAVORECIDO               ;COMUNICADO;OCORRENCIA;                SEGURADO                ;   APOLICE   ;   VALOR LIDER    ; VALOR COSSEGURO  ; VALOR RESSEGURO  ;   VALOR TOTAL    ;DT REAVAL.;VALOR REAVALIAÇÃO ;DT INICIAL;VL INICIAL        ;PEDIDO;DESCRICAO PEDIDO                                  ;TIPO DE ACAO                             ;NINT PROCESSO  ;AUTOR                                   ;CPF AUTOR     ;CCUSTO;             DESCRICAO RISCO            ;UF RISCO;PC PERDA;DESC.PERDA;IDADE PROVISAO;'+NEWLINE+NEWLINE
+
+    if db_select(laFIELDS,'mvt_despesa_pagamento',laJOIN,{lcWHERE}) == -1
+       db_error()
+    endif
+    if len(laRESULT := db_fetchall()) > 1
+       for ii := 2 to len(laRESULT)  // dados da tabela mvt_despesa_pagamento
+           // Olha so que lixo isso !!!!!!!!!!
+           // Verifica se a despesa deve gerar valor pendente aviso.
+           if laRESULT[ii,db_fetchncol(laRESULT,'CD_DESPESA')] == '8209' .or.;
+              laRESULT[ii,db_fetchncol(laRESULT,'CD_DESPESA')] == '8215' .or.;
+              laRESULT[ii,db_fetchncol(laRESULT,'CD_DESPESA')] == '8202' .or.;
+              laRESULT[ii,db_fetchncol(laRESULT,'CD_DESPESA')] == '8280'
+
+              lcCOMPARA := str(laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')])+laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')]
+              if (lnPOS := ascan(laPendenteAviso, { |x| str(x[1])+x[2] == lcCOMPARA })) > 0
+                 if laRESULT[ii,db_fetchncol(laRESULT,'CD_DESPESA')] == '8280'
+                    laPendenteAviso[lnPOS,6] := laPendenteAviso[lnPOS,6] - laRESULT[ii,db_fetchncol(laRESULT,'VL_PAGO')]
+                 else
+                    laPendenteAviso[lnPOS,6] := laPendenteAviso[lnPOS,6] + laRESULT[ii,db_fetchncol(laRESULT,'VL_PAGO')]
+                 endif
+              else
+                 lcWHERE := 'pasta_seguro.nr_pasta ='+str(laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')])+' and pasta_seguro.nr_sinistro ='+DLAP+alltrim(laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')])+DLAP
+                 laJOIN := {{2,'pasta_pedidos','pasta_pedidos.nr_pasta=pasta_seguro.nr_pasta and pasta_pedidos.nr_controle_seguro=pasta_seguro.nr_controle'}}
+                 laFIELDS:= {'pasta_pedidos.VL_RISCO','pasta_pedidos.VL_CORRECAO','pasta_pedidos.VL_JUROS'}
+                 if db_select(laFIELDS,'pasta_seguro',laJOIN,{lcWHERE}) == -1
+                    db_error()
+                 endif
+                 if len(laRES := db_fetchall()) > 1
+                    lnVLRISCO    := 0.00
+                    lnVLCORRECAO := 0.00
+                    lnVLJUROS    := 0.00
+                    for zz := 2 to len(laRES)
+                        lnVLRISCO    += laRES[zz,1]
+                        lnVLCORRECAO += laRES[zz,2]
+                        lnVLJUROS    += laRES[zz,3]
+                    next zz
+                    aadd(laPendenteAviso,{ laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')]   ,;
+                                           laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')],;
+                                           lnVLRISCO                                        ,;
+                                           lnVLCORRECAO                                     ,;
+                                           lnVLJUROS                                        ,;
+                                           laRESULT[ii,db_fetchncol(laRESULT,'VL_PAGO')]})
+                 endif
+              endif
+           endif
+       next ii
+       //****************************************************************************************************************************
+       for ii := 2 to len(laRESULT)  // dados da tabela mvt_despesa_pagamento
+           llPRINT := .t.
+           // Verificando os vl pendente avisos
+           if laRESULT[ii,db_fetchncol(laRESULT,'CD_DESPESA')] == '8209' .or.;
+              laRESULT[ii,db_fetchncol(laRESULT,'CD_DESPESA')] == '8215' .or.;
+              laRESULT[ii,db_fetchncol(laRESULT,'CD_DESPESA')] == '8202' .or.;
+              laRESULT[ii,db_fetchncol(laRESULT,'CD_DESPESA')] == '8280'
+
+              lcCOMPARA := str(laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')])+laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')]
+              if ascan(laTEMP,lcCOMPARA) = 0
+                 if (lnPOS := ascan(laPendenteAviso, { |x| str(x[1])+x[2] == lcCOMPARA })) > 0
+                    laRESULT[ii,db_fetchncol(laRESULT,'NM_GRP_DESPESA')] := 'VLR PENDENTE AVISO'
+                    laRESULT[ii,db_fetchncol(laRESULT,'VL_PAGO')] := (laPendenteAviso[lnPOS,3] + laPendenteAviso[lnPOS,4] + laPendenteAviso[lnPOS,5] - laPendenteAviso[lnPOS,6])
+                    aadd(laTEMP,lcCOMPARA)
+                 endif
+              else
+                 llPRINT := .f.
+              endif
+           endif
+           //***********************************************************************************************************************
+           if llPRINT
+              laDETVAL := cria_array(1)
+              
+              lnVL_TOTAL     := laRESULT[ii,db_fetchncol(laRESULT,'VL_PAGO')]
+              lnPC_COSSEGURO := (laRESULT[ii,db_fetchncol(laRESULT,'PC_COSSEGURO')]/100) // indice de percentual
+              lnPC_RESSEGURO := (laRESULT[ii,db_fetchncol(laRESULT,'PC_RESSEGURO')]/100) // indice de percentual
+              for zz := 1 to len(laDETVAL)
+                  lnVL_LIDER     := 0.0
+                  lnVL_COSSEGURO := 0.0
+                  lnVL_RESSEGURO := 0.0
+                  if laDETVAL[zz,7] = 'AUTOR'
+                     if upper(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'POSICAO_EMPRESA')])) == 'REU' .or.;
+                        upper(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'POSICAO_EMPRESA')])) == 'RÉU'
+                        laDETVAL[zz,  7] := 'REU'
+                        laDETVAL[zz+1,7] := 'CPF2'
+                     endif
+                  elseif laDETVAL[zz,7] = 'VL_LIDER'   // valor lider
+                     // Seguros Indiretos (Cosseguro aceito)
+                     if substr(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')]),1,3) = '090'
+                        lnVL_RESSEGURO := round((lnVL_TOTAL * lnPC_RESSEGURO),2)
+                        lnVL_LIDER := round(lnVL_TOTAL - lnVL_RESSEGURO,2)
+                     else // Seguros Diretos (Nossa Liderança)
+                        if alltrim(laRESULT[ii,db_fetchncol(laRESULT,'CD_RAMOSRSN')]) = '68'    // Ramo 68 = Hipotecário
+                           lnVL_RESSEGURO := round((lnVL_TOTAL * lnPC_RESSEGURO),2)
+                           lnVL_COSSEGURO := round(((lnVL_TOTAL - lnVL_RESSEGURO) * lnPC_COSSEGURO),2)
+                           lnVL_LIDER     := round((lnVL_TOTAL - lnVL_RESSEGURO - lnVL_COSSEGURO),2)
+                        else        // Demais Ramos diferente de 68
+                           lnVL_COSSEGURO := round((lnVL_TOTAL * lnPC_COSSEGURO),2)
+                           lnVL_RESSEGURO := round(((lnVL_TOTAL-lnVL_COSSEGURO) * lnPC_RESSEGURO),2)
+                           lnVL_LIDER     := round((lnVL_TOTAL - lnVL_COSSEGURO - lnVL_RESSEGURO),2)
+                        endif
+                     endif
+                     laDETVAL[zz,1] := strzero(val(strtran( str(lnVL_LIDER),'.','')), laDETVAL[zz,4])
+                  elseif laDETVAL[zz,7] = 'VL_COSSEGURO'
+                     if substr(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')]),1,3) <> '090' // Seguros Diretos (Nossa Liderança)
+                        if alltrim(laRESULT[ii,db_fetchncol(laRESULT,'CD_RAMOSRSN')]) = '68'    // Ramo 68 = Hipotecário
+                           lnVL_RESSEGURO := round((lnVL_TOTAL * lnPC_RESSEGURO),2)
+                           lnVL_COSSEGURO := round(((lnVL_TOTAL - lnVL_RESSEGURO) * lnPC_COSSEGURO),2)
+                        else        // Demais Ramos diferente de 68
+                           lnVL_COSSEGURO := round((lnVL_TOTAL * lnPC_COSSEGURO),2)
+                        endif
+                     endif
+                     laDETVAL[zz,1] := strzero(val(strtran( str(lnVL_COSSEGURO),'.','')), laDETVAL[zz,4])
+
+                  elseif laDETVAL[zz,7] = 'VL_RESSEGURO'
+                     // Seguros Indiretos (Cosseguro aceito)
+                     if substr(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')]),1,3) = '090'
+                        lnVL_RESSEGURO := round((lnVL_TOTAL * lnPC_RESSEGURO),2)
+                     else // Seguros Diretos (Nossa Liderança)
+                        if alltrim(laRESULT[ii,db_fetchncol(laRESULT,'CD_RAMOSRSN')]) = '68'    // Ramo 68 = Hipotecário
+                           lnVL_RESSEGURO := round((lnVL_TOTAL * lnPC_RESSEGURO),2)
+                        else        // Demais Ramos diferente de 68
+                           lnVL_COSSEGURO := round((lnVL_TOTAL * lnPC_COSSEGURO),2)
+                           lnVL_RESSEGURO := round(((lnVL_TOTAL-lnVL_COSSEGURO) * lnPC_RESSEGURO),2)
+                        endif
+                     endif
+                     laDETVAL[zz,1] := strzero(val(strtran( str(lnVL_RESSEGURO),'.','')), laDETVAL[zz,4])
+                  endif
+                  if laDETVAL[zz,8] == 'F'
+                     if empty(laDETVAL[zz,1])
+                        if laDETVAL[zz,9] == 'N'
+                           lcLINE += replicate('0', laDETVAL[zz,4])
+                        else
+                           lcLINE += replicate(' ', laDETVAL[zz,4])
+                        endif
+	                  else
+                        lcLINE += laDETVAL[zz,1]
+                     endif
+                  elseif laDETVAL[zz,8] == 'S'
+                     if laDETVAL[zz,2] == 'A'
+                        if len(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]) > 0
+                           if  len(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]) > laDETVAL[zz,4]
+                               lcLINE += substr(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )] , 1,laDETVAL[zz,4])
+                           else
+                               if laDETVAL[zz,9] == 'A'
+                              	  lcLINE += laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])] + replicate(' ', (laDETVAL[zz,4] - len(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )])) )
+                               elseif laDETVAL[zz,9] == 'N'
+                                   lcLINE += strzero(val(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]),;
+                                   			(laDETVAL[zz,4] - len(alltrim(str(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )])))))
+                               endif
+                           endif
+                        else
+                           if laDETVAL[zz,9] == 'N'
+                              lcLINE += replicate('0', laDETVAL[zz,4])
+                           else
+                              lcLINE += replicate(' ', laDETVAL[zz,4])
+                           endif
+                        endif
+                     elseif laDETVAL[zz,2] == 'D'
+                        lcLINE += dtoc(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])])
+                     elseif laDETVAL[zz,2] == 'N'
+                        if laDETVAL[zz,5] = 0
+                           if laDETVAL[zz,9] == 'N'
+                              lcLINE += strzero(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )], laDETVAL[zz,4],laDETVAL[zz,5])
+                           else
+                           	lcLINE += alltrim(str(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]))+;
+	                                   				         replicate(' ', (laDETVAL[zz,4] - len(alltrim(str( laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])] ))) ))
+                           endif
+                        else
+                           lcLINE += strzero(val(strtran( str(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])]) , '.','')), laDETVAL[zz,4])
+                        endif
+                     endif
+                  elseif laDETVAL[zz,8] == 'N'         // casos especiais, pesquisa em outras tabelas
+                     if laDETVAL[zz,7] = 'BENEFICIARIO'
+                        laJOIN := {{2,'pfpj' ,'pasta_seguro_beneficiario.cip_beneficiario = pfpj.cip'}}
+                        if db_select({'pasta_seguro_beneficiario.cip_beneficiario','pfpj.pfpj'},;
+                                      'pasta_seguro_beneficiario',;
+                                      laJOIN,;
+                                      {'PASTA_SEGURO_BENEFICIARIO.NR_PASTA   ='+str(laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')])+;
+                                      ' and PASTA_SEGURO_BENEFICIARIO.NR_CONTROLE='+str(laRESULT[ii,db_fetchncol(laRESULT,'NR_CONTROLE')])};
+                                      ,,,,{0,1}) == -1
+                           db_error()
+                        endif
+                        if len(laRES := db_fetchall()) > 1
+                           if len(laRES[2,2]) > laDETVAL[zz,4]
+                              lcLINE += substr(laRES[2,2], 1,laDETVAL[zz,4])
+                           else
+                              lcLINE += laRES[2,2] + replicate(' ', (laDETVAL[zz,4] - len(laRES[2,2])))
+                           endif
+                        else
+                           lcLINE += replicate(' ', laDETVAL[zz,4])
+                        endif
+                     elseif laDETVAL[zz,7] = 'SEGURADO'
+                        laJOIN := {{2,'pfpj' ,'pasta_seguro_segurado.cip_segurado = pfpj.cip'}}
+                        if db_select({'pasta_seguro_segurado.cip_segurado','pfpj.pfpj'},;
+                                      'pasta_seguro_segurado',;
+                                      laJOIN,;
+                                      {'PASTA_SEGURO_SEGURADO.NR_PASTA   ='+str(laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')])+;
+                                      ' and PASTA_SEGURO_SEGURADO.NR_CONTROLE='+str(laRESULT[ii,db_fetchncol(laRESULT,'NR_CONTROLE')])};
+                                      ,,,,{0,1}) == -1
+                           db_error()
+                        endif
+                        if len(laRES := db_fetchall()) > 1
+                           if len(laRES[2,2]) > laDETVAL[zz,4]
+                              lcLINE += substr(laRES[2,2], 1,laDETVAL[zz,4])
+                           else
+                              lcLINE += laRES[2,2] + replicate(' ', (laDETVAL[zz,4] - len(laRES[2,2])))
+                           endif
+                        else
+                           lcLINE += replicate(' ', laDETVAL[zz,4])
+                        endif
+
+                     elseif laDETVAL[zz,7] = 'DT_CADASTRO'
+                            if !empty(laRESULT[ii,db_fetchncol(laRESULT,'DT_ARQUIVAMENTO')])
+                               lcLINE += strzero(laRESULT[ii,db_fetchncol(laRESULT,'DT_ARQUIVAMENTO')] - laRESULT[ii,db_fetchncol(laRESULT,'DT_CADASTRO')],14)
+                            else
+                               lcLINE += replicate('0',14)
+                            endif
+                     endif
+                  endif
+                  lcLINE += ENDLINE
+              next zz
+              lcLINE += NEWLINE
+              lcLOG  += 'Despesas da Pasta NR. '+strzero(laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')],10)+;
+                        ' Nr Despesa '+strzero(laRESULT[ii,db_fetchncol(laRESULT,'NR_DESPESA')],10)+;
+                        ' exportada com sucesso.'+NEWLINE
+
+              if FWrite(lnHAND,lcLINE) <= 0
+                 walert("Erro na gravação do arquivo.")
+                 return(.f.)
+              endif
+              lcLINE := ''
+           endif
+       next ii
+    else
+       lcLOG  += 'Não foram encontrados pagamentos em '+lcPARAM +' para gerar o arquivo.'
+    endif
+    //***********************************************************************************************
+    //                                  DADOS DOS LANÇAMENTOS CONTABEIS
+    //***********************************************************************************************
+    lcWHERE := 'mvt_contabil.dt_lancamento >= '+DLAP+dtos(ctod('01/'+lcPARAM))+DLAP
+    if (val(substr(lcPARAM,1,2))+1) > 12
+       lcWHERE += ' and mvt_contabil.dt_lancamento < '+DLAP+dtos(ctod('01/01/'+alltrim(str(val(substr(lcPARAM,4))+1))))+DLAP
+    else
+       lcWHERE += ' and mvt_contabil.dt_lancamento < '+DLAP+dtos(ctod('01/'+strzero(val(substr(lcPARAM,1,2))+1,2)+substr(lcPARAM,3)))+DLAP
+    endif
+//    lcWHERE += ' and ( mvt_contabil.FL_CONTABILIZADO='+DLMT+'N'+DLMT+' or mvt_contabil.FL_CONTABILIZADO is null )'
+
+    laJOIN := { {2,'pasta'                   ,'pasta.nr_pasta = mvt_contabil.wpkey_num'},;
+                {2,'pasta_cip as pasta_cip1' ,"pasta.nr_pasta = pasta_cip1.nr_pasta and pasta_cip1.wfield = 'CIP_EMPRESA'"},;
+                {2,'pfpj as pfpj1'           ,'pasta_cip1.cip = pfpj1.cip'},;
+                {2,'pasta_cip as pasta_cip2' ,"pasta.nr_pasta = pasta_cip2.nr_pasta and pasta_cip2.wfield = 'CIP_PARTE_CONTRARIA'"},;
+                {2,'pfpj as pfpj2'           ,'pasta_cip2.cip = pfpj2.cip'},;
+                {2,'exito_riscoperda'        ,'pasta.pc_risco = exito_riscoperda.pc_risco'},;
+                {2,'pasta_seguro'            ,'pasta_seguro.nr_pasta = mvt_contabil.wpkey_num '+;
+                                              'and pasta_seguro.nr_controle = mvt_contabil.wpkey_num2 '+;
+                                              'and mvt_contabil.wtable2 ='+"'pasta_seguro'" } }
+
+    laFIELDS := { 'mvt_contabil.NR_CONTROLE as MVTC_NR_CONTROLE' ,;
+                  'mvt_contabil.VL_LANCAMENTO'       ,;
+                  'mvt_contabil.HISTORICO'           ,;
+                  'mvt_contabil.WPKEY_NUM'           ,;
+                  'mvt_contabil.WPKEY_NUM2'          ,;
+                  'pasta.NR_PROCESSO'                ,;
+                  'pasta.DT_CADASTRO'                ,;
+                  'pasta.DT_ARQUIVAMENTO'            ,;
+                  'pasta.POSICAO_EMPRESA'            ,;
+                  'pasta.POSICAO_PARTE'              ,;
+                  'pasta.PC_RISCO'                   ,;
+                  'exito_riscoperda.PC_RISCO_CALCULO',;
+                  'exito_riscoperda.RISCOPERDA'      ,;
+                  'pfpj1.pfpj as autor'              ,;
+                  'pfpj1.cnpj_cpf as cpf1'           ,;
+                  'pfpj2.pfpj as reu'                ,;
+                  'pfpj2.cnpj_cpf as cpf2'           ,;
+                  'pasta_seguro.CD_RAMOSRSN'         ,;
+                  'pasta_seguro.NR_PASTA'            ,;
+                  'pasta_seguro.NR_CONTROLE'         ,;
+                  'pasta_seguro.NR_SINISTRO'         ,;
+                  'pasta_seguro.CD_PRODUTO'          ,;
+                  'pasta_seguro.CIP_FILIAL'          ,;
+                  'pasta_seguro.DT_SINISTRO'         ,;
+                  'pasta_seguro.NR_APOLICE'          ,;
+                  'pasta_seguro.VL_RESSEGURO'        ,;
+                  'pasta_seguro.DT_EMISSAO'          ,;
+                  'pasta_seguro.PC_COSSEGURO'        ,;
+                  'pasta_seguro.PC_RESSEGURO'        ,;
+                  'pasta_seguro.UF'                  ,;
+                  'pasta_seguro.CD_CCUSTO'            }
+
+    lcLOG += NEWLINE
+    lcLOG += replicate('-',86)+NEWLINE
+    if db_select(laFIELDS,'mvt_contabil',laJOIN,{lcWHERE}) == -1
+       db_error()
+    endif
+    if len(laRESULT := db_fetchall()) > 1
+       laHISTORICO := cria_array(3)
+       for ii := 2 to len(laRESULT)  // Dados da tabela mvt_contabil
+           lnPOS := ascan( laHISTORICO , upper(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'HISTORICO')])))
+           if lnPOS > 0
+              laPROP:={}
+              // Verifica se haverá a necessidade de rateio de valores.
+              if empty(laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')])
+                 laPROP := rateio_vl(laRESULT[ii,db_fetchncol(laRESULT,'WPKEY_NUM')],laRESULT[ii,db_fetchncol(laRESULT,'VL_LANCAMENTO')]) // função que proporciona o valor do lançamento.
+              endif
+              if len(laPROP) = 0
+                 aadd(laPROP,{ '','','',laRESULT[ii,db_fetchncol(laRESULT,'VL_LANCAMENTO')], '01'})
+              endif
+              /*  Regras
+                  1 - Se tem algum lancamento contabil com o historico VARIACAO JUROS DO AVISO JUDICIAL
+                      gerar os lancamentos JUROS DO AVISO JUDICIAL
+
+                  2 - Se tem algum lancamento contabil com o historico VARIACAO MONETARIA SUCUMBENCIA
+                      gerar os lancamentos CORRECAO MONETARIA DO AVISO SUCUMBENCIA
+
+                  3 - Se tem algum lancamento contabil com o historico VARIACAO MONETARIS CAUSA JUDICIAL
+                      gerar os lancamentos CORRECAO MONETARIA DO AVISO JUDICIAL*/
+
+              if laHISTORICO[lnPOS] == 'VARIACAO JUROS DO AVISO JUDICIAL'
+                 busca_pedidos(@laPROP, laRESULT[ii,db_fetchncol(laRESULT,'WPKEY_NUM')]  ,;
+                                        laRESULT[ii,db_fetchncol(laRESULT,'WPKEY_NUM2')] ,;
+                                        1, 'JUROS DO AVISO JUDICIAL')
+              elseif laHISTORICO[lnPOS] == "VARIACAO MONETARIA SUCUMBENCIA"
+                 busca_pedidos(@laPROP, laRESULT[ii,db_fetchncol(laRESULT,'WPKEY_NUM')]  ,;
+                                        laRESULT[ii,db_fetchncol(laRESULT,'WPKEY_NUM2')] ,;
+                                        2, 'CORRECAO MONETARIA DO AVISO SUCUMBENCIA')
+              elseif laHISTORICO[lnPOS] == "VARIACAO MONETARIA CAUSA JUDICIAL"
+                 busca_pedidos(@laPROP, laRESULT[ii,db_fetchncol(laRESULT,'WPKEY_NUM')]  ,;
+                                        laRESULT[ii,db_fetchncol(laRESULT,'WPKEY_NUM2')] ,;
+                                        3, 'CORRECAO MONETARIA DO AVISO JUDICIAL')
+              endif
+              for xx := 1 to len(laPROP)
+                  if laPROP[xx,5] == '02'  // é valor proporcionado deve-se alterar o valor existente
+                     laRESULT[ii,db_fetchncol(laRESULT,'VL_LANCAMENTO')] :=  laPROP[xx,4]
+                     laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')]   :=  laPROP[xx,1]
+                     laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')]      :=  laPROP[xx,6]
+                     laRESULT[ii,db_fetchncol(laRESULT,'CD_RAMOSRSN')]   :=  laPROP[xx,7]
+                     laRESULT[ii,db_fetchncol(laRESULT,'PC_COSSEGURO')]  :=  laPROP[xx,8]
+                     laRESULT[ii,db_fetchncol(laRESULT,'PC_RESSEGURO')]  :=  laPROP[xx,9]
+                  endif
+
+                  if laPROP[xx,5] == '03'  // Regras dos historicos definida acima no comentário
+                     laRESULT[ii,db_fetchncol(laRESULT,'HISTORICO')]     :=  laPROP[xx,1]
+                     laRESULT[ii,db_fetchncol(laRESULT,'VL_LANCAMENTO')] :=  laPROP[xx,2]
+                  endif
+
+                  laDETVAL := cria_array(2)
+                  lnVL_TOTAL     := laRESULT[ii,db_fetchncol(laRESULT,'VL_LANCAMENTO')]
+                  lnPC_COSSEGURO := (laRESULT[ii,db_fetchncol(laRESULT,'PC_COSSEGURO')]/100) // indice de percentual
+                  lnPC_RESSEGURO := (laRESULT[ii,db_fetchncol(laRESULT,'PC_RESSEGURO')]/100) // indice de percentual
+                  for zz := 1 to len(laDETVAL)
+                      lnVL_LIDER     := 0.0
+                      lnVL_COSSEGURO := 0.0
+                      lnVL_RESSEGURO := 0.0
+                      if laDETVAL[zz,7] = 'AUTOR'
+                         if upper(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'POSICAO_EMPRESA')])) == 'REU' .or.;
+                            upper(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'POSICAO_EMPRESA')])) == 'RÉU'
+                            laDETVAL[zz,  7] := 'REU'
+                            laDETVAL[zz+1,7] := 'CPF2'
+                         endif
+                      elseif laDETVAL[zz,7] = 'VL_LIDER'   // valor lider
+                         // Seguros Indiretos (Cosseguro aceito)
+                         if substr(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')]),1,3) = '090'
+                            lnVL_RESSEGURO := round((lnVL_TOTAL * lnPC_RESSEGURO),2)
+                            lnVL_LIDER := round(lnVL_TOTAL - lnVL_RESSEGURO,2)
+                         else // Seguros Diretos (Nossa Liderança)
+                            if alltrim(laRESULT[ii,db_fetchncol(laRESULT,'CD_RAMOSRSN')]) = '68'    // Ramo 68 = Hipotecário
+                               lnVL_RESSEGURO := round((lnVL_TOTAL * lnPC_RESSEGURO),2)
+                               lnVL_COSSEGURO := round(((lnVL_TOTAL - lnVL_RESSEGURO) * lnPC_COSSEGURO),2)
+                               lnVL_LIDER     := round((lnVL_TOTAL - lnVL_RESSEGURO - lnVL_COSSEGURO),2)
+                            else        // Demais Ramos diferente de 68
+                               lnVL_COSSEGURO := round((lnVL_TOTAL * lnPC_COSSEGURO),2)
+                               lnVL_RESSEGURO := round(((lnVL_TOTAL-lnVL_COSSEGURO) * lnPC_RESSEGURO),2)
+                               lnVL_LIDER     := round((lnVL_TOTAL - lnVL_COSSEGURO - lnVL_RESSEGURO),2)
+                            endif
+                         endif
+                         laDETVAL[zz,1] := strzero(val(strtran( str(lnVL_LIDER),'.','')), laDETVAL[zz,4])
+                      elseif laDETVAL[zz,7] = 'VL_COSSEGURO'
+                         if substr(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')]),1,3) <> '090' // Seguros Diretos (Nossa Liderança)
+                            if alltrim(laRESULT[ii,db_fetchncol(laRESULT,'CD_RAMOSRSN')]) = '68'    // Ramo 68 = Hipotecário
+                               lnVL_RESSEGURO := round((lnVL_TOTAL * lnPC_RESSEGURO),2)
+                               lnVL_COSSEGURO := round(((lnVL_TOTAL - lnVL_RESSEGURO) * lnPC_COSSEGURO),2)
+                            else        // Demais Ramos diferente de 68
+                               lnVL_COSSEGURO := round((lnVL_TOTAL * lnPC_COSSEGURO),2)
+                            endif
+                         endif
+                         laDETVAL[zz,1] := strzero(val(strtran( str(lnVL_COSSEGURO),'.','')), laDETVAL[zz,4])
+
+                      elseif laDETVAL[zz,7] = 'VL_RESSEGURO'
+                         // Seguros Indiretos (Cosseguro aceito)
+                         if substr(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')]),1,3) = '090'
+                            lnVL_RESSEGURO := round((lnVL_TOTAL * lnPC_RESSEGURO),2)
+                         else // Seguros Diretos (Nossa Liderança)
+                            if alltrim(laRESULT[ii,db_fetchncol(laRESULT,'CD_RAMOSRSN')]) = '68'    // Ramo 68 = Hipotecário
+                               lnVL_RESSEGURO := round((lnVL_TOTAL * lnPC_RESSEGURO),2)
+                            else        // Demais Ramos diferente de 68
+                               lnVL_COSSEGURO := round((lnVL_TOTAL * lnPC_COSSEGURO),2)
+                               lnVL_RESSEGURO := round(((lnVL_TOTAL-lnVL_COSSEGURO) * lnPC_RESSEGURO),2)
+                            endif
+                         endif
+                         laDETVAL[zz,1] := strzero(val(strtran( str(lnVL_RESSEGURO),'.','')), laDETVAL[zz,4])
+                      endif
+
+                      if laDETVAL[zz,8] == 'F'
+                         if empty(laDETVAL[zz,1])
+                            if laDETVAL[zz,9] == 'N'
+                               lcLINE += replicate('0', laDETVAL[zz,4])
+                            else
+                               lcLINE += replicate(' ', laDETVAL[zz,4])
+                            endif
+	                         else
+                            lcLINE += laDETVAL[zz,1]
+                         endif
+                      elseif laDETVAL[zz,8] == 'S'
+                         if laDETVAL[zz,2] == 'A'
+                            if len(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]) > 0
+                               if  len(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]) > laDETVAL[zz,4]
+                                   lcLINE += substr(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )] , 1,laDETVAL[zz,4])
+                               else
+                                   if laDETVAL[zz,9] == 'A'
+                                  	  lcLINE += laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])] + replicate(' ', (laDETVAL[zz,4] - len(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )])) )
+                                   elseif laDETVAL[zz,9] == 'N'
+                                       lcLINE += strzero(val(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]),;
+                                       			(laDETVAL[zz,4] - len(alltrim(str(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )])))))
+                                   endif
+                               endif
+                            else
+                               if laDETVAL[zz,9] == 'N'
+                                  lcLINE += replicate('0', laDETVAL[zz,4])
+                               else
+                                  lcLINE += replicate(' ', laDETVAL[zz,4])
+                               endif
+                            endif
+                         elseif laDETVAL[zz,2] == 'D'
+                            lcLINE += dtoc(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])])
+                         elseif laDETVAL[zz,2] == 'N'
+                            if laDETVAL[zz,5] = 0
+                               if laDETVAL[zz,9] == 'N'
+                                  lcLINE += strzero(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )], laDETVAL[zz,4],laDETVAL[zz,5])
+                               else
+                               	lcLINE += alltrim(str(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]))+;
+			                   		         replicate(' ', (laDETVAL[zz,4] - len(alltrim(str( laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])] ))) ))
+                               endif
+                            else
+                               lcLINE += strzero(val(strtran( str(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])]) , '.','')), laDETVAL[zz,4])
+                            endif
+                         endif
+                      elseif laDETVAL[zz,8] == 'N'         // casos especiais, pesquisa em outras tabelas
+                         if laDETVAL[zz,7] = 'BENEFICIARIO'
+                            laJOIN := {{2,'pfpj' ,'pasta_seguro_beneficiario.cip_beneficiario = pfpj.cip'}}
+                            if db_select({'pasta_seguro_beneficiario.cip_beneficiario','pfpj.pfpj'},;
+                                          'pasta_seguro_beneficiario',;
+                                          laJOIN,;
+                                          {'PASTA_SEGURO_BENEFICIARIO.NR_PASTA   ='+str(laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')])+;
+                                          ' and PASTA_SEGURO_BENEFICIARIO.NR_CONTROLE='+str(laRESULT[ii,db_fetchncol(laRESULT,'NR_CONTROLE')])};
+                                          ,,,,{0,1}) == -1
+                               db_error()
+                            endif
+                            if len(laRES := db_fetchall()) > 1
+                               if len(laRES[2,2]) > laDETVAL[zz,4]
+                                  lcLINE += substr(laRES[2,2], 1,laDETVAL[zz,4])
+                               else
+                                  lcLINE += laRES[2,2] + replicate(' ', (laDETVAL[zz,4] - len(laRES[2,2])))
+                               endif
+                            else
+                               lcLINE += replicate(' ', laDETVAL[zz,4])
+                            endif
+                         elseif laDETVAL[zz,7] = 'SEGURADO'
+                            laJOIN := {{2,'pfpj' ,'pasta_seguro_segurado.cip_segurado = pfpj.cip'}}
+                            if db_select({'pasta_seguro_segurado.cip_segurado','pfpj.pfpj'},;
+                                          'pasta_seguro_segurado',;
+                                          laJOIN,;
+                                          {'PASTA_SEGURO_SEGURADO.NR_PASTA   ='+str(laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')])+;
+                                          ' and PASTA_SEGURO_SEGURADO.NR_CONTROLE='+str(laRESULT[ii,db_fetchncol(laRESULT,'NR_CONTROLE')])};
+                                          ,,,,{0,1}) == -1
+                               db_error()
+                            endif
+                            if len(laRES := db_fetchall()) > 1
+                               if len(laRES[2,2]) > laDETVAL[zz,4]
+                                  lcLINE += substr(laRES[2,2], 1,laDETVAL[zz,4])
+                               else
+                                  lcLINE += laRES[2,2] + replicate(' ', (laDETVAL[zz,4] - len(laRES[2,2])))
+                               endif
+                            else
+                               lcLINE += replicate(' ', laDETVAL[zz,4])
+                            endif
+                         elseif laDETVAL[zz,7] = 'MOVIMENTO'
+
+                            if len(laHISTORICO[lnPOS]) > laDETVAL[zz,4]
+                               lcLINE += substr(laHISTORICO[lnPOS], 1,laDETVAL[zz,4])
+                            else
+                               lcLINE += laHISTORICO[lnPOS] + replicate(' ', (laDETVAL[zz,4] - len(laHISTORICO[lnPOS])))
+                            endif
+
+                         elseif laDETVAL[zz,7] = 'DT_CADASTRO'
+                            if !empty(laRESULT[ii,db_fetchncol(laRESULT,'DT_ARQUIVAMENTO')])
+                               lcLINE += strzero(laRESULT[ii,db_fetchncol(laRESULT,'DT_ARQUIVAMENTO')] - laRESULT[ii,db_fetchncol(laRESULT,'DT_CADASTRO')],14)
+                            else
+                               lcLINE += replicate('0',14)
+                            endif
+                         endif
+                      endif
+                      lcLINE += ENDLINE
+                  next zz
+
+                  lcLINE += NEWLINE
+                  lcLOG  += 'Lançamentos contábeis da Pasta NR. '+strzero(laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')],10)+;
+                                ' com Historico '+alltrim(laRESULT[ii,db_fetchncol(laRESULT,'HISTORICO')])+;
+                                ' no valor de '+str(laRESULT[ii,db_fetchncol(laRESULT,'VL_LANCAMENTO')])+;
+                                ' exportada com sucesso.'+NEWLINE
+                  if FWrite(lnHAND,lcLINE) <= 0
+                     walert("Erro na gravação do arquivo.")
+                     return(.f.)
+                  endif
+                  lcLINE := ''
+                  // Fazendo o Update nos registros de movimento contabil
+                  //lcUPDATE := 'mvt_contabil.NR_CONTROLE in ('+alltrim(str(laRESULT[ii,db_fetchncol(laRESULT,'MVTC_NR_CONTROLE')])) +')'
+                  //if db_update({{"FL_CONTABILIZADO"},{'S'}},'mvt_contabil',{lcUPDATE}) == -1
+                  //   db_error()
+           	  //endif
+
+              next xx
+
+           endif
+       next ii
+    else
+       lcLOG  += 'Não foram encontrados lançamentos contábeis em '+lcPARAM +' para gerar o arquivo.'
+    endif
+
+    if len(lcLOG) > 0
+       if FWrite(lnHAND1,lcLOG) <= 0
+          walert("Erro na gravação do arquivo de log.")
+          return(.f.)
+       endif
+    endif
+    fclose(lnHAND)
+    fclose(lnHAND1)
+    set exact off
+return
+
+
+static function cria_array(fcTYPE)
+
+   local laESTRU := {} as array
+   if fcTYPE = 1
+      aadd(laESTRU,{ "010" , "A",   1,   3, 0, ""                 , ""                  ,"F" ,'N' } ) // 02 Cod. Org Emissor
+      aadd(laESTRU,{ ""    , "A",   4,   4, 0, "pasta_seguro"     , "CD_RAMOSRSN"       ,"S" ,'N' } ) // 01 Ramo
+      aadd(laESTRU,{ ""    , "A",   8,   4, 0, "pasta_seguro"     , "CD_PRODUTO"        ,"S" ,'N' } ) // 03 Cod. Produto
+      aadd(laESTRU,{ ""    , "A",  12,  40, 0, ""                 , "NM_GRP_DESPESA"    ,"S" ,'A' } ) // 04 Movimento Operações
+      aadd(laESTRU,{ "001" , "A",  52,   3, 0, ""                 , ""                  ,"F" ,'N' } ) // 05 Dia movimento
+      aadd(laESTRU,{ ""    , "A",  55,   8, 0, "pasta_seguro"     , "CIP_FILIAL"        ,"S" ,'N' } ) // 06 Cod filial
+      aadd(laESTRU,{ ""    , "A",  63,   8, 0, "pasta_seguro"     , "CIP_FILIAL"        ,"S" ,'N' } ) // 07 Cod filial aviso
+      aadd(laESTRU,{ ""    , "A",  71,  13, 0, "mvt_despesa"      , "NR_SINISTRO"       ,"S" ,'N' } ) // 08 Nr. Sinistro
+      aadd(laESTRU,{ ""    , "A",  84,  40, 0, ""                 , "BENEFICIARIO"      ,"N" ,'A' } ) // 09 Nome Favorecido
+      aadd(laESTRU,{ ""    , "D", 124,  10, 0, "pasta_seguro"     , "DT_SINISTRO"       ,"S" ,'A' } ) // 10 Data do comunicado do sinistro
+      aadd(laESTRU,{ ""    , "D", 134,  10, 0, "pasta_seguro"     , "DT_SINISTRO"       ,"S" ,'A' } ) // 11 Data da ocorrencia do sinistro
+      aadd(laESTRU,{ ""    , "A", 144,  40, 0, ""                 , "SEGURADO"          ,"N" ,'A' } ) // 12 Nome do segurado
+      aadd(laESTRU,{ ""    , "A", 184,  13, 0, "pasta_seguro"     , "NR_APOLICE"        ,"S" ,'N' } ) // 13 Nr. Apolice
+      aadd(laESTRU,{ ""    , "N", 197,  18, 2, ""                 , "VL_LIDER"          ,"F" ,'N' } ) // 14 Valor correspondente a lider
+      aadd(laESTRU,{ ""    , "A", 215,  18, 2, ""                 , "VL_COSSEGURO"      ,"F" ,'N' } ) // 15 Valor coss cedido
+      aadd(laESTRU,{ ""    , "N", 233,  18, 2, ""                 , "VL_RESSEGURO"      ,"F" ,'N' } ) // 16 Valor ress cedido
+      aadd(laESTRU,{ ""    , "N", 251,  18, 2, "mvt_despesa_pagto", "VL_PAGO"           ,"S" ,'N' } ) // 17 Valor do movimento
+      aadd(laESTRU,{ ""    , "A", 269,  10, 0, ""                 , ""                  ,"F" ,'A' } ) // 18 Data da reavaliacao
+      aadd(laESTRU,{ ""    , "A", 279,  18, 0, ""                 , ""                  ,"F" ,'N' } ) // 19 Valor da reavaliacao do processo
+      aadd(laESTRU,{ ""    , "A", 297,  10, 0, "pasta_seguro"     , "DT_EMISSAO"        ,"S" ,'A' } ) // 20 Data Inicial
+      aadd(laESTRU,{ ""    , "A", 307,  18, 0, ""                 , ""                  ,"F" ,'N' } ) // 21 Valor inicial do processo
+      aadd(laESTRU,{ ""    , "A", 325,   6, 0, ""                 , ""                  ,"F" ,'N' } ) // 22 Pedido
+      aadd(laESTRU,{ ""    , "A", 331,  50, 0, ""                 , ""                  ,"F" ,'A' } ) // 23 Descricao do tipo de reivindicacao
+      aadd(laESTRU,{ ""    , "A", 381,  41, 0, ""                 , ""                  ,"F" ,'A' } ) // 24 causa operacional sinistro oficial
+      aadd(laESTRU,{ ""    , "N", 422,  15, 0, "pasta"            , "NR_PASTA"          ,"S" ,'A' } ) // 25 Nr Processo
+      aadd(laESTRU,{ ""    , "A", 437,  40, 0, ""                 , "AUTOR"             ,"S" ,'A' } ) // 26 Autor
+      aadd(laESTRU,{ ""    , "A", 477,  14, 0, ""                 , "CPF1"              ,"S" ,'N' } ) // 27 CPF Autor
+      aadd(laESTRU,{ ""    , "A", 491,   6, 0, "mvt_despesa"      , "CD_CCUSTO"         ,"S" ,'N' } ) // 28 Cod. Centro de Custo
+      aadd(laESTRU,{ ""    , "A", 497,  40, 0, "exito_riscoperda" , "RISCOPERDA"        ,"S" ,'A' } ) // 29 Desc. Risco
+      aadd(laESTRU,{ ""    , "A", 537,   8, 0, "pasta_seguro"     , "UF"                ,"S" ,'A' } ) // 30 UF Risco
+      aadd(laESTRU,{ ""    , "N", 545,   8, 0, "exito_riscoperda" , "PC_RISCO_CALCULO"  ,"S" ,'N' } ) // 31 % Perda Processo
+      aadd(laESTRU,{ ""    , "A", 553,  10, 0, "exito_riscoperda" , "RISCOPERDA"        ,"S" ,'A' } ) // 32 Descricao da Perda
+      aadd(laESTRU,{ ""    , "D", 563,  14, 0, "pasta"            , "DT_CADASTRO"       ,"N" ,'D' } ) // 33 Data de Inclusao do processo no sistema
+
+   elseif fcTYPE = 2
+      aadd(laESTRU,{ "010" , "A",   1,   3, 0, ""                 , ""                  ,"F" ,'N' } ) // 02 Cod. Org Emissor
+      aadd(laESTRU,{ ""    , "A",   4,   4, 0, "pasta_seguro"     , "CD_RAMOSRSN"       ,"S" ,'N' } ) // 01 Ramo
+      aadd(laESTRU,{ ""    , "A",   8,   4, 0, "pasta_seguro"     , "CD_PRODUTO"        ,"S" ,'N' } ) // 03 Cod. Produto
+      aadd(laESTRU,{ ""    , "A",  12,  40, 0, "mvt_contabil"     , "HISTORICO"         ,"S" ,'A' } ) // 04 Movimento Operações
+      aadd(laESTRU,{ "001" , "A",  52,   3, 0, ""                 , ""                  ,"F" ,'N' } ) // 05 Dia movimento
+      aadd(laESTRU,{ ""    , "A",  55,   8, 0, "pasta_seguro"     , "CIP_FILIAL"        ,"S" ,'N' } ) // 06 Cod filial
+      aadd(laESTRU,{ ""    , "A",  63,   8, 0, "pasta_seguro"     , "CIP_FILIAL"        ,"S" ,'N' } ) // 07 Cod filial aviso
+      aadd(laESTRU,{ ""    , "A",  71,  13, 0, "pasta_seguro"     , "NR_SINISTRO"       ,"S" ,'N' } ) // 08 Nr. Sinistro
+      aadd(laESTRU,{ ""    , "A",  84,  40, 0, ""                 , "BENEFICIARIO"      ,"N" ,'A' } ) // 09 Nome Favorecido
+      aadd(laESTRU,{ ""    , "D", 124,  10, 0, "pasta_seguro"     , "DT_SINISTRO"       ,"S" ,'A' } ) // 10 Data do comunicado do sinistro
+      aadd(laESTRU,{ ""    , "D", 134,  10, 0, "pasta_seguro"     , "DT_SINISTRO"       ,"S" ,'A' } ) // 11 Data da ocorrencia do sinistro
+      aadd(laESTRU,{ ""    , "A", 144,  40, 0, ""                 , "SEGURADO"          ,"N" ,'A' } ) // 12 Nome do segurado
+      aadd(laESTRU,{ ""    , "A", 184,  13, 0, "pasta_seguro"     , "NR_APOLICE"        ,"S" ,'N' } ) // 13 Nr. Apolice
+      aadd(laESTRU,{ ""    , "N", 197,  18, 2, ""                 , "VL_LIDER"          ,"F" ,'N' } ) // 14 Valor correspondente a lider
+      aadd(laESTRU,{ ""    , "A", 215,  18, 2, ""                 , "VL_COSSEGURO"      ,"F" ,'N' } ) // 15 Valor coss cedido
+      aadd(laESTRU,{ ""    , "N", 233,  18, 2, ""                 , "VL_RESSEGURO"      ,"F" ,'N' } ) // 16 Valor ress cedido
+      aadd(laESTRU,{ ""    , "N", 251,  18, 2, "mvt_contabil"     , "VL_LANCAMENTO"     ,"S" ,'N' } ) // 17 Valor do movimento
+      aadd(laESTRU,{ ""    , "A", 269,  10, 0, ""                 , ""                  ,"F" ,'A' } ) // 18 Data da reavaliacao
+      aadd(laESTRU,{ ""    , "A", 279,  18, 0, ""                 , ""                  ,"F" ,'N' } ) // 19 Valor da reavaliacao do processo
+      aadd(laESTRU,{ ""    , "A", 297,  10, 0, "pasta_seguro"     , "DT_EMISSAO"        ,"S" ,'A' } ) // 20 Data Inicial
+      aadd(laESTRU,{ ""    , "A", 307,  18, 0, ""                 , ""                  ,"F" ,'N' } ) // 21 Valor inicial do processo
+      aadd(laESTRU,{ ""    , "A", 325,   6, 0, ""                 , ""                  ,"F" ,'N' } ) // 22 Pedido
+      aadd(laESTRU,{ ""    , "A", 331,  50, 0, ""                 , ""                  ,"F" ,'A' } ) // 23 Descricao do tipo de reivindicacao
+      aadd(laESTRU,{ ""    , "A", 381,  41, 0, ""                 , ""                  ,"F" ,'A' } ) // 24 causa operacional sinistro oficial
+      aadd(laESTRU,{ ""    , "N", 422,  15, 0, "pasta"            , "NR_PASTA"          ,"S" ,'A' } ) // 25 Nr Processo
+      aadd(laESTRU,{ ""    , "A", 437,  40, 0, ""                 , "AUTOR"             ,"S" ,'A' } ) // 26 Autor
+      aadd(laESTRU,{ ""    , "A", 477,  14, 0, ""                 , "CPF1"              ,"S" ,'N' } ) // 27 CPF Autor
+      aadd(laESTRU,{ ""    , "A", 491,   6, 0, "pasta_seguro"     , "CD_CCUSTO"         ,"S" ,'N' } ) // 28 Cod. Centro de Custo
+      aadd(laESTRU,{ ""    , "A", 497,  40, 0, "exito_riscoperda" , "RISCOPERDA"        ,"S" ,'A' } ) // 29 Desc. Risco
+      aadd(laESTRU,{ ""    , "A", 537,   8, 0, "pasta_seguro"     , "UF"                ,"S" ,'A' } ) // 30 UF Risco
+      aadd(laESTRU,{ ""    , "N", 545,   8, 0, "exito_riscoperda" , "PC_RISCO_CALCULO"  ,"S" ,'N' } ) // 31 % Perda Processo
+      aadd(laESTRU,{ ""    , "A", 553,  10, 0, "exito_riscoperda" , "RISCOPERDA"        ,"S" ,'A' } ) // 32 Descricao da Perda
+      aadd(laESTRU,{ ""    , "D", 563,  14, 0, "pasta"            , "DT_CADASTRO"       ,"N" ,'D' } ) // 33 Data de Inclusao do processo no sistema
+
+   elseif fcTYPE = 3
+      laESTRU := { "AVISO JUDICIAL"                         ,; //Conforme lançamento contábil do MÊS (campo Histórico)
+                   "AVISO SUCUMBENCIA"                      ,; //Conforme lançamento contábil do MÊS (campo Histórico)
+                   "CORRECAO MONETARIA DO AVISO JUDICIAL"   ,; //Se houver lançamento contábil no mes, gerar a CM TOTAL (do Pedido) com esse histórico
+                   "CORRECAO MONETARIA DO AVISO SUCUMBENCIA",; //Se houver lançamento contábil no mes, gerar a CM TOTAL com esse histórico ref. Sucumbência da Condenação
+                   "CORRECAO MONETARIA DO DEPOSITO JUDICIAL",; //Se houver lançamento contábil no mes, gerar CM TOTAL (do Depósito) com esse histórico
+                   "JUROS DO AVISO JUDICIAL"                ,; //Se houver lançamento contábil no mes, gerar JUROS TOTAL (do Pedido) com esse histórico
+                   "VARIACAO JUROS DO AVISO JUDICIAL"       ,; //Conforme lançamento contábil do MÊS (campo Histórico)
+                   "VARIACAO JUROS DO AVISO SUCUMBENCIA"    ,; //Conforme lançamento contábil do MÊS (campo Histórico)
+                   "VARIACAO MONETARIA CAUSA JUDICIAL"      ,; //Conforme lançamento contábil do MÊS (campo Histórico)
+                   "VARIACAO MONETARIA SUCUMBENCIA"          } //Conforme lançamento contábil do MÊS (campo Histórico)
+   endif
+
+return(laESTRU)
+
+
+/*
+* Function..: busca_pedidos(faPROP,fnKEY1,fnKEY2,fnTIPO,fcHISTORICO)
+* Parâmetros: faPROP
+              fnKEY1  Chave para pesquisa
+              fnKEY2  Chave para pesquisa
+              fnTIPO
+              fcHISTORICO
+* Retorno...: faPROP
+*/
+static function busca_pedidos(faPROP,fnKEY1,fnKEY2,fnTIPO,fcHISTORICO)
+
+       local laRES   := {} as array
+       local az := 0 as int
+       if db_select({'VL_CORRECAO','VL_JUROS','PEDIDO_PROCESSO'},'pasta_pedidos',,{'nr_pasta='+str(fnKEY1)}) == -1
+          db_error()
+       endif
+       if len(laRES := db_fetchall()) > 1
+          for az := 2 to len(laRES)
+              if len(laRES[az,3]) > 0
+                 if fnTIPO = 1        // JUROS DO AVISO JUDICIAL
+                    if at('Sucumbência',laRES[az,3]) = 0
+                       aadd(faPROP,{fcHISTORICO,laRES[az,2],'','','03'})
+                    endif
+                 elseif fnTIPO = 2    // CORRECAO MONETARIA DO AVISO SUCUMBENCIA
+                    if at('Sucumbência',laRES[az,3]) > 0
+                       aadd(faPROP,{fcHISTORICO,laRES[az,1],'','','03'})
+                    endif
+                 elseif fnTIPO = 3    // CORRECAO MONETARIA DO AVISO JUDICIAL
+                    if at('Sucumbência',laRES[az,3]) = 0
+                       aadd(faPROP,{fcHISTORICO,laRES[az,1],'','','03'})
+                    endif
+                 endif
+              endif
+          next az
+       endif
+return
+
+/*
+* Function..: rateio_vl()     // Rateio de valores para lançamentos de sucumbência.
+* Parâmetros:
+* Retorno...:
+*/
+static function rateio_vl(fnPASTA,fnVL_LANCAMENTO)
+       local lcLINHA := '' as string
+       local laRES   := {},;
+             laSOMA  := {} as array
+       local aa      := 0 ,;
+             lnPOS   := 0  as int
+       local lnTOTAL := 0  as numeric
+
+       local laJOIN := {{2,'pasta_seguro','pasta_seguro.nr_controle = pasta_pedidos.NR_CONTROLE_SEGURO' }} as array
+
+       if db_select({'pasta_seguro.NR_SINISTRO' ,'pasta_pedidos.VL_RISCO_CALC',;
+                     'pasta_seguro.NR_PASTA'    ,'pasta_seguro.CD_RAMOSRSN'   ,;
+                     'pasta_seguro.PC_COSSEGURO','pasta_seguro.PC_RESSEGURO'  ,;
+                     'pasta_seguro.DT_EMISSAO'},;
+                     'pasta_pedidos',;
+                     laJOIN,;
+                     {'pasta_pedidos.nr_pasta = '+alltrim(str(fnPASTA))+' and pasta_pedidos.nr_controle_seguro <> 0' }) == -1
+          db_error()
+       endif
+       if len(laRES := db_fetchall()) > 1
+          for aa:=2 to len(laRES)
+              lcSINISTRO := laRES[aa,1]
+              if (lnPOS := ascan(laSOMA, { |x| x[1] == lcSINISTRO })) > 0
+                 laSOMA[lnPOS,2] := laSOMA[lnPOS,2]+laRES[aa,2]
+              else
+                 aadd(laSOMA,{laRES[aa,1],laRES[aa,2], 0.00, 0.00, '02',laRES[aa,3],laRES[aa,4],laRES[aa,5],laRES[aa,6],laRES[aa,7]})
+              endif
+              lnTOTAL += laRES[aa,2]
+          next aa
+          for aa:=1 to len(laSOMA)
+              laSOMA[aa,3] := round((laSOMA[aa,2]/lnTOTAL),5)
+              laSOMA[aa,4] := round(fnVL_LANCAMENTO*laSOMA[aa,3],2)
+          next aa
+       endif
+return(laSOMA)

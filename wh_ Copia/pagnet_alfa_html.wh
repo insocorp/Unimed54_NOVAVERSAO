@@ -1,0 +1,527 @@
+/*
+Project      : ISJ 3.9.2 F
+Program      : pagnet.html
+Function     : pagnet_html (Customização Banco Alfa)
+Created on   : Sonia Perdigão 14/6/2011 17:16:46
+Descripition : Interface Contabil (Pagnet)
+Alterações   : 5/7/2011 10:39:25 codigo juridico de 014 para 011
+Forma de pagamento = tp_favorecido              
+*/
+
+    WSet('_USER_INTERFACE','none.wic')
+
+    local lcXML     := '' ,;
+          lcTABLE   := '' ,;
+          lcRAMO    := '' ,;
+          lcWHERE   := '' ,;
+          lcLeg     := '' as string
+          
+    local ii        := 0 ,;
+          zz        := 0 ,;
+          hh        := 0 ,;
+          tt        := 0 ,;
+          lnHAND    := 0 ,;
+          lnVALOR   := 0 ,;
+          lnHAND1   := 0 as int
+    
+    local laXML     := {},;
+          laXML3    := {},;
+          laXML4    := {},;
+          laFIELDS  := {},;
+          laRESULT  := {},;
+          laJOIN    := {},;
+          laLOG     := {},;
+          laEmp     := {} as array
+
+    local lcmonta := '' ,;
+          lcTIPO  := '' as string
+    
+    local lcCREDITO      := '',;
+          lcDEBITO       := '',;
+          lcEMPRESA      := '',;
+          lcCCUSTO       := '',;
+          lcCODVERBA     := '',;
+          lcBENEFICIARIO := '' as string
+
+   // variáveis para gravação da execução do batch
+   local  lcStatus    := '3' ,;
+          lcHORAINI   := time() ,;
+          lcTABLEINT  := 'seq_interfaces' as string
+
+   local  laWHEREINT  := {} ,;
+          laFIELDSINT := {} ,;
+          laRES_INT   := {} ,;
+          laSAVEINT   := {} as array
+
+   local  lnSEQ       := 0 as int
+
+   local  ldDIAINI    := date() as date
+
+
+    lcTABLE := 'mvt_despesa'
+  
+    laJOIN := {{2,'pasta_pfpj_empresa'       , 'pasta_pfpj_empresa.NR_PASTA           = mvt_despesa.NR_PASTA'},;
+               {2,'despesa'                  , 'despesa.CD_DESPESA                    = mvt_despesa.CD_DESPESA'},;
+               {2,'pfpj'                     , 'pfpj.CIP                              = mvt_despesa.CIP_FAVORECIDO'}}               
+    
+
+    laFIELDS := {'DISTINCT mvt_despesa.NR_PASTA' ,;
+                 'mvt_despesa.CD_DESPESA'  ,;
+                 'mvt_despesa.VL_UNIT'  ,;
+                 'mvt_despesa.VL_TOTAL'  ,;
+                 'mvt_despesa.DT_PREVISAO_PAGTO'  ,;
+                 'mvt_despesa.FORMA_PAGAMENTO'  ,;
+                 'mvt_despesa.CIP_FAVORECIDO'  ,;
+                 'mvt_despesa.TP_DOCFISCAL'  ,;
+                 'mvt_despesa.DT_EMISSAO_DOCFISCAL'  ,;
+                 'mvt_despesa.NR_DOCFISCAL'  ,;
+                 'mvt_despesa.DT_ENVIO_CTPAG',;
+                 'pfpj.PFPJ_NATUREZA',;
+                 'pfpj.PFPJ',;
+                 'pfpj.CD_LEGADO',;
+                 'pfpj.CNPJ_CPF',;
+                 'pfpj.ENDERECO',;
+                 'pfpj.NR_ENDERECO',;
+                 'pfpj.EXTRA_ENDERECO',;
+                 'pfpj.BAIRRO',;
+                 'pfpj.CIDADE',;
+                 'pfpj.UF',;
+                 'pfpj.CEP',;
+                 'pfpj.DDD',;
+                 'pfpj.TELEFONE',;
+                 'pfpj.TELEFONE2',;
+                 'pfpj.FAX',;
+                 'pfpj.EMAIL',;
+                 'pfpj.RAMAL_FAX',;
+                 'pfpj.CD_BANCO',;
+                 'pfpj.BANCO_AGENCIA',;
+                 'pfpj.BANCO_CONTA',;
+                 'pfpj.IE',;
+                 'mvt_despesa.TP_FAVORECIDO',;
+                 'despesa.CD_DESPESA_INTERFACE'}
+
+// Buscando os Dados contábeis a serem exportados.
+    lcWHERE := ' ( SUBSTRING(despesa.CD_DESPESA_INTERFACE,1,1)='+DLMT+'1'+DLMT+' and mvt_despesa.DT_ENVIO_CTPAG IS NULL and pfpj.RAMAL_FAX IS NULL and pfpj.CD_LEGADO IS NOT NULL and mvt_despesa.FL_REVISAO =' +DLMT+'A'+DLMT+ ' and mvt_despesa.FL_APROVACAO = '+DLMT+'A'+DLMT+' and TP_FAVORECIDO = ' +DLMT+ 'Reembolso ou Honorários'+DLMT+ ')'
+  if db_select(laFIELDS,lcTABLE,laJOIN,{lcwhere},{'pfpj.CD_LEGADO'}) == -1
+       error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   
+//   debug2(laresult)
+//   return
+   If len(laRESULT) > 1
+      hh := 0
+      laEmp := {}
+      lcLeg := ''
+
+      for tt := 2 to len(laRESULT)
+      
+          if lcLeg != laRESULT[tt,db_fetchncol(laRESULT,'CD_LEGADO')]
+              aadd(laEMP,laRESULT[tt,db_fetchncol(laRESULT,'CD_LEGADO')])
+              lcLeg := laRESULT[tt,db_fetchncol(laRESULT,'CD_LEGADO')]
+              vez := 1
+              wout('Empresa........: '+lcLeg)
+          endif
+      next tt
+      wout(" ")
+      wout('Array Principal: ' + str(len(laRESULT)))
+      wout(" ")
+      xcontador := 1
+      
+      lcWHERE := ''
+      FOR hh := 1 to len(laEMP)
+
+          wout('Array Empresa..: ' + laEMP[hh])
+          monta := ''
+          laXML := {}
+          laXML3 := {}
+          laXML4 := {}
+          vez := 1
+          FIM := 1
+          lcteste := laEMP[hh]
+        for ii := 2 to len(laRESULT)
+              lclegado := laRESULT[ii,db_fetchncol(laRESULT,'CD_LEGADO')]
+              if lcteste != laRESULT[ii,db_fetchncol(laRESULT,'CD_LEGADO')]
+                 Loop
+              endif
+          legado := laRESULT[ii,db_fetchncol(laRESULT,'CD_LEGADO')]
+          lcpfpj_natureza           := laRESULT[ii,db_fetchncol(laRESULT,'PFPJ_NATUREZA')]
+          lccd_despesa_interface    := laRESULT[ii,db_fetchncol(laRESULT,'CD_DESPESA_INTERFACE')]
+          latp_docfiscal := ''
+//          lcnr_docfiscal            := laRESULT[ii,db_fetchncol(laRESULT,'NR_DOCFISCAL')]
+//          lddt_emissao_pagto        := laRESULT[ii,db_fetchncol(laRESULT,'DT_EMISSAO_PAGTO')]
+          lcnr_docfiscal            := '0000000000'
+          lddt_emissao_pagto        := '00000000'
+          lacd_legado_filial        := '00000'
+          lnvl_total                := laRESULT[ii,db_fetchncol(laRESULT,'VL_TOTAL')]
+          lcforma_pagamento         := laRESULT[ii,db_fetchncol(laRESULT,'TP_FAVORECIDO')]
+          lcpfpj                    := laRESULT[ii,db_fetchncol(laRESULT,'PFPJ')]
+          lccnpj_cpf                := laRESULT[ii,db_fetchncol(laRESULT,'CNPJ_CPF')]
+          lcendereco                := laRESULT[ii,db_fetchncol(laRESULT,'ENDERECO')]
+          lcnr_endereco             := laRESULT[ii,db_fetchncol(laRESULT,'NR_ENDERECO')]
+          lcextra_endereco          := laRESULT[ii,db_fetchncol(laRESULT,'EXTRA_ENDERECO')]
+          lcbairro                  := laRESULT[ii,db_fetchncol(laRESULT,'BAIRRO')]
+          lccidade                  := laRESULT[ii,db_fetchncol(laRESULT,'CIDADE')]
+          lcuf                      := laRESULT[ii,db_fetchncol(laRESULT,'UF')]
+          lccep                     := laRESULT[ii,db_fetchncol(laRESULT,'CEP')]
+          lcddd                     := laRESULT[ii,db_fetchncol(laRESULT,'DDD')]
+          lntelefone                := laRESULT[ii,db_fetchncol(laRESULT,'TELEFONE')]
+          lntelefone2               := laRESULT[ii,db_fetchncol(laRESULT,'TELEFONE2')]
+          lcfax                     := laRESULT[ii,db_fetchncol(laRESULT,'FAX')]
+          lcemail                   := laRESULT[ii,db_fetchncol(laRESULT,'EMAIL')]
+          lccd_banco                := laRESULT[ii,db_fetchncol(laRESULT,'CD_BANCO')]
+          lcbanco_agencia           := laRESULT[ii,db_fetchncol(laRESULT,'BANCO_AGENCIA')]
+          lcbanco_conta             := laRESULT[ii,db_fetchncol(laRESULT,'BANCO_CONTA')]
+          lcie                      := laRESULT[ii,db_fetchncol(laRESULT,'IE')]
+          lddt_previsao_pagto       := laRESULT[ii,db_fetchncol(laRESULT,'DT_PREVISAO_PAGTO')]
+//WOUT(LDDT_PREVISAO_PAGTO)          
+//          wout('Empresa........: '+lcLeg)
+   
+//         wout(" ")
+//         wout('Array Principal: ' + str(len(laRESULT)))
+//         wout(" ")
+
+         if vez == 1    
+             wout('Array Empresa..: ' + laEMP[hh])
+             lcemp := laEMP[hh]
+
+          // Montagem do Header
+             monta0 := 'REMPG' //
+             monta0 += '011'   // Origem juridico
+             monta0 += '120'   // Sistema Destino
+             monta0 += 'E00000001000000'+SPACE(1)
+             monta0 += space(8) //verificar data do pagamento (nao existe no ISJ)
+             monta0 += '001'
+             monta0 += dtos(date())
+             xtime := substr(time(),1,2)+substr(time(),4,2)+substr(time(),7,2)
+             monta0 += xtime
+             monta0 += substr(legado,1,5)
+             monta0 += "d"
+//             monta0 += '111' // verificar data juliana com 3 posiçoes
+             dia()
+             dias := date() - ctod("01/01/"+strzero(year(date()),4)) 
+             monta0 += strzero(dias,3) // data juliana 3 posicoes + ano 2 posicoes
+             monta0 += '01'
+             monta0 += space(83)
+             aadd(laXML, monta0)
+             monta0 := ''
+             vez := 0
+          endif
+          // MONTAGEM DA LINHA DE DETALHES REGISTRO TIPO 30   cadastro
+          jj := ii
+xcontador := xcontador + 1 
+          lacd_legado               := laRESULT[jj,db_fetchncol(laRESULT,'CD_LEGADO')]             
+          lcpfpj_natureza           := laRESULT[jj,db_fetchncol(laRESULT,'PFPJ_NATUREZA')]
+          lccd_despesa_interface    := laRESULT[jj,db_fetchncol(laRESULT,'CD_DESPESA_INTERFACE')]
+          latp_docfiscal := ''
+//          lcnr_docfiscal            := laRESULT[jj,db_fetchncol(laRESULT,'NR_DOCFISCAL')]
+//          lddt_emissao_pagto        := laRESULT[jj,db_fetchncol(laRESULT,'DT_EMISSAO_PAGTO')]
+          lcnr_docfiscal            := '0000000000'
+          lddt_emissao_pagto        := '        '
+          lacd_legado_filial        := '00000'
+          lnvl_total                := laRESULT[jj,db_fetchncol(laRESULT,'VL_TOTAL')]
+          lnvl_total := lnvl_total*100
+          lcforma_pagamento         := laRESULT[jj,db_fetchncol(laRESULT,'TP_FAVORECIDO')]
+          lcpfpj                    := laRESULT[jj,db_fetchncol(laRESULT,'PFPJ')]
+          lccnpj_cpf                := laRESULT[jj,db_fetchncol(laRESULT,'CNPJ_CPF')]
+          lcendereco                := laRESULT[jj,db_fetchncol(laRESULT,'ENDERECO')]
+          lcnr_endereco             := laRESULT[jj,db_fetchncol(laRESULT,'NR_ENDERECO')]
+          lcextra_endereco          := laRESULT[jj,db_fetchncol(laRESULT,'EXTRA_ENDERECO')]
+          lcbairro                  := laRESULT[jj,db_fetchncol(laRESULT,'BAIRRO')]
+          lccidade                  := laRESULT[jj,db_fetchncol(laRESULT,'CIDADE')]
+          lcuf                      := laRESULT[jj,db_fetchncol(laRESULT,'UF')]
+          lccep                     := laRESULT[jj,db_fetchncol(laRESULT,'CEP')]
+          lcddd                     := laRESULT[jj,db_fetchncol(laRESULT,'DDD')]
+          lntelefone                := laRESULT[jj,db_fetchncol(laRESULT,'TELEFONE')]
+          lntelefone2               := laRESULT[jj,db_fetchncol(laRESULT,'TELEFONE2')]
+          lcfax                     := laRESULT[jj,db_fetchncol(laRESULT,'FAX')]
+          lcemail                   := laRESULT[jj,db_fetchncol(laRESULT,'EMAIL')]
+          lccd_banco                := laRESULT[jj,db_fetchncol(laRESULT,'CD_BANCO')]
+          lcbanco_agencia           := laRESULT[jj,db_fetchncol(laRESULT,'BANCO_AGENCIA')]
+          lcbanco_conta             := laRESULT[jj,db_fetchncol(laRESULT,'BANCO_CONTA')]
+          lcie                      := laRESULT[jj,db_fetchncol(laRESULT,'IE')]
+          lddt_previsao_pagto       := laRESULT[jj,db_fetchncol(laRESULT,'DT_PREVISAO_PAGTO')]
+          if lddt_previsao_pagto < date()
+             if !empty(lddt_previsao_pagto)
+                loop
+             endif
+          endif      
+          lddt_previsao_pagto := dtos(lddt_previsao_pagto)
+     
+            monta30 := 'REMPG'
+             monta30 += '011'   // Fixo Juridico
+             monta30 += '120'   // fIXO pAGnET
+             monta30 += 'E'     // fixo Envio
+             monta30 += '30'    // fixo tipo de registro
+             monta30 += strzero(xcontador,6)  // nr sequencial
+             monta30 += '000001' // identificador
+             monta30 += substr(legado,1,5) // 00001 banco alfa 000002 bai 00003 financeira 00004 leasing arrendamento mercantil
+             monta30 += substr(lacd_legado_filial,1,5)
+//             if lcpfpj_natureza == 'Física' .and. (lccd_despesa_interface,1,2) == 1
+             IF SUBSTR(lccd_despesa_interface,2,1) == '1'
+                monta30 += '00020' // lawpack honorarios pj
+             else
+                monta30 += '00019' // lawpack honorarios pf
+             endif
+             monta30 += '201' // 201 lawpack
+             monta30 += strzero(val(substr(lcnr_docfiscal,1,10)),10)
+//             monta30 += lddt_emissao_pagto // AAAAMMDD
+             monta30 += '00000000'
+             monta30 += strzero(lnvl_total,18)
+             monta30 += '001'    // fixo real
+             laspaces := space(60-len(rtrim(lcforma_pagamento)+'Juridico'))
+          // Celia alterou na conversão a forma de pagamento para tp_favorecido
+
+             monta30 += rtrim(lcforma_pagamento)+laspaces+'Juridico' // formatar com 60 posicoes
+             if lcpfpj_natureza == 'Fisica'
+                monta30 += 'F'    // 'f ou j'
+             else
+                monta30 += 'J'    // 'f ou j'
+             endif
+             monta30 += '0000000001' // classe cadastro fixo
+             laspaces := space(59-len(rtrim(lcpfpj)))
+             monta30 += rtrim(lcpfpj)+laspaces // formatar com 59
+             monta30 += space(15)  //abreviacao fixo
+             monta30 += strzero(val(lccnpj_cpf),15)
+             laspaces := space(30-len(rtrim(lcendereco)))
+             monta30 += rtrim(lcendereco)+laspaces
+             monta30 += strzero(lcnr_endereco,5)
+             monta30 += substr(lcextra_endereco,1,10)
+             monta30 += lcuf
+             laspaces := space(30-len(rtrim(lcCIDADE)))
+             monta30 += RTRIM(SUBSTR(lccidade,1,30))+LASPACES
+             monta30 += '000000' //  codigo da cidade
+             monta30 += '00' //  correcao layout
+             laspaces := space(10-len(rtrim(lcCep)))
+             monta30 += RTRIM(substr(lccep,1,10))+LASPACES
+             monta30 += strzero(val(lntelefone),8)
+             monta30 += '0000'  //strzero(lcddd1,4)
+             monta30 += '0000'  //strzero(lcramal1,4)
+             monta30 += '00'    // strzero(lctipotel,2)
+             monta30 += strzero(val(lntelefone2),8)
+             monta30 += '0000'  //strzero(laddd2,4)
+             monta30 += '00'    //strzero(laramal2,4)
+             monta30 += '00'    //strzero(latipote2,2)
+             laspaces := space(60-len(rtrim(SUBSTR(lcEMAIL,1,60))))
+             monta30 += RTRIM(substr(lcemail,1,60))+LASPACES
+             monta30 += '0' //  correcao layout
+             monta30 += strzero(lccd_banco,5)   // codigo bacen
+             monta30 += '0'+strzero((val(rtrim(SUBSTR(lcBANCO_Agencia,1,10)))))
+//             monta30 += str(lcdig_agencia,1)
+             monta30 += '0'+strzero((val(rtrim(SUBSTR(lcBANCO_CONTA,1,10)))))
+//             monta30 += str(lcdig_conta,1)
+             monta30 += space(60) // reg 43 a 48
+             monta30 += space(68)  // reservado 1 reg 49
+             monta30 += '  ' // correcao layout
+             monta30 += strzero(val(lcie),10)
+             monta30 += '1' //fixo
+             monta30 += 'P' //fixo
+             monta30 += 'S' //fixo
+             monta30 += 'S' //fixo
+             monta30 += '00' //fixo
+             if lcpfpj_natureza == 'Fisica'
+                monta30 += '00588'  // para pf
+             else
+                monta30 += '01708'
+             endif
+             
+//             monta30 += strzero(laapolice_contrato,10)   // verificar
+             monta30 += '0000000000'   // verificar
+             monta30 += '0000000000000000000000000000' // registros 58 a 61
+             monta30 += '27        '  // centro de custo fixo
+             monta30 += '0000000000'  // 00 isento fixo
+             if latp_docfiscal == 'NOTA FISCAL DE SERVIÇO'
+                monta30 += '0000000001'  // 01 nota
+             else
+                monta30 += '0000000005'  // 05 recibo
+             endif
+             monta30 += space(96) // reservado
+             monta30 += '00NN0000000000'  // fixo
+             monta30 += space(30)  // brancos
+             monta30 += '00000'   // fixo
+             monta30 += '00'    // cod trib inss 00 isento 01 recolh 22,5 emp e ret 11 contr - pf
+                             // 03 ret contr 11 pj
+                            // 05 rec 22,5 empresa - pf
+             monta30 += '00'   // cod trib csll 00 - isento 01 pj 1%
+             monta30 += '00'   // cod trib cofins 00 - isento 01 pj 3%
+             monta30 += '00'   // cod trib pis 00 - isento 01 pj 0,65%
+             monta30 += '00000000000'  // strzero(lapis,11)  // nr do pis deixar fixo
+             monta30 += space(10)   // gfip classificacao brasileira de ocupacaoes
+             monta30 += '01'   // tipo de conta 01 cc 02 cta poup 03 cta invest
+             monta30 += space(45)   // reservado
+             aadd(laXML,monta30)
+//             aadd(laXML3, monta30)
+             monta30 := ''
+       
+          // concluido
+xcontador := xcontador + 1
+
+          // MONTAGEM DA LINHA DE DETALHES REGISTRO TIPO 32   parcelas
+          monta32 := 'REMPG'
+          monta32 += '011'   // Fixo Juridico
+          monta32 += '120'   // fIXO pAGnET
+          monta32 += 'E'     // fixo Envio
+          monta32 += '32'    // fixo tipo de registro
+          monta32 += strzero(xcontador,6)  // nr sequencial
+          monta32 += '000002' // identificador
+          monta32 += substr(legado,1,5) // 00001 banco alfa 000002 bai 00003 financeira 00004 leasing arrendamento mercantil
+          monta32 += '00000'  //correcao layout
+//          strzero(lacd_legado_filial,5)
+          laspaces := space(59-len(rtrim(lcpfpj)))
+          monta32 += rtrim(lcpfpj)+laspaces // formatar com 59
+          monta32 += strzero( VAL(lccnpj_cpf),15)
+//          monta32 += strzero(lcforma_pagamento,3)
+          monta32 += '001'
+          monta32 += space(60)
+          monta32 += '001'    // fixo real
+          
+//          if DTOC(lddt_previsao_pagto)  <> '    /  /  ' 
+             monta32 += lddt_previsao_pagto
+//          else
+//             monta32 += '00000000'
+//          endif   
+          monta32 += '001'   // fixo
+          monta32 += strzero(lnvl_total,18)
+          monta32 += '000000000000000000' // valor isento de irrf fixo com 0
+          monta32 += '000000000000000000' // valor base tributavel para calculo do ir fixo com 0
+          monta32 += '000000000000000000' // sempre 0 fixo com 0
+          monta32 += '000000000000000000' // valor do desconto fixo com 0
+          monta32 += '000000000000000000' // valor de juros fixo com 0
+          monta32 += '000000000000000000' // valor de multa fixo com 0
+          monta32 += '0000000'            // numero do recibo - verificar
+          monta32 += space(36)            // brancos reservado
+          monta32 += 'P'                  // fixo
+          monta32 += '000000000000000000' // valores calculados pelo sistema requisitante fixo com 0
+          monta32 += '000000000000000000' // valores calculados pelo sistema requisitante fixo com 0
+          monta32 += '000000000000000000' // valores calculados pelo sistema requisitante fixo com 0
+          monta32 += '000000000000000000' // valores calculados pelo sistema requisitante fixo com 0
+          monta32 += space(54)            // brancos reservaco
+          monta32 += dtos(lddata_pagto)   // data de pagamento
+          monta32 += '0000000000'         // nr do recibo gerado pelo pagnet com 0
+          monta32 += '000000000000000000' // valor irrf fixo com 0
+          monta32 += '000000000000000000' // valor inss fixo com 0
+          monta32 += '000000000000000000' // valor iss  fixo com 0
+          monta32 += strzero(lnvl_total,18) // valor liquido fixo com 0
+          monta32 += ' '                  // sempre branco
+          monta32 += '00000'
+          monta32 += space(19)
+          monta32 += '0000000000'
+          monta32 += '000000'
+          monta32 += '0000'
+          monta32 += '000000000000000000' // valor liquido fixo com 0
+          monta32 += '000000000000000000' // valor liquido fixo com 0
+          monta32 += '000000000000000000' // valor liquido fixo com 0
+          monta32 += '000000000000000000' // valor liquido fixo com 0
+          monta32 += '000000000000000000' // valor liquido fixo com 0
+          monta32 += '000000000000000000' // valor liquido fixo com 0
+          monta32 += space(174)
+          aadd(laXML,monta32)
+//          aadd(laXML4, monta32)
+//wout('tamanho laxml')
+//xx := len(laxml)
+//wout(strzero(xx,3))             
+
+          monta32 := ''
+
+          // concluido
+
+  
+   next ii
+   
+ XCONTADOR := xcontador + 1
+          // MONTAGEM DA LINHA DE DETALHES REGISTRO TIPO 90 trailler
+          
+          monta90 := 'REMPG'
+          monta90 += '011'   // Fixo Juridico
+          monta90 += '120'   // fIXO pAGnET
+          monta90 += 'E'     // fixo Envio
+          monta90 += '90'    // fixo tipo de registro
+          monta90 += strzero(xcontador,6)  // nr sequencial
+          monta90 += '000000' // fixo zeros
+          monta90 += space(1) // fixo branco
+          monta90 += space(8) // data de pagamento - Alexandre mandou fixar com space
+          monta90 += '999'    // verificar com alexandre descritivo errado como header
+          monta90 += dtos(date()) // data da geracao do arquivo
+          xtime := substr(time(),1,2)+substr(time(),4,2)+substr(time(),7,2)
+          monta90 += xtime       // hora da geracao do arquivo
+          monta90 += strzero(legado,5)
+          monta90 += 'd'          // periodicidade = diario
+//          dia()
+//strzero(date()-(ctod('01/01/'+strzero(year(date()),4))),3)+strzero(year(date))
+          dias := date() - ctod("01/01/"+strzero(year(date()),4))
+          ano  := substr((dtoc(date())),9,2) 
+          monta90 +=  strzero(dias,3)+ ano // data juliana 3 posicoes + ano 2 posicoes
+          monta90 += space(146)
+//          aadd(laXML,laXML3)
+//          aadd(laXML,laXML4)
+          aadd(laXML, monta90)
+          monta90 := ''
+           
+// concluido
+
+          wout('Empresa..: ' + laEMP[hh] + ' Total: ' + str(len(laXML)))
+
+          lcfilelog := 'alfa_' + laEMP[hh] + '_' + dtos(date()) + '.txt'  //'/alfa_'+dtos(date())+'.txt' alterar
+
+          lnHAND1 := fcreate(lcFILELOG, 0)
+          if lnHAND1 > 0
+            for ii := 1 to len(laXML)
+               if !dispmess(laXML[ii], lnHAND1 , 0, 0)
+                  return(nil)
+               endif
+            next ii
+            fclose(lnHAND1)
+            lcStatus := '1'  //Atualiza seq_interfaces - processo ok
+          else
+             wout("Problemas na criação do arquivo: "+lcFILELOG)
+             lcStatus := '2'  //Atualiza seq_interfaces - erro no processo
+          endif
+
+
+  NEXT hh
+
+endif
+   //Atualizar Interfaces - seq_interfaces
+
+   laFIELDSINT := {'PROGRAM','NR_SEQUENCIA','DT_INICIO','HR_INICIO','DT_TERMINO','HR_TERMINO','STATUS'}   //structtable(WSet("DB_ACTIVE"),lcTABLEINT,1,'N')
+   laWHEREINT  := {"PROGRAM = "+DLMT+'pagnet_alfa_html'+DLMT}
+   if db_select(laFIELDSINT, lcTABLEINT,,laWHEREINT) == -1
+      error_sys(db_error())
+   endif
+   laRES_INT := db_fetchrow()
+   lnSEQ     := laRES_INT[2] + 1
+   aadd(laSAVEINT,laFIELDSINT)
+   aadd(laSAVEINT,{laRES_INT[1],lnSEQ, ldDIAINI, lcHORAINI, date(), time(), lcStatus})
+   if db_replace(laSAVEINT,lcTABLEINT,laWHEREINT) == -1
+      error_sys(db_error())
+   endif
+   wput('DT_VALIDADE_PSW','31/12/2030')
+return
+
+
+function Dia
+
+local dDataAux
+local dData 
+local nDias 
+
+//if dData = NIL 
+dData := date() 
+//endif 
+//if valtype( dData ) != 'D' 
+//return -1 
+//endif 
+dDataAux:= ctod( '01/01/'+alltrim( str( year( dData ) ) ) ) 
+nDias:=dData-dDataAux + 1 
+nDias := val(strzero(nDias,3)+substr(alltrim( str( year( dDATA) ) ),3,2))
+return (nDias)
+
+/* - updates para teste da base conv_alfa
+--UPDATE MVT_DESPESA SET TP_DOCFISCAL = 'Teste PAGNET', FL_APROVACAO = 'A', FL_REVISAO ='A' WHERE NR_PASTA = 39638 
+--UPDATE MVT_DESPESA SET DT_PREVISAO_PAGTO = '2011-07-01' WHERE NR_PASTA = 39638
+select DISTINCT mvt_despesa.NR_PASTA,mvt_despesa.CD_DESPESA,mvt_despesa.VL_UNIT,mvt_despesa.VL_TOTAL,mvt_despesa.DT_PREVISAO_PAGTO,mvt_despesa.FORMA_PAGAMENTO,mvt_despesa.CIP_FAVORECIDO,mvt_despesa.TP_DOCFISCAL,mvt_despesa.DT_EMISSAO_DOCFISCAL,mvt_despesa.NR_DOCFISCAL,mvt_despesa.DT_ENVIO_CTPAG,pfpj.PFPJ_NATUREZA,pfpj.PFPJ,pfpj.CD_LEGADO,pfpj.CNPJ_CPF,pfpj.ENDERECO,pfpj.NR_ENDERECO,pfpj.EXTRA_ENDERECO,pfpj.BAIRRO,pfpj.CIDADE,pfpj.UF,pfpj.CEP,pfpj.DDD,pfpj.TELEFONE,pfpj.TELEFONE2,pfpj.FAX,pfpj.EMAIL,pfpj.CD_BANCO,pfpj.BANCO_AGENCIA,pfpj.BANCO_CONTA,pfpj.IE,mvt_despesa.TP_FAVORECIDO,despesa.CD_DESPESA_INTERFACE from mvt_despesa left join pasta_pfpj_empresa on (pasta_pfpj_empresa.NR_PASTA           = mvt_despesa.NR_PASTA) left join despesa on (despesa.CD_DESPESA                    = mvt_despesa.CD_DESPESA) left join pfpj on (pfpj.CIP                              = mvt_despesa.CIP_FAVORECIDO) where ( ( SUBSTR(despesa.CD_DESPESA_INTERFACE,1,1)='1' and mvt_despesa.DT_ENVIO_CTPAG IS NULL and pfpj.CD_LEGADO IS NOT NULL)) order by pfpj.CD_LEGADO
+--UPDATE PFPJ SET ENDERECO = 'Rua Zacarias de Gois', NR_ENDERECO = '1299', EXTRA_ENDERECO = 'complemento end',telefone2 = 'teste tel2',BAIRRO = 'Campo Belo', DDD = '11', TELEFONE = '50964321', CEP = '01000000',EMAIL = 'suporte@inso.com.br',CIDADE = 'SAO PAULO' where CIP = 1472
+--update pfpj set cd_banco = '001', uf = 'SP', banco_agencia = '4849', banco_conta = '5020530',cnpj_cpf = '64505111000299', ie='1234567890' where CIP = 1472
+*/
+
+

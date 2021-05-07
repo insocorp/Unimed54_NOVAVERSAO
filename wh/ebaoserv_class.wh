@@ -1,0 +1,292 @@
+/*
+
+Project      : isj_45
+Program      : ebaoserv.class
+Function     : ebaoserv_class
+Created on   : 19-Apr-2016   19:16:15
+Descripition :
+
+*/
+
+// Glauber - 04/2016
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Classe...........: EbaoServices
+*
+* Objetivo.........: Classe que manipula as configurações do Ebao.
+*
+* Atributos........:
+*
+*
+*
+*
+*
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD Save()
+*    METHOD Delete()
+*    METHOD GetService()
+*    METHOD GetAllServices()
+*    METHOD ToArray()
+*
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS EbaoServices
+
+    // Atributos privado
+
+    INSTANCE ResultSet
+
+    // Atributos publico
+
+    EXPORT NrControle
+    EXPORT Descricao
+    EXPORT Servico
+
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()                          CLASS EbaoServices
+    PROTOTYPE METHOD Destroy()                       CLASS EbaoServices
+    PROTOTYPE METHOD Save()                          CLASS EbaoServices
+    PROTOTYPE METHOD Delete()                        CLASS EbaoServices
+    PROTOTYPE METHOD GetService()                    CLASS EbaoServices
+    PROTOTYPE METHOD GetAllServices()                CLASS EbaoServices
+    PROTOTYPE METHOD ToArray()                       CLASS EbaoServices
+
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS EbaoServices
+
+      self:NrControle := 0
+      self:Descricao  := ''
+      self:Servico    := ''
+      
+      self:ResultSet  := {}
+
+
+return(self)
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS EbaoServices
+
+      self:NrControle := nil
+      self:Descricao  := nil
+      self:Servico    := nil
+
+
+return(nil)
+
+
+
+
+/*
+* Data......: 04/2016 - Glauber
+* Metodo....: Save()
+* Objetivo..: Salva um serviço.
+* Parâmetros:
+*
+*
+* Retorno...: self
+*
+*
+*/
+
+METHOD Save() CLASS EbaoServices
+
+     local laSAVE   := {{'NR_CONTROLE',;
+                         'DESCRICAO',;
+                         'SERVICO'},;
+                        {self:NrControle,;
+                         self:Descricao,;
+                         self:Servico}} AS Array
+
+     if self:Valida()
+        if db_replace(laSAVE,'ebaoservices',{'NR_CONTROLE='+AllTrim(self:NrControle)}) == -1
+           error_sys(db_error())
+        endif
+     endif
+
+return self
+
+/*
+* Data......: 04/2016 - Glauber
+* Metodo....: Delete()
+* Objetivo..: Apaga um serviço.
+* Parâmetros:
+*
+*
+* Retorno...: self
+*
+*
+*/
+
+METHOD Delete() CLASS EbaoServices
+
+     if self:NrControle > 0
+        if db_delete('ebaoservices','NR_CONTROLE='+AllTrim(self:NrControle)) == -1
+           error_sys(db_error())
+        endif
+     endif
+
+return self
+
+
+/*
+* Data......: 04/2016 - Glauber
+* Metodo....: GetService()
+* Objetivo..: Pesquisa um serviço.
+* Parâmetros:
+*
+*
+* Retorno...: self
+*
+*
+*/
+
+METHOD GetService() CLASS EbaoServices
+
+     local laRES   := {} AS Array
+
+     if self:NrControle > 0
+        if db_select({'DESCRICAO','SERVICO'},'ebaoservices',,{'NR_CONTROLE='+AllTrim(self:NrControle)}) == -1
+           error_sys(db_error())
+        endif
+        laRES := db_fetchall()
+        if len(laRES) > 1
+           self:Descricao := laRES[2,1]
+           self:Servico   := laRES[2,2]
+        endif
+     endif
+
+return self
+
+/*
+* Data......: 04/2016 - Glauber
+* Metodo....: GetAllServices()
+* Objetivo..: Pesquisa todos serviços.
+* Parâmetros:
+*
+*
+* Retorno...: self
+*
+*
+*/
+
+METHOD GetAllServices() CLASS EbaoServices
+
+     local laRES   := {} AS Array
+
+
+     if db_select({'NR_CONTROLE','DESCRICAO','SERVICO'},'ebaoservices') == -1
+        error_sys(db_error())
+     endif
+     self:ResultSet := db_fetchall()
+
+
+return self
+
+/*
+* Data......: 04/2016 - Glauber
+* Metodo....: ToArray()
+* Objetivo..: Retorna o valor de GetAllServices no formato array do wictrix.
+* Parâmetros:
+*
+*
+* Retorno...: self
+*
+*
+*/
+
+METHOD ToArray() CLASS EbaoServices
+
+
+return self:ResultSet
+
+
+
+
+/*
+* Data......: 04/2016 - Glauber
+* Metodo....: Valida()
+* Objetivo..: Valida os dados para operação de salvar.
+* Parâmetros:
+*
+*
+* Retorno...: .T. caso seja valido
+*
+*
+*/
+
+METHOD Valida() CLASS EbaoServices
+
+    if empty(Descricao) .or. Empty(Servico)
+       return .F.
+    endif
+
+
+
+return .T.
+
+
+
+
+
+

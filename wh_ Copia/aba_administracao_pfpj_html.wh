@@ -1,0 +1,232 @@
+/*
+
+Project      : gr5
+Program      : aba.administracao.pfpj.html
+Function     : aba_administracao_pfpj_html
+Created on   : 25-Jan-2006   14:45:31
+Descripition : Aba Administração de Pessoas
+
+*/
+
+   local lcACTION            := upper(WGet('ACTION','U')),;
+         lcNR_CONTROLE       := WGet('NR_CONTROLE','C'),;
+         lcPFPJ_NATUREZA     := WGet('PFPJ_NATUREZA','C'),;
+         lcCIP_ADMINISTRADOR := WGet('CIP_ADMINISTRADOR','C'),;
+         lcCIP_OUTORGADO     := WGet('CIP_OUTORGADO','C'),;
+         lcNR_PASTA          := WGet('NR_PASTA','C') ,;
+         lcTP_PASTA          := WGet('TP_PASTA','C') ,;
+         lcTABLE             := '' ,;
+         lcWHERE             := '' ,;
+         lcCIP               := '' as string
+   local laFIELDS   := {} ,;
+         laRESULT   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laVALIDA   := {} as array
+   local ii := 0 as int
+   local llFL_PASTA := .f. as logical
+
+   laVALIDA := {'CIP_ADMINISTRADOR'}
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+   //Se vindo da Pasta
+   if ! empty(lcNR_PASTA) .and. ! empty(lcTP_PASTA)
+      wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+      llFL_PASTA := .t.
+      //pegando o Layout Pasta
+      if db_select({'LAYOUT_PASTA'},'pasta_config',,{'TP_PASTA='+DLAP+lcTP_PASTA+DLAP}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if lower(laRESULT[1]) == 'contrato_prestacao_servico'
+            lcCIP := 'CIP_SOLICITANTE'
+         elseif lower(laRESULT[1]) == 'pasta_pfpj'
+            lcCIP := 'CIP_TITULAR'
+         endif
+
+         if db_select({'pfpj.NR_CONTROLE'},'pasta_cip',{{2,'pfpj','pfpj.CIP=pasta_cip.CIP'}},{'pasta_cip.NR_PASTA='+lcNR_PASTA+' and pasta_cip.WFIELD='+DLAP+lcCIP+DLAP}) == -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchrow()
+
+         if len(laRESULT) > 0
+            lcNR_CONTROLE := str(laRESULT[1])
+         endif
+      endif
+   endif
+
+   if val(lcNR_CONTROLE) == 0
+      walert('Favor definir em Informações Principais uma pessoa no campo '+DLMT+lblfscreen(lcCIP)+DLMT)
+//      mnt_pasta_html()
+      return .f.
+   endif
+
+   lcTABLE  := 'pfpj_administracao'
+   laFIELDS := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   lcWHERE  := 'NR_CONTROLE='+lcNR_CONTROLE+' and CIP_ADMINISTRADOR='+DLAP+lcCIP_ADMINISTRADOR+DLAP
+   get2Put({'PFPJ_NATUREZA','NR_PASTA','TP_PASTA'})
+   // Glauber 06/01/2011
+   AbasPerfil(lcTP_PASTA,laFIELDS)
+
+   WPut('FL_ASSINA.option',{'Isoladamente','Conjuntamente'})
+   WPut('FL_PODERINDETERMINADO.option','S')
+   WPut('FL_PROCURADOR.option','S')
+   carrega_cbox({{'procuracao_poder_class','PROCURACAO_PODER_CLASS','Y'}})
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      if verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+
+         pfpj_logs(laSAVE,lcTABLE,lcWHERE,lcNR_CONTROLE,'Administração') //Gravar log de alterações da pasta
+
+         if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+            error_sys(db_error())
+         endif
+
+         if ! empty(lcCIP_OUTORGADO)
+            laSAVE := {{'NR_CONTROLE','CIP_ADMINISTRADOR','CIP_OUTORGADO','PROC_PODERES_CONJUNTO'},;
+                       {lcNR_CONTROLE,lcCIP_ADMINISTRADOR,lcCIP_OUTORGADO,WGet('PROC_PODERES_CONJUNTO')}}
+
+            if db_replace(laSAVE,'pfpj_administracao_outorgado',{lcWHERE+' and CIP_OUTORGADO='+DLAP+lcCIP_OUTORGADO+DLAP}) == -1
+               error_sys(db_error())
+            endif
+            alter(laFIELDS,lcTABLE,lcWHERE)
+         endif
+      endif
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+      alter(laFIELDS,lcTABLE,lcWHERE)
+
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      pfpj_logdel(lcNR_CONTROLE,'CIP_ADMINISTRADOR',lcCIP_ADMINISTRADOR,,'Administração')
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+
+   elseif lcACTION == 'DELETE_OUTORGADO' .and. gbWAC_DELETE
+      if db_delete('pfpj_administracao_outorgado',lcWHERE+' and CIP_OUTORGADO='+DLAP+lcCIP_OUTORGADO+DLAP) == -1
+         error_sys(db_error())
+      endif
+      alter(laFIELDS,lcTABLE,lcWHERE)
+   endif
+
+   if db_select({'pfpj_administracao.CIP_ADMINISTRADOR',;
+                 'pfpj.PFPJ',;
+                 'pfpj.CNPJ_CPF',;
+                 'pfpj.IE',;
+                 'pfpj.CARGO',;
+                 'pfpj_administracao.DT_MANDATO_INICIO',;
+                 'pfpj_administracao.DT_MANDATO_FIM',;
+                 'pfpj_administracao.DT_PRAZOPODER',;
+                 'pfpj_administracao.FL_ASSINA'},lcTABLE,;
+                {{2,'pfpj','pfpj_administracao.CIP_ADMINISTRADOR=pfpj.CIP'}},;
+                {'pfpj_administracao.NR_CONTROLE='+lcNR_CONTROLE},{'pfpj_administracao.CIP_ADMINISTRADOR'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      aadd(laRESULT[1],'(row)')
+      for ii := 2 to len(laRESULT)
+         aadd(laRESULT[ii],'(row)'+wic_action('wicaction//aba.administracao.pfpj.html'+;
+                                              '?ACTION=ALTER&NR_PASTA='+lcNR_PASTA+;
+                                              '&TP_PASTA='+lcTP_PASTA+;
+                                              '&NR_CONTROLE='+lcNR_CONTROLE+;
+                                              '&PFPJ_NATUREZA='+lcPFPJ_NATUREZA+;
+                                              '&CIP_ADMINISTRADOR='+laRESULT[ii,1]))
+      next ii
+      WPut('GRID_ADMINISTRACAO',grid_create(laRESULT))
+   endif
+
+   if llFL_PASTA
+      WPut('ifPASTA',.t.)
+      WPut('ifPFPJ',.f.)
+      make_psthead(lcNR_PASTA,lcTP_PASTA)
+      pasta_abas(lcTP_PASTA)
+   else
+      WPut('ifPFPJ',.t.)
+      WPut('ifPASTA',.f.)      
+      make_pfpjhead(lcNR_CONTROLE,lcPFPJ_NATUREZA)
+      pfpj_abas(lcPFPJ_NATUREZA,lcNR_CONTROLE)
+   endif
+   WPut('NR_CONTROLE',lcNR_CONTROLE)
+return
+
+static function alter(faFIELDS,fcTABLE,fcWHERE)
+    local lcAUX := '' as string
+    local laRESULT := {} as array
+    local ii := 0,;
+          xx := 0  as int
+
+    if db_select(faFIELDS,fcTABLE,,{fcWHERE}) == -1
+       error_sys(db_error())
+    endif
+    laRESULT := db_fetchall()
+
+    if len(laRESULT) > 1
+       db2Put(laRESULT)
+       if ! empty(getwput('CIP_ADMINISTRADOR'))
+          if db_select({'NR_CONTROLE',;
+                        'PFPJ as CIP_ADMINISTRADOR_PFPJ',;
+                        'CNPJ_CPF as CIP_ADMINISTRADOR_CNPJ_CPF',;
+                        'IE as CIP_ADMINISTRADOR_IE',;
+                        'CARGO as CIP_ADMINISTRADOR_CARGO'},'pfpj',,{'CIP='+DLAP+getwput('CIP_ADMINISTRADOR')+DLAP}) == -1
+             error_sys(db_error())
+          endif
+          db2put(db_fetchall())
+          mkgedembed('pfpj','EMBED_PFPJ_MNT_HTML_FOTO',150,130,'GED_EMBED_FOTO','Foto',.f.)
+          mkgedembed('pfpj','EMBED_PFPJ_MNT_HTML_ASSINATURA',150,130,'GED_EMBED_ASSINATURA','Assinatura',.f.)
+
+       endif
+       if db_select({'pfpj_administracao_outorgado.CIP_OUTORGADO',;
+                     'pfpj.PFPJ',;
+                     'pfpj_administracao_outorgado.PROC_PODERES_CONJUNTO'},;
+                     'pfpj_administracao_outorgado',;
+                    {{2,'pfpj','pfpj_administracao_outorgado.CIP_OUTORGADO=pfpj.CIP'}},;
+                    {'pfpj_administracao_outorgado.NR_CONTROLE='+WGet('NR_CONTROLE','C')+;
+                     ' and pfpj_administracao_outorgado.CIP_ADMINISTRADOR='+DLAP+WGet('CIP_ADMINISTRADOR','C')+DLAP},;
+                    {'pfpj_administracao_outorgado.CIP_OUTORGADO'}) == -1
+          error_sys(db_error())
+       endif
+       laRESULT := db_fetchall()
+       if len(laRESULT) > 1
+          for ii := 2 to len(laRESULT)
+             laRESULT[ii,3] := strtran(laRESULT[ii,3],',',', ') //Adiciona Espaços entre as virgulas
+
+             lcAUX := ''
+             for xx := 1 to mlcount(laRESULT[ii,3],50)
+                 if xx > 1
+                   lcAUX += '<br>'
+                 endif
+                 lcAUX += memoline(laRESULT[ii,3],50,xx)
+             next xx
+             laRESULT[ii,3] := lcAUX
+
+          next ii
+
+          WPut('ifOUTORGADO',.T.)
+          WPut('lstOUTORGADO',laRESULT)
+       endif
+    endif
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

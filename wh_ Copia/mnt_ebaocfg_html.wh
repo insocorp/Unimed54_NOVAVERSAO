@@ -1,0 +1,84 @@
+/*
+
+Project      : isj_45
+Program      : mnt.ebaocfg.html
+Function     : mnt_ebaocfg_html
+Created on   : 20-Apr-2016   11:01:30
+Descripition : 
+
+*/
+
+   local laFIELDS   := {},;
+         laSERV     := {},;
+         laOPT      := {},;
+         laOPTVAL   := {} as Array
+
+   local lcACTION   := ''  as string
+   local ii         := 0 as Int
+   local objetoCfg  := EbaoConfigNew() as Object
+
+
+   laFIELDS  := structtable(WSet("DB_ACTIVE"),'ebaoconfservices',1,'N')
+   lcACTION  := alltrim(upper(WGet('ACTION')))
+
+   init_reqfield(WSet('_USER_INTERFACE'),laFIELDS)
+
+   // Realizar a carga dos combos
+
+   laSERV := objetoCfg:ObterServicos()
+
+   for ii := 2 to len(laSERV)
+       aadd(laOPT,laSERV[ii,2])
+       aadd(laOPTVAL,laSERV[ii,1])
+   next ii
+
+   WPut('ID_LISTASINISTROS.option',laOPT)
+   WPut('ID_LISTASINISTROS.optionvalue',laOPTVAL)
+
+   WPut('ID_DETALHESINISTRO.option',laOPT)
+   WPut('ID_DETALHESINISTRO.optionvalue',laOPTVAL)
+
+   WPut('ID_MARCARSINISTRO.option',laOPT)
+   WPut('ID_MARCARSINISTRO.optionvalue',laOPTVAL)
+
+   WPut('ID_ATUALIZARRESERVA.option',laOPT)
+   WPut('ID_ATUALIZARRESERVA.optionvalue',laOPTVAL)
+
+   WPut('ID_REALIZARPAGAMENTO.option',laOPT)
+   WPut('ID_REALIZARPAGAMENTO.optionvalue',laOPTVAL)
+
+
+   if lcACTION == 'SAVE'
+      if verif_reqfield(WSet('_USER_INTERFACE'),laFIELDS)
+
+          objetoCfg:IdListaSinistros      := WGet('ID_LISTASINISTROS')
+          objetoCfg:IdDetalheSinistro     := WGet('ID_DETALHESINISTRO')
+          objetoCfg:IdMarcaSinistro       := WGet('ID_MARCARSINISTRO')
+          objetoCfg:IdAtualizaReserva     := WGet('ID_ATUALIZARRESERVA')
+          objetoCfg:IdRealizarPagamento   := WGet('ID_REALIZARPAGAMENTO')
+          objetoCfg:RamosEbao             := WGet('ID_RAMOS_EBAO')
+          objetoCfg:TipoPastas            := WGet('PASTAS')
+          objetoCfg:SalvarConfiguracao()
+
+          if (objetoCfg:ErrorCode != 0)
+             WAlert(objetoCfg:ErrorMessage)
+             GetWPut()
+             return
+          endif
+      endif
+   endif
+
+   // Mostrar a confguração corrente
+
+   objetoCfg:ObterConfiguracao()
+
+   WPUT('ID_LISTASINISTROS',    objetoCfg:IdListaSinistros)
+   WPUT('ID_DETALHESINISTRO',   objetoCfg:IdDetalheSinistro)
+   WPUT('ID_MARCARSINISTRO',    objetoCfg:IdMarcaSinistro)
+   WPUT('ID_ATUALIZARRESERVA',  objetoCfg:IdAtualizaReserva)
+   WPUT('ID_REALIZARPAGAMENTO', objetoCfg:IdRealizarPagamento)
+   WPUT('ID_RAMOS_EBAO',        objetoCfg:RamosEbao)
+   WPUT('PASTAS',               objetoCfg:TipoPastas)
+
+
+return

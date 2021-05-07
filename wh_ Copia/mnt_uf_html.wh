@@ -1,0 +1,49 @@
+/*
+Project      : gr5
+Program      : mnt.uf.html
+Function     : mnt_uf_reajuste_html
+Created on   : 23-Jul-2008  
+Descripition : Manuten�o e listagem Unidades da federacao
+*/
+
+local laPARAM        := {},;
+      laINPUT_OBJ    := {},;
+      laSELECT       := {} as array
+
+laPARAM := {{'UF','','*'},;
+            {'FL_ATIVO','',},;
+            {'ACTION'   ,'ALTER',   }}
+
+laINPUT_OBJ := { {'UF',0,,'Y', },;
+                 {    , ,,   , },;
+                 {'NM_UF',0,'N','Y', },;
+                {          , , ,   , },;
+                    {'FL_ATIVO',1,,'Y','{"S","I","D"}' }}
+laSELECT := {'UF','NM_UF','FL_ATIVO'}
+
+
+xbp2('estados',;                                                         //Tabela alvo
+    ,;                                                                  //Joins
+    ,;                                                                  //Where
+    {'UF'},;                                                                  //Order by
+    ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+    ,;                                                                  //Group by
+    ,;                                                                  //Limit
+    ,;                                                                  //Banco de Dados
+    2,;                                                                 //Tipo do programa 1-Listagem/Manuten�o, 2-Ambos, 3-Search
+    'gr5',;                                                             //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                                           //Programa chamador
+    laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+    ,;                                                                  //Par�etros para os bot�s das linhas do grid
+    'mnt.uf.html',;                                                     //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                                             //M�ulo do programa chamado pelos links/botoes do grid
+    ,;                                                                  //Retorno java (nil) - usado apenas para Search
+    ,;                                                                  //Campos usados na pesquisa r�ida
+    ,;                                                                  //Campos Ocultos
+    laINPUT_OBJ,;                                                       //Campos da �ea de manuten�o/entrada de dados
+    laSELECT ,;                                                         //Campos exibidos no grid
+    laSELECT)                                                           //Campos usados no select
+return
+
+
+

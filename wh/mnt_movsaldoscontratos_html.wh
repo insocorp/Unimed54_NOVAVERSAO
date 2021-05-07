@@ -1,0 +1,420 @@
+/*
+
+Project      : isj_45
+Program      : mnt.movsaldoscontratos.html
+Function     : mnt.movsaldoscontratos.html
+Created on   : 18-Dec-2014   15:28:14
+Descripition :
+
+*/
+
+
+    local lcTable         := 'movtosaldocontratos' as String
+    local laFIELDS        := {'TP_PASTA',;
+                              'ID_PLATAFORMA',;
+                              'NR_CONTROLE',;
+                              'DT_MOVIMENTACAO',;
+                              'VL_LANCAMENTO',;
+                              'LOGIN_CADASTRO',;
+                              'NR_SEQ',;
+                              'HR_LANCAMENTO'} as Array
+
+    local laSAVE          := {},;
+          laPUT           := {},;
+          laSAVE_AUX      := {} as Array
+
+    local lcAction        := Upper(WGet('ACTION')) as String
+    local lcWhere         := '' as String
+    local llErro          := .F.
+    local ii              := 0 as int
+    local lnSALDO         := 0.00 as numeric
+
+
+    WPut('TITLE','Movimentação de Saldos dos Contratos')
+    WPut('LOGIN_CADASTRO',WSet('LOGIN'))
+    WPut('DT_MOVIMENTACAO',Dtoc(Date()))
+
+    // Alimentar o combo de tipo de pasta
+    laPUT := loadcboxorder_build('pasta_config','TP_PASTA',.t.,{'TP_PASTA'})
+    Wput('TP_PASTA_OPT',laPUT)
+
+
+
+    lcWhere := 'TP_PASTA = ' + DLAP + Wget('TP_PASTA') + DLAP +;
+               ' and ID_PLATAFORMA = ' + Wget('DESC_PLATAFORMA','C') +;
+               ' and NR_CONTROLE = ' + Wget('DESC_MOVTO','C') +;
+               ' and DT_MOVIMENTACAO = ' + DLAP + DTOS(Wget('DT_MOVIMENTACAO','D')) + DLAP
+
+
+
+
+    if lcACTION == 'ALTER' .and. gbWAC_READ
+       
+       NovoCbox('DESC_PLATAFORMA','ID_PLATAFORMA','DESC_PLATAFORMA','plataforma','TP_PASTA='+DLAP +Wget('TP_PASTA')+DLAP + ' and ID_PLATAFORMA IN(SELECT ID_PLATAFORMA FROM SALDOCONTRATOS WHERE TP_PASTA = ' +DLAP +Wget('TP_PASTA')+DLAP +')' ,'DESC_PLATAFORMA',{0,''})
+       NovoCbox('DESC_MOVTO','NR_CONTROLE','DESC_MOVTO','TP_MOV_SALDOSCONTRATOS','TP_PASTA='+DLAP +Wget('TP_PASTA')+DLAP + ' and NR_CONTROLE IN(SELECT NR_CONTROLE FROM SALDOCONTRATOS WHERE TP_PASTA = ' +DLAP +Wget('TP_PASTA')+DLAP +')' ,'DESC_MOVTO',{0,''})
+
+       for ii := 1 to len(laFIELDS)
+           if(laFIELDS[ii] == 'ID_PLATAFORMA')
+              WPut('DESC_PLATAFORMA',WGet('DESC_PLATAFORMA'))
+
+           elseif(laFIELDS[ii] == 'NR_CONTROLE')
+              WPut('DESC_MOVTO',WGet('DESC_MOVTO'))
+
+           else
+              WPut(laFIELDS[ii],WGet(laFIELDS[ii]))
+
+           endif
+       next ii
+
+    elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+
+
+           if (Empty(Wget('TP_PASTA')))
+               WAlert('O campo '+lblfscreen('TP_PASTA') + ' é de preenchimento obrigatório !')
+               llErro := .T.
+           endif
+
+           if Wget('DESC_PLATAFORMA','N') == 0
+               WAlert('O campo '+lblfscreen('DESC_PLATAFORMA') + ' é de preenchimento obrigatório !')
+               llErro := .T.
+           endif
+
+           if Wget('DESC_MOVTO','N') == 0
+               WAlert('O campo '+lblfscreen('DESC_MOVTO') + ' é de preenchimento obrigatório !')
+               llErro := .T.
+           endif
+
+           if Wget('VL_LANCAMENTO','N') == 0
+               WAlert('O campo '+lblfscreen('VL_LANCAMENTO') + ' é de preenchimento obrigatório !')
+               llErro := .T.
+           endif
+
+           lnSALDO := getSaldoComMovto(Wget('TP_PASTA'), Wget('DESC_PLATAFORMA','N'), Wget('DESC_MOVTO','N'), Wget('VL_LANCAMENTO','N'), 'U')
+
+           if lnSALDO  < 0
+               WAlert('O saldo não pode ficar negativo.')
+               llErro := .T.
+           endif
+
+           // Verificar se trata-se de uma alteração de lançamento. Caso afirmativo, informar que não é possível alterar lançamento, que o mesmo deve ser excluido.
+
+           if db_select({'count(*) as QTDE'},lcTable,,{lcWHERE}) == -1
+              error_sys(db_error())
+           endif
+
+           laRES := db_fetchall()
+
+           if laRES[2,1] > 0
+               WAlert('Não é permitido a alteração de lançamento, utilize a operação de exclusão !')
+               llErro := .T.
+           endif
+
+
+           if llErro
+              // Em caso de erro, montar os combos novamente antes de retornar para o fomulário.
+              NovoCbox('DESC_PLATAFORMA','ID_PLATAFORMA','DESC_PLATAFORMA','plataforma','TP_PASTA='+DLAP +Wget('TP_PASTA')+DLAP + ' and ID_PLATAFORMA IN(SELECT ID_PLATAFORMA FROM SALDOCONTRATOS WHERE TP_PASTA = ' +DLAP +Wget('TP_PASTA')+DLAP +')' ,'DESC_PLATAFORMA',{0,''})
+              NovoCbox('DESC_MOVTO','NR_CONTROLE','DESC_MOVTO','TP_MOV_SALDOSCONTRATOS','TP_PASTA='+DLAP +Wget('TP_PASTA')+DLAP + ' and NR_CONTROLE IN(SELECT NR_CONTROLE FROM SALDOCONTRATOS WHERE TP_PASTA = ' +DLAP +Wget('TP_PASTA')+DLAP +')' ,'DESC_MOVTO',{0,''})
+              Get2Put()
+           endif
+
+
+           if ! llErro
+              aadd(laSAVE,laFIELDS)
+              for ii := 1 to len(laFIELDS)
+                  if(laFIELDS[ii] == 'ID_PLATAFORMA')
+                     aadd(laSAVE_AUX,WGet('DESC_PLATAFORMA','N'))
+                  elseif(laFIELDS[ii] == 'NR_CONTROLE')
+                     aadd(laSAVE_AUX,WGet('DESC_MOVTO','N'))
+                  elseif(laFIELDS[ii] == 'DT_MOVIMENTACAO')
+                     aadd(laSAVE_AUX,date())
+                  elseif(laFIELDS[ii] == 'HR_LANCAMENTO')
+                     aadd(laSAVE_AUX,time())
+                  elseif(laFIELDS[ii] == 'LOGIN_CADASTRO')
+                     aadd(laSAVE_AUX,WSet('LOGIN'))
+                  else
+                     aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+                  endif
+              next ii
+              aadd(laSAVE,laSAVE_AUX)
+
+              if db_replace(laSAVE,lcTable,{lcWhere}) == -1
+                 error_sys(db_error())
+              endif
+
+              // atualizar o saldo na tabela de saldos
+
+              lcWHERE  := 'TP_PASTA = ' + DLAP + Wget('TP_PASTA') + DLAP + ' and ID_PLATAFORMA = ' + WGet('DESC_PLATAFORMA','C')
+
+              if db_update({{'SALDO'},{lnSALDO}},'SALDOCONTRATOS',{lcWHERE}) == -1
+                 error_sys(db_error())
+              endif
+
+
+           endif
+    elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+    
+           lnSALDO := getSaldoComMovto(Wget('TP_PASTA'), Wget('DESC_PLATAFORMA','N'), Wget('DESC_MOVTO','N'), Wget('VL_LANCAMENTO','N'), 'E')
+
+
+           if lnSALDO  < 0
+               WAlert('O saldo não pode ficar negativo.')
+               llErro := .T.
+           endif
+
+
+           if ! llErro
+                if db_delete(lcTable,lcWhere) == -1
+                   error_sys(db_error())
+                endif
+              // atualizar o saldo na tabela de saldos
+
+              lcWHERE  := 'TP_PASTA = ' + DLAP + Wget('TP_PASTA') + DLAP + ' and ID_PLATAFORMA = ' + WGet('DESC_PLATAFORMA','C')
+
+              if db_update({{'SALDO'},{lnSALDO}},'SALDOCONTRATOS',{lcWHERE}) == -1
+                 error_sys(db_error())
+              endif
+           else
+              // Em caso de erro, montar os combos novamente antes de retornar para o fomulário.
+              NovoCbox('DESC_PLATAFORMA','ID_PLATAFORMA','DESC_PLATAFORMA','plataforma','TP_PASTA='+DLAP +Wget('TP_PASTA')+DLAP + ' and ID_PLATAFORMA IN(SELECT ID_PLATAFORMA FROM SALDOCONTRATOS WHERE TP_PASTA = ' +DLAP +Wget('TP_PASTA')+DLAP +')' ,'DESC_PLATAFORMA',{0,''})
+              NovoCbox('DESC_MOVTO','NR_CONTROLE','DESC_MOVTO','TP_MOV_SALDOSCONTRATOS','TP_PASTA='+DLAP +Wget('TP_PASTA')+DLAP + ' and NR_CONTROLE IN(SELECT NR_CONTROLE FROM SALDOCONTRATOS WHERE TP_PASTA = ' +DLAP +Wget('TP_PASTA')+DLAP +')' ,'DESC_MOVTO',{0,''})
+              Get2Put()
+           endif
+
+    endif
+
+
+    GridPaginada()
+
+
+return
+
+
+
+/*
+* Glauber - 12/2014
+*
+* Function..: GridPaginada()
+* Objetivo..: Monta a grid paginada com os dados.
+* Parâmetros:
+*
+*
+* Retorno...:
+*
+*
+*
+*/
+
+Static Function GridPaginada()
+
+
+    local lcTable         := 'movtosaldocontratos' as String
+
+    local laRESULT        := {},;
+          laPAGINAS       := {},;
+          laLIMIT         := {}  as Array
+
+    local lnCOUNT         := 0 as Int
+
+    local laFIELDS        := {'movtosaldocontratos.NR_SEQ',;
+                              'movtosaldocontratos.TP_PASTA',;
+                              'movtosaldocontratos.ID_PLATAFORMA',;
+                              'plataforma.DESC_PLATAFORMA',;
+                              'movtosaldocontratos.NR_CONTROLE',;
+                              'tp_mov_saldoscontratos.DESC_MOVTO',;
+                              'movtosaldocontratos.DT_MOVIMENTACAO',;
+                              'movtosaldocontratos.HR_LANCAMENTO',;
+                              'movtosaldocontratos.VL_LANCAMENTO',;
+                              'tp_mov_saldoscontratos.TP_MOVTO',;
+                              'movtosaldocontratos.LOGIN_CADASTRO'} as Array
+
+    local laORDER         := {'movtosaldocontratos.DT_MOVIMENTACAO',;
+                              'movtosaldocontratos.HR_LANCAMENTO'}
+
+/*
+    lcWhere := 'TP_PASTA = ' + DLAP + Wget('TP_PASTA') + DLAP +;
+               ' and ID_PLATAFORMA = ' + Wget('DESC_PLATAFORMA','C') +;
+               ' and NR_CONTROLE = ' + Wget('DESC_MOVTO','C') +;
+               ' and DT_MOVIMENTACAO = ' + DLAP + DTOS(Wget('DT_MOVIMENTACAO','D')) + DLAP
+
+*/
+
+
+
+
+    local laJoin          := {{1,'plataforma','movtosaldocontratos.TP_PASTA = plataforma.TP_PASTA and movtosaldocontratos.ID_PLATAFORMA = plataforma.ID_PLATAFORMA'},;
+                              {1,'tp_mov_saldoscontratos','movtosaldocontratos.NR_CONTROLE= tp_mov_saldoscontratos.NR_CONTROLE'}} as Array
+
+    local lcCODE          := '' as String
+
+    local xx              := 0,;
+          ii              := 0 as Int
+
+
+    local pcFILTRO        := '' as String
+    local lcWHERE         := '' as String
+/*
+
+WOUT('<b><br> Action:'+Wget('ACTION'))
+for ii := 1 to len(laFIELDS)
+    wout('<br><b>'+laFIELDS[ii] + ':')
+    wout(transform(WGet(laFIELDS[ii])))
+next ii
+*/
+    if Upper(Wget('ACTION')) == 'SEARCH'
+       if ! Empty(WGet('TP_PASTA'))
+          pcFILTRO := 'movtosaldocontratos.TP_PASTA = ' + DLAP + WGet('TP_PASTA') + DLAP
+       endif
+
+       if WGet('DESC_PLATAFORMA','N') > 0
+          pcFILTRO += iif(! Empty(pcFILTRO),' and ', '')
+          pcFILTRO += 'movtosaldocontratos.ID_PLATAFORMA = ' + WGet('DESC_PLATAFORMA','C')
+       endif
+
+       if WGet('DESC_MOVTO','N') > 0
+          pcFILTRO += iif(! Empty(pcFILTRO),' and ', '')
+          pcFILTRO += 'movtosaldocontratos.NR_CONTROLE= ' +  WGet('DESC_MOVTO')
+       endif
+
+
+
+    endif
+
+
+   // Rotina para executar paginação
+
+   if db_select({'count(*)'},lcTable) == -1
+      db_error()
+   endif
+   laRESULT  := db_fetchall()
+   lnCOUNT   := laRESULT[2,1]
+   if lnCOUNT > 0
+      laPAGINAS := paginacao(lnCOUNT,'','','mnt.movsaldoscontratos.html')
+      laLIMIT   := param_fetch(laPAGINAS,'LIMIT')
+      if empty(pcFILTRO)
+          if db_select(laFIELDS,lcTABLE,laJOIN,,laORDER,,,laLIMIT) == -1
+            error_sys(db_error())
+         endif
+      else
+          if db_select(laFIELDS,lcTABLE,laJOIN,{pcFILTRO},laORDER,,,laLIMIT) == -1
+             error_sys(db_error())
+          endif
+      endif
+      laRESULT := db_fetchall()
+      //Resumo da pesquisa
+       lcCODE := alltrim(str(laLIMIT[1]+1))+'-'
+       if ((len(laRESULT)-1) < (laLIMIT[2]-laLIMIT[1]))
+          lcCODE += alltrim(str(len(laRESULT)-1))
+       elseif param_fetch(laPAGINAS,'GOTO_PAGE') == param_fetch(laPAGINAS,'NR_PAGES') //lnNR_PAGES
+          lcCODE += alltrim(str(lnCOUNT))
+       else
+          lcCODE += alltrim(str(laLIMIT[1]+param_fetch(laPAGINAS,'ROWS_PAGE')))
+       endif
+       lcCODE += ' de '+alltrim(str(lnCOUNT))
+       if lnCOUNT > 1
+          lcCODE := ' Resultados '+lcCODE+' registros'
+       else
+          lcCODE := ' Resultado '+lcCODE+' registro'
+       endif
+       wput('RESUME_RESULTSET',lcCODE)
+
+      if len(laRESULT) > 1
+         for xx:=2 to len(laRESULT)
+             laRESULT[xx,9]:=wpictrans('VL_LANCAMENTO',laRESULT[xx,db_fetchncol(laRESULT,'VL_LANCAMENTO')])
+         next xx
+
+         WPut('GRID_MOVTOSALDOS',grid_create(laRESULT))
+      endif
+   endif
+   
+
+
+return(nil)
+
+
+
+
+
+
+
+
+
+/*
+* Glauber - 12/2014
+*
+* Function..: getSaldoComMovto(pcTP_PASTA, pnID_PLATAFORMA, pnNR_CONTROLE, pnVL_LANCAMENTO, pcOPERACAO)
+* Objetivo..: Retorna o valor do saldo antes de efetuar a operação de gravação do movimento.
+* Parâmetros:
+*
+*     pcTP_PASTA       Tipo de pasta.
+*     pnID_PLATAFORMA  Plataforma.
+*     pnNR_CONTROLE    Operação que esta sendo realizada, de acordo com a tabela TP_MOV_SALDOSCONTRATOS.
+*     pnVL_LANCAMENTO  Valor do lançamento.
+*     pcOPERACAO       Operação que esta sendo realizada, sendo U => novo lançamento / atualização e E => para exclusão do lançamento.
+*
+* Retorno...: Valor do saldo atualizado.
+*
+*
+*
+*/
+
+
+static function getSaldoComMovto(pcTP_PASTA, pnID_PLATAFORMA, pnNR_CONTROLE, pnVL_LANCAMENTO, pcOPERACAO)
+
+
+    local lnSALDOATUAL := 0.00 as NUMERIC
+
+    local laFIELDS := {'TP_MOVTO'} as Array
+    local laRES    := {} as Array
+    local lcWHERE  := 'NR_CONTROLE = ' + alltrim(pnNR_CONTROLE)
+
+    local lcDC     := ''
+
+
+    // Resgatar o tipo de lançamento (+/-)
+
+    if db_select(laFIELDS,'TP_MOV_SALDOSCONTRATOS',,{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+
+    laRES := db_fetchall()
+
+    if len(laRES) > 1
+       lcDC := laRES[2,1]
+    endif
+
+    // Recuperar o saldo atual
+
+    laFIELDS := {'SALDO'}
+    lcWHERE  := 'TP_PASTA = ' + DLAP + pcTP_PASTA + DLAP + ' and ID_PLATAFORMA = ' + alltrim(pnID_PLATAFORMA)
+
+    if db_select(laFIELDS,'SALDOCONTRATOS',,{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+
+    laRES := db_fetchall()
+
+    if len(laRES) > 1
+       lnSALDOATUAL := laRES[2,1]
+    endif
+    // Caso a operação seja de atualização verificar se deve ser somado ou subtraido
+    if upper(pcOPERACAO) == 'U'
+       if (lcDC == '+')
+           lnSALDOATUAL += pnVL_LANCAMENTO
+       else
+           lnSALDOATUAL -= pnVL_LANCAMENTO
+       endif
+    elseif upper(pcOPERACAO) == 'E' // Caso a operação seja de exclusão verificar a configuração e fazer a reversão.
+       if (lcDC == '+')
+           lnSALDOATUAL -= pnVL_LANCAMENTO
+       else
+           lnSALDOATUAL += pnVL_LANCAMENTO
+       endif
+    endif
+//wout('<br><b>lnSALDOATUAL:'+transform(lnSALDOATUAL))
+
+return (lnSALDOATUAL)
+
+
+
+
+

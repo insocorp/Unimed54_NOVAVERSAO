@@ -1,0 +1,274 @@
+/*
+
+Project      : gr5
+Program      : mnt.andamentos_pendentes.html
+Function     : mnt_andamentos_pendentes_html
+Created on   : 05-Jan-2009  14:00:00
+Descripition : Andamentos Pendentes - Estrutura HTML
+       Autor : Valdimari Martins
+               Andamentos Pendentes para importação manual de andamentos. 
+*/
+
+   local lcACTION       := '' ,;
+         lcTABLE        := 'andamentos_pendentes' ,;
+         lcTABLEI       := 'pasta_andamento' ,;
+         lcTABLEPAR     := 'andamentos_parametros' ,;
+         lcProgram      := 'mnt_andamentos_pendentes_html' ,;
+         lcPENDENTE     := '' ,;
+         lcWHERE        := '' ,;
+         lcWHEREp       := '' ,;
+         lcRELAC        := '' ,;
+         lcWHEREPAS     := '' as string
+
+   local laRESULT    := {} ,;
+         laRESULTP   := {} ,;
+         laRESULTPAS := {} ,;
+         laSAVE      := {} ,;
+         laSAVEFILHO := {} ,;
+         laFIELDS    := {} ,;
+         laFIELDSI   := {} ,;
+         laFIELDSPAR := {} ,;
+         laWHERE     := {} ,;
+         laFILHOS    := {} ,;
+         laORDER_BY  := {'NR_PENDENTE'} as array
+
+   local ii             := 0 ,;
+         jj             := 0 ,;
+         lnANDA_RELACAO := 0 ,;
+         lnNRPASTA      := 0 as int
+
+   local ldANDA, ldCADASTRO := date() as date
+
+   local llRETURN := .F. as LOGICAL
+    
+   lcACTION    := upper(WGet('ACTION','C'))
+   lnNRPASTA   := WGet('NRPASTA','N')
+   lcPENDENTE  := str(WGet('NR_PENDENTE','N'))
+   lcWHERE     := 'NR_PENDENTE = '+lcPENDENTE
+   laFIELDSPAR := structtable(WSet("DB_ACTIVE"),lcTABLEPAR,1,'N')
+   laFIELDS    := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laFIELDSI   := {'NR_PASTA','NR_ANDAMENTO','DT_ANDAMENTO','ANDAMENTO','LOGIN','FL_ANDAMENTO',;
+                   'FL_ANDAMENTO_CANCELADO','DT_CRIACAO','DT_ALTERACAO','NR_PASTA_RECURSO','DT_CADASTRO',;
+                   'FL_PUBLICO','LOGIN_RESP','NR_AUTOPROC','TP_ANDAMENTO','FL_ANDAMENTO_EXTERNO','NR_ANDAMENTO_RELACAO'}
+
+   aadd(laWHERE,lcWHERE)
+
+   if db_select(laFIELDSPAR,lcTABLEPAR) == -1
+      error_sys(db_error())
+   endif
+   laRESULTP := db_fetchrow()
+
+   if lcACTION == 'IMPORTAR'
+
+      if lnNRPASTA <= 0 .or. empty(lnNRPASTA)
+         walert('Nr da Pasta inválido')
+         WPut('lstPENDENTES',laRESULT)
+         lista_pendentes(laFIELDS,lcTABLE,laORDER_BY)
+      else
+         lcWHEREPAS := 'NR_PASTA = '+str(lnNRPASTA)
+         if db_select({'NR_PASTA','TP_PASTA'},'pasta',,{lcWHEREPAS}) == -1
+            error_sys(db_error())
+         endif
+         laRESULTPAS := db_fetchrow()
+         if len(laRESULTPAS) < 1
+            walert('Pasta não encontrada')
+            WPut('lstPENDENTES',laRESULT)
+            lista_pendentes(laFIELDS,lcTABLE,laORDER_BY)
+            return(.f.) 
+         endif  
+         if db_select(laFIELDS,lcTABLE,,laWHERE) == -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchrow()
+         if len(laRESULT) > 1
+            lcANDA     := laRESULT[3]
+            ldANDA     := laRESULT[4]
+            ldCADASTRO := laRESULT[5]
+            aadd(laSAVE,laFIELDSI)    
+            aadd(laSAVEFILHO,laFIELDSI)
+            aadd(laSAVE,{lnNRPASTA, 0,ldANDA,lcANDA,'','','',date(),;
+                          date(),0,ldCADASTRO,'', gcLOGIN, 0, laRESULTP[2], laRESULTP[3], 0})
+
+            //------------  Verificando relacionamento  para Lits -----------------------
+            lcRELAC   := verifica_relacionamento(str(lnNRPASTA),laRESULTPAS[2])
+            //------------ Verificando se Aba pode ser alterada no Lits -----------------
+            if lcRELAC = 'F' .or. lcRELAC = 'P'
+               llRETURN := Ver_ABA(laRESULTPAS[2],lcProgram)
+            endif         
+            if lcRELAC = '' .or. lcRELAC = 'P' .or. (lcRELAC = 'F' .and. llRETURN = .f.)      // se .f. posso alterar atraves do filho
+               if db_insert(laSAVE,lcTABLEI) == -1
+                  db_rollback()
+                  error_sys(db_error())
+               endif
+               //--------- criando andamentos filhos -----------------------
+               if lcRELAC = 'P' .and. llRETURN 
+                  lnANDA_RELACAO := db_insert_id()
+                  laFILHO        := Montar_filho(str(lnNRPASTA),laRESULTPAS[2])
+                  if len(laFILHO) > 0
+                     for ii := 1 to len(laFILHO)            // gravando abas dos filhos
+                         aadd(laSAVEFILHO,{laFILHO[ii], 0,ldANDA,lcANDA,'','','',date(),;
+                                           date(),0,ldCADASTRO,'', gcLOGIN, 0, laRESULTP[2], laRESULTP[3], lnANDA_RELACAO})    
+                     next ii
+                     //--------- incluindo andamentos filhos -----------------------
+                     if db_insert(laSAVEFILHO,lcTABLEI) == -1
+                        db_rollback()
+                        error_sys(db_error())
+                     endif
+                  endif       
+               endif
+               /*
+                * Grava na tabela [pasta_andamento_last] o último andamento
+                * filtrado pela Data [DT_ANDAMENTO]
+               */
+               if db_select({'NR_PASTA','ANDAMENTO','DT_ANDAMENTO','TP_ANDAMENTO'},'pasta_andamento',,{'NR_PASTA='+str(lnNRPASTA)},{'NR_ANDAMENTO'},'D',,{1}) == -1
+                  error_sys(db_error())
+               endif
+               laSAVE := db_fetchall()
+               if len(laSAVE) > 1
+                  if db_replace(laSAVE,'pasta_andamento_last',{'NR_PASTA='+str(lnNRPASTA)}) == -1
+                     error_sys(db_error())
+                  endif
+               endif
+            endif                     
+            if db_delete(lcTABLE,lcWHERE) == -1
+               error_sys(db_error())
+            endif
+            db_commit()
+            laSAVE := {}
+         endif
+         if db_select(laFIELDS,lcTABLE,,,laORDER_BY,,,,) == -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchall()
+         if len(laRESULT) > 1
+            db2Put(laRESULT)
+         endif
+         WPut('NR_PROCESSO','')
+         WPut('NR_PENDENTE','')
+         WPut('IMP_PASTA','')
+         WPut('ANDAMENTO','')
+         WPut('DT_ANDAMENTO','')
+         WPut('DT_CADASTRO','')
+         WPut('ADVOGADO','')
+         WPut('TRIBUNAL','')
+         WPut('VARA','')
+         WPut('CIDADE','')
+         WPut('UF','')
+      endif
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,laWHERE) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2put(laRESULT)
+      endif
+      WPut('IMP_PASTA',WGet('IMP_PASTA','N'))
+
+   elseif lcACTION == 'EXCLUIR'
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+      db_commit()  
+      WPut('NR_PROCESSO','')
+      WPut('NR_PENDENTE','')
+      WPut('IMP_PASTA','')
+      WPut('ANDAMENTO','')
+      WPut('DT_ANDAMENTO','')
+      WPut('DT_CADASTRO','')
+      WPut('ADVOGADO','')
+      WPut('TRIBUNAL','')
+      WPut('VARA','')
+      WPut('CIDADE','')
+      WPut('UF','')
+
+   elseif empty(lcACTION)
+      if db_select(laFIELDS,lcTABLE,,,laORDER_BY,,,,) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2Put(laRESULT)
+      endif
+      WPut('NR_PROCESSO','')
+      WPut('NR_PENDENTE','')
+      WPut('IMP_PASTA','')
+      WPut('ANDAMENTO','')
+      WPut('DT_ANDAMENTO','')
+      WPut('DT_CADASTRO','')
+      WPut('ADVOGADO','')
+      WPut('TRIBUNAL','')
+      WPut('VARA','')
+      WPut('CIDADE','')
+      WPut('UF','')
+      WPut('LOGIN_CADASTRO',gcLOGIN)
+   endif
+
+   WPut('lstPENDENTES',laRESULT)
+   lista_pendentes(laFIELDS,lcTABLE,laORDER_BY)
+      
+return(nil)
+
+/*
+* Function..: lista_pendentes(faFIELDS,fcTABLE,faORDER_BY)
+* Objetivo..:
+* Parâmetros:
+*    faFIELDS.....: Campos a selecionar
+*    fcTABLE......: Tabela alvo
+*    faORDER_BY...: Ordenação
+* Retorno...:
+*     Nenhum
+*/
+static function lista_pendentes(faFIELDS,fcTABLE,faORDER_BY)
+   local lcCOR_LINK     := '' ,;
+         lcNR_AUTOPROC  := '' ,;
+         lcTP_ANDAMENTO := '' as string
+
+   local laRESULT := {} ,;
+         laWHERE  := {} ,;
+         laJOIN   := {}  as array
+
+   local ii    := 0 ,;
+         lnPOS := 0 as int
+
+   for ii := 1 to len(faFIELDS)
+       faFIELDS[ii] := fcTABLE+'.'+faFIELDS[ii]
+   next ii
+
+   if db_select(faFIELDS,fcTABLE,,,faORDER_BY) == -1
+      error_sys('lista_pendentes: '+db_error())
+   endif
+
+   laRESULT := db_fetchall()
+
+   if len(laRESULT) > 0
+      aadd(laRESULT[1],'COR_LINK')
+      for ii := 2 to len(laRESULT)
+         lcCOR_LINK := '#006A00'   //Andamento para cliente - verde escuro
+         aadd(laRESULT[ii],lcCOR_LINK)
+      next ii
+   endif
+   WPut('lstPENDENTES',laRESULT)
+return(nil)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

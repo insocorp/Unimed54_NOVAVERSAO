@@ -1,0 +1,789 @@
+/*
+Project      : gr5
+Program      : conv_snt
+Function     : conv_snt
+Created on   : 10-May-2005   12:25:05
+Descripition : Envio/Recebimento/Atualizacao do SNT
+Parametros :
+pcTPCONV ... Flag para Leitura/Gravação de arq. TXT SNT
+             Flag = 1  -> Leitura
+             Flag = 2  -> Gravação
+*/
+    #define NEWLINE chr(13) + chr(10)
+    cSist = "SNT"
+    Private lcFILELOG:= '',;
+            lcFILEIN := '',;
+            lcFILEOUT:= ''
+    wset('LOGIN',cSist)
+    if cSist = "SNT"
+       lcFILELOG:= WSet("FILENAMESNTLOG")
+       lcFILEIN := WSet("FILENAMESNTINPUT")
+       lcFILEOUT:= WSet("FILENAMESNTOUTPUT")
+    else
+       lcFILELOG:= WSet("FILENAMEALNLOG")
+       lcFILEIN := WSet("FILENAMEALNINPUT")
+       lcFILEOUT:= WSet("FILENAMEALNOUTPUT")
+    endif
+    local ii           := 0 ,;
+          lnHAND1      := 0       as int
+    local lntmpage     := 0.000 ,;
+          lntmfunc     := 0.000   as float
+    local lePROG       := ''      as string
+    local lcCONTENTTYPE:= {}      as array
+    // cabecaho do relatorio de log de ocorrencias
+    local laLOGCAB as array
+    if Empty(lcFILELOG)
+       qout('Arquivo Log Não Informado.')
+       return(nil)
+    endif
+    if pcTPCONV = '1'                            // Envio de Registros para SNT
+       if Empty(lcFILEOUT)
+          qout('Arquivo Envio Não Informado.')
+          return(nil)
+       endif
+       laLOGCAB := {Space(20) + 'Ocorrencias do Processamento de Solicitação ao SNT (Envio)' ,' ' ,'Versao 20050127',' '}
+    else                                         // Retorno de Registros do SNT
+       if Empty(lcFILEIN)
+          qout('Arquivo Retorno Não Informado.')
+          return(nil)
+       endif
+       laLOGCAB := {Space(20) + 'Ocorrencias do Processamento de Retorno do SNT','' ,'',''}
+    endif
+    laLOGCAB[2] := 'Data: ' + DtoC(DATE()) + ' - Hora: ' + TIME()
+    lnHAND1 := fcreate(lcFILELOG, 0)
+    if lnHAND1 > 0
+       // imprimindo o cabecalho do log de ocorrencias
+       for ii := 1 to len(laLOGCAB)
+           if !dispmess(laLOGCAB[ii], lnHAND1, 0, 0)
+              return (nil)
+           endif
+       next ii
+       if !process_snt(lnHAND1, pcTPCONV)
+          // dispmess("Erro ao processar arquivo " + lcFILEOUT, fnHAND1, 1, 1)
+       endif
+       fclose(fnHAND1)
+    else
+       qout("Problemas na criacao do arquivo log: " + lcFILELOG)
+    endif
+return (nil)
+/*
+* Function..: process_snt(fnHAND1, pcTPCONV)
+* Objetivo..: Processamento dos dados do SNT (solicitacao e processamento do retorno)
+* Parâmetros: fnHAND1   -> Nome do Arquivo de Log Gerado
+              pcTPCONV  -> Flag para Leitura ( 1 ) /Gravação ( 2 ) de arq. TXT SNT
+* Retorno...: Retorna .t. / .f.
+*/
+Function process_snt(fnHAND1, pcTPCONV)
+	 local llFLG    := .T. as logical
+	 local lnHAND2	:= 0   ,;
+	       lnHAND3  := 0   ,;
+	       ii       := 0   as int
+	 if pcTPCONV = "1"
+	    // criando o arquivo de gravacao da solicitação
+	    lnHAND2 := fcreate(lcFILEOUT, 0)
+	    if lnHAND2 > 0
+	       if dispmess("Processando a gravacao do arquivo: " + lcFILEOUT, fnHAND1, 1, 1)
+		  // processamento da gravacao do arquivo de solicitacao
+		  if !processagravacao(lnHAND2, fnHAND1)
+		     dispmess("Problemas na gravacao do arquivo de Envio: " + lcFILEOUT, fnHAND1, 0, 0)
+		     llFLG := .F.
+		  else
+		     dispmess("Gravacao do arquivo: " + lcFILEOUT + " processado com SUCESSO", fnHAND1, 1, 1)
+		  endif
+	       endif
+	       fclose (lnHAND2)
+            else
+	       if ! dispmess("Problemas na criacao do arquivo de Envio: " + lcFILEOUT, fnHAND1, 0, 0)
+	          llFLG := .F.
+	       endif
+	    endif
+         elseif pcTPCONV == "2"
+            // abrindo o arquivo de retorno do SNT
+            if file(lcFILEIN)
+	       lnHAND3 := fopen(lcFILEIN, 0)
+	       if lnHAND3 > 0
+	          if dispmess("Processando a leitura do arquivo: " + lcFILEIN, fnHAND1, 1, 1)
+       	             // processando a leitura e manutencao dos dados de retorno do SNT
+		     if ! processaleitura(lnHAND3, fnHAND1)
+	       	  	llFLG := .F.
+	       	     else
+	       	  	dispmess("Leitura do arquivo: " + lcFILEIN + " processada com SUCESSO", fnHAND1, 1, 1)
+	       	     endif
+	       	  endif
+	       	  fclose (lnHAND3)
+	       else
+	          if ! dispmess("Problemas na leitura do arquivo de entrada: " + lcFILEIN, fnHAND1, 0, 0)
+	       	     llFLG := .F.
+	       	  endif
+	       endif
+            else
+	       dispmess("Arquivo de entrada (" + lcFILEIN + ") não foi encontrado.", fnHAND1, 0, 0)
+	       llFLG := .t.
+	    endif
+         endif
+return (llFLG)
+/*
+* Function..: processagravacao(fnHAND2, fnHAND1)
+* Objetivo..: Processamento de gravação do arquivo de solicitação ao SNT
+* Parâmetros: fnHAND2 = Handle do arquivo de solicitação ao SNT
+              fnHAND1 = Handle do arquivo LOG
+* Retorno...: Retorna .t. / .f.
+*/
+function processagravacao(fnHAND2, fnHAND1)
+	local llFLG     := .T. ,;
+	      llUPDATE  := .F. as logical
+	local lnRET     := 0 ,;
+	      ii        := 0 as int
+	local laDATS    := {}    ,;
+	      laTEMP    := {}    ,;
+	      laWHERED  := {''}  ,;                              // clausula where para solicitacao de dados ao SNT
+	      laWHEREJ  := {''}  ,;                              // clausula where para solicitacao de marcacao "J" ao SNT
+	      faLIMIT   := {0,10},;                              // limit do select
+	      laDATA    := {}    ,;                              // array com retorno dos dados do select
+	      laFIELDS  := {'NR_PASTA','NR_SINISTRO','NR_CONTROLE'}as array  // colunas a serem geradas no select
+	local lcLINE    := ''        ,;
+	      lcSUB     := '0000001' ,;                          // codigo do subsidio (valor fixo)
+	      lcDETALHE := '1'       ,;                          // indicador de registro detalhe
+	      lcACAO    := '1'       ,;                          // indicador de acao para solicitacao de dados ao SNT
+	      lcJUR     := '2'       ,;                          // indicador de acao para solictacao de marcacao "J" ao SNT
+	      lcFL17    := space(17) ,;                          // espaco final na linha de detalhe
+	      lcFL35    := space(35) ,;                          // espaco final na linha de header
+	      lcTABLE   := 'pasta_seguro',;                      // tabela a serem consultada
+	      lcUPDATE  := 'UPDATE '+lcTABLE+' SET FL_STATUSINTERFACE = ',;
+	      cNr_Sinistro := '' as string
+
+	laWHERED := {'FL_STATUSINTERFACE IS NULL OR FL_STATUSINTERFACE ='+DLAP+'0'+DLAP+;
+                     ' OR FL_STATUSINTERFACE = '+DLAP+'1'+DLAP}
+	laWHEREJ := {'FL_STATUSINTERFACE ='+DLAP+'3'+DLAP}
+	// cabecalho do header
+	lcLINE := "0" + DTOS(DATE()) + substr(TIME(),1,2) + substr(TIME(),4,2) + substr(TIME(),7,2) + lcFL35
+	dispmess(lcLINE)
+	if ! dispmess(lcLINE, fnHAND2)
+	   dispmess("Problemas na gravacao do arquivo de saida: " + lcFILEOUT, fnHAND1)
+	   llFLG := .F.
+	else
+	   // processando o select dos dados para a solicitacao de dados ao SNT
+	   if db_select(laFIELDS, lcTABLE, , laWHERED) == -1 .and. ErroSQLServer(db_error())
+	      dispmess("Problemas em db_select. ProcLine: "+alltrim(str(procline()))+" ProcName: "+ProcName(), fnHAND1)
+         dispmess("Erro Select -> "+db_error(),fnHAND1)
+         dispmess("Ultimo Comando -> " + wset("_LASTSQL"), fnHAND1 )
+      endif
+      laDATA := db_fetchall()
+      for ii := 1 to len(laDATA)
+          fcLINE := lcDETALHE + strzero(laDATA[ii,1],7,0) + lcSUB
+	       if len(alltrim(laDATA[ii,2])) > 0
+    		    cNr_Sinistro := alltrim(laDATA[ii,2])
+		       if len(cNr_Sinistro) > 11                // > 11 não é do alnova, seleciona
+		          if len(cNr_Sinistro) > 17
+		             fcLINE += substr(cNr_Sinistro, 1, 17)
+		          else
+		             fcLINE += right( replicate( "0", 17 ) + cNr_Sinistro, 17 )  // substituindo o strzero(val(cNr_Sinistro), 17)
+		          endif
+		          fcLINE += lcACAO + lcFL17
+		          // gravando cada linha no arquivo de solicitacao
+		          if ! dispmess(fcLINE, fnHAND2)
+		             dispmess("Problemas na gravacao da linha", fnHAND1)
+		             llFLG := .F.
+		             exit
+		          endif
+             endif
+	       endif
+      next ii
+	   if llFLG
+	      // gerando log das alterações em PASTA_SEGURO
+         for ii := 2 to len(laDATA)
+             psab_logs({{'FL_STATUSINTERFACE'},{'1'}},lcTABLE,'NR_PASTA='+str(laDATA[ii,1])+' AND NR_CONTROLE='+str(laDATA[ii,3]),;
+                       str(laDATA[ii,1]),'Seguro com Sinistro') //Gravar log de alterações da pasta
+         next ii
+         // preparando o sql para alterar o status de nulo / 0 para 1
+         if db_update({{"FL_STATUSINTERFACE"},{'1'}},lcTABLE,laWHERED) == -1 .and. ErroSQLServer(db_Error())
+		      dispmess("Problemas na atualizacao do status de controle para 1", fnHAND1)
+            dispmess("Erro Update -> "+db_error(),fnHAND1)
+            dispmess("Ultimo Comando -> " + wset("_LASTSQL"), fnHAND1 )
+	    	   llFLG := .F.
+	      endif
+	   endif
+	   if llFLG
+	      // processando o select dos dados para a solicitacao de marcacao "J" ao SNT
+	      if db_select(laFIELDS, lcTABLE, , laWHEREJ) == -1 .and. ErroSQLServer(db_error())
+	         dispmess("Problemas em db_select. ProcLine: "+alltrim(str(procline()))+" ProcName: "+ProcName(), fnHAND1)
+            dispmess("Erro Select -> "+db_error(),fnHAND1)
+            dispmess("Ultimo Comando -> " + wset("_LASTSQL"), fnHAND1 )
+         endif
+         laDATA := db_fetchall()
+         if len(laDATA) > 1
+            for ii := 2 to len(laDATA)
+                fcLINE := lcDETALHE + strzero(laDATA[ii,1],7,0) +lcSUB + laDATA[ii,2] + lcJUR + lcFL17
+		          if ! dispmess(fcLINE, fnHAND2) // gravando o arquivo de solicitacao de marcacao "J"
+		             llFLG := .F.
+		             exit
+		          endif
+            next ii
+         endif
+	      if llFLG
+            // gerando log das alterações em PASTA_SEGURO
+            for ii := 2 to len(laDATA)
+                psab_logs({{"FL_STATUSINTERFACE"},{'4'}},lcTABLE,'NR_PASTA='+str(laDATA[ii,1])+' AND NR_CONTROLE='+str(laDATA[ii,3]),;
+                          str(laDATA[ii,1]),'Seguro com Sinistro') //Gravar log de alterações da pasta
+            next ii
+		      // preparando o sql para alterar o status de nulo / 0 para 1
+            if db_update({{"FL_STATUSINTERFACE"},{'4'}},lcTABLE,laWHEREJ) == -1 .and. ErroSQLServer(db_error())
+		         dispmess("Problemas na atualizacao do status de controle para 4", fnHAND1)
+               dispmess("Erro Update -> "+db_error(),fnHAND1)
+               dispmess("Ultimo Comando -> " + wset("_LASTSQL"), fnHAND1 )
+	   	      llFLG := .F.
+		      endif
+	      endif
+	   endif
+	endif
+return (llFLG)
+
+/*
+* Function..: processaleitura(fnHAND3, fnHAND1)
+* Objetivo..: Processamento de gravação do arquivo de solicitação ao SNT
+* Parâmetros: fnHAND3 = Handle do arquivo de leitura gerado pelo SNT
+              fnHAND1 = Handle do arquivo LOG
+* Retorno...: Retorna .t. / .f.
+*/
+function processaleitura(fnHAND3, fnHAND1)
+   local llFLG    := .T. as logical
+   local lcLOG    := '' ,;
+         lcTABLE  := 'pasta_seguro' ,;
+         lcLINE   := ''  as string
+   local lxVAL
+   //        POS CASAS    1    2     3   4  5 6                   7    8    9  10  11 12 13
+   local laDETVAL1:= { { " ", "N",   1,  1, 0,"",                .F., "N",  0, 0, .F.,0,'{||}'} ,;                                 // 1   indicador tipo de registro
+                       { " ", "N",   2,  1, 0,"",                .F., "N",  0, 0, .F.,0,'{||}'} ,;                                 // 2   indicador de acao
+	                    { " ", "N",   3,  1, 0,"",                .F., "N",  0, 0, .F.,0,'{||}'} ,;                                 // 3   indicador de retorno
+	                    { " ", "N",   4,  7, 0,"NR_PASTA",        .F., "N",  6, 0, .F.,0,'{||}'} ,;                                 // 4   numero da pasta
+	                    { " ", "N",  11,  7, 0,"",                .F., "C",  0, 0, .F.,0,'{||}'} ,;                                 // 5   codigo subsidio
+	                    { " ", "N",  18, 17, 0,"NR_SINISTRO",     .F., "C", 20, 0, .F.,0,'{||}'} ,;                                 // 6   numero do sinistro
+	                    { " ", "N",  35, 10, 0,"NR_APOLICE",      .T., "C", 20, 0, .F.,0,'{||}'} ,;                                 // 7   numero da apolice
+	                    { " ", "N",  45, 10, 0,"NR_ENDOSSO",      .T., "N",  4, 0, .F.,0,'{||}'} ,;                                 // 8   numero do endosso
+	                    { " ", "N",  55,  6, 0,"ITEM_APOLICE",    .T., "N",  0, 0, .F.,0,'{||}'} ,;                                 // 9   numero do item
+	                    { " ", "N",  61,  1, 0,"",                .F., "N",  0, 0, .F.,0,'{||}'} ,;                                 // 10  flag indicador de juridico
+	                    { " ", "N",  62,  5, 2,"PC_RESSEGURO",    .T., "N",  5, 2, .F.,0,'{||}'} ,;                                 // 11  percentual do resseguro
+	                    { " ", "N",  67,  7, 4,"PC_COSSEGURO",    .T., "N",  5, 2, .F.,0,'{||}'} ,;                                 // 12  percentual de cosseguro
+	                    { " ", "N",  74, 17, 2,"VL_RESERVA",      .T., "N", 19, 2, .F.,0,'{||}'} ,;                                 // 13  valor reserva
+	                    { " ", "D",  91,  6, 0,"",                .F., "N",  0, 0, .F.,0,'{||}'} ,;                                 // 14  data atualizacao da estimativa
+	                    { " ", "D",  97,  6, 0,"DT_VIGENCIA_INI", .T., "D",  0, 0, .F.,0,'{||}'} ,;                                 // 15  data da vigencia inicial
+	                    { " ", "D", 103,  6, 0,"DT_VIGENCIA_FIN", .T., "D",  0, 0, .F.,0,'{||}'} ,;                                 // 16  data da vigencia final
+	                    { " ", "C", 109, 40, 0,"CIP_SEGURADO",    .T., "C", 40, 0, .T.,2,'{||gera_cip_pfpj(lxVAL,"SEG",fnHAND1)}'},;// 17  nome do segurado
+	                    { " ", "N", 149,  7, 0,"CD_CORRETOR",     .T., "N",  9, 2, .F.,0,'{||}'} ,;                                 // 18  codigo do corretor
+	                    { " ", "N", 156, 17, 2,"VL_LMI1",         .T., "N", 19, 2, .F.,0,'{||}'} ,;                                 // 19  importancia segurada 1
+	                    { " ", "N", 173, 17, 2,"VL_LMI2",         .T., "N", 19, 2, .F.,0,'{||}'} ,;                                 // 20  importancia segurada 2
+	                    { " ", "N", 190, 17, 2,"VL_LMI3",         .T., "N", 19, 2, .F.,0,'{||}'} ,;                                 // 21  importancia segurada 3
+	                    { " ", "N", 207, 17, 2,"VL_LMI4",         .T., "N", 19, 2, .F.,0,'{||}'} ,;                                 // 22  importancia segurada 4
+	                    { " ", "N", 224, 17, 2,"VL_SINISTRADO1",  .T., "N", 11, 2, .F.,0,'{||}'} ,;                                 // 23  valor sinistrado 1
+	                    { " ", "N", 241, 17, 2,"VL_SINISTRADO2",  .T., "N", 11, 2, .F.,0,'{||}'} ,;                                 // 24  valor sinistrado 2
+	                    { " ", "N", 258, 17, 2,"VL_SINISTRADO3",  .T., "N", 11, 2, .F.,0,'{||}'} ,;                                 // 25  valor sinistrado 3
+	                    { " ", "N", 275, 17, 2,"VL_SINISTRADO4",  .T., "N", 11, 2, .F.,0,'{||}'} ,;                                 // 26  valor sinistrado 4
+	                    { " ", "D", 292,  6, 0,"DT_SINISTRO",     .T., "D",  0, 0, .F.,0,'{||}'} ,;                                 // 27  data da ocorrencia
+	                    { " ", "D", 298,  6, 0,"DT_AVISO",        .T., "D",  0, 0, .F.,0,'{||}'} ,;                                 // 28  data do aviso
+	                    { " ", "D", 304,  6, 0,"DT_INDENIZACAO",  .T., "D",  0, 0, .F.,0,'{||}'} ,;                                 // 29  data da indenizacao
+	                    { " ", "N", 310,  1, 0,"FL_SINISTRO",     .T., "C", 10, 0, .T.,2,'{|| convsinistro(lxVAL)}'} ,;             // 30  status do sinistro
+	                    { " ", "D", 311,  6, 0,"",                .F., "N",  0, 0, .F.,0,'{||}'} ,;                                 // 31  data do cancelamento
+	                    { " ", "D", 317,  6, 0,"",                .F., "N",  0, 0, .F.,0,'{||}'} ,;                                 // 32  data da alteracao marca "J"
+	                    { " ", "N", 323,  1, 0,"TP_COSSEGURO",    .T., "C", 30, 0, .T.,2,'{|| convcosseguro(lxVAL)}'} ,;            // 33  indicador de cosseguro
+                       { " ", "C", 324,  7, 0,"CD_RAMOSRSN",     .T., "C",  3, 0, .T.,2,'{||}'} ,;                                 // 34  Ramo + Sub_Ramo + Sub_Nivel
+	                    { " ", "C", 331, 23, 0,"",                .F., "",   0, 0, .F.,0,'{||}'}} as array                          // 35  espaco 30
+
+   local laDETVAL2:= { { " ", "N",   1,   1, 0,"",                      .F., "N",  0, 0,.F.,0,'{||}' } ,;                                  // 1   indicador tipo de registro
+	                    { " ", "N",   2,   1, 0,"",                      .F., "N",  0, 0,.F.,0,'{||}' } ,;                                  // 2   indicador de acao
+	                    { " ", "N",   3,   1, 0,"",                      .F., "N",  0, 0,.F.,0,'{||}' } ,;                                  // 3   indicador de retorno
+	                    { " ", "N",   4,   7, 0,"NR_PASTA",              .F., "N",  6, 0,.F.,0,'{||}' } ,;                                  // 4   numeo da pasta
+	                    { " ", "N",  11,   7, 0,"",                      .F., "C", 20, 0,.F.,0,'{||}' } ,;                                  // 5   codigo do subsidio
+	                    { " ", "N",  18,  17, 0,"NR_SINISTRO",           .F., "C", 20, 0,.F.,0,'{||}' } ,;                                  // 6   numero do sinistro
+	                    { " ", "N",  35,  10, 0,"NR_APOLICE",            .T., "C", 20, 0,.F.,0,'{||}' } ,;                                  // 7   numero da apolice
+	                    { " ", "N",  45,  10, 0,"NR_ENDOSSO",            .T., "N",  4, 0,.F.,0,'{||}' } ,;                                  // 8   numero do endosso
+	                    { " ", "N",  55,   6, 0,"ITEM_APOLICE",          .T., "N",  0, 0,.F.,0,'{||}' } ,;                                  // 9   numero do item
+	                    { " ", "N",  61,   4, 0,"",                      .F., "",   0, 0,.F.,0,'{||}' } ,;                                  // 10  codigo da empresa lider
+	                    { " ", "C",  65,  40, 0,"CIP_EMPRESA_LIDER",     .T., "C", 20, 0,.T.,2,'{||gera_cip_pfpj(lxVAL,"ELI",fnHAND1)}' },; // 11  nome da empresa lider
+	                    { " ", "N", 105,   4, 0,"",                      .F., "N",  0, 0,.F.,0,'{||}' } ,;                                  // 12  codigo da empresa congenere
+	                    { " ", "C", 109,  40, 0,"CIP_EMPRESACONGENERE",  .F., "C", 20, 0,.T.,2,'{||gera_cip_pfpj(lxVAL,"CGE",fnHAND1)}' },; // 13  nome da empresa congenere
+	                    { " ", "N", 149,   7, 4,"PC_COSSEGURO",          .F., "N",  5, 2,.F.,0,'{||}' } ,;                                  // 14  percentual de cosseguro
+	                    { " ", "N", 156, 195, 0,"",                      .F., "N",  0, 0,.F.,0,'{||}' }  } as array                         // 15  espaco 195
+
+   while .t.
+       lcLINE := freadtxt (fnHAND3)
+       if ferror() <> 0
+          exit
+       endif
+       if substr(lcLINE,1,1) = "0"
+          // cabecalho do header do arquivo
+          lcLOG := "Data: " + dtoc(stod(substr(lcLINE,2,8))) + " Hora: "
+          lcLOG += substr(lcLINE,10,2) + ":"
+          lcLOG += substr(lcLINE,12,2) + ":"
+          lcLOG += substr(lcLINE,14,2)
+          // gravando os dados do header do arquivo de leitura no arquivo LOG
+          if ! dispmess(lcLOG, fnHAND1, 0, 1)
+             llFLG := .T.
+             exit
+          endif
+       elseif substr(lcLINE,1,1) = "1"
+          // processamento do detalhe do arquivo de retorno do SNT do detalhe tipo 1
+          if ! proc_detalhe(1, @laDETVAL1, lcLINE, lcTABLE, fnHAND1)
+             dispmess("Problemas no processamento do registro detalhe 1",fnHAND1,1,1)
+             llFLG := .F.
+             exit
+          endif
+       elseif substr(lcLINE,1,1) = "2"
+          // processamento do detalhe do arquivo de retorno do SNT do detalhe tipo 2
+          if ! proc_detalhe(2, @laDETVAL2, lcLINE, lcTABLE, fnHAND1)
+             dispmess("Problemas no processamento do registro detalhe 2",fnHAND1,1,1)
+             llFLG := .F.
+             exit
+          endif
+   	 endif
+   enddo
+return (llFLG)
+/*
+* Function..: proc_detalhe(fnTIPO, faDETVAL, fcLINE, fcTABLE, fnHAND1)
+* Objetivo..: Grava dados do arquivo TXT do SNT nas Tabelas
+* Parâmetros: fnTIPO   = valor 1 = faDETVAL1 e 2 = faDETVAL2
+              faDETVAL = array com os valores e dados auxiliares
+              fcLINE   =
+              fcTABLE  = tabela destino
+              fnHAND1  = handle do arquivo de mensagens de processamento
+* Retorno...: Retorna .t. / .f.
+*/
+function proc_detalhe(fnTIPO, faDETVAL, fcLINE, fcTABLE, fnHAND1)
+	 local llFLG    := .T. as logical
+	 local ii       := 0   ,;
+          lnPASTA  := 0   ,;
+          lnCONTRL := 0   ,;
+	       lnRET    := 0   as int
+	 local laFIELDS := {}  ,;
+	       laWHERE  := {}  ,;
+	       laSUM    := {}  ,;
+          laSAVE   := {}  ,;
+          laVLSEG  := {}  ,;
+	       laRES    := {}  as array
+	 local lcLINE   := ''  ,;
+	       lcVAL    := ''  ,;
+	       lcWHERE  := 'WHERE ',;
+          cCond    := ''      ,;
+	       lcUPDATE := 'UPDATE pasta_seguro SET ' as string
+
+	 for ii := 1 to len(faDETVAL)
+        // Pega os dados (lido do arquivo texto anteriormente) e coloca dentro do array
+        faDETVAL[ii,1] := convertval(faDETVAL[ii], fcLINE)
+        lxVAL := faDETVAL[ii,1]
+        if faDETVAL[ii,7]
+	        if faDETVAL[ii,11]
+	           // gerar cip com o valor do retorno
+	           if ii == 11 .and. fnTIPO == 2
+                 lcVAL := gera_cip_pfpj(lxVAL,'ELI',fnHAND1)
+              elseif ii == 17 .and. fnTIPO == 1
+                 lcVAL := gera_cip_pfpj(lxVAL,'SEG',fnHAND1)
+              elseif ii == 30 .and. fnTIPO == 1
+                 lcVAL := convsinistro(lxVAL)
+              elseif ii == 33 .and. fnTIPO == 1
+                 lcVAL := convcosseguro(lxVAL,fnHAND1)
+              elseif ii == 34 .and. fnTIPO == 1
+                 lcVAL := alltrim(str(val(lxVAL)))
+              endif
+              if len(lcVAL) > 0
+                 aadd(laFIELDS,{faDETVAL[ii,6], lcVAL})
+                 lcVAL := ""
+	           endif
+	        else
+              // registros com os valores que devem ser inseridos em pasta_seguro_lmi
+              if (ii >= 19 .and. ii <= 26)
+                 if ii >= 19 .and. ii <= 22
+                    aadd(laVLSEG, {val2sql(faDETVAL[ii,1], faDETVAL[ii,8]) , val2sql(faDETVAL[ii+4,1], faDETVAL[ii+4,8])})
+                 endif
+              else
+		           // array p/ atualizar pasta_seguro com os dados enviados pelo SNT.
+   		        aadd(laFIELDS, {faDETVAL[ii,6], val2sql(faDETVAL[ii,1],faDETVAL[ii,8]) })
+              endif
+	        endif
+	     else
+	        if len(alltrim(faDETVAL[ii,6])) > 0
+	           lcLINE := faDETVAL[ii,6] + " = " + val2where(faDETVAL[ii,1], faDETVAL[ii,8])
+	           aadd(laWHERE, lcLINE)
+	        endif
+	     endif
+	 next ii
+
+    aCampos := {}
+    aCont   := {}
+    for ii := 1 to len(laFields)
+        aadd(aCampos, laFields[ii,1])
+        if substr(laFields[ii,1],1,2) = 'DT'     // altera os campos Char para date por causa da rotina de geração de log
+           aadd(aCont  , stod(laFields[ii,2]))
+        else
+           aadd(aCont  , laFields[ii,2])
+        endif
+	 next ii
+
+    aadd(aCampos,'FL_STATUSINTERFACE')
+    aadd(aCont,  '2')
+    cStatusRetorno := faDETVAL[3,1]
+    lnPASTA        := val(faDETVAL[4,1])
+	 cCond          := 'NR_SINISTRO = '+DLAP+alltrim(faDETVAL[6,1])+DLAP
+
+    if faDETVAL[2,1] = '0' // se indicador de acao = 0, entao deve gravar os dados no GR5 atraves do numero do sinistro.
+       if lnPASTA > 0      // gerando log das alterações em PASTA_SEGURO
+          psab_logs({aCampos,aCont},'pasta_seguro',cCond,str(lnPASTA),'Seguro com Sinistro')
+       endif
+       if db_update({aCampos,aCont},"pasta_seguro", { cCond } ) == -1 .and. ErroSQLServer(db_error())
+          dispmess("Problemas na atualizacao dos valores", fnHAND1)
+          dispmess("Erro Update -> "+db_error(),fnHAND1)
+          dispmess("Ultimo Comando -> " + wset("_LASTSQL"), fnHAND1 )
+          llFLG := .F.
+       endif
+    else
+       // Atualiza valores em pasta_seguro ignorando o indicador de retorno, sempre será atualizado o conteúdo
+       cCond := ''
+       for x := 1 to len(laWhere)
+           cCond += laWhere[x]
+           if x < len(laWhere)
+              cCond += ' AND '
+           endif
+       next x
+       // gerando log das alterações em PASTA_SEGURO
+       if lnPASTA > 0
+          psab_logs({aCampos,aCont},'pasta_seguro',cCond,str(lnPASTA),'Seguro com Sinistro')
+       endif
+       //dispmess("Where "+cCond,fnHAND1)
+	    if db_update({aCampos,aCont},"pasta_seguro", { cCond } ) == -1 .and. ErroSQLServer(db_error())
+          dispmess("Problemas na atualizacao dos valores", fnHAND1)
+          dispmess("Erro Update -> "+db_error(),fnHAND1)
+          dispmess("Ultimo Comando -> " + wset("_LASTSQL"), fnHAND1 )
+          llFLG := .F.
+       endif
+    endif
+    // select para pegar o NR_PASTA para fazer o select(SUM) em pasta.
+	 if db_select({'NR_PASTA','NR_CONTROLE'},'pasta_seguro', , { cCond } ) == -1 .and. ErroSQLServer(db_error())
+       dispmess( "Erro Select -> " + db_error(), fnHAND1)
+       dispmess("Ultimo Comando -> " + wset("_LASTSQL"), fnHAND1 )
+    endif
+	 laRES  := db_fetchrow()
+	 if len(laRES) > 0
+	    lnPASTA := laRES[1]
+       lnCONTRL:= laRES[2]
+    else
+       dispmess('Dados da pasta '+alltrim(faDETVAL[4,1])+' / Sinistro '+alltrim(faDETVAL[6,1])+' não atualizados.',fnHAND1)
+	 endif
+    if faDETVAL[2,1] <> '0'
+       if cStatusRetorno <> '0' .and. cStatusRetorno <> '1'
+          llFLG := Ver_Status(cStatusRetorno, str(lnPASTA), str(lnCONTRL), fnHAND1)
+       endif
+    endif
+    if lnPASTA > 0 .and. len(laRES) > 0
+       // Apagando e gravando os valores em pasta_seguro_limi
+       if db_delete('pasta_seguro_lmi','NR_PASTA = '+str(lnPASTA)+' and NR_CONTROLE = '+str(lnCONTRL)) = -1
+          dispmess( "Erro Delete -> " + db_error(), fnHAND1)
+          dispmess("Ultimo Comando -> " + wset("_LASTSQL"), fnHAND1 )
+       endif
+       aadd(laSAVE, {'NR_PASTA','NR_CONTROLE','VL_LMI','VL_SINISTRADO'})
+       for ii := 1 to len(laVLSEG)
+           if (laVLSEG[ii,1] > 0) .or. (laVLSEG[ii,2] > 0)
+              aadd(laSAVE, { lnPASTA,lnCONTRL,laVLSEG[ii,1],laVLSEG[ii,2] })
+           endif
+	    next ii
+       if len(laSAVE) > 0
+          if db_insert(laSAVE,'pasta_seguro_lmi') == -1
+             dispmess( "Erro Insert -> " + db_error(), fnHAND1)
+             dispmess("Ultimo Comando -> " + wset("_LASTSQL"), fnHAND1 )
+          endif
+       endif
+       // atualiza o campo pasta_filtro
+       pst_mkpastafiltro(alltrim(str(lnPASTA)))
+
+       // soma dos valores de pasta_seguro  para atualizar pasta.
+	    if db_select({'SUM(VL_RESERVA)'}, 'pasta_seguro', , { 'NR_PASTA = '+str(lnPASTA) } ) == -1 .and. ErroSQLServer(db_error())
+          dispmess( "Erro Select " + db_error(), fnHAND1)
+          dispmess("Ultimo Comando -> " + wset("_LASTSQL"), fnHAND1 )
+       endif
+	    laSUM := db_fetchrow()
+       // gerando log das alterações em PASTA_SEGURO
+       psab_logs({{'VL_RESERVA'},laSUM},'pasta','NR_PASTA='+str(lnPASTA),str(lnPASTA),'Informações Principais')
+	    if db_update({{'VL_RESERVA'},laSUM},"pasta", { 'NR_PASTA = '+str(lnPASTA) } ) == -1 .and. ErroSQLServer(db_error())
+          dispmess("Erro Update -> "+db_error(),fnHAND1)
+          dispmess("Ultimo Comando -> " + wset("_LASTSQL"), fnHAND1 )
+       endif
+	 endif
+return (llFLG)
+/*
+* Function..: convertval(faDETVAL, fcLINE)
+* Objetivo..: Conversão de Valores para Gravação.
+* Parâmetros: faDETVAL  tipo do conteúdo C = Char / D = Date
+              fcLINE
+* Retorno...: Retorna .t. / .f.
+*/
+Function convertval(faDETVAL, fcLINE)
+         local lcVAL := "" as string
+         if faDETVAL[2] = "C"
+            lcVAL := substr(fcLINE, faDETVAL[3],faDETVAL[4])
+         elseif faDETVAL[2] = "D"
+            // formato da data = ddmmaa (6 digitos)
+            // caso o ano seja menor que 50 = 2000, caso contrario 1900
+            if len(alltrim(substr(fcLINE,faDETVAL[3],faDETVAL[4]))) < 6
+               lcVAL := '' //"NULL"
+            else
+               if val(substr(fcLINE, faDETVAL[3] + 4,2)) < 50
+                  lcVAL := "20" + substr(fcLINE, faDETVAL[3] + 4,2)
+               else
+                  lcVAL := "19" + substr(fcLINE, faDETVAL[3] + 4,2)
+               endif
+               lcVAL += substr(fcLINE, faDETVAL[3] + 2,2)
+               lcVAL += substr(fcLINE, faDETVAL[3], 2)
+               if lcVAL = "20000000"
+                  lcVAL := ''//"NULL"
+               endif
+            endif
+         elseif faDETVAL[2] = "N"
+            if faDETVAL[5] = 0
+               lcVAL := substr(fcLINE, faDETVAL[3],faDETVAL[4])
+            else
+               // inteiro = posicao inicial, tamanho - decimal
+               lcVAL := substr(fcLINE, faDETVAL[3],faDETVAL[4] - faDETVAL[5]) + "."
+               // decimal = posicao inicial + decimal + 1, decimal
+               lcVAL += substr(fcLINE, faDETVAL[3] + faDETVAL[4] - faDETVAL[5],faDETVAL[5])
+               if alltrim(lcVAL) = "."
+                  lcVAL := ''//"NULL"
+               endif
+            endif
+         endif
+Return (lcVAL)
+
+/*
+*  val2sql -> converte o valor para o formato sql
+*  fxVAL  = valor informado
+*  fcTYPE = tipo da coluna destino
+*/
+
+function val2sql(fxVAL, fcTYPE)
+         local lcVAL := ""
+         if upper(alltrim(fxVAL)) = "NULL"
+            lcVAL := fxVAL
+         else
+            if fcTYPE = "N"
+               lcVAL := val(fxVAL)
+            else
+               lcVAL := fxVAL
+            endif
+         endif
+return (lcVAL)
+
+function val2where(fxVAL, fcTYPE)
+         local lcVAL := "" as string
+         if upper(alltrim(fxVAL)) = "NULL"
+            lcVAL := fxVAL
+         else
+            if fcTYPE = "N"
+               lcVAL := alltrim(str(val(fxVAL)))
+            else
+               lcVAL := "'" + fxVAL + "'"
+            endif
+         endif
+return (lcVAL)
+/*
+* Function..: gera_cip_pfpj(fcVAL, fcTIPO, fnHAND1)
+* Objetivo..: Solicita o numero do cip da tabela pfpj
+* Parâmetros: fcVAL   valor do pfpj.PFPJ
+              fcTIPO
+	      fnHAND1
+* Retorno...: Retorna .t. / .f.
+*/
+Function gera_cip_pfpj(fcVAL, fcTIPO, fnHAND1)
+         local lcVAL     := '' as string
+         local laFIELDS  := {"CIP","NR_CONTROLE"}                        // colunas a serem geradas no select
+         local laWHERE   := {"PFPJ like '%"+alltrim(fcVAL)+"%'" } as array // clausula where para solicitacao de dados ao SNT
+         local lcTABLE   := "pfpj"                                       // tabela a serem consultada
+         local lcINSERT  := "insert into " + lcTABLE + " (PFPJ, PFPJ_TIPO) VALUES (" as string
+         local lcUPDATE  := "update " + lcTABLE + " set CIP = " as string
+         local lnRET     := 0 as int
+         local laDATA    := {} as array
+
+         if db_select(laFIELDS,lcTABLE,,laWHERE) == -1 .and. ErroSQLServer(db_error())
+            dispmess("Problemas em db_select. ProcLine: "+alltrim(str(procline()))+" ProcName: "+ProcName(), fnHAND1)
+            dispmess("Erro Select -> "+db_error(),fnHAND1)
+            dispmess("Ultimo Comando -> " + wset("_LASTSQL"), fnHAND1 )
+         endif
+         // lendo cada linha do select
+         laDATA := db_fetchrow()
+         if len(laDATA) > 0
+            lcVAL := laDATA[1]
+         else
+            lcINSERT += "'" + fcVAL + "'" + ",'" + fcTIPO + "')"
+            if db_insert({{"PFPJ","PFPJ_TIPO"},{fcVAL,fcTIPO}},lcTABLE) == -1 .and. ErroSQlServer(db_error())
+               dispmess("Problemas na geracao do cip na tabela PFPJ", fnHAND1)
+               dispmess("Erro Insert -> "+db_error(),fnHAND1)
+               dispmess("Ultima Comando -> " + wset("_LASTSQL"), fnHAND1 )
+               lcVAL := ""
+            else
+               if db_select(laFIELDS, lcTABLE, ,laWHERE) == -1 .and. ErroSQLServer(db_error())
+                  dispmess("Problemas em db_select. ProcLine: "+alltrim(str(procline()))+" ProcName: "+ProcName(), fnHAND1)
+                  dispmess("Erro Select -> "+db_error(),fnHAND1)
+                  dispmess("Ultimo Comando -> " + wset("_LASTSQL"), fnHAND1 )
+               endif
+               // lendo cada linha do select
+               laDATA := db_fetchrow()
+               if len(laDATA) > 0
+                  lcVAL    := strzero(laDATA[2],6,0)
+                  lcUPDATE += "'" + lcVAL + "' "
+                  lcUPDATE += "WHERE NR_CONTROLE = " + alltrim(str(laDATA[2]))
+                  //lnRET := db_query(lcUPDATE )
+                  //if lnRET < 0
+                  //dispmess("-> Incluindo o CIP. CIP: "+lcVal+" WHERE NR_CONTROLE = " + alltrim( str( laDATA[2] ) ),fnHAND1)
+                  if db_update( { {"CIP"}, {lcVAL} },lcTABLE,{"nr_controle = " + alltrim( str( laDATA[2] ) ) } ) == -1 .and. ErroSQLServer(db_error())
+                     dispmess("Problemas na atualizacao da tabela PFPJ",fnHAND1)
+                     dispmess("Erro Update -> "+db_error(),fnHAND1)
+                     dispmess("Ultimo Comando -> " + wset("_LASTSQL"), fnHAND1 )
+                     lcVAL := ""
+                  endif
+                  //dispmess("-> Incluindo o CIP.",fnHAND1)
+               else
+                  dispmess("Problemas na leitura da tabela PFPJ", fnHAND1)
+                  lcVAL := ""
+               endif
+            endif
+         endif
+return (lcVAL)
+
+/*
+* Function..: convsinistro(fcVAL,fnHAND1)
+* Objetivo..:
+* Parâmetros: fcVAL
+              fnHAND1
+* Retorno...: Retorna .t. / .f.
+*/
+function convsinistro(fcVAL,fnHAND1)
+         local laSINISTRO := { {0, "Aberto"     } ,;
+                               {1, "S/ Indeniz" } ,;
+                               {2, "Pg Parcial" } ,;
+                               {3, "Pg Total"   } ,;
+                               {4, "Cancelado"  } }
+         local ii         := 0  as int
+         local lcVAL      := "" as string
+         ii := AScan(laSINISTRO, {|x| x[1] == val(fcVal)})
+         if ii > 0
+            lcVAL := laSINISTRO[ii,2]
+	 else
+	    dispmess('Status do Sinistro fora do Limite',fnHAND1)
+         endif
+return (lcVAL)
+
+/*
+* Function..: convcosseguro(fcVAL,fnHAND1)
+* Objetivo..:
+* Parâmetros: fcVAL
+              fnHAND1
+* Retorno...: Retorna .t. / .f.
+*/
+function convcosseguro(fcVAL,fnHAND1)
+         local laCOSSEGURO := { {1, "Sem Cosseguro"    } ,;
+                                {2, "Cosseguro Cedido" } ,;
+                                {3, "Cosseguro Aceito" } }
+         local ii         := 0  as int
+         local lcVAL      := "" as string
+         ii := AScan(laCOSSEGURO, {|x| x[1] == val(fcVal)} )
+         if ii > 0
+            lcVAL := laCOSSEGURO[ii,2]
+	 else
+	    dispmess('Indicador de Cosseguro fora do Limite '+fcVal,fnHAND1)
+         endif
+return (lcVAL)
+/*
+* Function..: ErroSQLServer(cMens)
+* Objetivo..: Se nao achou o erro do SQL Server, verdadeiro
+* Parâmetros: cMens
+* Retorno...: Retorna .t. / .f.
+*/
+Function ErroSQLServer(cMens)
+
+    Local lRetorno := .f.
+
+    if at("(100)",cMens) == 0
+       lRetorno := .t.
+    endif
+
+Return (lRetorno)
+/*
+* Function..: Ver_Status(cStatus,lnPASTA,fnHAND1)
+* Objetivo..: Verifica o Status do Banco
+* Parâmetros: cStatus,cPasta,fnHAND1
+* Retorno...:
+*/
+Function Ver_Status(cStatus,cPasta,cCONTROLE,fnHAND1)
+    Local lRetorno := .t.
+    if     cStatus == '2'   // 2 = Sinistro marcado com 'J'
+           cStatus := '6'   // 6-Marca J confirmada
+    elseif cStatus == '3'   // 3 = Sinistro não marcado com 'J'
+           cStatus := '9'   // 9-Sinistro não marcado com J
+    elseif cStatus == '4'   // 4 = Sinistro encerrado
+           cStatus := '5'   // 5-Sinistro encerrado
+    elseif cStatus == '5'   // 5 = Sinsitro não encontrado
+           cStatus := '7'   // 7-Sinistro não encontrado
+    elseif cStatus == '6'   // 6 = Erro de processamento
+           cStatus := '8'   // 8-Erro processamento
+    elseif cStatus == '0'   // 0 = Atualização sinistro
+           cStatus := '2'   // 2-Informações SNT recebidas
+    else
+        dispmess('Indicador de Retorno '+cStatus+ ' fora do Intervalo',fnHAND1)
+    endif
+    if cStatus <> '0'
+       // gerando log das alterações em PASTA_SEGURO
+       psab_logs({{'FL_STATUSINTERFACE'},{cStatus}},'pasta_seguro','NR_PASTA='+cPASTA+' AND NR_CONTROLE='+cCONTROLE,cPASTA,'Seguro com Sinistro')
+       if db_update( {{'FL_STATUSINTERFACE'},{cStatus}}, "pasta_seguro", {'NR_PASTA='+cPASTA+' AND NR_CONTROLE='+cCONTROLE}) == -1 .and. ErroSQLServer(db_Error())
+          dispmess( "Problemas na atualizacao do status. Status: " + cStatus + " Pasta: " + cPasta, fnHAND1 )
+          dispmess( "Erro Update -> " + db_error(), fnHAND1 )
+          dispmess( "Ultimo Comando -> " + wset( "_LASTSQL" ), fnHAND1 )
+          lRetorno := .f.
+       endif
+    endif
+Return (lRetorno)
+
+/*
+* Function..: dispmess(fcMESS, fnHAND, fnPREV, fnNEXT, llMODE)
+* Objetivo..: Faz a Gravação no arquivo TXT especificado
+* Parâmetros: fcMESS
+              fnHAND
+	      fnPREV
+	      fnNEXT
+	      llMODE
+* Retorno...:
+*/
+function dispmess(fcMESS, fnHAND, fnPREV, fnNEXT, llMODE)
+	 local llFLG := .T.
+	 fnPREV := if (pcount() < 3, 0, fnPREV)
+	 fnNEXT := if (pcount() < 4, 0, fnNEXT)
+	 llMODE := if (pcount() < 5, .F., llMODE)
+	 if llMODE
+	    if ! writeline("---", fnHAND, fnPREV, fnNEXT)
+	       llFLG := .F.
+	    endif
+	 endif
+	 if ! writeline(fcMESS, fnHAND, fnPREV, fnNEXT)
+	    llFLG := .F.
+	 endif
+return (llFLG)
+
+/*
+* Function..: writeline(fcLINE, fnHAND, fnPREV, fnNEXT)
+* Objetivo..: Faz a Gravação no arquivo TXT especificado
+* Parâmetros: fcMESS
+              fnHAND
+              fnPREV
+              fnNEXT
+* Retorno...:
+*/
+function writeline(fcLINE, fnHAND, fnPREV, fnNEXT)
+         local llFLG := .T. as logical
+         fnPREV := if (PCOUNT() < 3, 0, fnPREV)
+         fnNEXT := if (PCOUNT() < 4, 0, fnNEXT)
+	 while fnPREV > 0
+	       fwrite(fnHAND, " " + NEWLINE)
+	       fnPREV --
+	 enddo
+	 fwrite(fnHAND, fcLINE + NEWLINE)
+	 while fnNEXT > 0
+	       fwrite(fnHAND, " " + NEWLINE)
+	       fnNEXT --
+	 enddo
+return (llFLG)
+
+

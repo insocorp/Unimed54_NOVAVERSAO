@@ -1,0 +1,158 @@
+
+//
+// Glauber - 10/2017
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Classe...........: I4PSinJudCos
+*
+* Objetivo.........: Classe que espelha um cosseguro de um sinistro judicial.
+*
+* Atributos........:
+*
+*    EXPORT DvCosseguro
+*    EXPORT CdTpCosseguro
+*    EXPORT NmLider
+*    EXPORT IdPessoaCongenere
+*    EXPORT NmCongenere
+*    EXPORT PcCosseguro
+*    EXPORT VlIsCosseguro
+*    EXPORT VlPremioCosseguro
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD toString()
+*
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS I4PSinJudCos
+
+    // Atributos publico
+
+    EXPORT DvCosseguro
+    EXPORT CdTpCosseguro
+    EXPORT NmLider
+    EXPORT IdPessoaCongenere
+    EXPORT NmCongenere
+    EXPORT PcCosseguro
+    EXPORT VlIsCosseguro
+    EXPORT VlPremioCosseguro
+
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()                          CLASS I4PSinJudCos
+    PROTOTYPE METHOD Destroy()                       CLASS I4PSinJudCos
+    PROTOTYPE METHOD toString()                      CLASS I4PSinJudCos
+
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS I4PSinJudCos
+
+    self:DvCosseguro         := ''
+    self:CdTpCosseguro       := ''
+    self:NmLider             := ''
+    self:IdPessoaCongenere   := ''
+    self:NmCongenere         := ''
+    self:PcCosseguro         := 0
+    self:VlIsCosseguro       := 0.00
+    self:VlPremioCosseguro   := 0.00
+    
+    
+
+return(self)
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS I4PSinJudCos
+
+    self:DvCosseguro         := nil
+    self:CdTpCosseguro       := nil
+    self:NmLider             := nil
+    self:IdPessoaCongenere   := nil
+    self:NmCongenere         := nil
+    self:PcCosseguro         := nil
+    self:VlIsCosseguro       := nil
+    self:VlPremioCosseguro   := nil
+
+
+return(nil)
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: toString()
+* Objetivo..: Retornar uma String com a representação do Objeto.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             String
+*
+*/
+
+METHOD toString() CLASS I4PSinJudCos
+
+return    'I4PSinJudCos [DvCosseguro=' +  Transform(self:DvCosseguro) +;
+          ', CdTpCosseguro=' + Transform(self:CdTpCosseguro) +;
+          ', NmLider=' + Transform(self:NmLider) +;
+          ', IdPessoaCongenere=' + Transform(self:IdPessoaCongenere) +;
+          ', NmCongenere=' + Transform(self:NmCongenere) +;
+          ', PcCosseguro=' + Transform(self:PcCosseguro) +;
+          ', VlIsCosseguro=' + Transform(self:VlIsCosseguro) +;
+          ', VlPremioCosseguro=' + Transform(self:VlPremioCosseguro) +;
+          ']'
+
+
+
+

@@ -1,0 +1,180 @@
+/*
+Project      : gr5
+Program      : sch.all.pasta.html
+Function     : sch_all_pasta_html
+Created on   : 30-Aug-2002   15:57:49
+Descripition : Pesquisa de pastas para a Agenda de compromissos
+*/
+   local lcACTION      := '' ,;
+         lcTABLE       := '' ,;
+         lcQUERY       := '' ,;
+         lcNM_CAMPO    := '' ,;
+         lcPASTAS      := '' ,;
+         lcDESCRIPTION := '' ,;
+         lcWSCRIPT     := '' ,;
+         lcITEM        := '' as string
+   local laRES      := {} ,;
+         laCOND     := {} ,;
+         laWHERE    := {} ,;
+         laORDERBY  := {} ,;
+         laTPFILTER := {} ,;
+         laFIELDLST := {} ,;
+         laLABELLST := {} ,;
+         laRESULT   := {} ,;
+         laCHECKLST := {} ,;
+         laJOIN     := {} ,;
+         laPROFILE  := {} as array
+   local ii := 0 as int
+   lcNM_CAMPO := alltrim(WGet('NM_CAMPO','C'))
+   lcACTION   := alltrim(upper(WGet('ACTION','C')))
+   lcTABLE    := 'pasta'
+   laFIELDLST := structtable(WSet('DB_ACTIVE'),{'pasta','cliente'},1,'A')
+   laLABELLST := structtable(WSet('DB_ACTIVE'),{'pasta','cliente'},11,'A')
+   laTPFILTER := {'Contendo',;
+                  'Igual',;
+                  'Intervalo',;
+                  'Não contém'}
+   laJOIN     :={{2,'cliente','cliente.CD_CLIENTE=pasta.CD_CLIENTE'}}
+   wPut('NM_CAMPO',lcNM_CAMPO)
+   wPut('TITLE','Localizar Pastas')
+   for ii := 1 to 5
+       wPut('FDFILTER'+alltrim(str(ii))+'_OPT',laLABELLST) // Campos
+       wPut('TPFILTER'+alltrim(str(ii))+'_OPT',laTPFILTER) // Filtros
+       wPut('FDORDER'+alltrim(str(ii))+'_OPT',laLABELLST)  // Ordens
+   next ii
+   if lcACTION = 'EXECSEL'
+      ii := 1
+      do while .t.    // Filter
+         if WGet('FDFILTER'+alltrim(str(ii)),'B')
+            if ! empty(WGet('VLFILTER'+alltrim(str(ii)),'C')) .or. ! empty(WGet('VL2FILTER'+alltrim(str(ii)),'C'))
+               laCOND := {}
+               /*if WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Igual'
+                  aadd(laWHERE,laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' = ' +DLAP+WGet('VLFILTER'+alltrim(str(ii)),'C')+WGet('VL2FILTER'+alltrim(str(ii)),'C')+DLAP)
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Intervalo'
+                  if ! empty(WGet('VLFILTER'+alltrim(str(ii)),'C'))
+                     aadd(laWHERE,laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' > '+DLAP+WGet('VLFILTER'+alltrim(str(ii)),'C')+DLAP)
+                  endif
+                  if ! empty(WGet('VL2FILTER'+alltrim(str(ii)),'C'))
+                     aadd(laWHERE,laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' < '+DLAP+WGet('VL2FILTER'+alltrim(str(ii)),'C')+DLAP)
+                  endif
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Não contém'
+                  if ! empty(WGet('VLFILTER'+alltrim(str(ii)),'C'))
+                     aadd(laWHERE,' not ('+laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' like '+DLAP+'%'+WGet('VLFILTER'+alltrim(str(ii)),'C')+'%'+DLAP+')')
+                  endif
+                  if ! empty(WGet('VL2FILTER'+alltrim(str(ii)),'C'))
+                     aadd(laWHERE,' not ('+laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' like '+DLAP+'%'+WGet('VL2FILTER'+alltrim(str(ii)),'C')+'%'+DLAP+')')
+                  endif
+               else  // Contendo
+                  if ! empty(WGet('VLFILTER'+alltrim(str(ii)),'C'))
+                     aadd(laWHERE,laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' like '+DLAP+'%'+WGet('VLFILTER'+alltrim(str(ii)),'C')+'%'+DLAP)
+                  endif
+                  if ! empty(WGet('VL2FILTER'+alltrim(str(ii)),'C'))
+                     aadd(laWHERE,laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))] + ' like '+DLAP+'%'+WGet('VL2FILTER'+alltrim(str(ii)),'C')+'%'+DLAP)
+                  endif
+               endif
+               */
+               if WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Igual'
+                  aadd(laWHERE,mkwheresch({{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')}},1))
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Intervalo'
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laWHERE,mkwheresch(laCOND,2))
+               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Não contém'
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laWHERE,mkwheresch(laCOND,3))
+               else  // Contendo
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VLFILTER'+alltrim(str(ii)),'C')})
+                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FDFILTER'+alltrim(str(ii)),'C'))],WGet('VL2FILTER'+alltrim(str(ii)),'C')})
+                  aadd(laWHERE,mkwheresch(laCOND,4))
+               endif
+            endif
+         else
+            exit
+         endif
+         aadd(laPROFILE,'FDFILTER'+alltrim(str(ii)))
+         aadd(laPROFILE,'TPFILTER'+alltrim(str(ii)))
+         aadd(laPROFILE,'VLFILTER'+alltrim(str(ii)))
+         aadd(laPROFILE,'VL2FILTER'+alltrim(str(ii)))
+         ii ++
+      enddo
+      ii := 1
+      do while .t.     // Order
+         if WGet('FDORDER'+alltrim(str(ii)),'B')
+            if ! empty(WGet('FDORDER'+alltrim(str(ii)),'C'))
+               aadd(laORDERBY,laFIELDLST[ascan(laLABELLST,WGet('FDORDER'+alltrim(str(ii)),'C'))])
+            endif
+         else
+            exit
+         endif
+         aadd(laPROFILE,'FDORDER'+alltrim(str(ii)))
+         ii ++
+      enddo
+      if db_select(laFIELDLST,lcTABLE,laJOIN,laWHERE,laORDERBY,,,{50}) = -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      if len(laRES) > 0
+         aadd(laRES[1],'VAR_PASTA')
+         aadd(laRES[1],'VAR_CTR')
+         for ii:= 2 to len(laRES)
+            lcITEM := alltrim(str(ii-1))
+            aadd(laRES[ii],'VAR_PASTA_'+lcITEM)
+            aadd(laRES[ii],'VAR_CTR_'+lcITEM)
+            wPut('VAR_PASTA_'+lcITEM+'_OPT',laRES[ii,db_fetchncol(laRES,'NR_PASTA')])
+            wPut('VAR_CTR_'+lcITEM,laRES[ii,db_fetchncol(laRES,'NR_PASTA')])
+         next ii
+         wPut('schPASTAS',laRES)
+      endif
+      if len(laPROFILE) > 0
+         SaveWEnv('sch.all.pasta.html',laPROFILE)
+      endif
+   elseif lcACTION = 'EXECSEND'
+      ii     := 1
+      lcITEM := '_'+alltrim(str(ii))
+      do while wGet('VAR_CTR'+lcITEM,'B')
+         if ! empty(alltrim(WGet('VAR_PASTA'+lcITEM,'C')))
+            aadd(laCHECKLST, alltrim(WGet('VAR_PASTA'+lcITEM,'C')))
+         endif
+         ii ++
+         lcITEM := '_'+alltrim(str(ii))
+      enddo
+      
+      if len(laCHECKLST) > 0
+         lcPASTAS:= laCHECKLST[1]
+         for ii:= 2 to len(laCHECKLST)
+         	lcPASTAS+=','+laCHECKLST[ii]
+         next ii
+         laFIELDLST := {'pasta.NR_PASTA',;
+                        'pasta.NR_PROCESSO',;
+                        'pasta.CD_CLIENTE',;
+                        'cliente.NM_CLIENTE',;
+                        'pasta.PARTE_CONTRARIA',;
+                        'pasta.VARA',;
+                        'pasta.COMARCA'}
+         //if db_select(laFIELDLST,lcTABLE,laJOIN,{'pasta.NR_PASTA in ("'+strtran(lcPASTAS,',','","')+'")'}) = -1
+         if db_select(laFIELDLST,lcTABLE,laJOIN,{'pasta.NR_PASTA in ('+lcPASTAS+')'}) = -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchall()
+         for ii:= 2 to len(laRESULT)
+             lcDESCRIPTION += 'Pasta: '+strzero(laRESULT[ii,1]) + '\n'
+             lcDESCRIPTION += alltrim(laRESULT[ii,3])+'-'+alltrim(laRESULT[ii,4])+'  X  '+alltrim(laRESULT[ii,5]) + '\n'
+             lcDESCRIPTION += alltrim(laRESULT[ii,2])+' - Vara: '+laRESULT[ii,6]+'  -  '+laRESULT[ii,7] + '\n'
+             lcDESCRIPTION += replicate('-',50) + '\n'
+         next ii
+         lcWSCRIPT += 'if (opener.document.mntform.'+lcNM_CAMPO+'.value.length==0){'+;
+                      'opener.document.mntform.'+lcNM_CAMPO+'.value="'+lcPASTAS+'";'+;
+                      'opener.document.mntform.DESCRIPTION.value="'+lcDESCRIPTION+'";self.close();}'+;
+                      'else {'+;
+                      'opener.document.mntform.'+lcNM_CAMPO+'.value+=",'+lcPASTAS+'";'+;
+                      'opener.document.mntform.DESCRIPTION.value+="'+lcDESCRIPTION+'";}'
+         wPut('WSCRIPT',lcWSCRIPT)
+         WSet('_USER_INTERFACE','close.wic')
+      else
+         wPut('ERROR_MENS','Nenhum registro foi selecionado')
+      endif
+   endif
+   ReadWEnv('sch.all.pasta.html')
+
+

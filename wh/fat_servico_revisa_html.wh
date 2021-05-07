@@ -1,0 +1,146 @@
+/*
+
+Project      : gr5
+Program      : fat.servico.revisa.html
+Function     : fat_servico_revisa_html
+Created on   : 20-Mar-2003   17:21:12
+Descripition : Popup para revisão de Serviços para a Revisão da Fatura.
+
+*/
+
+   local lcACTION    := '' ,;
+         lcTABLE     := '' ,;
+         lcNR_FATURA := '' ,;
+         lcITEM      := '' ,;
+         lcNM_FIELD  := '' as string
+
+   local laAPROVACAO := {} ,;
+         laFIELDS    := {} ,;
+         laRESULT    := {} ,;
+         laVAR_WICDO := {} ,;
+         laPUT       := {} ,;
+         laUPDATE    := {} as array
+
+   local x     := 0 ,;
+         y     := 0 ,;
+         liPOS := 0 as int
+
+   lcACTION    := upper(WGet('ACTION','C'))
+   lcNR_FATURA := WGet('NR_FATURA','C')
+   lcTABLE     := 'mvt_servico'
+   lcWHERE     := 'NR_FATURA='+lcNR_FATURA
+   laAPROVACAO := {'Prorrogar','Faturar','Isentar'}
+   laFIELDS    := {lcTABLE+'.LOGIN',;
+                   lcTABLE+'.NR_PASTA',;
+                   lcTABLE+'.NR_SERVICO',;
+                   lcTABLE+'.CD_SERVICO',;
+                   'servico.NM_SERVICO',;
+                   'fatura_servico.NM_NARRATIVA_FATURA',;
+                   'moeda.NM_MOEDA',;
+                   lcTABLE+'.QUANTIDADE',;
+                   lcTABLE+'.VL_UNIT',;
+                   lcTABLE+'.VL_TOTAL',;
+                   lcTABLE+'.FL_APROVADO'}
+   laVAR_WICDO := {'LOGIN',;
+                   'VAR_NR_PASTA',;
+                   'VAR_NR_SERVICO',;
+                   'CD_SERVICO',;
+                   'NM_SERVICO',;
+                   'NM_NARRATIVA_FATURA',;
+                   'NM_MOEDA',;
+                   'VAR_QUANTIDADE',;
+                   'VAR_VL_UNIT',;
+                   'VAR_VL_TOTAL',;
+                   'VAR_FL_APROVADO'}
+
+   if lcACTION = 'ALTER'
+      wPut('TITLE','Revisão de Serviços')
+      wPut('NR_FATURA',lcNR_FATURA)
+      if db_select(laFIELDS,'servico,fatura_servico,moeda,'+lcTABLE,,;
+                   {lcTABLE+'.NR_FATURA='+lcNR_FATURA+' and servico.CD_SERVICO=mvt_servico.CD_SERVICO and '+;
+                    'fatura_servico.NR_FATURA='+lcNR_FATURA+' and '+;
+                    'fatura_servico.CD_TB_SERVICO=mvt_servico.CD_TB_SERVICO and '+;
+                    'moeda.CD_MOEDA=mvt_servico.CD_MOEDA'},{lcTABLE+'.CD_SERVICO'}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         aadd(laPUT,laVAR_WICDO)
+         for x := 2 to len(laRESULT)
+             lcITEM := '_'+alltrim(str(x-1))
+             aadd(laPUT,{laRESULT[x,ascan(laVAR_WICDO,'LOGIN')],;                   //Login
+                         laVAR_WICDO[ascan(laVAR_WICDO,'VAR_NR_PASTA')]+lcITEM,;    //Código da Pasta
+                         laVAR_WICDO[ascan(laVAR_WICDO,'VAR_NR_SERVICO')]+lcITEM,;  //Numero do serviço
+                         laRESULT[x,ascan(laVAR_WICDO,'CD_SERVICO')],;              //Código do serviço
+                         laRESULT[x,ascan(laVAR_WICDO,'NM_SERVICO')],;              //Descrição do serviço
+                         laRESULT[x,ascan(laVAR_WICDO,'NM_NARRATIVA_FATURA')],;     //Narrativa fatura
+                         laRESULT[x,ascan(laVAR_WICDO,'NM_MOEDA')],;                //Moeda
+                         laVAR_WICDO[ascan(laVAR_WICDO,'VAR_QUANTIDADE')]+lcITEM,;  //Quantidade
+                         laVAR_WICDO[ascan(laVAR_WICDO,'VAR_VL_UNIT')]+lcITEM,;     //Valor Unitário
+                         laVAR_WICDO[ascan(laVAR_WICDO,'VAR_VL_TOTAL')]+lcITEM,;    //Valor Total
+                         laVAR_WICDO[ascan(laVAR_WICDO,'VAR_FL_APROVADO')]+lcITEM}) //Aprovação [0]-Prorrogar [1]-Faturar [2]-Isentar
+             for y := 1 to len(laVAR_WICDO)
+                 if laVAR_WICDO[y] = 'VAR_FL_APROVADO'
+                    liPOS := ascan(laVAR_WICDO,'VAR_FL_APROVADO')
+                    wPut(laVAR_WICDO[y]+lcITEM+'_OPT',laAPROVACAO)
+                    if laRESULT[x,liPOS] == '0'
+                       wPut(laVAR_WICDO[y]+lcITEM,'Prorrogar')
+                    elseif laRESULT[x,liPOS] == '1'
+                       wPut(laVAR_WICDO[y]+lcITEM,'Faturar')
+                    else
+                       wPut(laVAR_WICDO[y]+lcITEM,'Isentar')
+                    endif
+                    loop
+                 endif
+                 wPut(laVAR_WICDO[y]+lcITEM,laRESULT[x,y])
+             next y
+         next x
+         wPut('lstSERVICO',laPUT)
+      endif
+   elseif lcACTION = 'SAVE'
+      if db_select({'PC_IRRF'},'empresa_usuaria') == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchrow()
+
+      x          := 1
+      lcITEM     := '_'+alltrim(str(x))
+      lcNM_FIELD := laVAR_WICDO[ascan(laVAR_WICDO,'VAR_NR_PASTA')]+lcITEM //Controle do laço - Nr. Pasta
+      do while WGet(lcNM_FIELD,'B')
+         lcQUERY := ''
+         lcAPROVACAO := alltrim(WGet(laVAR_WICDO[ascan(laVAR_WICDO,'VAR_FL_APROVADO')]+lcITEM,'C')) //Aprovação
+         if lcAPROVACAO == 'Prorrogar'
+            lcAPROVACAO := '0'
+         elseif lcAPROVACAO == 'Faturar'
+            lcAPROVACAO := '1'
+         elseif lcAPROVACAO == 'Isentar'
+            lcAPROVACAO := '2'
+         endif
+
+         laUPDATE := {}
+         aadd(laUPDATE,{'QUANTIDADE','VL_UNIT','FL_APROVADO'})
+         if lcAPROVACAO=='0'
+            aadd(laUPDATE[1],'NR_FATURA')
+         endif
+         aadd(laUPDATE,{WGet(laVAR_WICDO[ascan(laVAR_WICDO,'VAR_QUANTIDADE')]+lcITEM,'C'),;
+                        WGet(laVAR_WICDO[ascan(laVAR_WICDO,'VAR_VL_UNIT')]+lcITEM,'C'),;
+                        lcAPROVACAO})
+         if lcAPROVACAO=='0'
+            aadd(laUPDATE[2],'')
+         endif
+         if db_update(laUPDATE,'mvt_servico',;
+                        {'NR_PASTA='+WGet(laVAR_WICDO[ascan(laVAR_WICDO,'VAR_NR_PASTA')]+lcITEM,'C')+;
+                         ' and NR_SERVICO='+WGet(laVAR_WICDO[ascan(laVAR_WICDO,'VAR_NR_SERVICO')]+lcITEM,'C')}) == -1
+            error_sys(db_error())
+         endif
+         x++
+         lcITEM     := '_'+alltrim(str(x))
+         lcNM_FIELD := laVAR_WICDO[ascan(laVAR_WICDO,'VAR_NR_PASTA')]+lcITEM //Controle do laço - Nr. Pasta
+      enddo
+      atzFat_Servico(lcNR_FATURA)           //Recalcular serviços
+      atzTotalFat(lcNR_FATURA,laRESULT[1])  //Recalcula os totais
+      wPut('WSCRIPT','self.close();')
+      wSet('_USER_INTERFACE','close.wic')
+   endif
+return
+

@@ -1,0 +1,398 @@
+/*
+
+Project      : gr5
+Program      : alcada.aprovacao.html
+Function     : alcada_revisao_html
+Created on   : 3/16/2012 3:52:47 PM
+Descripition : Limite de Credito - Aprovação
+Projeto      : C&C
+*/
+
+   local lcACTION := '' ,;
+         lcTABLE  := '' ,;
+         lcCAMPOF1 := '',;
+         lcCAMPOF2 := '',;
+         lcCONTE1  := '',;
+         lcCONTE2  := '',;
+         lcORDEM   := '',;
+         lcMENSAGEM:= '',;
+         lcFILTROAUX := '',;
+         lcAUX     :='',; 
+         lcPAS     :='',;
+         lcCON     :='',;
+         lcNRROW  := '' as string
+
+   local laFIELDS             := {} ,;
+         laRES                := {} ,;
+         laLABEL_FL_REVISAO := {} ,;
+         laVALUE_FL_REVISAO := {} ,;
+         laVAR                := {} ,;
+         laPUT                := {} ,;
+         laAUX                := {} ,;
+         laJOIN               := {} ,;
+         laWHERE              := {} ,;
+         laCAMPOSFILTRO       := {} ,;
+         laLABELFILTRO        := {} ,;
+         laALERTA             := {} ,;
+         laSAVE               := {} as array
+
+   local ii                   := 0 ,;
+         lnQUANTOS            := 0 ,;
+         lnYY                 := 0 ,;
+         lnTOTAL              := 0 as int
+
+   local lnVL_RNG1 := 0.00,;
+         lnVL_RNG2 := 0.00 as numeric
+
+   lcACTION     := WGet('ACTION','C')
+   lcTABLE      := 'mvt_credito_alcada'
+   laFIELDS     := {'mvt_credito_alcada.NR_PASTA',;
+                    'mvt_credito_alcada.NR_CONTROLE',;
+                    'mvt_credito_alcada.NR_CONTROLE_ALCADA',;
+                    'pasta_cip.CIP',;
+                    'pfpj.PFPJ',;
+                    'pfpj.NM_FANTASIA',;
+                    'pfpj.CNPJ_CPF',;
+                    'pfpj.CIDADE',;
+                    'pfpj.UF',;
+                    'pasta.DT_CADASTRO',;
+                    'pasta.LOGIN_CADASTRO',;
+                    'mvt_credito_alcada.VL_LIMITE_APROVADO',;
+                    'mvt_credito_alcada.LIMITE_INICIO',;
+                    'mvt_credito_alcada.LIMITE_TERMINO',;
+                    'mvt_credito_alcada.LOGIN_APROVACAO',;
+                    'mvt_credito_alcada.ALCADA',;
+                    'mvt_credito_alcada.OBSERVACAO',;
+                    'mvt_credito_alcada.FL_APROVACAO',;
+                    'mvt_credito_alcada.QTDE_APROVACOES'}
+
+   laVAR        := {'VAR_NR_PASTA',;
+                    'VAR_NR_CONTROLE',;
+                    'VAR_NR_CONTROLE_ALCADA',;
+                    'VAR_FL_APROVACAO',;
+                    'VAR_OBSERVACAO',;                    
+                    'NR_PASTA',;
+                    'NR_CONTROLE',;
+                    'NR_CONTROLE_ALCADA',;
+                    'PFPJ',;
+                    'VL_LIMITE_APROVADO',;
+                    'LIMITE_INICIO',;
+                    'LIMITE_TERMINO',;
+                    'OBSERVACAO',;
+                    'LOGIN_APROVACAO',;
+                    'QTDE_APROVACOES',;
+                    'ALCADA',;
+                    'NM_FANTASIA',;
+                    'CNPJ_CPF',;
+                    'CIDADE',;
+                    'UF',;
+                    'DT_CADASTRO'}
+
+                    
+   laCAMPOSFILTRO := {'NR_PASTA',;
+                      'NR_CONTROLE',;
+                      'VL_LIMITE_APROVADO'}
+
+   // Preechimento dos combos que alimentara os combos de filtragem e classificação
+
+   for ii := 1 to len(laCAMPOSFILTRO)
+       aadd(laLABELFILTRO,lblFSCREEN(laCAMPOSFILTRO[ii]))
+   next ii
+   WPut('FILTER_FIELD.option',laLABELFILTRO)
+   WPut('FILTER_FIELD_2.option',laLABELFILTRO)
+   WPut('ORDER_FIELD.option',laLABELFILTRO)
+
+   laJOIN        := {{2,'pasta_cip','pasta_cip.NR_PASTA=mvt_credito_alcada.NR_PASTA and pasta_cip.WFIELD = '+DLAP+'CIP_SOLICITANTE'+DLAP},;
+                     {2,'pasta','mvt_credito_alcada.NR_PASTA=pasta.NR_PASTA'},;
+                     {2,'pfpj','pfpj.CIP=pasta_cip.CIP'}} 
+
+   laLABEL_FL_REVISAO := {'Pendente','Aprovado','Rejeitado'}
+   laVALUE_FL_REVISAO := {'P','A','R'}
+
+   WPut('TITLE','Limite de Crédito - Aprovação')
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      laSAVE   := {{'FL_APROVACAO','LOGIN_APROVACAO','DT_APROVACAO','HR_APROVACAO','OBSERVACAO'}}
+
+      laWHERE  := {}
+      laWHEREUP:= {}
+
+      laUPDATE := {}
+      aadd(laUPDATE,{'FL_REJEITADO','MOTIVO','ALCADAS_A_LIB'})
+      
+      laALLIB  := {}
+      aadd(laALLIB, {'NR_PASTA','NR_CONTROLE'})
+
+      
+      ii       := 1
+      lcNRROW  := alltrim(str(ii))
+      lcVAR    := 'VAR_NR_PASTA'+lcNRROW
+    
+      laWHERE  :={}
+      laWHEREUP:={}
+      do while WGet(lcVAR,'B') 
+               
+         laWHEREX :={}
+         aadd(laWHEREX,'NR_PASTA='+WGet('VAR_NR_PASTA'+lcNRROW,'C') + ' and ' + 'NR_CONTROLE='+WGet('VAR_NR_CONTROLE'+lcNRROW,'C')+ ' and ' + 'NR_CONTROLE_ALCADA='+WGet('VAR_NR_CONTROLE_ALCADA'+lcNRROW,'C'))
+
+         if db_select({'NR_CONTROLE','NR_PASTA','FL_APROVACAO','OBSERVACAO','DT_APROVACAO','LOGIN_APROVACAO'},lcTABLE,,laWHEREX) == -1
+            error_sys(db_error())
+         endif
+         laRES := db_fetchall()
+         
+         lbGRAVA:=.t.
+         
+         if len(laRES) > 1          
+            if WGet('VAR_FL_APROVACAO'+lcNRROW,'C')<>'P'  //pendente
+
+               if WGet('VAR_FL_APROVACAO'+lcNRROW,'C')=='R' .and. len(trim(WGet('VAR_OBSERVACAO'+lcNRROW,'C')))=0  //rejeitado e estiver sem observação
+                  walert('Informar o motivo da rejeição no lançamento com numero de controle de alçada ' + WGet('VAR_NR_CONTROLE_ALCADA'+lcNRROW,'C')+ ' este lançamento não foi salvo !')
+                  lbGRAVA:=.f.
+               endif
+
+               if lbGRAVA==.t.
+                  aadd(laSAVE,{WGet('VAR_FL_APROVACAO'+lcNRROW,'C'), WSet('LOGIN'), date(), time(), WGet('VAR_OBSERVACAO'+lcNRROW,'C')})
+
+                  if WGet('VAR_FL_APROVACAO'+lcNRROW,'C')=='R' //se reprovar joga R em todos                    
+                     aadd(laWHERE,'NR_PASTA='+WGet('VAR_NR_PASTA'+lcNRROW,'C') + ' and ' + 'NR_CONTROLE='+WGet('VAR_NR_CONTROLE'+lcNRROW,'C')+ ' and ' + 'FL_APROVACAO is null')          
+                  else
+                     aadd(laWHERE,'NR_PASTA='+WGet('VAR_NR_PASTA'+lcNRROW,'C') + ' and ' + 'NR_CONTROLE='+WGet('VAR_NR_CONTROLE'+lcNRROW,'C')+ ' and ' + 'NR_CONTROLE_ALCADA='+WGet('VAR_NR_CONTROLE_ALCADA'+lcNRROW,'C'))
+                  endif
+
+                  aadd(laUPDATE,{WGet('VAR_FL_APROVACAO'+lcNRROW,'C'),WGet('VAR_OBSERVACAO'+lcNRROW,'C'),''})
+                  aadd(laALLIB ,{WGet('VAR_NR_PASTA'+lcNRROW,'C'),WGet('VAR_NR_CONTROLE'+lcNRROW,'C')})
+
+                  aadd(laWHEREUP,'NR_PASTA='+WGet('VAR_NR_PASTA'+lcNRROW,'C') + ' and ' + 'NR_CONTROLE='+WGet('VAR_NR_CONTROLE'+lcNRROW,'C'))
+                  
+               endif        
+            endif   
+         endif
+         
+         ii++
+         lcNRROW := alltrim(str(ii))
+         lcVAR   := 'VAR_NR_PASTA'+lcNRROW
+      enddo
+
+      if len(laSAVE) > 1
+
+         if db_update(laSAVE,lcTABLE,laWHERE) == -1
+            error_sys(db_error())
+         endif
+      endif
+
+      if len(laUPDATE) > 1
+         //regrava alcadas que faltam
+         lcFALTA:=''
+
+         for lnYY:=2 to len(laUPDATE)
+             lcPAS:=laALLIB[lnYY,1]
+             lcCON:=laALLIB[lnYY,2]             
+
+             lcFALTA:=refazalib(lcPAS,lcCON)
+
+             laUPDATE[lnYY,db_fetchncol(laUPDATE,'ALCADAS_A_LIB')]:=lcFALTA
+
+             if len(alltrim(lcFALTA))>0 //falta passar por outras alçadas
+                laUPDATE[lnYY,db_fetchncol(laUPDATE,'FL_REJEITADO')]:=''
+                laUPDATE[lnYY,db_fetchncol(laUPDATE,'MOTIVO')]      :=''             
+             endif
+             
+         next lnYY
+          
+         if db_update(laUPDATE,'mvt_credito',laWHEREUP) = -1
+            error_sys(db_error())
+         endif
+      endif
+
+   elseif lcACTION == 'EXECSEL'
+      lcCAMPOF1 := wget('FILTER_FIELD','C')
+      lcCAMPOF2 := wget('FILTER_FIELD_2','C')
+      lcCONTE1  := wget('FILTER_CONTENT','C')
+      lcCONTE2  := wget('FILTER_CONTENT_2','C')
+      lcORDEM   := laFIELDS[ascan(laLABELFILTRO,wget('ORDER_FIELD','C'))]
+      laWHERE   := {}
+      if ! empty(lcCAMPOF1) .and. ! empty(wget('FILTER_CONTENT','C'))
+         aadd(laWHERE,mkwherelst({{laFIELDS[ascan(laLABELFILTRO,lcCAMPOF1)],wget('FILTER_CONTENT','C')}}))
+      endif
+      if ! empty(lcCAMPOF2) .and. ! empty(wget('FILTER_CONTENT_2','C'))
+         aadd(laWHERE,mkwherelst({{laFIELDS[ascan(laLABELFILTRO,lcCAMPOF2)],wget('FILTER_CONTENT_2','C')}}))
+      endif
+      WPut('FILTER_FIELD',lcCAMPOF1)
+      WPut('FILTER_FIELD_2',lcCAMPOF2)
+      WPut('FILTER_CONTENT',lcCONTE1)
+      WPut('FILTER_CONTENT_2',lcCONTE2)
+      WPut('ORDER_FIELD',WGet('ORDER_FIELD','C'))
+   //endif
+
+   /* Pegando competência do usuário */
+   laALCUSER:={}
+   if db_select({'ALCADA','LOGINS','VL_LIMITE_RANGE1','VL_LIMITE_RANGE2'},;
+                'credito_cfg_etapas',,;
+                {'LOGINS like '+DLAP+'%'+WSet('LOGIN')+'%'+DLAP},;
+                {'ALCADA'}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+  
+   if len(laRES) > 1
+      for ii := 2 to len(laRES)
+         laAUX := str2array(laRES[ii,2],',')
+         if ascan(laAUX,WSet('LOGIN')) > 0 //se encontrou o nome no usuario
+            aadd(laALCUSER,laRES[ii,1])
+         endif
+      next ii
+   endif 
+   
+   //aadd(laWHERE,'mvt_credito_alcada.FL_APROVACAO is null and (mvt_credito_alcada.VL_LIMITE_APROVADO >= '+str(lnVL_RNG1)+' and mvt_credito_alcada.VL_LIMITE_APROVADO <='+str(lnVL_RNG2) + ')')
+
+
+   for lnYY:=1 to len(laALCUSER)
+       if len(lcAUX)=0            
+          lcAUX:=lcAUX+STR(laALCUSER[lnYY])
+         else 
+          lcAUX:=lcAUX+','+STR(laALCUSER[lnYY])
+       endif
+   next lnYY
+
+   
+   aadd(laWHERE,'mvt_credito_alcada.FL_APROVACAO is null and mvt_credito_alcada.alcada in (' + lcAUX + ')' )
+
+   if db_select(laFIELDS,lcTABLE,laJOIN,laWHERE,iif(! empty(lcORDEM),{lcORDEM},{'NR_PASTA','NR_CONTROLE','NR_CONTROLE_ALCADA'})) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 1
+      aadd(laPUT,laVAR)
+
+      laCONTROLES:={}
+
+      for ii := 2 to len(laRES)    
+         lcNRROW := alltrim(str(ii-1))
+         lbGRAVA :=.t.
+         
+         lnCONTROLE:=laRES[ii,db_fetchncol(laRES,'NR_CONTROLE')]
+         
+         if ascan(laCONTROLES,lnCONTROLE)==0  //aqui evita que apareca o mesmo lançamento mais de uma vez na tela pois tem alçadas com mais de uma aprovação
+            aadd(laCONTROLES,lnCONTROLE)      //<--
+            lbGRAVA:=.t.
+         else
+            lbGRAVA:=.f.
+         endif       
+        
+         //verifica se a alçada anterior já aprovou
+         if lbGRAVA==.t.
+            laWHERE:={}
+            aadd(laWHERE,'NR_PASTA='+str(laRES[ii,db_fetchncol(laRES,'NR_PASTA')]))
+            aadd(laWHERE,'NR_CONTROLE='+str(laRES[ii,db_fetchncol(laRES,'NR_CONTROLE')]))
+            aadd(laWHERE,'FL_APROVACAO is null')
+            aadd(laWHERE,'ALCADA<'+str(laRES[ii,db_fetchncol(laRES,'ALCADA')]))   
+            
+            if db_select({'NR_CONTROLE_ALCADA'},'mvt_credito_alcada',,laWHERE) == -1
+               error_sys(db_error())
+            endif
+            laRES2 := db_fetchall()
+            if len(laRES2) > 1 //encontrou lançamento de nivel abaixo sem aprovar.
+               lbGRAVA:=.f.
+            else         
+               lbGRAVA:=.t.
+            endif  
+         endif            
+
+
+         //faz uma segunda verificação
+         if lbGRAVA==.t.
+            //procura se existe o mesmo lançamento ja alterado por esse usuario
+            //isso indica que esse lançamento não e para ele aprovar e sim para outro com o mesmo previlegio pois ele ja aprovou um         
+            
+            laWHERE:={}
+            aadd(laWHERE,'NR_PASTA='+str(laRES[ii,db_fetchncol(laRES,'NR_PASTA')]))
+            aadd(laWHERE,'NR_CONTROLE='+str(laRES[ii,db_fetchncol(laRES,'NR_CONTROLE')]))
+            aadd(laWHERE,'FL_APROVACAO is not null')
+            aadd(laWHERE,'ALCADA='+str(laRES[ii,db_fetchncol(laRES,'ALCADA')]))
+            aadd(laWHERE,'LOGIN_APROVACAO='+"'"+WSet('LOGIN')+"'")       
+            
+            if db_select({'NR_CONTROLE_ALCADA'},'mvt_credito_alcada',,laWHERE) == -1
+               error_sys(db_error())
+            endif
+            laRES2 := db_fetchall()
+            if len(laRES2) > 1
+               lbGRAVA:=.f.
+            else         
+               lbGRAVA:=.t.
+            endif          
+          endif
+
+         
+         if lbGRAVA==.t.
+         
+         aadd(laPUT,{laVAR[ascan(laVAR,'VAR_NR_PASTA')]+lcNRROW,;
+                     laVAR[ascan(laVAR,'VAR_NR_CONTROLE')]+lcNRROW,;
+                     laVAR[ascan(laVAR,'VAR_NR_CONTROLE_ALCADA')]+lcNRROW,;
+                     laVAR[ascan(laVAR,'VAR_FL_APROVACAO')]+lcNRROW,;
+                     laVAR[ascan(laVAR,'VAR_OBSERVACAO')]+lcNRROW,;                     
+                     laRES[ii,db_fetchncol(laRES,'NR_PASTA')],;
+                     laRES[ii,db_fetchncol(laRES,'NR_CONTROLE')],;
+                     laRES[ii,db_fetchncol(laRES,'NR_CONTROLE_ALCADA')],;
+                     laRES[ii,db_fetchncol(laRES,'PFPJ')],;
+                     laRES[ii,db_fetchncol(laRES,'VL_LIMITE_APROVADO')],;
+                     laRES[ii,db_fetchncol(laRES,'LIMITE_INICIO')],;
+                     laRES[ii,db_fetchncol(laRES,'LIMITE_TERMINO')],;
+                     laRES[ii,db_fetchncol(laRES,'OBSERVACAO')],;                     
+                     laRES[ii,db_fetchncol(laRES,'LOGIN_APROVACAO')],;
+                     laRES[ii,db_fetchncol(laRES,'QTDE_APROVACOES')],;
+                     laRES[ii,db_fetchncol(laRES,'ALCADA')],;                     
+                     laRES[ii,db_fetchncol(laRES,'NM_FANTASIA')],;                     
+                     laRES[ii,db_fetchncol(laRES,'CNPJ_CPF')],;
+                     laRES[ii,db_fetchncol(laRES,'CIDADE')],;
+                     laRES[ii,db_fetchncol(laRES,'UF')],;
+                     laRES[ii,db_fetchncol(laRES,'DT_CADASTRO')]})
+
+         WPut(laVAR[ascan(laVAR,'VAR_NR_PASTA')]+lcNRROW,laRES[ii,db_fetchncol(laRES,'NR_PASTA')])
+         WPut(laVAR[ascan(laVAR,'VAR_NR_CONTROLE')]+lcNRROW,laRES[ii,db_fetchncol(laRES,'NR_CONTROLE')])
+         WPut(laVAR[ascan(laVAR,'VAR_NR_CONTROLE_ALCADA')]+lcNRROW,laRES[ii,db_fetchncol(laRES,'NR_CONTROLE_ALCADA')])
+         WPut(laVAR[ascan(laVAR,'VAR_OBSERVACAO')]+lcNRROW,laRES[ii,db_fetchncol(laRES,'OBSERVACAO')])
+         WPut(laVAR[ascan(laVAR,'VAR_FL_APROVACAO')]+lcNRROW+'.option',laLABEL_FL_APROVACAO)
+         WPut(laVAR[ascan(laVAR,'VAR_FL_APROVACAO')]+lcNRROW+'.optionvalue',laVALUE_FL_APROVACAO)
+         WPut(laVAR[ascan(laVAR,'VAR_FL_APROVACAO')]+lcNRROW,laRES[ii,db_fetchncol(laRES,'FL_APROVACAO')])
+         
+         endif
+      
+      next ii
+
+      WPut('lstALCADA',laPUT)
+   endif
+   
+   endif
+   
+   
+return
+*******************************************
+static function refazalib(xpasta,xcontrole)
+*******************************************
+local lnYY := 0 
+
+lcALLIB:=''
+laWHERE:={}
+aadd(laWHERE,'NR_PASTA='+xpasta)
+aadd(laWHERE,'NR_CONTROLE='+xcontrole)
+aadd(laWHERE,'FL_APROVACAO is null')
+        
+if db_select({'ALCADA'},'mvt_credito_alcada',,laWHERE,{'ALCADA'}) == -1
+   error_sys(db_error())
+endif
+laRES2 := db_fetchall()
+
+if len(laRES2) > 1  
+   for lnYY:=2 to len(laRES2)
+       if len(lcALLIB)=0            
+          lcALLIB:=lcALLIB+str(laRES2[lnYY,1])
+         else 
+          lcALLIB:=lcALLIB+','+str(laRES2[lnYY,1])
+       endif
+   next lnYY
+endif
+   
+return(lcALLIB)
+ 
+
+

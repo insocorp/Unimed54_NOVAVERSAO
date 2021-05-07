@@ -1,0 +1,54 @@
+/*
+Project      : gr5
+Program      : mnt.xstatus_proposta.html
+Function     : mnt_xstatus_proposta_html
+Created on   : 02-06-2012   21:00
+Descripition : Manutenção e listagem de status de proposta
+*/
+
+
+local laPARAM        := {},;
+      laINPUT_OBJ    := {},;
+      laSELECT       := {} as array
+
+laPARAM := {{'ID_STATUS_PROPOSTA',''     ,'*'},;
+            {'FL_ATIVO','',},;
+            {'ACTION'  ,'ALTER',   }}
+
+laINPUT_OBJ := { {'ID_STATUS_PROPOSTA',0,'Y', ,"'New'"},;
+                 {          , ,   , ,       },;
+                 {'STATUS_PROPOSTA',0,   , ,       },;
+                {          , , ,   , },;
+                    {'FL_ATIVO',1,,'Y','{"S","I","D"}'}}
+
+laSELECT := {'ID_STATUS_PROPOSTA','STATUS_PROPOSTA','FL_ATIVO'}
+
+if upper(alltrim(WGet('ACTIONBP'))) == 'ALTER'
+   mkgedico('status_proposta',WGet('ID_STATUS_PROPOSTA','C'))
+endif
+                                                          
+xbp('status_proposta',;                                                 //Tabela alvo
+    ,;                                                                  //Joins
+    ,;                                                                  //Where
+    ,;                                                                  //Order by
+    ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+    ,;                                                                  //Group by
+    ,;                                                                  //Limit
+    ,;                                                                  //Banco de Dados
+    2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+    'gr5',;                                                             //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                                           //Programa chamador
+    laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+    ,;                                                                  //Parâmetros para os botões das linhas do grid
+    'mnt.xstatus_proposta.html',;                                        //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+    ,;                                                                  //Retorno java (nil) - usado apenas para Search
+    ,;                                                                  //Campos usados na pesquisa rápida
+    ,;                                                                  //Campos Ocultos
+    laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+    laSELECT,;                                                          //Campos exibidos no grid
+    laSELECT)                                                           //Campos usados no select
+return
+
+
+

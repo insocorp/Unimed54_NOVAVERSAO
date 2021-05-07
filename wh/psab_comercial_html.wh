@@ -1,0 +1,318 @@
+/*
+Project      : gr5
+Program      : psab.credito.html
+Function     : psab_credito_ html
+Created on   : 3/5/2012 11:32:49 AM
+Descripition : Aprovacao de Credito
+*/
+   local laRESULT          := {} ,;
+         laRESULT1         := {} ,;
+         laRESULTPAS       := {} ,;
+         laSAVE            := {} ,;
+         laSAVE_AUX        := {} ,;
+         laSAVEAUX         := {} ,;
+          laSaveM          := {} ,;
+         laSaveP           := {} ,;
+         laMVTSAVE         := {} ,;
+         laAUX1            := {} ,;
+         laAUX2            := {} ,;
+         laVALIDA          := {} ,;
+          laWHERE          := {} ,;
+         laFIELDS          := {} as array
+
+   local lcNR_ROW           := '1',;
+         lcNR_PASTA         := '' ,;
+         lcTP_PASTA         := '' ,;
+         lcACTION           := '' ,;
+         lcUSUARIO          := '' ,;
+         lcWHERE            := '' ,;
+         lcWHEREM           := '' ,;
+         lcSOLICITANTE      := '' ,;
+         lcNR_CONTROLE      := '' as string
+   
+   local lnelemento         := 0 ,;
+         lnCOLUNA           := 0 ,;
+         lnXX               := 0 as int
+
+   local lnCORRECAO      := 0.00 ,;
+         lnJUROS         := 0.00 ,;
+         lnVL_TOTAL      := wget('VL_LIMITE','N') as numeric
+
+   local llAUX      := .t. ,;
+         lErro      := .f. ,;
+         llERROR    := .f. as logical
+         local ii     := 0 as int
+         local xx     := 0 as int
+
+   lcACTION := upper(Wget('ACTION'))
+   
+   laMVTSAVE := {'NR_PASTA','NR_CONTROLE','DT_CADASTRO','HR_CADASTRO','LOGIN_CADASTRO','VL_LIMITE','OBSERVACAO'}
+   
+   laMVTALCADA := {'NR_PASTA','NR_CONTROLE','NR_CONTROLE_ALCADA','DT_CADASTRO','LOGIN_CADASTRO','VL_LIMITE','VL_LIMITE_APROVADO','OBSERVACAO','ALCADA','FL_APROVACAO'}
+
+   laREADONLY := {'LOGIN_CADASTRO','DT_CADASTRO'}
+   
+   if gbWAC_DELETE == .t. // Usuario tem permissão para excluir registros, então ativar os botões
+      Wput('ifEXCLUIR',.t.)
+      Wput('ifWAC_DELETE',.t.)
+   endif
+   
+   lcUSUARIO := wSet('LOGIN')
+   Wput('LOGIN_CADASTRO',lcUSUARIO)
+   Wput('DT_CADASTRO',DATE())
+   Wput('ACTION','NEW')
+   Wput('CIP_SOLICITANTE_PFPJ',' ')
+
+   lcTP_PASTA    := wGet('TP_PASTA','C')
+   lcNR_PASTA    := wGet('NR_PASTA','C')
+   lcNR_CONTROLE := wGet('NR_CONTROLE','C')
+   lcWHERE       := 'NR_PASTA = '+lcNR_PASTA
+   
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   pasta_abas(lcTP_PASTA)
+   
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+//   monta_grid(lcnr_pasta,lctp_pasta)
+//   AbasPerfil(lcTP_PASTA, laMVTSAVE[1])
+  // Todos os campos utilizados nas grids
+
+//   AbasPerfil(lcTP_PASTA,{'NR_PASTA','NR_CONTROLE','DT_CADASTRO','HR_CADASTRO','LOGIN_CADASTRO','VL_LIMITE','VL_LIMITE_APROVADO','LIMITE_INICIO','LIMITE_TERMINO','OBSERVACAO','LIBERADO'})
+
+//-------        Setar o usuario corrente
+
+   laFIELDS := {'PFPJ_TIPOS'}
+   lcwhere := 'PFPJ_TABLE_FIELD = '+DLAP+'pasta.CIP_SOLICITANTE'+DLAP
+   if db_select(laFIELDS,'pfpj_conftipocampo',,{lcWHERE},,,,,) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT)>= 2
+      laAUX1 := str2array(laRESULT[2,1],',')
+   endif
+ 
+   lcWHERE := 'NR_PASTA = ' + lcNR_PASTA
+
+   if lcACTION = ''
+      Wput('ifCREDITO', .f.)
+   else
+      Wput('ifCREDITO', .t.)
+   endif
+
+   //----   Novo Registro
+   if empty(lcACTION)
+      lcACTION := 'NEW'
+   endif
+
+//   if lcACTION == 'NEW' .OR. val(lcNR_CONTROLE) == 0
+//      wput('ifCREDITO',.f.)
+//   else   
+      wput('ifCREDITO',.t.)
+//   endif      
+
+  //---------------- Inclusão de pedido de credito  -------------------------------------
+   if lcACTION == 'NEW' .and. gbWAC_CREATE
+      lcTP_PASTA := wGet('TP_PASTA','C')
+      lcNR_PASTA := wGet('NR_PASTA','C')
+    
+      if db_select({'CIP'},'pasta_cip',,{'NR_PASTA = '+lcNR_PASTA+' and WFIELD = '+DLAP+'CIP_SOLICITANTE'+DLAP}) == -1
+         error_sys(db_error())
+      endif
+      laRESULTPAS := db_fetchrow() 
+
+      if len(laRESULTPAS) > 0      
+         LCCIP_SOLICITANTE := laRESULTPAS[1] 
+         wPUT('CIP_SOLICITANTE',LCCIP_SOLICITANTE)
+      endif 
+      if !empty(lccip_solicitante)  
+         if db_select({'CIP','PFPJ'},'pfpj',,{'CIP = '+LCCIP_SOLICITANTE}) == -1
+             error_sys(db_error())
+         endif
+         laRESULT := db_fetchall()
+         if len(laRESULT) >= 2
+            wPut('CIP_SOLICITANTE_PFPJ',laRESULT[2,2])
+         endif
+      endif 
+
+      make_psthead(lcNR_PASTA,lcTP_PASTA)
+      pasta_abas(lcTP_PASTA)
+      Wput('NR_CONTROLE','New')
+//      Monta_Grid(lcNR_PASTA,lcTP_PASTA)
+      if empty(alltrim(lcCIP_SOLICITANTE))
+          wPUT('CIP_SOLICITANTE_PFPJ',' ')
+      endif
+      
+   //----------------   Alteração     -------------------------------------------
+   elseif lcACTION == 'ALTER' 
+      lcTP_PASTA := wGet('TP_PASTA','C')
+      lcNR_PASTA := wGet('NR_PASTA','C')
+
+   //--------------        Salvar        ----------------------------------------
+   elseif lcACTION == 'SAVE'  
+//   .and. gbWAC_WRITE
+     lcTP_PASTA := wGet('TP_PASTA','C')
+      lcNR_PASTA := wGet('NR_PASTA','C')
+
+    if db_select({'FL_PASTA'},'pasta',,{'NR_PASTA = '+lcNR_PASTA}) == -1
+         error_sys(db_error())
+      endif
+      laRESULTPAS := db_fetchrow() 
+
+      if laRESULTPAS[1] == 'Encerrada'
+         walert('A Pasta No. '+lcNR_PASTA+'  está Encerrada! \n Não é permitido Atualizações')
+         wPut('ifCREDITO',.t.)
+         get2put()
+      else   
+ //        if verif_reqfield(WSET('_USER_INTERFACE'),laVALIDA) == .T.
+         
+            laSAVE := {{'NR_PASTA','NR_CONTROLE','DT_CADASTRO','HR_CADASTRO','LOGIN_CADASTRO','VL_LIMITE','OBSERVACAO'}}
+            laSAVEALCADA := {{'NR_PASTA','NR_CONTROLE','NR_CONTROLE_ALCADA','DT_CADASTRO','LOGIN_CADASTRO','VL_LIMITE','VL_LIMITE_APROVADO','OBSERVACAO','ALCADA','FL_APROVACAO'}} 
+            laSAVEAUX := {}
+            laSAVEAUX1 := {}
+            
+            for lnXX := 1 to len(laMVTSAVE)
+               if laMVTSAVE[lnXX] == 'NR_CONTROLE'
+                  lcNR_CONTROLE := wget('NR_CONTROLE','C')
+                  if (wget('NR_CONTROLE','C') == 'New') .or. empty(lcNR_CONTROLE)  
+                     aadd(laSAVEAUX, 0)
+                  else
+                     aadd(laSAVEAUX, wget('NR_CONTROLE'))
+                  endif
+               elseif laMVTSAVE[lnXX] == 'DT_CADASTRO'
+                      aadd(laSAVEAUX,date())
+               elseif laMVTSAVE[lnXX] == 'HR_CADASTRO'
+                      aadd(laSAVEAUX,time())
+               elseif laMVTSAVE[lnXX] == 'LOGIN_CADASTRO'
+                      aadd(laSAVEAUX,wget('LOGIN'))
+               else
+                  aadd(laSAVEAUX,wGet(laMVTSAVE[lnXX]))
+               endif          
+            next lnXX
+            aadd(laSAVE,laSAVEAUX)
+            lcWHERE := 'NR_PASTA='+lcNR_PASTA+' AND NR_CONTROLE='+lcNR_CONTROLE
+            lcWHEREALCADA := 'NR_PASTA='+lcNR_PASTA+' AND NR_CONTROLE='+lcNR_CONTROLE+' AND NR_CONTROLE_ALCADA='+lcNR_CONTROLE_ALCADA
+            if !llERROR
+               psab_logs(laSAVE,'mvt_credito',lcWHERE, lcNR_PASTA,'Credito')
+               if db_replace(laSAVE,'mvt_credito',{lcWHERE}) == -1
+                  error_sys(db_error())
+               endif
+      
+               if val(lcNR_CONTROLE) == 0
+                  lcNR_CONTROLE := alltrim(str(db_insert_id()))
+                  if db_select({'max(NR_CONTROLE)'},'mvt_credito') == -1
+	                   error_sys(db_error())
+    	            endif
+               
+                  laRES     := db_fetchrow() 
+                  lNNR_CONTROLE := laRES[1]
+//                  DEBUG2(LNNR_CONTROLE)
+                  lcNR_CONTROLE := STR(LNNR_CONTROLE)
+               endif
+
+               *********************
+               /*
+               for lnXX := 1 to len(laMVTALCADA)
+                  if laMVTALCADA[lnXX] == 'NR_CONTROLE_ALCADA'
+                     lcNR_CONTROLE_ALCADA := wget('NR_CONTROLE_ALCADA','C')
+                     if (wget('NR_CONTROLE_ALCADA','C') == 'New') .or. empty(lcNR_CONTROLE_ALCADA)  
+                        aadd(laSAVEAUX1, 0)
+                     else
+                        aadd(laSAVEAUX1, wget('NR_CONTROLE'))
+                     endif
+                  elseif laMVTALCADA[lnXX] == 'NR_CONTROLE'
+                         aadd(laSAVEAUX1,lcNR_CONTROLE)
+                  elseif laMVTALCADA[lnXX] == 'DT_CADASTRO'
+                         aadd(laSAVEAUX1,date())
+                  elseif laMVTALCADA[lnXX] == 'LOGIN_CADASTRO'
+                         aadd(laSAVEAUX1,wget('LOGIN'))
+                  elseif laMVTALCADA[lnXX] == 'VL_LIMITE'
+                         aadd(laSAVEAUX1,wget('VL_LIMITE'))
+                  elseif laMVTALCADA[lnXX] == 'VL_LIMITE_APROVADO'
+                         aadd(laSAVEAUX1,wget('VL_LIMITE'))
+                         lcVL_LIMITE := wget('VL_LIMITE') 
+                  elseif laMVTALCADA[lnXX] == 'FL_APROVACAO'
+                         aadd(laSAVEAUX1,'P')
+                  else
+                     aadd(laSAVEAUX1,wGet(laMVTALCADA[lnXX]))
+                  endif          
+               next lnXX
+               aadd(laSAVEALCADA,laSAVEAUX1)
+
+               if db_replace(laSAVEALCADA,'mvt_credito_alcada',{lcWHEREALCADA}) == -1
+                  error_sys(db_error())
+               endif
+               */
+               ****************
+               
+            else
+               llERROR := .t.
+            endif //Campos obrigatórios
+       
+            wPut('ifCREDITO',.t.)
+         endif
+         
+//      endif
+
+   //---------- Excluir Registro Principal limites anteriores
+   elseif lcACTION == 'DELETE'  .and. gbWAC_DELETE
+     lcTP_PASTA       := wGet('TP_PASTA','C')
+      lcNR_PASTA       := wGet('NR_PASTA','C')
+      lcNR_DESPESA     := wGet('NR_CONTROLE','C')
+      
+      llERROR          := .f.
+      lcWHERE_PGOMVT   := 'NR_PASTA = '+lcNR_PASTA+' and NR_CONTROLE = '+lcNR_CONTROLE   
+      
+      if !llERROR    
+         if db_delete('mvt_credito',lcWHERE_PGOMVT) = -1
+            error_sys(db_error())
+         endif
+         psab_logdel(wGet('NR_CONTROLE','C'),'NR_CONTROLE',lcNR_CONTROLE,,'Crédito')
+         if db_delete('mvt_credito_alcada',lcWHERE_PGOMVT) = -1
+            error_sys(db_error())
+         endif
+         wput('ifDESPESAS',.f.)
+      endif
+
+   endif
+   if db_select({'NR_PASTA',;
+                 'NR_CONTROLE',;
+                 'LIBERADO',;
+                 'FL_VENCIDO',;
+                 'VL_LIMITE',;
+                 'VL_LIMITE_APROVADO',;
+                 'LIMITE_INICIO',;
+                 'LIMITE_TERMINO',;
+                 'FL_REJEITADO',;
+                 'MOTIVO'},;
+                 'mvt_credito',,{'mvt_credito.NR_PASTA='+lcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 0
+      aadd(laRES[1],'(row)')
+      for ii := 2 to len(laRES)
+          aadd(laRES[ii],'row)'+wic_action('wicaction/psab.comercial.html?ACTION=ALTER'+;
+                                                                         '&NR_PASTA='+lcnr_pasta+;
+                                                                         '&TP_PASTA='+lcTP_pasta))
+/*                                                                         +;
+                                                                         '&VL_LIMITE='+str(laRES[ii,db_fetchncol(laRES,'VL_LIMITE')])+;
+                                                                         '&OBSERVACAO='+str(laRES[ii,db_fetchncol(laRES,'OBSERVACAO')])+;
+                                                                         '&NR_CONTROLE='+str(laRES[ii,db_fetchncol(laRES,'NR_CONTROLE')])))
+*/                                                                         
+      next ii
+//         wout(debug2(lares),,200)
+      WPut('GRID_CFG_COMERCIAL',grid_create(laRES))
+   endif
+
+   Get2Put()
+//   monta_grid(lcNR_PASTA,lcTP_PASTA)
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   pasta_abas(lcTP_PASTA)
+ 
+return   
+
+//static function monta_grid(lcnr_pasta,lctp_pasta)
+
+
+   
+
+

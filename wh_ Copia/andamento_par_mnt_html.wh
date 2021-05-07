@@ -1,0 +1,87 @@
+/*
+
+Project      : gr5
+Program      : andamento_par.mnt.html
+Function     : andamento_par_mnt_html
+Created on   : 01-Dez-2008   10:16:00
+Descripition : Manutenção de Parâmetros para Importação de Andamentos
+
+*/
+
+local lcTMP_PENDE as numeric
+
+local laPARAM        := {},;
+      laINPUT_OBJ    := {},;
+      laSAVE         := {},;
+      laSELECT       := {} as array
+
+laPARAM := {{'CTRL_VERSAO'    ,''     ,'*'},;
+            {'ACTION'         ,'ALTER',   }}
+
+//lcTMP_PENDE:=wGet('TEMPO_PENDENTE','N')
+                
+laINPUT_OBJ := {{'CTRL_VERSAO'         ,0,'Y','Y',dtoc(date())+strzero(1,2)},;
+                {'TP_ANDAMENTO'        ,1,   ,'Y',"loadcbox_build('andamento_tipo','distinct TP_ANDAMENTO',.F.)"},;
+                {'FL_ANDAMENTO_EXTERNO',2,   ,'N',"'S'"},;
+                {'FL_EXPURGO'          ,2,   ,'N',"'S'"},;
+                {'TEMPO_PENDENTE'      ,0,   ,'N',strzero(0)},;
+                {'LOGIN_CADASTRO'      ,0,'Y','Y',}}
+
+laSELECT := {'CTRL_VERSAO','TP_ANDAMENTO','FL_ANDAMENTO_EXTERNO','FL_EXPURGO','TEMPO_PENDENTE','LOGIN_CADASTRO'}
+
+xbp('andamentos_parametros',;                   //Tabela alvo
+    ,;                                          //Joins
+    ,;                                          //Where
+    {'CTRL_VERSAO'},;                           //Order by
+    ,;                                          //Sort [A]-Ascendente [D]-Descentende
+    ,;                                          //Group by
+    ,;                                          //Limit
+    ,;                                          //Banco de Dados
+    2,;                                         //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+    'gr5',;                                     //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                   //Programa chamador
+    laPARAM,;                                   //Parametros das linhas clicaveis do grid
+    ,;                                          //Parâmetros para os botões das linhas do grid
+    'andamento_par.mnt.html',;                  //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                     //Módulo do programa chamado pelos links/botoes do grid
+    ,;                                          //Retorno java (nil) - usado apenas para Search
+    ,;                                          //Campos usados na pesquisa rápida
+    ,;                                          //Campos Ocultos
+    laINPUT_OBJ,;                               //Campos da área de manutenção/entrada de dados
+    laSELECT ,;                                 //Campos exibidos no grid
+    laSELECT)                                   //Campos usados no select
+  
+    wPut('LOGIN_CADASTRO',gcLOGIN)
+
+    aadd(laSAVE,{'TEMPO_PENDENTE'})
+ //   aadd(laSAVE,{tempo_pendente(wGet('TEMPO_PENDENTE','N'))})  
+ 
+    if db_update(laSAVE,'andamentos_parametros',,,)=-1
+      db_error()
+    endif
+
+    //wPut('TEMPO_PENDENTE',tempo_pendente(lcTMP_PENDE))
+    //lcTMP_PENDE := tempo_pendente(lcTMP_PENDE)
+    //strzero(tempo_pendente(lcTMP_PENDE),2)
+return
+
+function tempo_pendente()
+  parameters lcTP
+
+  local lcEXPURGO as string
+ 
+  lcEXPURGO := wGet('FL_EXPURGO','C')
+  lcTP      := wGet('TEMPO_PENDENTE','N')  
+
+  if lcEXPURGO <> 'S'
+    lcTP := 0
+  endif
+
+  //wPut('TEMPO_PENDENTE',lcTP)
+ 
+return(lcTP)
+
+
+
+
+

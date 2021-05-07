@@ -1,0 +1,2518 @@
+/*
+
+Project      : isj_60
+Program      : evida
+Function     : evida
+Created on   : 26-Jul-2017   15:31:01
+Descripition :
+
+*/
+
+//
+// Glauber - 04/2016
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+*
+* Glauber - 08/2017
+*
+* Classe...........: EvidaService
+*
+* Objetivo.........: Classe com as rotinas de comunicação com Evida.
+*
+* Atributos........:
+*
+*
+*
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD Inicializar()
+*    METHOD AdicionarEvidaService(paSAVE)
+*    METHOD PrepararAmbiente(zerarSucumbencia)
+*    METHOD AtualizarReserva(paSAVE, pDelSucumbencia)
+*    METHOD estaHabilitada()
+*    METHOD RetornaConfWS()
+*    METHOD TotResSec(pnNR_CONTROLE_SEGURO)
+*    METHOD MarcarFlagGem()
+*    METHOD getNrSeqInterface()
+*    METHOD getTotalPedidos(pNR_CONTROLE_SEGURO)
+*    METHOD AgrupaSeguroPorPedido(pNrControle)
+*    METHOD GerarPedidoInicialSucumbencia(NrPasta, NrControleSeguro, PcSucumbencia)
+*    METHOD PastaTemEvidaOuTopSaude(NrPasta)
+*    METHOD DespesaTemEvidaOuTopSaude(paRES)  CLASS EvidaService
+*    METHOD ConsultaFavorecido(cpfcnpj,dtnascimento, sexo)
+*    METHOD getTag(xml, tag)
+*    METHOD EncerrarSinistros(NrPasta)
+*    METHOD GPedInicial(NrPasta, NrControleSeguro)
+*    METHOD ReabreEvida(NrPasta)
+*    METHOD MascaraCampoMoedaTop(valor)
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS EvidaService
+
+    // Atributos publico
+
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()                                                                  CLASS EvidaService
+    PROTOTYPE METHOD Destroy()                                                               CLASS EvidaService
+    PROTOTYPE METHOD Inicializar()                                                           CLASS EvidaService
+    PROTOTYPE METHOD AdicionarEvidaService(paSAVE)                                           CLASS EvidaService
+    PROTOTYPE METHOD PrepararAmbiente(zerarSucumbencia)                                      CLASS EvidaService
+    PROTOTYPE METHOD AtualizarReserva(paSAVE, pDelSucumbencia)                               CLASS EvidaService
+    PROTOTYPE METHOD estaHabilitada()                                                        CLASS EvidaService
+    PROTOTYPE METHOD ValoresPadroes(fcNR_PASTA,fcTP_PASTA)                                   CLASS EvidaService
+    PROTOTYPE METHOD GerarPedidoInicialSucumbencia(NrPasta, NrControleSeguro, PcSucumbencia) CLASS EvidaService
+    PROTOTYPE METHOD ReverterProvisaoPedidoInicial(NrPasta)                                  CLASS EvidaService
+    PROTOTYPE METHOD PastaTemEvidaOuTopSaude(NrPasta)                                        CLASS EvidaService
+    PROTOTYPE METHOD DespesaTemEvidaOuTopSaude(paRES)                                        CLASS EvidaService
+    PROTOTYPE METHOD ConsultaFavorecido(cpfcnpj,dtnascimento, sexo)                          CLASS EvidaService
+    PROTOTYPE METHOD getTag(xml, tag)                                                        CLASS EvidaService
+    PROTOTYPE METHOD EncerrarSinistros(NrPasta)                                              CLASS EvidaService
+    PROTOTYPE METHOD GPedInicial(NrPasta, NrControleSeguro)                                  CLASS EvidaService
+    PROTOTYPE METHOD ReabreEvida(NrPasta)                                                    CLASS EvidaService
+    PROTOTYPE METHOD MascaraCampoMoedaTop(valor)                                             CLASS EvidaService
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS EvidaService
+
+      WSET('CACHEUI','')
+//    self:Inicializar()
+
+return(self)
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS EvidaService
+
+
+
+return(nil)
+
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: Inicializar()
+* Objetivo..: Limpa a tabela temporária do Evida
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Inicializar() CLASS EvidaService
+
+    if db_query('delete from mvt_evida') == -1
+       error_sys(db_error())
+    endif
+
+
+return(nil)
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: AdicionarEvidaService(paSAVE)
+* Objetivo..: Adiciona informações na tabela temporária do EvidaService
+*
+* Parâmetros:
+*
+*  paSAVE...: Array no formato laSAVE
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD AdicionarEvidaService(paSAVE) CLASS EvidaService
+
+      if db_insert(paSAVE,'mvt_evida') == -1
+         error_sys(db_error())
+      endif
+
+
+return(nil)
+
+
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: PrepararAmbiente(zerarSucumbencia)
+* Objetivo..: Prepara os dados para transmissão ao EvidaService
+*
+* Parâmetros:
+*
+* zerarSucumbencia Se .T. envia flag de sucumbencia zerada
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD PrepararAmbiente(zerarSucumbencia) CLASS EvidaService
+
+
+      local laRESULT    := {},;
+            laRES       := {},;
+            laEVIDA     := {},;
+            laFIELDS    := {},;
+            laJOIN      := {},;
+            laRETORNO   := {0,0} as Array
+
+      local lcQuery     := '' as String
+      
+      local ii          := 0  as int
+      
+      local lcWHERE     := '' as string
+      
+      local lnTOTRES    := 0 ,;
+            lnAJURES    := 0 ,;
+            lnAJUCOR    := 0 ,;
+            lnAJUJUR    := 0 as numeric
+      
+      local llDEUERRO   := .F. as logical
+
+      if db_select({'NR_CONTROLE'},'mvt_evida') == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+
+      for ii := 2 to len(laRESULT)
+          self:AgrupaSeguroPorPedido(laRESULT[ii,1])
+      next ii
+      
+      if db_select({'distinct NR_CONTROLE_SEGURO','NR_SINISTRO','CD_RAMOSRSN'},'mvt_evida',,{'NR_CONTROLE_SEGURO is not null and NR_CONTROLE_SEGURO > 0'}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      
+      laEVIDA:={}
+      aadd(laEVIDA,{'NR_CONTROLE_SEGURO','NR_SINISTRO','CD_RAMOSRSN','TOTRES','TOTSUC','AJURES','AJUCOR','AJUJUR'})
+      
+      
+      *** junta pedidos com o mesmo numero de controle do seguro e soma em separado pedidos de sucumbência
+      for ii:= 2 to len(laRESULT)
+
+          laRETORNO := self:getTotalPedidos(laRESULT[ii,1])
+
+          *** Busca saldo do pasta_pedidos ref (vl_risco_calc,vl_correcao,vl_juros) por NR_CONTROLE_SEGURO independente do pedido
+          laRES := self:TotResSec(laRESULT[ii,db_fetchncol(laRESULT,'NR_CONTROLE_SEGURO')])
+
+
+      /*
+
+      Email do Marcio em 09/06/2017 as 11.06
+      Pasta 11635 Portal Ocorrências
+
+      Glauber,
+
+      Bom dia,
+
+      Conforme conversamos, solicito que seja realizado uma alteração no serviço de comunicação entre ISJ e e-Vida para que quando houver valor de sucumbência o mesmo não seja considerado no valor da reserva.
+      */
+          *** lnTOTRES e igual ao saldo dos pedidos mais o saldo das sucumbencias
+      //    lnTOTRES:=(laRES[1,1]+laRES[1,2]+laRES[1,3]) + (laRES[2,1]+laRES[2,2]+laRES[2,3])
+      
+          lnTOTRES:=(laRES[1,1]+laRES[1,2]+laRES[1,3])
+      
+          *** lnTOTSUC e a soma das movimentações sucumbencia
+          lnTOTSUC:=(laRETORNO[2,1]+laRETORNO[2,2]+laRETORNO[2,3])
+      
+          *** soma pedido + sucumbencia
+          lnAJURES := (laRETORNO[1,1])
+          lnAJUCOR := (laRETORNO[1,2])
+          lnAJUJUR := (laRETORNO[1,3])
+      
+          aadd(laEVIDA,{laRESULT[ii,1],laRESULT[ii,2],laRESULT[ii,3],lnTOTRES,lnTOTSUC,lnAJURES,lnAJUCOR,lnAJUJUR})
+      
+      next ii
+      
+      llDEUERRO := .F.
+
+      if len(laEVIDA)>1
+         llDEUERRO := self:AtualizarReserva(laEVIDA,.F.)
+      endif
+
+return(llDEUERRO)
+
+
+
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: AtualizarReserva(laRESULT, pDelSucumbencia)
+* Objetivo..: Prepara os dados para transmissão ao eVida
+*
+* Parâmetros:
+*
+* laRESULT........: Array com os dados
+* zerarSucumbencia Se .T. envia flag de zerar sucumbencia
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD AtualizarReserva(laRESULT, pDelSucumbencia) CLASS EvidaService
+
+
+
+        local lcEnv     := '',;
+              lcRet     := '',;
+              lcParser  := '',;
+              lcRun     := '',;
+              lcPath    := '',;
+              lcTMP     := '',;
+              lcLABEL   := '',;
+              lcWHERE   := '',;
+              lcMANTERACAO := 'S',;
+              lcENCERRARSINISTRO := 'N',;
+              lcCD_RAMO := '' as string
+        local laCONF   := {},;
+              laFIELDS := {},;
+              laJOIN   := {},;
+              laWSet   := {},;
+              laSAVE   := {},;
+              laSeq    := {},;
+              laSEGURO := {},;
+              laTOTRES := {},;
+              laTOTPED := {},;
+              laTMP    := {} as array
+        local ii            := 0,;
+              lnii          := 0,;
+              lnSeq         := 0,;
+              lnNR_CONTROLE := 0,;
+              lnPEDSUC      := 0 as int
+        local lnTOTRES := 0.00,;
+              lnTOTSUC := 0.00,;
+              lnAJURES := 0.00,;
+              lnAJUCOR := 0.00,;
+              lnAJUJUR := 0.00,;
+              lnSALSUC := 0.00 as numeric
+        local llErro := .f.
+
+
+
+
+           laCONF := self:RetornaConfWS()
+           if len(laCONF) > 0
+              // Verifica se ramo eh do evida
+              lcPath := WSet('PATHWSUNIMED')
+
+              if WSet('WSUNIMEDDEBUG') != 'ENABLE'
+                  if ! file(lcPath+'InsoUnimedWsConsumer.exe')
+                     error_sys('Aplicação de consumo webservice não esta presente no diretório informado no wprofile. \n Não será gerado o lançamento do pedido inicial para o webservice.')
+                     return(.T.)
+                  endif
+              endif
+
+              for ii := 2 to len(laRESULT)
+                  if empty(laRESULT[ii,db_fetchncol(laRESULT,'CD_RAMOSRSN')])
+                     WAlert('O código do ramo do sinistro ' + alltrim(laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')]) + ' esta vazio.')
+                  else
+                     lcCD_RAMO := laRESULT[ii,db_fetchncol(laRESULT,'CD_RAMOSRSN')]
+        
+                     // Verifica se o ramo é do eVida ou Top Saude
+                     if (at(lcCD_RAMO,laCONF[2,db_fetchncol(laCONF,'ID_RAMO_VIDA')]) > 0) .or. (at(lcCD_RAMO,laCONF[2,db_fetchncol(laCONF,'ID_RAMO_TOP')]) > 0)
+                        if ! llErro
+        
+                           lnTOTRES := laRESULT[ii,db_fetchncol(laRESULT,'TOTRES')]
+                           lnTOTSUC := laRESULT[ii,db_fetchncol(laRESULT,'TOTSUC')]
+        
+                           lnAJURES := laRESULT[ii,db_fetchncol(laRESULT,'AJURES')]
+                           lnAJUCOR := laRESULT[ii,db_fetchncol(laRESULT,'AJUCOR')]
+                           lnAJUJUR := laRESULT[ii,db_fetchncol(laRESULT,'AJUJUR')]
+
+
+                           if (lnTOTRES <= 0.01) .or. (ALLTRIM(lnTOTRES) == '0.01')
+                               lcMANTERACAO       := 'N'
+                               lcENCERRARSINISTRO := 'S'
+                           else
+                               lcMANTERACAO       := 'S'
+                               lcENCERRARSINISTRO := 'N'
+                           endif
+
+                           // Atualizar a reserva via webservice
+
+                           lnSeq := self:getNrSeqInterface()
+
+                           // Montando Array para formar o xml
+                           //
+                           // Glauber 21/03/2011
+                           // Conforme solicitado pelo valdeci da unimed no valor da reserva sempre deve ser informado o valor da sucumbencia
+                           //
+        
+                           laRES := {{'NR_SINISTRO',;
+                                      'CD_RAMOSRSN',;
+                                      'NR_CONTROLE',;
+                                      'TP_INTEGRACAO',;
+                                      'VALOR_RESERVA',;
+                                      'AJUSTE_RESERVA',;
+                                      'AJUSTE_CORRECAO_MONETARIA',;
+                                      'AJUSTE_JUROS',;
+                                      'AJUSTE_SUCUMBENCIA',;
+                                      'MANTER_COM_ACAO',;
+                                      'ENCERRAR_SINISTRO'},;
+                                      {laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')],; // NR_SINISTRO
+                                       lcCD_RAMO,; // CD_RAMOSRSN
+                                       alltrim(transform(lnSeq,'999999')),; // NR_CONTROLE
+                                       '2',; // TP_INTEGRAÇÃO
+                                       alltrim(wpictrans('VL_RISCO',lnTOTRES)),; // VALOR_RESERVA
+                                       alltrim(wpictrans('VL_RISCO',lnAJURES)),; // AJUSTE_RESERVA
+                                       alltrim(wpictrans('VL_RISCO',lnAJUCOR)),; // AJUSTE_CORRECAO_MONETARIA
+                                       alltrim(wpictrans('VL_RISCO',lnAJUJUR)),; // AJUSTE_JUROS
+                                       alltrim(wpictrans('VL_RISCO',lnTOTSUC)),; // AJUSTE_SUCUMBENCIA
+                                       lcMANTERACAO,; // MANTER_COM_ACAO
+                                       lcENCERRARSINISTRO}} // ENCERRAR_SINISTRO
+        
+                           lcEnv    := lcPath + 'ENV' + Wset('LOGIN')+'_'+alltrim(lnSeq) + '.XML'
+                           lcRet    := lcPath + 'RET' + Wset('LOGIN')+'_'+alltrim(lnSeq) + '.XML'
+                           lcParser := Parser2Str(laCONF[2,9],laRES) // Função presente na func_wic.wh
+                           GravaArquivo(lcEnv,lcParser) // Função estatica neste programa que grava o xml
+
+                           // Executa o pedido das informações
+                           //
+                           if WSet('WSUNIMEDDEBUG') != 'ENABLE'
+                               lcRun := lcPath + WSet('WSAPPNAME')+' '+laCONF[2,7]+' ' + lcEnv + ' ' + lcRet
+                               ! (lcrun)
+                               // Aguarda o tempo da resposta
+                               inkey(laCONF[2,6])
+        
+                               // Obter o conteúdo da pesquisa
+                               if (! file(lcRet))
+                                  Walert('Erro ao receber o arquivo de retorno:'+lcRet+ ' o arquivo não foi encontrado.')
+                                  llErro := .t.
+                               endif
+                               lcTMP  := GetFileContent(lcRet) // Resgata o conteúdo do arquivo de retorno
+                               lcERRO := TrataErroWS(lcTMP) // Verifica se no conteúdo do retorno contém algum erro.
+                               if ! empty(lcERRO)
+                                  WAlert('Erro ao processar o retorno do webservice: '+lcERRO )
+                                  llErro := .t.
+                               endif
+                           endif
+                        endif // ! llERRO
+                     endif // at(lcCD_RAMO,laCONF[2,3]) > 0
+                  endif // empty(laSEGURO[ii,1])
+              next ii
+        
+
+              // Caso nao ocorra erro de envio para a interface webservice, atualizar a flag do gem
+              if ! llErro
+                 self:MarcarFlagGem()
+              endif
+        
+           else
+              WAlert('Não foi encontrado configuração para atualização automática da reserva. \n Não será atualizado os valores da reserva via webservice.')
+              llErro := .t.
+           endif
+        
+
+
+return(llERRO)
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: TotResSec(pnNR_CONTROLE_SEGURO)
+* Objetivo..: Retornar o valor total da reserva e o valor total da sucumbencia
+*             de um determinado sinistro.
+*
+* Parâmetros:
+*
+* pnNR_CONTROLE : Numero do pedido origem para calcular a sucumbencia.
+*
+* Retorno...:
+*             nil
+*
+*/
+
+
+METHOD TotResSec(pnNR_CONTROLE_SEGURO) CLASS EvidaService
+
+    local laRESULT      := {},;
+          laRETORNO     := {0,0} as Array
+    local lcQuery       := '',;
+          lcSINISTRO    := '' as String
+    //
+    // 10/03/2011 - Glauber
+    // Conforme solicitado pelo valdeci da Unimed em vez de ser feito o sum(vl_risco)
+    // deve ser feito o sum do risco calculado
+    // Na documentacao definida pelo Alexandre, cujo email foi enviado no dia 31/01/2011
+    // as 13:25 esta definido para ser feito pelo campo valor do risco
+    // Conversei hoje com o Alexandre e o mesmo autorizou a mudanca.
+    //
+/*
+    lcQuery := 'select sum(vl_risco_calc) as VL_RISCO, ' +;
+               'sum(vl_correcao) as VL_CORRECAO, ' +;
+               'sum(vl_juros) as VL_JUROS ' +;
+               'from pasta_pedidos ' +;
+               'where NR_CONTROLE_SEGURO = ' + alltrim(pnNR_CONTROLE_SEGURO) + ' and '+;
+               'PEDIDO_PROCESSO <> ' + DLAP + 'Sucumbência de Condenação' + DLAP
+*/
+// Glauber 20/01/2015 - Solicitado pelo Alexandre, pasta nro 6230
+
+    if db_select({'NR_SINISTRO'},'pasta_seguro',,{'NR_CONTROLE='+alltrim(pnNR_CONTROLE_SEGURO)}) == -1
+       error_sys(db_error())
+    endif
+    laRESULT := db_fetchall()
+    if len(laRESULT) > 1
+       lcSINISTRO := laRESULT[2,1]
+    else
+       Walert('Não foi possível obter o sinistro de controle ' + alltrim(pnNR_CONTROLE_SEGURO))
+       laRETORNO[1] := {0 , 0 , 0}
+       laRETORNO[2] := {0 , 0 , 0}
+       return laRETORNO
+    endif
+
+    lcQuery := "select sum(pasta_pedidos.vl_risco_calc) as VL_RISCO, sum(pasta_pedidos.vl_correcao) as VL_CORRECAO, sum(pasta_pedidos.vl_juros) as VL_JUROS" +;
+               " from pasta_pedidos, pasta_seguro " +;
+               "where (pasta_seguro.NR_CONTROLE = pasta_pedidos.NR_CONTROLE_SEGURO) and pasta_seguro.NR_SINISTRO = '" + lcSINISTRO + "'"  + " and pasta_pedidos.PEDIDO_PROCESSO NOT IN('Sucumbência de Condenação')"
+
+/*
+
+Solicitado por Joseli em 26/01/2016 as 16:00
+
+Glauber, segue xlms enviados de evidência pelo Marcio estes são do mês 11, veja que neles o 0,01 está sendo enviado no valor da reserva.
+Caso precise de mais alguma informação estou a disposição.
+
+ENVuniparametros_2693 - 13/11/2015
+
+<i4proerp><integracao_isj sinistro_numero="1002915002429" id_integracao="2693" tp_integracao="2" ramo="29"
+valor_reserva="5.300,01" ajuste_reserva="-5.000,00"
+ajuste_correcao_monetaria="0,00" ajuste_juros="-300,00"
+ajuste_sucumbencia="0,00" manter_com_acao="S" encerrar_sinistro="N"/></i4proerp>
+
+
+RETuniparametros_2693 - 13/11/2015
+
+<sinistro>
+<sinistro_numero="1002915002429"/>
+	<id_integracao="2693"/>
+	<tp_integracao="2"/>
+   <ramo="29">
+
+<id_mensagem="1"/>
+	<msg_obs="Registro atualizado com sucesso!"/>
+</sinistro>
+
+*/
+
+
+
+    if db_query(lcQuery) == -1
+       error_sys(db_error())
+    endif
+    laRESULT := db_fetchall()
+
+    if len(laRESULT) > 1
+       if ( laRESULT[2,1] == 0.01)
+          laRETORNO[1] := {0 , 0 , 0}
+       else
+          laRETORNO[1] := {laRESULT[2,1] , laRESULT[2,2] , laRESULT[2,3]}
+       endif
+    endif
+
+// Glauber 20/01/2015 - Solicitado pelo Alexandre, pasta nro 6230
+
+    lcQuery := "select sum(pasta_pedidos.vl_risco_calc) as VL_RISCO, sum(pasta_pedidos.vl_correcao) as VL_CORRECAO, sum(pasta_pedidos.vl_juros) as VL_JUROS" +;
+               " from pasta_pedidos, pasta_seguro " +;
+               "where (pasta_seguro.NR_CONTROLE = pasta_pedidos.NR_CONTROLE_SEGURO) and pasta_seguro.NR_SINISTRO = '" + lcSINISTRO + "' and pasta_pedidos.PEDIDO_PROCESSO = 'Sucumbência de Condenação'"
+
+
+    if db_query(lcQuery) == -1
+       error_sys(db_error())
+    endif
+    laRESULT := db_fetchall()
+
+    if len(laRESULT) > 1
+       laRETORNO[2] := {laRESULT[2,1] , laRESULT[2,2] , laRESULT[2,3]}
+    endif
+
+return(laRETORNO)
+
+
+
+
+
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: RetornaConfWS()
+* Objetivo..: Valida a configuração do webservice e retorna um array com os dados para montar o xml.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Retorna um array com os dados para montar o xml de consumo, em caso de erro retorna o array vazio
+*
+*/
+
+
+METHOD RetornaConfWS() CLASS EvidaService
+
+    local laCONF       := {},;
+          laFIELDSCONF := {},;
+          laRES        := {},;
+          laTMP        := {},;
+          laRESULT     := {} as Array
+    local lcWHERE      := '',;
+          lcCONSULTA   := '',;
+          lcFLEGA      := '',;
+          lcQuery      := '' as String
+    local llErro       := .f.
+    local lnPOS        := 0 AS Int
+
+
+
+
+       laFIELDSCONF := {'isjunimedservconf.ID_SOLICITA_DADOS',;
+                        'isjunimedservconf.ID_MARCA_DESMARCA',;
+                        'isjunimedservconf.ID_DESMARCA',;
+                        'isjunimedservconf.ID_RAMO_EVIDA',;
+                        'isjunimedservconf.ID_RAMO_TOP',;
+                        'isjunimedservconf.PEDIDO_PROCESSO',;
+                        'isjunimedservconf.TEMPOESPERA',;
+                        'isjunimedservconf.ID_RESERVA',;
+                        'isjunimedservconf.ID_PAGTO_EVIDA',;
+                        'isjunimedservconf.ID_CONFAV_EVIDA',;
+                        'isjunimedservconf.ID_INCFAV_EVIDA',;
+                        'isjunimedservconf.ID_RETORNO_PAGTOS'}
+       if db_select(laFIELDSCONF,'isjunimedservconf') = -1
+           error_sys(db_error())
+       endif
+       laCONF := db_fetchall()
+       if len(laCONF) == 1
+          WAlert('Configuração do webservice não encontrada.')
+          llErro := .t.
+       else
+          for ii := 1 to len(laCONF[1])
+              if valtype(laCONF[2,ii]) == 'N'
+                 if laCONF[2,ii] == 0
+                    WAlert('O campo ' +lblfscreen(laCONF[1,ii]) + ' não foi configurado corretamente no webservice.')
+                    llErro := .t.
+                 endif
+              endif
+          next ii
+       endif
+       // Valida a configuração dos serviços, conteúdo dos campo para ser gerado o xml
+       if ! llErro
+          if WSET('DRV_GR5') == 'PGS'
+             lcQuery := "select ID_SERVICO,SERVICO from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,1])) +;
+                        " union " +;
+                        "select ID_SERVICO,SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,2])) +;
+                        " union " +;
+                        "select ID_SERVICO,SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,2])) +;
+                        " union " +;
+                        "select ID_SERVICO,convert(varchar(4000),SERVICO) as SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,8]))
+          else
+/*
+             lcQuery := "select ID_SERVICO,convert(varchar(4000),SERVICO) as SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2, db_fetchncol(laCONF,'ID_SOLICITA_DADOS')])) +;
+                        " union " +;
+                        "select ID_SERVICO,convert(varchar(4000),SERVICO) as SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,db_fetchncol(laCONF,'ID_MARCA_DESMARCA')])) +;
+                        " union " +;
+                        "select ID_SERVICO,convert(varchar(4000),SERVICO) as SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,db_fetchncol(laCONF,'ID_DESMARCA')])) +;
+                        " union " +;
+                        "select ID_SERVICO,convert(varchar(4000),SERVICO) as SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,db_fetchncol(laCONF,'ID_RESERVA')])) +;
+                        " union " +;
+                        "select ID_SERVICO,convert(varchar(4000),SERVICO) as SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,db_fetchncol(laCONF,'ID_PAGTO_EVIDA')])) +;
+                        " union " +;
+                        "select ID_SERVICO,convert(varchar(4000),SERVICO) as SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,db_fetchncol(laCONF,'ID_CONFAV_EVIDA')])) +;
+                        " union " +;
+                        "select ID_SERVICO,convert(varchar(4000),SERVICO) as SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,db_fetchncol(laCONF,'ID_INCFAV_EVIDA')])) +;
+                        " union " +;
+                        "select ID_SERVICO,convert(varchar(4000),SERVICO) as SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,db_fetchncol(laCONF,'ID_RETORNO_PAGTOS')]))
+*/
+//               lcQuery := "select ID_SERVICO, '[****]'  as SERVICO,NOME_WS from isjunimedservicos order by ID_SERVICO"
+               lcQuery := "select ID_SERVICO,  convert(varchar(4000),SERVICO)  as SERVICO,NOME_WS from isjunimedservicos order by ID_SERVICO"
+          endif
+//          lcQUERY += " order by ID_SERVICO"
+          laFIELDSCONF := {'ID_SERVICO',;
+                           'SERVICO',;
+                           'NOME_WS'}
+          if db_query(lcQuery) = -1
+             error_sys(db_error())
+          endif
+
+//          if db_select({'ID_SERVICO','SERVICO','NOME_WS'},'isjunimedservicos',,,{'ID_SERVICO'}) = -1
+//             error_sys(db_error())
+//          endif
+
+
+          laRES := db_fetchall()
+          if len(laRES) == 1
+             WAlert('Tabela de serviços do webservice vazia.')
+             llErro := .t.
+          Endif
+          if ! llErro
+             for ii := 2 to len(laRES)
+                 if empty(laRES[ii,2]) .OR. empty(laRES[ii,3])
+                    WAlert('O serviço de código ' +alltrim(str(laRES[ii,1])) + ' não foi configurado corretamente no webservice.')
+                    llErro := .t.
+                 endif
+             next ii
+          endif
+       endif
+
+/*
+       laFIELDSCONF := {'isjunimedservconf.ID_SOLICITA_DADOS',;
+                        'isjunimedservconf.ID_MARCA_DESMARCA',;
+                        'isjunimedservconf.ID_DESMARCA',;
+                        'isjunimedservconf.ID_RAMO_EVIDA',;
+                        'isjunimedservconf.ID_RAMO_TOP',;
+                        'isjunimedservconf.PEDIDO_PROCESSO',;
+                        'isjunimedservconf.TEMPOESPERA',;
+                        'isjunimedservconf.ID_RESERVA',;
+                        'isjunimedservconf.ID_PAGTO_EVIDA',;
+                        'isjunimedservconf.ID_CONFAV_EVIDA',;
+                        'isjunimedservconf.ID_INCFAV_EVIDA',;
+                        'isjunimedservconf.ID_RETORNO_PAGTOS'}
+*/
+
+       // Monta o array de retorno com os dados para solicitação dos servicos
+       if ! llErro
+
+//wout('<br><b>laCONF')
+//debug2(laCONF,,30)
+
+//wout('<br><b>laRES')
+//debug2(laRES,,30)
+
+
+
+//          laRESULT := {{'CONSULTA','FLEG','ID_RAMO_VIDA','ID_RAMO_TOP','PEDIDO_PROCESSO','TEMPOESPERA','NOME_WS','DESMARCA','ID_RESERVA','ID_PAGTO_EVIDA','ID_CONFAV_EVIDA','ID_INCFAV_EVIDA','ID_RETORNO_PAGTOS'}}
+//          laTMP    := {lower(laRES[2,2]),lower(laRES[3,2]),laCONF[2,4],laCONF[2,5],laCONF[2,6],laCONF[2,7],laRES[2,3],lower(laRES[4,2]),laRES[5,2],laRES[6,2],laRES[7,2],laRES[ascan(laRES,{|x| alltrim(x[1]) == alltrim(laCONF[2,db_fetchncol(laCONF,'ID_RETORNO_PAGTOS')])}), 2] }
+           //              1          2        3           4                  5                6           7          8           9          10                11                  12               13                   14                            15                      16                   17                         18
+          laRESULT := {{'CONSULTA','FLEG','ID_RAMO_VIDA','ID_RAMO_TOP','PEDIDO_PROCESSO','TEMPOESPERA','NOME_WS','DESMARCA','ID_RESERVA','ID_PAGTO_EVIDA','ID_CONFAV_EVIDA','ID_INCFAV_EVIDA','ID_RETORNO_PAGTOS','ID_CONSULTA_TOP_SINISTRO','ID_CONSULTA_TOP_SEGURADO','ID_VINCULAR_TOP','ID_ATUALIZAR_RESERVA_TOP','ID_EFETUAR_PAGAMENTO_TOP'}}
+          laTMP    := {}
+          lnPOS := ascan(laRES,{|x| AllTrim(x[1]) == AllTrim(laCONF[2,db_fetchncol(laCONF,'ID_SOLICITA_DADOS')])})
+//wout('<br><b>lnPOS:'+Alltrim(lnPOS))
+          aadd(laTMP, lower(laRES[lnPOS,2])) // 1
+//wout('<br><b>Conteudo:'+ laRES[lnPOS, 2])
+          lnPOS := ascan(laRES,{|x| AllTrim(x[1]) == AllTrim(laCONF[2,db_fetchncol(laCONF,'ID_MARCA_DESMARCA')])})
+//wout('<br><b>lnPOS:'+Alltrim(lnPOS))
+          aadd(laTMP, lower(laRES[lnPOS, 2])) // 2
+          aadd(laTMP, laCONF[2,4])                                                                                                      // 3
+          aadd(laTMP, laCONF[2,5])                                                                                                      // 4
+          aadd(laTMP, laCONF[2,6])                                                                                                      // 5
+          aadd(laTMP, laCONF[2,7])                                                                                                      // 6
+          aadd(laTMP, laRES[2,3])                                                                                                       // 7 - NOME DO WEBSERVICE
+          aadd(laTMP, laRES[ascan(laRES,{|x| alltrim(x[1]) == alltrim(laCONF[2,db_fetchncol(laCONF,'ID_DESMARCA')])}), 2])              // 8
+          aadd(laTMP, lower(laRES[ascan(laRES,{|x| alltrim(x[1]) == alltrim(laCONF[2,db_fetchncol(laCONF,'ID_RESERVA')])}), 2]))        // 9
+          aadd(laTMP, laRES[ascan(laRES,{|x| alltrim(x[1]) == alltrim(laCONF[2,db_fetchncol(laCONF,'ID_PAGTO_EVIDA')])}), 2])           // 10
+          aadd(laTMP, laRES[ascan(laRES,{|x| alltrim(x[1]) == alltrim(laCONF[2,db_fetchncol(laCONF,'ID_CONFAV_EVIDA')])}), 2])          // 11
+          aadd(laTMP, laRES[ascan(laRES,{|x| alltrim(x[1]) == alltrim(laCONF[2,db_fetchncol(laCONF,'ID_INCFAV_EVIDA')])}), 2])          // 12
+          aadd(laTMP, laRES[ascan(laRES,{|x| alltrim(x[1]) == alltrim(laCONF[2,db_fetchncol(laCONF,'ID_RETORNO_PAGTOS')])}), 2])        // 13
+          aadd(laTMP, 0)                                                                                                                // 14
+          aadd(laTMP, 0)                                                                                                                // 15
+          aadd(laTMP, 0)                                                                                                                // 16
+          aadd(laTMP, 0)                                                                                                                // 17
+          aadd(laTMP, 0)                                                                                                                 // 18
+
+//wout('<br><b>laRESULT ANTES')
+//debug2(laRESULT,,40)
+
+          aadd(laRESULT, laTMP)
+
+//wout('<br><b>laTMP ajustado')
+//debug2(laTMP,,40)
+
+
+       endif
+return(laRESULT)
+
+
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: MarcarFlagGem()
+* Objetivo..: Marca a flag da interface GEM como enviado.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*
+*
+*/
+
+METHOD MarcarFlagGem() CLASS EvidaService
+
+    local laRES := {} AS Array
+    local ii    := 0 AS Int
+
+
+    // Seta a flag do pedido principal
+
+
+
+
+     if db_select({'NR_CONTROLE'},'mvt_evida') == -1
+        error_sys(db_error())
+     endif
+     laRES := db_fetchall()
+
+     for ii:= 2 to len(laRES)
+        if db_update({{'FL_INTERFACEGEM'},{'2'}},'pasta_detal_pedidos',{'NR_CONTROLE='+Str(laRES[ii,1])}) == -1
+           error_sys(db_error())
+        endif
+     next ii
+
+
+return
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: getNrSeqInterface()
+* Objetivo..: Retorna o numero de controle da próxima integração.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*
+*              Numero de controle da próxima integração
+*/
+
+METHOD getNrSeqInterface() CLASS EvidaService
+
+
+   local laSeq := {} AS Array
+   local lnSeq := 0 AS Numeric
+
+
+
+       // Atualiza o valor da sequencia na tabela
+       if db_select({'nr_sequencia + 1 as nr_sequencia' },'seq_interfaces',,{'PROGRAM='+DLAP+'mnt_sinistro_web_html'+DLAP}) == -1
+          error_sys(db_error())
+       endif
+
+       laSeq := db_fetchrow()
+       lnSeq := laSeq[1]
+
+       if db_update({{'NR_SEQUENCIA'},{lnSeq}},'seq_interfaces',{'PROGRAM='+DLAP+'mnt_sinistro_web_html'+DLAP}) == -1
+          error_sys(db_error())
+       endif
+
+return lnSeq
+
+
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: getTotalPedidos()
+* Objetivo..: Retorna um array com a totalização separando pedido e sucumbencia.
+*
+* Parâmetros:
+*
+* pNR_CONTROLE_SEGURO Número do controle do seguro.
+*
+* Retorno...:
+*
+*              Arrary com os dados do pedido
+*/
+
+METHOD getTotalPedidos(pNR_CONTROLE_SEGURO) CLASS EvidaService
+
+    local lcQuery := '' AS String
+
+    local laRES     := {},;
+          laRETORNO := {} AS Array
+
+
+
+          lcQuery := 'select sum(vl_risco_calc) as VL_RISCO, ' +;
+                     'sum(vl_correcao) as VL_CORRECAO, ' +;
+                     'sum(vl_juros) as VL_JUROS ' +;
+                     'from mvt_evida ' +;
+                     'where NR_CONTROLE_SEGURO = ' + AllTrim(pNR_CONTROLE_SEGURO) + ' and '+;
+                     'PEDIDO_PROCESSO <> ' + DLAP + 'Sucumbência de Condenação' + DLAP
+
+          if db_query(lcQuery) == -1
+             error_sys(db_error())
+          endif
+          laRES := db_fetchall()
+
+          if len(laRES) > 1
+             laRETORNO[1] := {laRES[2,1] , laRES[2,2] , laRES[2,3]}
+          endif
+
+          lcQuery := 'select sum(vl_risco_calc) as VL_RISCO, ' +;
+                     'sum(vl_correcao) as VL_CORRECAO, ' +;
+                     'sum(vl_juros) as VL_JUROS ' +;
+                     'from mvt_evida ' +;
+                     'where NR_CONTROLE_SEGURO = ' + AllTrim(pNR_CONTROLE_SEGURO) + ' and '+;
+                     'PEDIDO_PROCESSO = ' + DLAP + 'Sucumbência de Condenação' + DLAP
+
+          if db_query(lcQuery) == -1
+             error_sys(db_error())
+          endif
+          laRES := db_fetchall()
+      
+          if len(laRES) > 1
+             laRETORNO[2] := {laRES[2,1] , laRES[2,2] , laRES[2,3]}
+          endif
+
+return laRETORNO
+
+
+
+
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: AgrupaSeguroPorPedido(pNrControle)
+* Objetivo..: Atualiza.
+*
+* Parâmetros:
+*
+* pNR_CONTROLE_SEGURO Número do controle do seguro.
+*
+* Retorno...:
+*
+*              Arrary com os dados do pedido
+*/
+
+
+
+METHOD AgrupaSeguroPorPedido(pNrControle)  CLASS EvidaService
+
+
+   local lcWHERE  := ' pasta_pedidos.NR_CONTROLE = ' + AllTrim(pNrControle) + ' and pasta_pedidos.NR_CONTROLE_SEGURO is not null and pasta_pedidos.NR_CONTROLE_SEGURO > 0' AS String
+   local laFIELDS := {'distinct(pasta_pedidos.NR_CONTROLE_SEGURO)',;
+                      'pasta_seguro.NR_SINISTRO',;
+                      'pasta_seguro.CD_RAMOSRSN'}  AS Array
+   local laJOIN   := {{2,'pasta_seguro','pasta_seguro.NR_CONTROLE = pasta_pedidos.NR_CONTROLE_SEGURO'}}
+
+
+        *** procura resto das informações para gravar junto com dados no arquivo temporario
+
+        if db_select(laFIELDS,'pasta_pedidos',laJOIN,{lcWHERE}) == -1
+           error_sys(db_error())
+        endif
+        laRES := db_fetchall()
+
+        if len(laRES) > 1
+           *** atualiza arquivo temporario
+           if db_update({{'NR_CONTROLE_SEGURO','NR_SINISTRO','CD_RAMOSRSN'},{laRES[2,1],laRES[2,2],laRES[2,3]}},'mvt_evida',{'NR_CONTROLE = '+AllTrim(pNrControle)}) == -1
+              error_sys(db_error())
+           endif
+        endif
+
+return
+
+
+
+
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: estaHabilitada()
+* Objetivo..: verifica se a interface esta habilitada.
+*
+* Parâmetros:
+*
+*
+*
+* Retorno...:
+*
+*              .T. Se esta habilitada.
+*/
+
+METHOD estaHabilitada() CLASS EvidaService
+
+
+return (! empty(WSet('PATHWSUNIMED')))
+
+
+
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: GerarPedidoInicialSucumbencia(NrPasta, NrControleSeguro, PcSucumbencia)
+* Objetivo..: Gera o pedido inicial de r$ 0.01 para sucumbencia de condenação por seguro.
+*
+* Parâmetros:
+*
+*
+*    NrPasta            Número da Pasta
+*    NrControleSeguro   Número de controle do seguro
+*    PcSucumbencia      Percentual da sucumbência de condenação.
+*
+* Retorno...:
+*
+*
+*/
+
+METHOD GerarPedidoInicialSucumbencia(NrPasta, NrControleSeguro, PcSucumbencia) CLASS EvidaService
+
+
+
+   local lcWHERE  := '',;
+         lcNrPasta := AllTrim(NrPasta) AS String
+   local laFIELDS := {'count(*) AS QTD'}  AS Array
+   local laJOIN   := {{2,'pasta_seguro','pasta_seguro.NR_CONTROLE = pasta_pedidos.NR_CONTROLE_SEGURO'}},;
+         laRES    := {},;
+         laPADRAO := {} AS ARRAY
+   local lcPED    := 'Pedido inicial sucumbência eVida' AS String
+   local lnNR_CONTROLE  := 0 AS Int
+
+         if (NrPasta == nil .OR. NrControleSeguro == nil .OR. PcSucumbencia == nil) .OR. (NrPasta == 0 .OR. NrControleSeguro == 0 .OR. PcSucumbencia == 0)
+             return
+         endif
+
+
+         lcWHERE := 'pasta_pedidos.NR_PASTA = ' + lcNrPasta + ' AND pasta_pedidos.NR_CONTROLE_SEGURO = ' + AllTrim(NrControleSeguro) + ' AND pasta_pedidos.PEDIDO_PROCESSO = ' + DLAP + lcPED + DLAP
+
+         *** procura resto das informações para gravar junto com dados no arquivo temporario
+
+         if db_select(laFIELDS,'pasta_pedidos',laJOIN,{lcWHERE}) == -1
+             error_sys(db_error())
+         endif
+
+         laRES := db_fetchall()
+
+         if laRES[2,1] > 0
+            return
+         endif
+
+
+         laSAVE := {{'NR_PASTA',;
+                     'PEDIDO_PROCESSO',;
+                     'NR_CONTROLE_SEGURO',;
+                     'DT_RISCO',;
+                     'VL_RISCO',;
+                     'VL_RISCO_CALC',;
+                     'PC_RISCO',;
+                     'DT_MOVTO_PED',;
+                     'FL_INTERFACEGEM',;
+                     'FL_CALCULO'},;
+                     {NrPasta,; // NR_PASTA
+                     lcPED ,; // PEDIDO_PROCESSO
+                     NrControleSeguro,; // NR_CONTROLE_SEGURO
+                     date(),;        // DT_RISCO
+                     0.01,;          // VL_RISCO
+                     0.01,;          // VL_RISCO_CALC
+                     100,;           // PC_RISCO
+                     date(),;        // DT_MOVTO_PED
+                     '2',;           // FL_INTERFACEGEM
+                     'N'}}           // FL_CALCULO
+            if db_insert(laSAVE,'pasta_pedidos') == -1
+               error_sys(db_error())
+            endif
+            lnNR_CONTROLE := db_insert_id()
+
+            //
+            // Glauber 01/02/2011
+            // Gerar os lançamentos contábeis para o gem
+            //
+            // Observacao: não é serviço porco ou gambiarra minha, mas no registro
+            // para lançamento contábil o valor do risco e do risco calculado, deve
+            // ser informado como 0.00 em vez de 0.01, pois a função xcont só contabiliza a
+            // diferença pega pelo pedido e como a interface gem necessita do lançamento
+            // contábil eu sempre tenho que informa 0.00 neste trecho.
+
+            laPADRAO := self:ValoresPadroes(lcNrPasta,WGet('TP_PASTA','C')) // função estatica no final do programa.
+
+            if len(laPADRAO) > 1
+                laSAVE := {{'NR_PASTA',;
+                        'NR_CONTROLE',;
+                        'PEDIDO_PROCESSO',;
+                        'NR_CONTROLE_SEGURO',;
+                        'VL_RISCO',;
+                        'PC_RISCO',;
+                        'VL_RISCO_CALC',;
+                        'VL_CORRECAO',;
+                        'VL_JUROS',;
+                        'DT_RISCO',;
+                        'FL_CALCULO',;
+                        'DT_MOVTO_PED',;
+                        'COMENTARIOS_PED',;
+                        'OCOR_PEDIDO',;
+                        'TX_EXPEDIENTE'},;
+                        {lcNrPasta,;
+                        lnNR_CONTROLE,;
+                        lcPED,;
+                        NrControleSeguro,;
+                        0.00,; //0.01
+                        100,;
+                        0.00,; // 0.01
+                        0.00,;
+                        0.00,;
+                        laPADRAO[2],;
+                        'N',;
+                        laPADRAO[1],;
+                        laPADRAO[3],;
+                        laPADRAO[3],;
+                        ''}}
+            else
+                laSAVE := {{'NR_PASTA',;
+                        'NR_CONTROLE',;
+                        'PEDIDO_PROCESSO',;
+                        'NR_CONTROLE_SEGURO',;
+                        'VL_RISCO',;
+                        'PC_RISCO',;
+                        'VL_RISCO_CALC',;
+                        'VL_CORRECAO',;
+                        'VL_JUROS',;
+                        'DT_RISCO',;
+                        'FL_CALCULO',;
+                        'DT_MOVTO_PED',;
+                        'COMENTARIOS_PED',;
+                        'OCOR_PEDIDO',;
+                        'TX_EXPEDIENTE'},;
+                        {lcNrPasta,;
+                        lnNR_CONTROLE,;
+                        lcPED,;
+                        NrControleSeguro,;
+                        0.00,;
+                        100,;
+                        0.00,;
+                        0.00,;
+                        0.00,;
+                        DATE(),;
+                        'N',;
+                        DATE(),;
+                        '',;
+                        '',;
+                        ''}}
+            endif
+
+            xcont(laSAVE,lcNrPasta,WGet('TP_PASTA','C'))
+
+            laSAVE := {{'NR_PASTA',;
+                        'NR_CONTROLE',;
+                        'PEDIDO_PROCESSO',;
+                        'DT_MOVTO_PED',;
+                        'DT_RISCO',;
+                        'VL_RISCO',;
+                        'VL_RISCO_CALC',;
+                        'PC_RISCO',;
+                        'FL_INTERFACEGEM',;
+                        'LOGIN_CADASTRO'},;
+                        {lcNrPasta,;
+                        lnNR_CONTROLE,;
+                        lcPED,;
+                        date(),;
+                        date(),;
+                        0.01,;
+                        0.01,;
+                        100,;
+                        '2',;
+                        'webservice'}}
+            if db_insert(laSAVE,'pasta_detal_pedidos') == -1
+               error_sys(db_error())
+            endif
+
+
+
+return
+
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: GPedInicial(NrPasta, NrControleSeguro)
+* Objetivo..: Gera o pedido inicial de r$ 0.01 por seguro.
+*
+* Parâmetros:
+*
+*
+*    NrPasta            Número da Pasta
+*    NrControleSeguro   Número de controle do seguro
+*
+*
+* Retorno...:
+*
+*
+*/
+
+METHOD GPedInicial(NrPasta, NrControleSeguro) CLASS EvidaService
+
+
+
+   local lcWHERE  := '',;
+         lcNrPasta := AllTrim(NrPasta) AS String
+   local laFIELDS := {'count(*) AS QTD'}  AS Array
+   local laJOIN   := {{2,'pasta_seguro','pasta_seguro.NR_CONTROLE = pasta_pedidos.NR_CONTROLE_SEGURO'}},;
+         laRES    := {},;
+         laPADRAO := {} AS ARRAY
+   local lcPED    := 'Pedido inicial interface eVida' AS String
+   local lnNR_CONTROLE  := 0 AS Int
+
+         if (NrPasta == nil .OR. NrControleSeguro == nil ) .OR. (NrPasta == 0 .OR. NrControleSeguro == 0 )
+             return
+         endif
+
+
+         lcWHERE := 'pasta_pedidos.NR_PASTA = ' + lcNrPasta + ' AND pasta_pedidos.NR_CONTROLE_SEGURO = ' + AllTrim(NrControleSeguro) + ' AND pasta_pedidos.PEDIDO_PROCESSO = ' + DLAP + lcPED + DLAP
+         
+         
+         // Garante que um pedido inicial não seja gerado mais de uma vez para a mesma pasta / seguro
+
+
+         if db_select(laFIELDS,'pasta_pedidos',laJOIN,{lcWHERE}) == -1
+             error_sys(db_error())
+         endif
+
+         laRES := db_fetchall()
+
+         if laRES[2,1] > 0
+            return
+         endif
+
+
+         laSAVE := {{'NR_PASTA',;
+                     'PEDIDO_PROCESSO',;
+                     'NR_CONTROLE_SEGURO',;
+                     'DT_RISCO',;
+                     'VL_RISCO',;
+                     'VL_RISCO_CALC',;
+                     'PC_RISCO',;
+                     'DT_MOVTO_PED',;
+                     'FL_INTERFACEGEM',;
+                     'FL_CALCULO'},;
+                     {NrPasta,; // NR_PASTA
+                     lcPED ,; // PEDIDO_PROCESSO
+                     NrControleSeguro,; // NR_CONTROLE_SEGURO
+                     date(),;        // DT_RISCO
+                     0.01,;          // VL_RISCO
+                     0.01,;          // VL_RISCO_CALC
+                     100,;           // PC_RISCO
+                     date(),;        // DT_MOVTO_PED
+                     '2',;           // FL_INTERFACEGEM
+                     'N'}}           // FL_CALCULO
+            if db_insert(laSAVE,'pasta_pedidos') == -1
+               error_sys(db_error())
+            endif
+            lnNR_CONTROLE := db_insert_id()
+
+            //
+            // Glauber 01/02/2011
+            // Gerar os lançamentos contábeis para o gem
+            //
+            // Observacao: não é serviço porco ou gambiarra minha, mas no registro
+            // para lançamento contábil o valor do risco e do risco calculado, deve
+            // ser informado como 0.00 em vez de 0.01, pois a função xcont só contabiliza a
+            // diferença pega pelo pedido e como a interface gem necessita do lançamento
+            // contábil eu sempre tenho que informa 0.00 neste trecho.
+
+            laPADRAO := self:ValoresPadroes(lcNrPasta,WGet('TP_PASTA','C'))
+
+            if len(laPADRAO) > 1
+                laSAVE := {{'NR_PASTA',;
+                        'NR_CONTROLE',;
+                        'PEDIDO_PROCESSO',;
+                        'NR_CONTROLE_SEGURO',;
+                        'VL_RISCO',;
+                        'PC_RISCO',;
+                        'VL_RISCO_CALC',;
+                        'VL_CORRECAO',;
+                        'VL_JUROS',;
+                        'DT_RISCO',;
+                        'FL_CALCULO',;
+                        'DT_MOVTO_PED',;
+                        'COMENTARIOS_PED',;
+                        'OCOR_PEDIDO',;
+                        'TX_EXPEDIENTE'},;
+                        {lcNrPasta,;
+                        lnNR_CONTROLE,;
+                        lcPED,;
+                        NrControleSeguro,;
+                        0.00,; //0.01
+                        100,;
+                        0.00,; // 0.01
+                        0.00,;
+                        0.00,;
+                        laPADRAO[2],;
+                        'N',;
+                        laPADRAO[1],;
+                        laPADRAO[3],;
+                        laPADRAO[3],;
+                        ''}}
+            else
+                laSAVE := {{'NR_PASTA',;
+                        'NR_CONTROLE',;
+                        'PEDIDO_PROCESSO',;
+                        'NR_CONTROLE_SEGURO',;
+                        'VL_RISCO',;
+                        'PC_RISCO',;
+                        'VL_RISCO_CALC',;
+                        'VL_CORRECAO',;
+                        'VL_JUROS',;
+                        'DT_RISCO',;
+                        'FL_CALCULO',;
+                        'DT_MOVTO_PED',;
+                        'COMENTARIOS_PED',;
+                        'OCOR_PEDIDO',;
+                        'TX_EXPEDIENTE'},;
+                        {lcNrPasta,;
+                        lnNR_CONTROLE,;
+                        lcPED,;
+                        NrControleSeguro,;
+                        0.00,;
+                        100,;
+                        0.00,;
+                        0.00,;
+                        0.00,;
+                        DATE(),;
+                        'N',;
+                        DATE(),;
+                        '',;
+                        '',;
+                        ''}}
+            endif
+
+            xcont(laSAVE,lcNrPasta,WGet('TP_PASTA','C'))
+            
+            laSAVE := {{'NR_PASTA',;
+                        'NR_CONTROLE',;
+                        'PEDIDO_PROCESSO',;
+                        'DT_MOVTO_PED',;
+                        'DT_RISCO',;
+                        'VL_RISCO',;
+                        'VL_RISCO_CALC',;
+                        'PC_RISCO',;
+                        'FL_INTERFACEGEM',;
+                        'LOGIN_CADASTRO'},;
+                        {NrPasta,;
+                        NrControleSeguro,;
+                        lcPED,;
+                        date(),;
+                        date(),;
+                        0.01,;
+                        0.01,;
+                        100,;
+                        '2',;
+                        'webservice'}}
+            if db_insert(laSAVE,'pasta_detal_pedidos') == -1
+               error_sys(db_error())
+            endif
+
+
+
+return
+
+
+
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: ValoresPadroes(fcNR_PASTA, fcTP_PASTA)
+* Objetivo..: Alimentar os campos DT_MOVTO_PED, DT_RISCO, OCOR_PEDIDO com valores padrões
+*
+* Parâmetros:
+*
+*
+*    fcNR_PASTA         Número da Pasta
+*    fcTP_PASTA         Tipo da Pasta
+*
+* Retorno...:
+*
+*
+*/
+
+METHOD METHOD ValoresPadroes(fcNR_PASTA,fcTP_PASTA) CLASS EvidaService
+
+   local laRESULT      := {},;
+         laRESULT_OCOR := {},;
+         laRETORNO     := {} as array
+
+   if db_select({'DT_RISCO_CONF','OCOR_PEDIDO_INICIO'},'pasta_config',,{'TP_PASTA = '+DLAP+fcTP_PASTA+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT_OCOR:=db_fetchrow()
+
+   if empty(laRESULT_OCOR[2]) .OR. laRESULT_OCOR[2] == ''
+      walert('A parametrização dos Pedidos para esta Pasta \n ainda não foi realizada')
+      return(laRETORNO)
+   else
+      if len(laRESULT_OCOR) > 0
+         if !empty(laRESULT_OCOR[1])
+            if db_select({laRESULT_OCOR[1]},'pasta',,{'NR_PASTA = '+fcNR_PASTA}) == -1
+               error_sys(db_error())
+            endif
+            laRESULT:=db_fetchrow()
+            if len(laRESULT) > 0
+               laRETORNO := {date(),laRESULT[1],laRESULT_OCOR[2]}
+            else
+               walert('A parametrização dos Pedidos para esta Pasta \n ainda não foi realizada')
+            endif
+         else
+            laRETORNO := {date(),'',laRESULT_OCOR[2]}
+         endif
+      else
+         walert('A parametrização dos Pedidos para esta Pasta \n ainda não foi realizada')
+      endif
+   endif
+return(laRETORNO)
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: ReverterProvisaoPedidoInicial(NrPasta)
+* Objetivo..: Reverte a provisão dos pedidos iniciais de r$ 0.01 para operação de encerramento de pasta.
+*
+* Parâmetros:
+*
+*
+*    NrPasta            Número da Pasta
+*
+* Retorno...:
+*
+*
+*/
+
+METHOD ReverterProvisaoPedidoInicial(NrPasta) CLASS EvidaService
+
+
+   local lcWHERE   := '',;
+         lcNrPasta := AllTrim(NrPasta) AS String
+   local laFIELDS  := {'NR_PASTA',;
+                       'NR_CONTROLE',;
+                       'PEDIDO_PROCESSO',;
+                       'NR_CONTROLE_SEGURO',;
+                       'VL_RISCO',;
+                       'PC_RISCO',;
+                       'VL_RISCO_CALC',;
+                       'VL_CORRECAO',;
+                       'VL_JUROS',;
+                       'DT_RISCO',;
+                       'FL_CALCULO',;
+                       'DT_MOVTO_PED',;
+                       'COMENTARIOS_PED',;
+                       'OCOR_PEDIDO'}  AS Array
+   local laRES     := {},;
+         laSAVE    := {},;
+         laPADRAO  := {} AS ARRAY
+   local lcPED     := DLAP + 'Pedido inicial interface eVida' + DLAP AS String
+   local lcPEDSUC  := DLAP + 'Pedido inicial sucumbência eVida' + DLAP AS String
+
+   local lnNR_CONTROLE  := 0 AS Int
+   local ii             := 0 AS Int
+
+
+
+         if (Empty(AllTrim(NrPasta)))
+             return
+         endif
+
+
+         lcWHERE   := 'pasta_pedidos.NR_PASTA = ' + NrPasta + ' AND pasta_pedidos.PEDIDO_PROCESSO IN(' + lcPED + ',' + lcPEDSUC + ')' + ' AND pasta_pedidos.VL_RISCO = 0.01'
+
+         if db_select(laFIELDS,'pasta_pedidos',,{lcWHERE}) == -1
+             error_sys(db_error())
+         endif
+
+         laRES := db_fetchall()
+
+         if len(laRES) == 1
+            return
+         endif
+
+         for ii := 2 to len(laRES)
+              laSAVE := {{'NR_PASTA',;
+                          'NR_CONTROLE',;
+                          'PEDIDO_PROCESSO',;
+                          'DT_MOVTO_PED',;
+                          'DT_RISCO',;
+                          'VL_RISCO',;
+                          'VL_RISCO_CALC',;
+                          'PC_RISCO',;
+                          'FL_INTERFACEGEM',;
+                          'LOGIN_CADASTRO',;
+                          'COMENTARIOS_PED'},;
+                          {NrPasta,;
+                          laRES[ii,db_fetchncol(laRES,'NR_CONTROLE')],;
+                          laRES[ii,db_fetchncol(laRES,'PEDIDO_PROCESSO')],;
+                          date(),;
+                          date(),;
+                          (0.01 * -1),;
+                          (0.01 * -1),;
+                          100,;
+                          '2',;
+                          'webservice',;
+                          'Reversão de provisão Pedido inicial interface eVida'}}
+              if db_insert(laSAVE,'pasta_detal_pedidos') == -1
+                 error_sys(db_error())
+              endif
+
+              laSAVE := {{'VL_RISCO','VL_RISCO_CALC'},{0,0}}
+              
+              if db_update(laSAVE,'pasta_pedidos',{'NR_PASTA='+ALLTRIM(laRES[ii,1]) + ' AND NR_CONTROLE='+ ALLTRIM(laRES[ii,2])}) == -1
+                 error_sys(db_error())
+              endif
+
+
+         next ii
+
+
+return
+
+
+
+
+
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: PastaTemEvidaOuTopSaude(NrPasta)
+* Objetivo..: Verifica se uma pasta pertence a interface do Evida..
+*
+* Parâmetros:
+*
+*
+*    NrPasta            Número da Pasta
+*
+* Retorno...:
+*
+*           .T. Caso afirmativo
+*/
+
+METHOD PastaTemEvidaOuTopSaude(NrPasta) CLASS EvidaService
+
+
+   local lcRAMO    := ''  AS String
+   local laFIELDS  := {'CD_RAMOSRSN'}  AS Array
+   local laRES     := {},;
+         laCONF    := {} AS ARRAY
+
+
+
+   local llRET     := .F.
+
+
+   if ! self:estaHabilitada()
+      return .F.
+   endif
+
+   laCONF := self:RetornaConfWS()
+
+   if db_select(laFIELDS,'pasta_seguro',,{'NR_PASTA=' + AllTrim(NrPasta)}) == -1
+      error_sys(db_error())
+   endif
+
+   laRES := db_fetchall()
+
+   if len(laRES) > 1
+      lcRAMO := laRES[2,1]
+   endif
+
+   if (at(lcRAMO, laCONF[2,db_fetchncol(laCONF,'ID_RAMO_VIDA')]) > 0) .or. (at(lcRAMO,laCONF[2,db_fetchncol(laCONF,'ID_RAMO_TOP')]) > 0)
+      llRET := .T.
+   endif
+
+return llRET
+
+
+
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: ConsultaFavorecido(cpfcnpj,dtnascimento, sexo)
+* Objetivo..: Realiza a consulta de favorecidos no Evida.
+*
+* Parâmetros:
+*
+*
+*    cpfcnpj      :  Número da cpf / cnpj
+*    dtnascimento :  data de nascimento
+*    sexo         :  sexo
+*    tipo         : Tipo de pessoa
+*
+* Retorno...:
+*
+*           objeto do tipo PfpjRetornoEvida com as informações
+*/
+
+METHOD ConsultaFavorecido(cpfcnpj, dtnascimento, sexo, tipo) CLASS EvidaService
+
+    local laCONF     := {},;
+          laRES      := {} AS Array
+    local lcPath     := '',;
+          lcEnv      := '',;
+          lcRet      := '',;
+          lcParser   := ''  AS String
+    local lnSeq      := 0  AS Int
+    local objRetorno := PfpjRetornoEvidaNew()
+
+
+
+           laCONF := self:RetornaConfWS()
+
+           if len(laCONF) > 0
+              // Verifica se ramo eh do evida
+              lcPath := WSet('PATHWSUNIMED')
+
+              if ! file(lcPath+'InsoUnimedWsConsumer.exe')
+                   objRetorno:CdRetorno := -1
+                   objRetorno:NmRetorno := 'Aplicação de consumo webservice não esta presente no diretório informado no wprofile. \n Não será gerado o lançamento do pedido inicial para o webservice.'
+                   return(objRetorno)
+              endif
+
+              lnSeq := self:getNrSeqInterface()
+
+              // Montando Array para formar o xml
+
+              // <?xml version="1.0" encoding="utf-8"?><i4proerp><integracao_isj tp_integracao="10"  sinistro_numero="" id_integracao="[NR_CONTROLE]" documento="[CNPJ_CPF]" dt_nascimento_pessoa="DT_NASCIMENTO" id_sexo="[FL_SEXO]"/></i4proerp>
+
+              laRES := {{'NR_CONTROLE',;
+                        'CNPJ_CPF',;
+                        'DT_NASCIMENTO',;
+                        'FL_SEXO',;
+                        'TP_PESSOA'},;
+                       {alltrim(transform(lnSeq,'999999')),;
+                        cpfcnpj,;
+                        dtnascimento,;
+                        sexo,;
+                        tipo}}
+
+              lcEnv    := lcPath + 'ENVCONFAV' + Wset('LOGIN')+'_'+alltrim(lnSeq) + '.XML'
+              lcRet    := lcPath + 'RETCONFAV' + Wset('LOGIN')+'_'+alltrim(lnSeq) + '.XML'
+              lcParser := Parser2Str(laCONF[2,db_fetchncol(laCONF,'ID_CONFAV_EVIDA')],laRES) // Função presente na func_wic.wh
+              GravaArquivo(lcEnv,lcParser) // Função presente na func_wic
+
+              // Executa o pedido das informações
+              //
+              lcRun := lcPath + WSet('WSAPPNAME')+' '+laCONF[2,db_fetchncol(laCONF,'NOME_WS')]+' ' + lcEnv + ' ' + lcRet
+
+              ! (lcrun)
+              // Aguarda o tempo da resposta
+              inkey(laCONF[2,db_fetchncol(laCONF,'TEMPOESPERA')])
+
+              // Obter o conteúdo da pesquisa
+              if (! file(lcRet))
+                 objRetorno:CdRetorno := -1
+                 objRetorno:NmRetorno := 'Erro ao receber o arquivo de retorno:'+lcRet+ ' o arquivo não foi encontrado.'
+                 return(objRetorno)
+              endif
+              lcTMP  := GetFileContent(lcRet) // Resgata o conteúdo do arquivo de retorno
+              lcERRO := TrataErroWS(lcTMP) // Verifica se no conteúdo do retorno contém algum erro.
+              if ! empty(lcERRO)
+                 objRetorno:CdRetorno := -1
+                 objRetorno:NmRetorno := 'Retorno da Consulta no Evida:: '+lcERRO
+                 return(objRetorno)
+              endif
+
+              lcData := self:getTag(lcTMP, 'DT_NASCIMENTO')
+              objRetorno:IdPessoa     := val(self:getTag(lcTMP, 'ID_PESSOA'))
+              objRetorno:TipoPessoa   := val(self:getTag(lcTMP, 'CD_TIPO_PESSOA'))
+              objRetorno:Nome         := self:getTag(lcTMP, 'NM_PESSOA')
+              objRetorno:DtNascimento := substr(lcData,9,2) + "/" + substr(lcData,6,2) + "/" + substr(lcData,1,4)
+              objRetorno:Sexo         := iif(self:getTag(lcTMP, 'ID_SEXO') == '1', 'M', 'F')
+
+           endif
+
+return objRetorno
+
+
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: IncluirFavorecido(pfpjretornoevida)
+* Objetivo..: Realiza o cadastramento de favorecidos no Evida.
+*
+* Parâmetros:
+*
+*
+*    PfpjRetornoEvida :  objeto do tipo PfpjRetornoEvida com as informações
+*
+* Retorno...:
+*
+*           objeto do tipo PfpjRetornoEvida com as informações
+*/
+
+METHOD IncluirFavorecido(pfpjretornoevida) CLASS EvidaService
+
+
+    local objRetorno := PfpjRetornoEvidaNew()
+
+    local laCONF     := {},;
+          laRES      := {} AS Array
+    local lcPath     := '',;
+          lcEnv      := '',;
+          lcRet      := '',;
+          lcParser   := ''  AS String
+    local lnSeq      := 0  AS Int
+
+           laCONF := self:RetornaConfWS()
+           
+           pfpjretornoevida:CdRetorno := 0
+           pfpjretornoevida:NmRetorno := ''
+
+           if len(laCONF) > 0
+              // Verifica se ramo eh do evida
+              lcPath := WSet('PATHWSUNIMED')
+
+              if ! file(lcPath+'InsoUnimedWsConsumer.exe')
+                   pfpjretornoevida:CdRetorno := -1
+                   pfpjretornoevida:NmRetorno := 'Aplicação de consumo webservice não esta presente no diretório informado no wprofile. \n Não será gerado o lançamento do pedido inicial para o webservice.'
+                   return(pfpjretornoevida)
+              endif
+
+              lnSeq := self:getNrSeqInterface()
+
+              // Montando Array para formar o xml
+
+              // <?xml version="1.0" encoding="utf-8"?><i4proerp><integracao_isj tp_integracao="11"  sinistro_numero="" id_integracao=""              documento="77445550071" nm_pessoa="Teste ISJ"  dt_nascimento_pessoa="1987-09-10" id_sexo="1" tipo_registro="1" tipo_pessoa="1" /></i4proerp>
+              // <?xml version="1.0" encoding="utf-8"?><i4proerp><integracao_isj tp_integracao="11"  sinistro_numero="" id_integracao="[NR_CONTROLE]" documento="[CNPJ_CPF]"  nm_pessoa="[PFPJ]" dt_nascimento_pessoa="[DT_NASCIMENTO]" id_sexo="[FL_SEXO]" tipo_registro="4" tipo_pessoa="[TIPO_PESSOA]"/></i4proerp>
+
+              laRES := {{'NR_CONTROLE',;
+                        'CNPJ_CPF',;
+                        'PFPJ',;
+                        'DT_NASCIMENTO',;
+                        'TIPO_PESSOA',;
+                        'FL_SEXO'},;
+                       {alltrim(transform(lnSeq,'999999')),;
+                        pfpjretornoevida:Documento,;
+                        pfpjretornoevida:Nome,;
+                        pfpjretornoevida:DtNascimento,;
+                        pfpjretornoevida:TipoPessoa,;
+                        pfpjretornoevida:Sexo}}
+
+              lcEnv    := lcPath + 'ENVINCFAV' + Wset('LOGIN')+'_'+alltrim(lnSeq) + '.XML'
+              lcRet    := lcPath + 'RETINCFAV' + Wset('LOGIN')+'_'+alltrim(lnSeq) + '.XML'
+              lcParser := Parser2Str(laCONF[2,db_fetchncol(laCONF,'ID_INCFAV_EVIDA')],laRES) // Função presente na func_wic.wh
+              GravaArquivo(lcEnv,lcParser) // Função presente na func_wic
+
+              // Executa o pedido das informações
+              //
+              lcRun := lcPath + WSet('WSAPPNAME')+' '+laCONF[2,db_fetchncol(laCONF,'NOME_WS')]+' ' + lcEnv + ' ' + lcRet
+              ! (lcrun)
+              // Aguarda o tempo da resposta
+              inkey(laCONF[2,db_fetchncol(laCONF,'TEMPOESPERA')])
+
+              // Obter o conteúdo da resposta
+              if (! file(lcRet))
+                 pfpjretornoevida:CdRetorno := -1
+                 pfpjretornoevida:NmRetorno := 'Erro ao receber o arquivo de retorno:'+lcRet+ ' o arquivo não foi encontrado.'
+                 return(pfpjretornoevida)
+              endif
+              lcTMP  := GetFileContent(lcRet) // Resgata o conteúdo do arquivo de retorno
+              lcERRO := TrataErroWS(lcTMP) // Verifica se no conteúdo do retorno contém algum erro.
+              if ! empty(lcERRO)
+                 pfpjretornoevida:CdRetorno := -1
+                 pfpjretornoevida:NmRetorno := 'Retorno da Consulta no Evida: '+lcERRO
+                 return(pfpjretornoevida)
+              endif
+
+              pfpjretornoevida:IdPessoa     := val(self:getTag(lcTMP, 'ID_PESSOA'))
+
+           endif
+
+return pfpjretornoevida
+
+
+
+
+
+
+
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: getTag(xml, tag)
+* Objetivo..: Obtem o conteúdo de uma tag num xml.
+*
+* Parâmetros:
+*
+*    xml :  conteúdo do xml.
+*    tag :  tag a ser extraida.
+*
+* Retorno...:
+*
+*           objeto do tipo PfpjRetornoEvida com as informações
+*/
+
+METHOD getTag(xml, tag) CLASS EvidaService
+
+
+    local lcRET   := '',;
+          lcABRE  := '',;
+          lcFECHA := '' AS String
+    local POSINI  := 0,;
+          POSFIN  := 0,;
+          QTD     := 0 AS Int
+
+          lcABRE  := '<' + AllTrim(tag) + '>'
+          lcFECHA := '</' + AllTrim(tag) + '>'
+          POSINI  := AT(lcABRE,xml)
+          POSFIN  := AT(lcFECHA,xml)
+
+          if (POSINI > 0 .AND. POSFIN > 0)
+             QTD   := POSFIN - (POSINI + len(lcABRE))
+             lcRET := substr(xml, (POSINI + len(lcABRE)), QTD)
+             lcRET := AllTrim(StrTran(lcRET,lcFECHA,''))
+          endif
+
+
+return lcRET
+
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: DespesaTemEvidaOuTopSaude(paRES)
+* Objetivo..: Verifica se uma despesa pertence a interface do Evida ou Top Saúde.
+*
+* Parâmetros:
+*
+*
+*    paRES   Array no formato laSAVE contendo as colunas NR_PASTA e NR_DESPESA
+*
+* Retorno...:
+*
+*           .T. Caso afirmativo
+*/
+
+METHOD DespesaTemEvidaOuTopSaude(paRES)  CLASS EvidaService
+
+   local lcRAMO    := ''  AS String
+   local laFIELDS  := {'mvt_desprat.NR_CONTROLE_PEDIDO',;
+                       'pasta_pedidos.NR_CONTROLE_SEGURO',;
+                       'pasta_seguro.CD_RAMOSRSN'}  AS Array
+   local laRES     := {},;
+         laJOIN    := {{2,'pasta_pedidos','pasta_pedidos.NR_PASTA = mvt_desprat.NR_PASTA  AND pasta_pedidos.NR_CONTROLE = mvt_desprat.NR_CONTROLE_PEDIDO'},;
+                       {2,'pasta_seguro','pasta_seguro.NR_PASTA = mvt_desprat.NR_PASTA AND pasta_seguro.NR_CONTROLE = pasta_pedidos.NR_CONTROLE_SEGURO'}},;
+         laCONF    := {} AS ARRAY
+
+   local ii        := 0 AS Int
+   
+   local lcWHERE   :=  'mvt_desprat.NR_PASTA = ' + AllTrim(paRES[2,db_fetchncol(paRES,'NR_PASTA')]) + ' AND mvt_desprat.NR_CONTROLE_DESPESA = ' + AllTrim(paRES[2,db_fetchncol(paRES,'NR_DESPESA')])
+
+
+   local llRET     := .F.
+
+
+   if ! self:estaHabilitada()
+      return .F.
+   endif
+
+   laCONF := self:RetornaConfWS()
+
+   if (laCONF[2,db_fetchncol(laCONF,'ID_RAMO_VIDA')] == '9999') .OR. (laCONF[2,db_fetchncol(laCONF,'ID_RAMO_TOP')] == '9999')
+       return .F.
+   endif
+
+
+   if db_select(laFIELDS,'mvt_desprat ',laJOIN,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+
+   laRES := db_fetchall()
+
+
+   for ii := 2 to len(laRES)
+       lcRAMO := laRES[ii,db_fetchncol(laRES,'CD_RAMOSRSN')]
+       if (at(lcRAMO, laCONF[2,db_fetchncol(laCONF,'ID_RAMO_VIDA')]) > 0) .or. (at(lcRAMO,laCONF[2,db_fetchncol(laCONF,'ID_RAMO_TOP')]) > 0)
+          llRET := .T.
+          exit
+       endif
+
+   next ii
+
+
+return llRET
+
+
+
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: getPedidosInicialEvida(NrPasta)
+* Objetivo..: Retornar uma array com os campos NR_PASTA, NR_CONTROLE_SEGURO, NR_CONTROLE, PEDIDO_PROCESSO
+.
+*
+* Parâmetros:
+*
+*
+*    NrPasta   Número da pasta
+*
+* Retorno...:
+*
+*           array com os campos NR_PASTA, NR_CONTROLE_SEGURO, NR_CONTROLE, PEDIDO_PROCESSO
+*/
+
+METHOD getPedidosInicialEvida(NrPasta)  CLASS EvidaService
+
+
+   local laFIELDS  := {'pasta_pedidos.NR_PASTA',;
+                       'pasta_pedidos.NR_CONTROLE_SEGURO',;
+                       'pasta_pedidos.NR_CONTROLE',;
+                       'pasta_pedidos.PEDIDO_PROCESSO',;
+                       'pasta_seguro.NR_SINISTRO',;
+                       'pasta_seguro.CD_RAMOSRSN'}  AS Array
+   local laJOIN    := {{0,'pasta_seguro','pasta_seguro.NR_PASTA = pasta_pedidos.NR_PASTA  AND  pasta_seguro.NR_CONTROLE = pasta_pedidos.NR_CONTROLE_SEGURO'}} AS Array
+
+
+   local lcWHERE   :=  "pasta_seguro.NR_PASTA = " + AllTrim(NrPasta) + " AND pasta_pedidos.PEDIDO_PROCESSO IN('Pedido inicial interface eVida')"
+
+
+
+   if db_select(laFIELDS,'pasta_pedidos',laJOIN,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+
+return db_fetchall()
+
+
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: getSegOutraPasta(NrPastaOrigem,NrControleSeguro)
+* Objetivo..: Retornar uma array com os campos NR_PASTA, NR_CONTROLE_SEGURO, NR_CONTROLE, PEDIDO_PROCESSO caso o seguro esteja atrelado a uma pasta diferente da NrPastaOrigem.
+.
+*
+* Parâmetros:
+*
+*
+*    NrPastaOrigem    Número da pasta
+*    NrControleSeguro Número do Controle do Seguro
+*
+* Retorno...:
+*
+*           array com os campos NR_PASTA, NR_CONTROLE_SEGURO, NR_CONTROLE, PEDIDO_PROCESSO
+*/
+
+METHOD getSegOutraPasta(NrPastaOrigem, NrControleSeguro)  CLASS EvidaService
+
+
+   local laFIELDS  := {'pasta_pedidos.NR_PASTA',;
+                       'pasta_pedidos.NR_CONTROLE_SEGURO',;
+                       'pasta_pedidos.NR_CONTROLE',;
+                       'pasta_pedidos.PEDIDO_PROCESSO',;
+                       'pasta.PC_SUCUMBENCIA_CONDENACAO'}                     AS Array
+   local laJOIN    := {{1,'pasta','pasta_pedidos.NR_PASTA = pasta.NR_PASTA'}} AS Array
+
+   local lcWHERE   :=  'pasta_pedidos.NR_PASTA <> ' + AllTrim(NrPastaOrigem) + '  AND pasta_pedidos.NR_CONTROLE_SEGURO = ' + AllTrim(NrControleSeguro)
+
+
+
+   if db_select(laFIELDS,'pasta_pedidos',laJOIN,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+
+return db_fetchall()
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: ExisteSaldo(NrPastaOrigem,NrControleSeguro)
+* Objetivo..: Verificar se existe saldo na reserva do Isj para o Sinistro informado.
+.
+*
+* Parâmetros:
+*
+*
+*    NrPastaOrigem    Número da pasta
+*    NrControleSeguro Número do Controle do Seguro
+*
+* Retorno...:
+*
+*            Retornar .T. caso exista saldo na reserva.
+*/
+
+METHOD ExisteSaldo(NrPastaOrigem, NrControleSeguro)  CLASS EvidaService
+
+
+   local laFIELDS  := {'NR_PASTA',;
+                       'NR_CONTROLE_SEGURO',;
+                       'NR_CONTROLE',;
+                       'PEDIDO_PROCESSO',;
+                       '(VL_RISCO_CALC + VL_JUROS + VL_CORRECAO) AS SALDO'}  AS Array
+   local laRES     := {} AS Array
+
+   local lcWHERE   :=  'NR_PASTA = ' + AllTrim(NrPastaOrigem) + '  AND NR_CONTROLE_SEGURO = ' + AllTrim(NrControleSeguro) + ' AND PEDIDO_PROCESSO <> ' + DLAP + 'Pedido inicial interface eVida' + DLAP
+
+
+
+   if db_select(laFIELDS,'pasta_pedidos',,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+
+   laRES := db_fetchall()
+
+return (len(laRES) > 1  .AND. laRES[2,5] > 0)
+
+
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: ExistePedSucInicial(NrPastaOrigem,NrControleSeguro)
+* Objetivo..: Verificar se existe pedido inicial de sucumbencia na reserva do Isj para o Sinistro informado.
+.
+*
+* Parâmetros:
+*
+*
+*    NrPastaOrigem    Número da pasta
+*    NrControleSeguro Número do Controle do Seguro
+*
+* Retorno...:
+*
+*            Retornar .T. caso exista saldo na reserva.
+*/
+
+METHOD ExistePedSucInicial(NrPastaOrigem,NrControleSeguro)  CLASS EvidaService
+
+
+   local laFIELDS  := {'count(*) AS QTD'}  AS Array
+   local laRES     := {} AS Array
+
+   local lcWHERE   :=  'NR_PASTA = ' + AllTrim(NrPastaOrigem) + '  AND NR_CONTROLE_SEGURO = ' + AllTrim(NrControleSeguro) + ' AND PEDIDO_PROCESSO = ' + DLAP + 'Pedido inicial sucumbência eVida' + DLAP
+
+
+
+   if db_select(laFIELDS,'pasta_pedidos',,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+
+   laRES := db_fetchall()
+
+return laRES[2,1] > 0
+
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: zerarEvida(NrPasta, NrControleSeguro, NrSinistro, CdRamo)
+* Objetivo..: Realiza o encerramento dos sinistros caso necessário.
+.
+*
+* Parâmetros:
+*
+*
+*    NrPasta          Número da pasta
+*    NrControleSeguro Número de controle do seguro
+*    NrSinistro       Número do sinistro
+*    CdRamo           Ramo
+*
+*
+* Retorno...:
+*
+*           self
+*/
+
+METHOD zerarEvida(NrPasta, NrControleSeguro, NrSinistro, CdRamo) CLASS EvidaService
+
+local lcEnv     := '',;
+      lcRet     := '',;
+      lcParser  := '',;
+      lcRun     := '',;
+      lcPath    := '',;
+      lcTMP     := '',;
+      lcMANTERACAO := 'N',;
+      lcENCERRARSINISTRO := 'S' AS String
+local laCONF   := {},;
+      laTMP    := {} as array
+local lnTOTRES := 0.00,;
+      lnTOTSUC := 0.00,;
+      lnAJURES := 0.00,;
+      lnAJUCOR := 0.00,;
+      lnAJUJUR := 0.00,;
+      lnSALSUC := 0.00 as numeric
+local llErro := .f.
+local lnSeq  := 0 AS Int
+
+
+/*
+       lnTOTRES := 0.00
+       lnTOTSUC := iif(self:ExistePedSucInicial(NrPasta,NrControleSeguro), -0.01, 0.00)
+
+       lnAJURES := -0.01
+       lnAJUCOR := 0.00
+       lnAJUJUR := 0.00
+*/
+
+
+/*
+
+29/11/2017 - Glauber - Solicitação de ajuste via skype
+
+Glauber?
+O encerramento de pasta precisa de um pequeno ajuste, para que o WS responda corretamente precisa que as tags com os seguintes valores:
+valor_reserva="0,01" ajuste_reserva="0,00"
+
+
+hoje está gerando o XML assim:
+<i4proerp><integracao_isj sinistro_numero="1009316005206" id_integracao="39" tp_integracao="2" ramo="93" valor_reserva="0,00" ajuste_reserva="-0,01" ajuste_correcao_monetaria="0,00" ajuste_juros="0,00" ajuste_sucumbencia="0,00" manter_com_acao="N" encerrar_sinistro="S"/></i4proerp>
+Precisamos que seja assim
+<i4proerp><integracao_isj sinistro_numero="1009316005206" id_integracao="39" tp_integracao="2" ramo="93" valor_reserva="0,01" ajuste_reserva="0,00" ajuste_correcao_monetaria="0,00" ajuste_juros="0,00" ajuste_sucumbencia="0,00" manter_com_acao="N" encerrar_sinistro="S"/></i4proerp>
+
+
+Se estou zerando a reserva o correto não seria o ajuste ir de -0.01 ?
+é só a titulo de curiosidade tá ?
+rsrsrsrsrsrs
+
+ocorre o seguinte
+o eVida entende que você vai zerar a reserva e fala que não pode, que precisa cancelar o sinistro
+e essa regra bate antes que ele "leia" a tag "encerra sinistro"
+e da ruim
+do outro jeito, funciona
+
+
+neste formato que eu estou pedindo, ele não esta alterando a reserva, esta somente cancelando o sinistro judicial e deixando ele administrativo
+
+
+*/
+
+
+       lnTOTRES := 0.01
+       lnTOTSUC := 0.00 //iif(self:ExistePedSucInicial(NrPasta,NrControleSeguro), -0.01, 0.00)
+
+       lnAJURES := 0.00
+       lnAJUCOR := 0.00
+       lnAJUJUR := 0.00
+
+
+       laCONF := RetornaConfWS()
+
+/*
+
+29/11/2017 - Glauber - Solicitação de ajuste via skype
+
+Glauber
+?
+No xml de encerramento, voce está enviando o id_integracao="61" preciso que voce mande id_integracao="39"
+Blz?
+*/
+
+/* Glauber - 14/12/2017
+
+
+Glauber, boa tarde!
+
+Conforme conversamos, precisamos da sua ajuda amanhã para analisar o fonte da Unimed nos seguintes pontos:
+
+1 - O encerramento de sinistro deve enviar a tag <tp_integracao>1<|tp_integracao>
+
+2 - O botão ratear proporcional volta a aparecer em caso de refresh de tela da aba despesa
+
+O Rufino já corrigiu o rateio em caso de despesa rejeitada.
+
+Amanhã estarei na Omint; qualquer coisa me avise pelo whatsapp
+
+Obrigado
+Henrique
+
+*/
+
+
+/*
+Glauber 14/12 - Marcio via skype
+
+
+preciso de mais um favor
+preciso que voce altere o id_integração de 39 para 12080
+
+*/
+
+
+       laRES := {{'NR_SINISTRO',;
+                  'CD_RAMOSRSN',;
+                  'NR_CONTROLE',;
+                  'TP_INTEGRACAO',;
+                  'VALOR_RESERVA',;
+                  'AJUSTE_RESERVA',;
+                  'AJUSTE_CORRECAO_MONETARIA',;
+                  'AJUSTE_JUROS',;
+                  'AJUSTE_SUCUMBENCIA',;
+                  'MANTER_COM_ACAO',;
+                  'ENCERRAR_SINISTRO'},;
+                  {NrSinistro,; // NR_SINISTRO
+                   CdRamo,; // CD_RAMOSRSN
+                   '12080',;                // alltrim(transform(self:getNrSeqInterface(),'999999')),; // NR_CONTROLE
+                   '1',; // TP_INTEGRAÇÃO
+                   alltrim(wpictrans('VL_RISCO',lnTOTRES)),; // VALOR_RESERVA
+                   alltrim(wpictrans('VL_RISCO',lnAJURES)),; // AJUSTE_RESERVA
+                   alltrim(wpictrans('VL_RISCO',lnAJUCOR)),; // AJUSTE_CORRECAO_MONETARIA
+                   alltrim(wpictrans('VL_RISCO',lnAJUJUR)),; // AJUSTE_JUROS
+                   alltrim(wpictrans('VL_RISCO',lnTOTSUC)),; // AJUSTE_SUCUMBENCIA
+                   lcMANTERACAO,; // MANTER_COM_ACAO
+                   lcENCERRARSINISTRO}} // ENCERRAR_SINISTRO
+
+       lnSeq    := wic_random()
+       lcEnv    := lcPath + 'ENCER' + Wset('LOGIN')+'_'+alltrim(lnSeq) + '.XML'
+       lcRet    := lcPath + 'ENCER_RET' + Wset('LOGIN')+'_'+alltrim(lnSeq) + '.XML'
+       lcParser := Parser2Str(laCONF[2,9],laRES) // Função presente na func_wic.wh
+       GravaArquivo(lcEnv,lcParser) // Função estatica neste programa que grava o xml
+
+       if WSet('WSUNIMEDDEBUG') != 'ENABLE'
+           lcRun := lcPath + WSet('WSAPPNAME')+' '+laCONF[2,7]+' ' + lcEnv + ' ' + lcRet
+           ! (lcrun)
+           // Aguarda o tempo da resposta
+           inkey(laCONF[2,6])
+
+           // Obter o conteúdo da pesquisa
+           if (! file(lcRet))
+              Walert('Erro ao receber o arquivo de retorno:'+lcRet+ ' o arquivo não foi encontrado.')
+              llErro := .t.
+           endif
+           lcTMP  := GetFileContent(lcRet) // Resgata o conteúdo do arquivo de retorno
+           lcERRO := TrataErroWS(lcTMP) // Verifica se no conteúdo do retorno contém algum erro.
+           if ! empty(lcERRO)
+              WAlert('Erro ao processar o retorno do webservice: '+lcERRO )
+              llErro := .t.
+           endif
+       endif
+
+
+
+return(llERRO)
+
+
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: EncerrarSinistros(NrPasta)
+* Objetivo..: Realiza o encerramento dos sinistros caso necessário.
+.
+*
+* Parâmetros:
+*
+*
+*    NrPasta Número da pasta
+*
+*
+* Retorno...:
+*
+*           .T. se todos os sinistros foram encerrado com sucesso.
+*/
+
+METHOD EncerrarSinistros(NrPasta)  CLASS EvidaService
+
+
+   local laPEDIDOS       := {},;
+         laSEGOUTRAPASTA := {}   AS Array
+   local ii              := 0    AS Int
+
+   local llENCERRAR      := .T.,;
+         llErro          := .F.
+
+
+
+   if ! self:estaHabilitada()
+      return {}
+   endif
+
+   laPEDIDOS := self:getPedidosInicialEvida(NrPasta)
+
+   for ii := 2 TO LEN(laPEDIDOS)
+       llENCERRAR      := .T.
+       llErro          := .F.
+       if ! self:ExisteSaldo(NrPasta, laPEDIDOS[ii,db_fetchncol(laPEDIDOS,'NR_CONTROLE_SEGURO')])
+
+          laSEGOUTRAPASTA := self:getSegOutraPasta(NrPasta, laPEDIDOS[ii,db_fetchncol(laPEDIDOS,'NR_CONTROLE_SEGURO')])
+
+          if len(laSEGOUTRAPASTA) > 1
+             llENCERRAR := .F.
+          endif
+
+          if llENCERRAR == .T.
+             llErro := self:zerarEvida(NrPasta,;
+                                       laPEDIDOS[ii,db_fetchncol(laPEDIDOS,'NR_CONTROLE_SEGURO')],;
+                                       laPEDIDOS[ii,db_fetchncol(laPEDIDOS,'NR_SINISTRO')],;
+                                       laPEDIDOS[ii,db_fetchncol(laPEDIDOS,'CD_RAMOSRSN')])
+             if llErro == .T.
+                return .F.
+             endif
+          else
+             self:GPedInicial(laSEGOUTRAPASTA[2,db_fetchncol(laSEGOUTRAPASTA,'NR_PASTA')], laSEGOUTRAPASTA[2,db_fetchncol(laSEGOUTRAPASTA,'NR_CONTROLE_SEGURO')])
+             self:GerarPedidoInicialSucumbencia(laSEGOUTRAPASTA[2,db_fetchncol(laSEGOUTRAPASTA,'NR_PASTA')],;
+                                                laSEGOUTRAPASTA[2,db_fetchncol(laSEGOUTRAPASTA,'NR_CONTROLE_SEGURO')],;
+                                                laSEGOUTRAPASTA[2,db_fetchncol(laSEGOUTRAPASTA,'PC_SUCUMBENCIA_CONDENACAO')])
+          endif
+
+          self:ReverterProvisaoPedidoInicial(NrPasta)
+
+
+       endif
+   next ii
+
+
+return .T.
+
+
+
+
+
+
+/*
+*
+* Glauber - 04/2019
+*
+* Metodo....: ReabreEvida(NrPasta)
+* Objetivo..: Reabre os sinistros de uma pasta que foi encerrada.
+.
+*
+* Parâmetros:
+*
+*
+*    NrPasta Número da pasta
+*
+*
+* Retorno...:
+*
+*           .T. se todos os sinistros foram reabertos com sucesso.
+*/
+
+METHOD ReabreEvida(NrPasta)  CLASS EvidaService
+
+   local laCONF          := {},;
+         laFIELDS        := {},;
+         laJOIN          := {},;
+         laRES           := {},;
+         laCONFREABRE    := {},;
+         laSEGUROS       := {},;
+         laSEGOUTRAPASTA := {}   AS Array
+   local ii              := 0,;
+         lnSeq           := 0    AS Int
+
+   local llENCERRAR      := .T.,;
+         llErro          := .F.
+
+   local lcRAMO          := '',;
+         lcPath          := ''  AS String
+
+
+
+   if ! ::estaHabilitada()
+wAlert('Interface desabilitada')
+      return .T.
+   endif
+
+   if db_select({'isjunimedservconf.ID_REABRE_SINISTRO_VIDA','isjunimedservicos.servico'},'isjunimedservconf',{{0,'isjunimedservicos','isjunimedservconf.ID_REABRE_SINISTRO_VIDA = isjunimedservicos.id_servico'}}) == -1
+      error_sys(db_error())
+   endif
+
+   laCONFREABRE := db_fetchall()
+
+   if len(laCONFREABRE) < 2
+      WAlert('Não foi encontrado configuração válida para reabertura de sinistro')
+      return .F.
+   endif
+
+    // Verifica se ramo eh do evida
+    lcPath := WSet('PATHWSUNIMED')
+
+    if WSet('WSUNIMEDDEBUG') != 'ENABLE'
+        if ! file(lcPath+'InsoUnimedWsConsumer.exe')
+           WAlert('Aplicação de consumo webservice não esta presente no diretório informado no wprofile. \n O sinistro não será reaberto.')
+           return .F.
+        endif
+    endif
+
+
+
+   laCONF := ::RetornaConfWS()
+
+//wout('RAMOS CONFIGURADO:' +laCONF[2,3])
+
+   laFIELDS := {'pasta.NR_PASTA',;
+                'pasta.FL_PASTA',;
+                'pasta.DT_CITACAO',;
+                'pasta_seguro.NR_CONTROLE'}
+
+   laJOIN := {{0,'pasta',' (pasta.nr_pasta = pasta_seguro.NR_PASTA)'}}
+
+   // Recuperar todos os sinistros da pasta que tem integração
+
+   if db_select({'pasta_seguro.NR_SINISTRO','pasta_seguro.CD_RAMOSRSN','pasta.DT_CITACAO'},'pasta_seguro',{{0,'pasta','pasta.NR_PASTA = pasta_seguro.NR_PASTA'}},{'pasta_seguro.NR_PASTA=' + AllTrim(NrPasta)}) == -1
+      error_sys(db_error())
+   endif
+
+   laRES := db_fetchall()
+
+   for ii := 2 to len(laRES)
+       lcRAMO := laRES[ii,2]
+       if at(lcRAMO, laCONF[2,db_fetchncol(laCONF,'ID_RAMO_VIDA')]) > 0
+          aadd(laSEGUROS,{laRES[ii,1],laRES[ii,2],laRES[ii,3]})
+       endif
+   next ii
+
+debug2(laSEGUROS,,30)
+
+   // Veriricar se para cada sinistro encontrado, o mesmo esta presente em outro pasta ativa
+   for ii := 1 to len(laSEGUROS)
+
+       if db_select(laFIELDS,'pasta_seguro',laJOIN,{"pasta.FL_PASTA = 'Ativa' and pasta_seguro.NR_SINISTRO = " + DLAP + laSEGUROS[ii,1] + DLAP + " AND pasta_seguro.NR_PASTA <> " + AllTrim(NrPasta)}) == -1
+          error_sys(db_error())
+       endif
+
+       laSEGOUTRAPASTA := db_fetchall()
+
+       if len(laSEGOUTRAPASTA) > 1
+walert('Sinistro:' + laSEGUROS[ii,1] + ' existe em outra pasta ativa.\n Ele não será reaberto.')
+          loop
+       endif
+
+       lnSeq := self:getNrSeqInterface()
+
+
+       laRES := {{'NR_CONTROLE',;
+                  'NR_SINISTRO',;
+                  'CD_RAMOSRSN',;
+                  'DT_CITACAO'},;
+                  {alltrim(transform(lnSeq,'999999')),; // NR_CONTROLE
+                   laSEGUROS[ii,1],; // NR_SINISTRO
+                   laSEGUROS[ii,2],; // CD_RAMOSRSN
+                   DTOS(laSEGUROS[ii,3])}} // DT_CITACAO
+
+
+       lcEnv    := lcPath + 'REAB_' + Wset('LOGIN')+'_'+alltrim(lnSeq) + '.XML'
+       lcRet    := lcPath + 'REAB_RET_' + Wset('LOGIN')+'_'+alltrim(lnSeq) + '.XML'
+       lcParser := Parser2Str(laCONFREABRE[2,2],laRES) // Função presente na func_wic.wh
+       GravaArquivo(lcEnv,lcParser) // Função estatica neste programa que grava o xml
+wout('Gravou arquivo:' + lcENV)
+debug2(laRES,,30)
+       // Executa o pedido das informações
+       //
+       if WSet('WSUNIMEDDEBUG') != 'ENABLE'
+           lcRun := lcPath + WSet('WSAPPNAME')+' '+laCONF[2,7]+' ' + lcEnv + ' ' + lcRet
+           ! (lcrun)
+           // Aguarda o tempo da resposta
+           inkey(laCONF[2,6])
+
+           // Obter o conteúdo da pesquisa
+           if (! file(lcRet))
+              Walert('Erro ao receber o arquivo de retorno:'+lcRet+ ' o arquivo não foi encontrado.')
+              return .F.
+           endif
+           lcTMP  := GetFileContent(lcRet) // Resgata o conteúdo do arquivo de retorno
+           lcERRO := TrataErroWS(lcTMP) // Verifica se no conteúdo do retorno contém algum erro.
+           if ! empty(lcERRO)
+              WAlert('Erro ao processar o retorno do webservice: '+lcERRO )
+              return .F.
+           endif
+       endif
+
+
+   next ii
+
+
+
+
+return .T.
+
+
+
+
+
+METHOD MascaraCampoMoedaTop(valor)  CLASS EvidaService
+
+local lcTMP := wpictrans('VL_ACAO', valor)
+      lcTMP := StrTran(lcTMP, '.','')
+      
+      
+return lcTMP
+
+
+

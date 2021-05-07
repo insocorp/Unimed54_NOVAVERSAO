@@ -1,0 +1,133 @@
+/*
+
+Project      : gr5
+Program      : sch.all.abas.html
+Function     : sch_all_abas_html
+Created on   : 25-Jan-2004   13:13:32
+Descripition : Pesquisa de Campos com multipla-seleção
+
+*/
+
+   local lcNM_ABA         := '' ,;       
+         lcWABAS          := '' ,;      
+         lcLAYOUT_PASTA   := '' ,;
+         lcTABELA         := '' ,;
+         lcOBJ_ID         := '' ,;
+         lcOBJ_AUX        := '' ,;
+         lcNR_PASTA       := '' ,;
+         lcMENU           := '' ,;
+         lcField          := '' ,;
+         lcOP             := '' as string
+   
+   local laRES     := {} ,;
+         laRES_AUX := {} ,;
+         laPUT     := {} ,;
+         laWABAS   := {} ,;
+         laPARAMS  := {} ,;
+         laABAS    := {} as array
+         
+   local ii       := 0 as int
+   local lnPos    := 0 as int
+   local lcPAGE   := '' as string
+   local laRESULT := {} as array
+   local xx       := 0 as int
+
+   lcNM_ABA        := wGet('NM_ABA','C')   /* label do campo com a lista de pastas */
+   lcWABAS         := alltrim(wGet('WABAS','C'))            /* conteudo do campo, lista de seleções gravadas */
+   lcLAYOUT_PASTA  := lower(wGet('LAYOUT_PASTA','C'))
+   lcTABELA        := wGet('TABELA','C')
+
+   laCampos        := {'mnt_pasta_html','psab_despesa_html','ps_log_alteracao_html','psab_analise_causa_html',;
+                       'psab_nuloresultado_html','psab_deposito_html','psab_relacionamento_html','pst_transf_html',;
+                       'psab_agenda_html','psab_dep_cont_html','psab_mvt_contabil_html','psab_res_sin_html',;
+                       'psab_resultado_html','psab_seg_cont_sinistro_html','psab_se_cont_html','psab_ra_contratos_html',;
+                       'psab_ra_ocorrencias_html','psab_ra_recupera_html','psab_pedido_html'} 
+
+ /*   prepara coluna de abas selecionadas atraves do campo LITS_ABAS_NAOCOMUM  */
+ 
+  if !empty(lcWABAS)
+      laWABAS := asort(str2array(alltrim(lcWABAS),','))        
+      if len(laWABAS) > 0
+         aadd(laPUT,{'WABAS'})           
+         for xx:= 1 to len(laWABAS)
+             aadd(laPUT,{'<option value='+DLAP+laWABAS[xx]+DLAP+'>'+laWABAS[xx]+'</option>'})  
+         next xx
+         wPut('lstSELECTED_ABAS',laPUT)             
+      endif
+  endif
+   
+ /*   prepara coluna de abas do WMENU  */ 
+ 
+      lcMENU := 'PST_'+upper(lcLAYOUT_PASTA)
+      
+      if len(db_findrec({'MENU'},'wmenu_option','MENU='+DLMT+lcMENU+DLMT)) = 0 // Se o menu de abas relacionado ao layout não existir
+         lcMENU := 'PST_PADRAO'                                         // Traz o menu de abas padrão
+      endif
+  
+      laABAS := structmenu(lcMENU)  
+//      lcOBJ_ID :=substr( laABAS[1,1] , rat('/',laABAS[1,1])+1 )
+
+      for ii := 2 to len(laABAS)
+          lcOBJ_ID := lcOBJ_ID+','+substr( laABAS[ii,1] , rat('/',laABAS[ii,1])+1 ) // Extrai a string depois da ultima barra encontrada.
+          lcOBJ_ID := strtran( lcOBJ_ID , '.' , '_' )                  // Transforma pontos em underline.
+      next ii   
+      
+      lcOBJ_ID := substr(lcOBJ_ID,2,len(lcOBJ_ID))
+      
+// Rotina incluida para nao permitir duplicidade de escolhas
+     
+     laRES := asort(str2array(alltrim(lcOBJ_ID),','))        
+     laPUT := {}
+ /* Gera array (laRES) unidimensional com todos os campos encontrados na pesquisa anterior */
+
+      if len(laRES) > 0
+         if !empty(laRES[1])
+            laPUT := asort(str2array(alltrim(lcOBJ_ID),','))
+         else
+            wPut('WSCRIPT','alert("O Programa ['+lcLAYOUT_PASTA+'] não tem ABAS definidas!")')
+            WSet('_USER_INTERFACE','close.wic')
+            return
+         endif
+
+         if len(laPUT) > 0
+            laRES := {}
+            aadd(laRES,{'MENU'})
+
+            for xx:= 1 to len(laPUT)
+               if lcTABELA == 'Y'
+                  lcOP := laPUT[xx]
+               else
+                  lcOP := substr(laPUT[xx],at('.',laPUT[xx])+1)
+               endif
+               if ascan(laCampos,lcOp) == 0 
+                  if ascan(laWABAS,lcOP) == 0 // Só Adiciona o campo na Lista,
+                                          // caso ele não esteja na Lista
+                                          // de campos ja selecionados
+                    aadd(laRES,{'<option value="'+lcOP+'">'+lcOP+'</option>'})
+                 endif
+               endif
+            next xx
+            wPut('lstALL_ABAS',laRES)
+         endif
+      else
+         wPut('WSCRIPT','alert("Template não definido")')
+         WSet('_USER_INTERFACE','close.wic')
+         return
+      endif
+
+   wPut('NM_ABA',lcNM_ABA)
+   wPut('LAYOUT_PASTA',lcLAYOUT_PASTA)
+ 
+ return
+
+
+
+
+
+
+
+
+
+
+
+

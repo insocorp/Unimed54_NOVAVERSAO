@@ -1,0 +1,46 @@
+/*
+
+Project      : gr5
+Program      : tipoconta.mnt.html
+Function     : tipoconta_mnt_html
+Created on   : 25-Jan-2006   14:48:04
+Descripition : Cadastro de Tipos de Contas
+
+*/
+
+   local laPARAM        := {},;
+         laINPUT_OBJ    := {},;
+         laSELECT       := {} as array
+   
+   laPARAM := {{'TP_CONTA',''     ,'*'},;
+            {'FL_ATIVO','',},;
+               {'ACTION'  ,'ALTER',   }}
+   
+   laINPUT_OBJ := { {'TP_CONTA',0,,'Y',} ,;
+                {,,,,},;
+                {'FL_ATIVO',2,,,'"S"' }}
+   
+   laSELECT := {'TP_CONTA','FL_ATIVO'}
+   
+   xbp('tipo_conta',;                     //Tabela alvo
+       ,;                                 //Joins
+       ,;                                 //Where
+       {'TP_CONTA'},;                     //Order by
+       ,;                                 //Sort [A]-Ascendente [D]-Descentende
+       ,;                                 //Group by
+       ,;                                 //Limit
+       ,;                                 //Banco de Dados
+       2,;                                //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+       'gr5',;                            //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;          //Programa chamador
+       laPARAM,;                          //Parametros das linhas clicaveis do grid
+       ,;                                 //Parâmetros para os botões das linhas do grid
+       'tipoconta.mnt.html',;             //Programa que os links/botoes do grid deverao chamar
+       'gr5',;                            //Módulo do programa chamado pelos links/botoes do grid
+       ,;                                 //Retorno java (nil) - usado apenas para Search
+       ,;                                 //Campos usados na pesquisa rápida
+       ,;                                 //Campos Ocultos
+       laINPUT_OBJ,;                      //Campos da área de manutenção/entrada de dados
+       laSELECT ,;                        //Campos exibidos no grid
+       laSELECT)                          //Campos usados no select
+return

@@ -1,0 +1,495 @@
+/*
+
+Project      : gr5
+Program      : sch.pfpj.html
+Function     : sch_pfpj_html
+Created on   : 23-Jan-2004   10:19:33
+Descripition : Pesquisa de Pessoas
+
+*/
+
+   local lcPFPJ_TABLE_FIELD := '' ,;
+         lcNM_FIELD         := '' ,;
+         lcWHERE            := '' ,;
+         lcAUX1             := '' ,;
+         lcCIP_ESCRITORIO   := '' ,;
+         lcLAYOUT_PASTA     := '' ,;
+         lcTP_PASTA         := '' as string
+
+   local laRES          := {} ,;
+         laFIELDS       := {} ,;
+         laFIELDS_GRID  := {} ,;
+         laWHERE        := {} ,;
+         laJAVA         := {} ,;
+         laJOIN         := {} ,;
+         laPFPJ_TIPOS   := {} ,;
+         laQUICK_SEARCH := {} ,;
+         laINPUT_HIDDEN := {} as array
+         
+         
+   local lnPOS        := 0 as int
+
+   lcPFPJ_TABLE_FIELD := alltrim(WGet('PFPJ_TABLE_FIELD','C'))
+   lcCIP_ESCRITORIO   := WGet('CIP_ESCRITORIO','C')
+   lcLAYOUT_PASTA     := alltrim(WGet('LAYOUT_PASTA','C'))
+   lcTP_PASTA         := wget('TP_PASTA','C')
+
+   lcAUX1             := WGET('CIP_EMPRESA')
+   
+   lcNM_FIELD         := alltrim(WGet('NM_FIELD','C'))
+   if empty(lcNM_FIELD)
+      lcNM_FIELD := substr(lcPFPJ_TABLE_FIELD,at('.',lcPFPJ_TABLE_FIELD)+1) //Pega somente o campo do parametro PFPJ_TABLE_FIELD
+   endif
+
+
+   laINPUT_HIDDEN     := {{'PFPJ_TABLE_FIELD',lcPFPJ_TABLE_FIELD},;
+                          {'CIP_ESCRITORIO',  lcCIP_ESCRITORIO},;
+                          {'NM_FIELD',lcNM_FIELD},;
+                          {'LAYOUT_PASTA',lcLAYOUT_PASTA},;
+                          {'TP_PASTA',lcTP_PASTA},;
+                          {'AUX1', iif(empty(lcAUX1),WGET('AUX1'),lcAUX1)}}
+
+   /* Filtra Dados a partir do parametro lcPFPJ_TABLE_FIELD */
+   if ! empty(lcPFPJ_TABLE_FIELD)
+      /* Se a pesquisa vier de CIP_ADVOGADO_EXTERNO, filtra pelo CIP_ESCRITORIO */
+      if 'CIP_ADVOGADO_EXTERNO' $ lcPFPJ_TABLE_FIELD
+         aadd(laWHERE,'pfpj.CIP_EMPRESA='+DLAP+lcCIP_ESCRITORIO+DLAP)
+      endif
+
+      /* Filtros definidos pelo usuário em Configurações de Campos */
+      if db_select({'PFPJ_TIPOS'},'pfpj_conftipocampo',,{'PFPJ_TABLE_FIELD='+DLAP+lcPFPJ_TABLE_FIELD+DLAP}) = -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchrow()
+      if len(laRES) > 0
+         laPFPJ_TIPOS := str2array(laRES[1],',')
+         if len(laPFPJ_TIPOS) > 0
+            for ii := 1 to len(laPFPJ_TIPOS)
+               if ii > 1
+                  lcWHERE += ' or '
+               endif
+               //lcWHERE += 'pfpj.PFPJ_TIPO='+DLAP+laPFPJ_TIPOS[ii]+DLAP
+               lcWHERE += 'pfpj.PFPJ_TIPOS like'+DLAP+'%'+laPFPJ_TIPOS[ii]+'%'+DLAP
+            next ii
+            aadd(laWHERE,lcWHERE)
+         endif
+      endif
+   endif
+// ALTERAÇAO SONIA - 01/11/2010 - CARREGAR CNPJ_CPF NO TEMPLATE CIVEL_CONSULTIVO2
+   laFIELDS_GRID := {'pfpj.CIP',;
+                     'pfpj.PFPJ',;
+                     'pfpj.PFPJ_NATUREZA',;
+                     'pfpj.PFPJ_TIPOS',;
+                     'pfpj.CD_GRP_ECONOMICO',;
+                     'pfpj.DATA_NASCIMENTO',;
+                     'pfpj.ESTADO_CIVIL',;
+                     'grupo_economico.NM_GRP_ECONOMICO'}
+//                     'pfpj.CNPJ_CPF',;
+
+
+   if lcPFPJ_TABLE_FIELD == 'pasta.CIP_EMPRESA' .and. lcLAYOUT_PASTA != 'SOCIETARIO'
+      laFIELDS := {'pfpj.CIP',;
+                   'pfpj.PFPJ',;
+                   'pfpj.PFPJ_NATUREZA',;
+                   'pfpj.PFPJ_TIPOS',;
+                   'pfpj.PFPJ_ATIVIDADE',;
+                   'pfpj.CD_GRP_ECONOMICO',;
+                   'grupo_economico.NM_GRP_ECONOMICO'}
+
+// ALTERAÇAO SONIA - 01/11/2010 - equiparação
+      laJAVA   := {'mntform',{{lcNM_FIELD,'CIP'},;
+                              {lcNM_FIELD+'_PFPJ','PFPJ'},;
+                              {lcNM_FIELD+'_CD_GRP_ECONOMICO','CD_GRP_ECONOMICO'},;
+                              {lcNM_FIELD+'_NM_GRP_ECONOMICO','NM_GRP_ECONOMICO'},;
+                              {'PFPJ_ATIVIDADE','PFPJ_ATIVIDADE',;
+                              {lcNM_FIELD+'_PFPJ','PFPJ'}}}}
+                              
+
+// ALTERAÇAO SONIA - 18/02/2015 15:57:08 - TEMPLATE TRABALHISTA2_CONT
+   elseif lcPFPJ_TABLE_FIELD == 'pasta.CIP_RECLAMANTE'
+      laFIELDS := {'pfpj.CIP',;
+                   'pfpj.PFPJ',;
+                   'pfpj.CNPJ_CPF',;
+                   'pfpj.FL_SEXO',;
+                   'pfpj.DT_NASCIMENTO',;
+                   'pfpj.NR_PIS_PASEP'}
+
+
+      laJAVA   := {'mntform',{{lcNM_FIELD,'CIP'},;
+                              {lcNM_FIELD+'_PFPJ','PFPJ'},;
+                              {'CNPJ_CPF','CNPJ_CPF'},;
+                              {'FL_SEXO','FL_SEXO'},;
+                              {'DT_NASCIMENTO','DT_NASCIMENTO'},;
+                              {'NR_PIS_PASEP','NR_PIS_PASEP'}}}
+
+
+                              
+// ALTERAÇAO GLAUBER - 01/12/2014 - TEMPLATE CONTRATO3
+   elseif lcPFPJ_TABLE_FIELD == 'pasta.CIP_DIRETORIA'
+      laFIELDS := {'pfpj.CIP',;
+                   'pfpj.PFPJ',;
+                   'pfpj.PFPJ_NATUREZA',;
+                   'pfpj.PFPJ_TIPOS',;
+                   'pfpj.PFPJ_ATIVIDADE',;
+                   'pfpj.CD_GRP_ECONOMICO',;
+                   'grupo_economico.NM_GRP_ECONOMICO'}
+
+
+      laJAVA   := {'mntform',{{lcNM_FIELD,'CIP'},;
+                              {lcNM_FIELD+'_PFPJ','PFPJ'},;
+                              {lcNM_FIELD+'_CD_GRP_ECONOMICO','CD_GRP_ECONOMICO'},;
+                              {lcNM_FIELD+'_NM_GRP_ECONOMICO','NM_GRP_ECONOMICO'},;
+                              {'PFPJ_ATIVIDADE','PFPJ_ATIVIDADE',;
+                              {lcNM_FIELD+'_PFPJ','PFPJ'}}}}
+
+
+// ALTERAÇAO SONIA - 01/11/2010 - CARREGAR CNPJ_CPF NO TEMPLATE CIVEL_CONSULTIVO2
+  elseif 'pfpj_' $ lcPFPJ_TABLE_FIELD
+      laFIELDS := {'pfpj.CIP',;
+                   'pfpj.PFPJ',;
+                   'pfpj.PFPJ_NATUREZA',;
+                   'pfpj.PFPJ_TIPOS',;
+                   'pfpj.CD_GRP_ECONOMICO',;
+                   'grupo_economico.NM_GRP_ECONOMICO',;
+                   'pfpj.CARGO',;
+                   'pfpj.TELEFONE',;
+                   'pfpj.EMAIL'}
+
+      laJAVA   := {'mntform',{{lcNM_FIELD,'CIP'},;
+                              {lcNM_FIELD+'_PFPJ','PFPJ'},;
+                              {lcNM_FIELD+'_PFPJ_NATUREZA','PFPJ_NATUREZA'},;
+                              {'PFPJ_ATIVIDADE','PFPJ_ATIVIDADE'},;
+                              {lcNM_FIELD+'_PFPJ_TIPOS','PFPJ_TIPOS'},;
+                              {lcNM_FIELD+'_CARGO','CARGO'},;
+                              {lcNM_FIELD+'_TELEFONE','TELEFONE'},;
+                              {lcNM_FIELD+'_EMAIL','EMAIL'},;
+                              {lcNM_FIELD+'_PFPJ','PFPJ'}}}
+
+   elseif lcPFPJ_TABLE_FIELD == 'pasta_notificacao.CIP_PESSOA_NOTIFICADA'
+      laFIELDS := {'pfpj.CIP',;
+                   'pfpj.PFPJ',;
+                   'pfpj.ENDERECO',;
+                   'pfpj.NR_ENDERECO',;
+                   'pfpj.EXTRA_ENDERECO',;
+                   'pfpj.BAIRRO',;
+                   'pfpj.CIDADE',;
+                   'pfpj.UF',;
+                   'pfpj.CEP',;
+                   'pfpj.PAIS',;
+                   'pfpj.DDD',;
+                   'pfpj.TELEFONE',;
+                   'pfpj.CNPJ_CPF',;
+                   'pfpj.IE'}
+
+      laJAVA   := {'mntform',{{'CIP_PESSOA_NOTIFICADA','CIP'},;
+                              {lcNM_FIELD+'_PFPJ','PFPJ'},;
+                              {lcNM_FIELD+'_ENDERECO','ENDERECO'},;
+                              {lcNM_FIELD+'_NR_ENDERECO','NR_ENDERECO'},;
+                              {lcNM_FIELD+'_EXTRA_ENDERECO','EXTRA_ENDERECO'},;
+                              {lcNM_FIELD+'_BAIRRO','BAIRRO'},;
+                              {lcNM_FIELD+'_CIDADE','CIDADE'},;
+                              {lcNM_FIELD+'_UF','UF'},;
+                              {lcNM_FIELD+'_CEP','CEP'},;
+                              {lcNM_FIELD+'_PAIS','PAIS'},;
+                              {lcNM_FIELD+'_DDD','DDD'},;
+                              {lcNM_FIELD+'_TELEFONE','TELEFONE'},;
+                              {lcNM_FIELD+'_CNPJ_CPF','CNPJ_CPF'},;
+                              {lcNM_FIELD+'_IE','IE'}}}
+
+ elseif lcPFPJ_TABLE_FIELD == 'mvt_despesa.CIP_EMPRESA_PAGADORA'
+      laFIELDS := {'pfpj.CIP',;
+                   'pfpj.PFPJ',;
+                   'pfpj.PFPJ_NATUREZA',;
+                   'pfpj.PFPJ_ATIVIDADE',;
+                   'pfpj.PFPJ_TIPOS',;
+                   'pfpj.CD_GRP_ECONOMICO',;
+                   'grupo_economico.NM_GRP_ECONOMICO',;
+                   'pfpj.CIDADE',;
+                   'pfpj.UF',;
+                   'pfpj.ENDERECO',;
+                   'pfpj.NR_ENDERECO',;
+                   'pfpj.CNPJ_CPF',;
+                   'pfpj.IE',;
+                   'pfpj.NIRE'}
+
+      laJAVA   := {'mntform',{{lcNM_FIELD,'CIP'},;
+                              {lcNM_FIELD+'_PFPJ','PFPJ'},;
+                              {lcNM_FIELD+'_CD_GRP_ECONOMICO','CD_GRP_ECONOMICO'},;
+                              {lcNM_FIELD+'_NM_GRP_ECONOMICO','NM_GRP_ECONOMICO'},;
+                              {lcNM_FIELD+'_CIDADE','CIDADE'},;
+                              {lcNM_FIELD+'_UF','UF'},;
+                              {lcNM_FIELD+'_ENDERECO','ENDERECO'},;
+                              {lcNM_FIELD+'_NR_ENDERECO','NR_ENDERECO'},;
+                              {lcNM_FIELD+'_CNPJ_CPF','CNPJ_CPF'},;
+                              {lcNM_FIELD+'_IE','IE'},;
+                              {lcNM_FIELD+'_NIRE','NIRE'}}}
+
+ elseif lcPFPJ_TABLE_FIELD == 'pasta.CIP_PARTE_CONTRARIA'
+      laFIELDS := {'pfpj.CIP',;
+                   'pfpj.PFPJ',;
+                   'pfpj.CNPJ_CPF',;
+                   'pfpj.PFPJ_NATUREZA',;
+                   'pfpj.PFPJ_TIPOS',;
+                   'pfpj.CD_GRP_ECONOMICO',;
+                   'pfpj.DT_NASCIMENTO',;
+                   'pfpj.ESTADO_CIVIL'}
+                   
+    laJAVA   := {'mntform',{{lcNM_FIELD,'CIP'},;
+                            {lcNM_FIELD+'_DT_NASCIMENTO','DT_NASCIMENTO'},;
+                            {lcNM_FIELD+'_ESTADO_CIVIL','ESTADO_CIVIL'},;
+                            {lcNM_FIELD+'_PFPJ','PFPJ'},;
+                            {'CPF_NUMERO_CARTAO','CNPJ_CPF'}}}
+
+
+
+   elseif lcPFPJ_TABLE_FIELD == 'pasta.CIP_SOLICITANTE'  
+      laFIELDS := {'pfpj.CIP',;
+                   'pfpj.PFPJ',;
+                   'pfpj.CNPJ_CPF'}
+
+      laJAVA   := {'mntform',{{lcNM_FIELD,'CIP'},;
+                              {'CIP_SOLICITANTE_PFPJ','PFPJ'},;
+                              {'CNPJ_PESSOA_JURIDICA','CNPJ_CPF'}}}                            
+ 
+// alteracao consultivo 2 unimed
+   elseif lcPFPJ_TABLE_FIELD == 'pasta.CIP_SEGURADORA'
+      laFIELDS := {'pfpj.CIP',;
+                   'pfpj.PFPJ',;
+                   'pfpj.CNPJ_CPF'}
+
+      laJAVA   := {'mntform',{{lcNM_FIELD,'CIP'},;
+                              {lcNM_FIELD+'_PFPJ','PFPJ'},;
+                              {'CNPJ_SEGURADORA','CNPJ_CPF'}}}
+
+   elseif lcPFPJ_TABLE_FIELD == 'pasta.CIP_PESSOA_FISICA'
+
+      laFIELDS := {'pfpj.CIP',;
+                   'pfpj.PFPJ',;
+                   'pfpj.CNPJ_CPF'}
+
+      laJAVA   := {'mntform',{{lcNM_FIELD,'CIP'},;
+                              {lcNM_FIELD+'_PFPJ','PFPJ'},;
+                              {'CPF_PESSOA_FISICA','CNPJ_CPF'}}}
+
+                              
+  elseif lcPFPJ_TABLE_FIELD == 'pasta.CIP_PESSOA_JURIDICA'
+
+      laFIELDS := {'pfpj.CIP',;
+                   'pfpj.PFPJ',;
+                   'pfpj.CNPJ_CPF'}
+
+      laJAVA   := {'mntform',{{lcNM_FIELD,'CIP'},;
+                              {lcNM_FIELD+'_PFPJ','PFPJ'},;
+                              {'CNPJ_PESSOA_JURIDICA','CNPJ_CPF'}}}
+
+   elseif lcPFPJ_TABLE_FIELD == 'pasta_sct_socios.CIP_SOCIO_ACIONISTA'
+
+      laFIELDS := {'pfpj.CIP',;
+                   'pfpj.PFPJ',;
+                   'pfpj.CNPJ_CPF',;
+                   'pfpj.IE'}
+                   
+
+      laJAVA   := {'mntform',{{lcNM_FIELD,'CIP'},;
+                              {lcNM_FIELD+'_PFPJ','PFPJ'},;
+                              {lcNM_FIELD+'_CNPJ_CPF','CNPJ_CPF'},;
+                              {lcNM_FIELD+'_IE','IE'}}}
+//                              {'CNPJ_SOCIO_ACIONISTA','CNPJ_CPF'},;
+ elseif lcPFPJ_TABLE_FIELD == 'pasta.CIP_FAVORECIDO'
+
+      laFIELDS := {'pfpj.CIP',;
+                   'pfpj.PFPJ',;
+                   'pfpj.PFPJ_NATUREZA',;
+                   'pfpj.CD_BANCO',;
+                   'pfpj.BANCO_AGENCIA',;
+                   'pfpj.BANCO_CONTA',;
+                   'pfpj.BANCO_CONTA_DIGITO'}
+
+ laFIELDS_GRID := {'pfpj.CIP',;
+                   'pfpj.PFPJ',;
+                   'pfpj.PFPJ_NATUREZA'}
+
+
+      laJAVA   := {'mntform',{{lcNM_FIELD,'CIP'},;
+                              {lcNM_FIELD+'_PFPJ','PFPJ'},;
+                              {lcNM_FIELD+'_PFPJ_NATUREZA','PFPJ_NATUREZA'},;
+                              {'CD_BANCO','CD_BANCO'},;
+                              {'BANCO_AGENCIA','BANCO_AGENCIA'},;
+                              {'BANCO_CONTA','BANCO_CONTA'},;
+                              {'BANCO_CONTA_DIGITO','BANCO_CONTA_DIGITO'}}}
+//
+// Glauber 15/12/2014 - Quando vier do campo CIP_CONTRATANTE, deve ser incluido os ***** conforme solicitação da Célia
+//                      Utilizado no temnplate contrato3
+//
+ elseif lcPFPJ_TABLE_FIELD == 'pasta.CIP_CONTRATANTE'
+
+        laFIELDS := {'pfpj.CIP',;
+                     "case when pfpj.FL_DOCUMENTO_FALTA = 'S' then pfpj.PFPJ || ' *****' else pfpj.PFPJ end AS PFPJ",;
+                     'pfpj.PFPJ_NATUREZA',;
+                     'pfpj.PFPJ_TIPOS',;
+                     'pfpj.PFPJ_ATIVIDADE',;
+                     'pfpj.CD_GRP_ECONOMICO',;
+                     'grupo_economico.NM_GRP_ECONOMICO'}
+  
+
+        laJAVA   := {'mntform',{{lcNM_FIELD,'CIP'},;
+                                {lcNM_FIELD+'_PFPJ','PFPJ'},;
+                                {lcNM_FIELD+'_CD_GRP_ECONOMICO','CD_GRP_ECONOMICO'},;
+                                {lcNM_FIELD+'_NM_GRP_ECONOMICO','NM_GRP_ECONOMICO'},;
+                                {'PFPJ_ATIVIDADE','PFPJ_ATIVIDADE',;
+                                {lcNM_FIELD+'_PFPJ','PFPJ'}}}}
+        laFIELDS_GRID := aclone(laFIELDS)
+
+elseif lcPFPJ_TABLE_FIELD == 'pasta_avalia.CIP'    //rufino 30/03/2015 19:00
+      laFIELDS := {'pfpj.CIP',;
+                   'pfpj.PFPJ',;
+                   'pfpj.PFPJ_NATUREZA',;
+                   'pfpj.PFPJ_TIPOS',;
+                   'pfpj.CD_GRP_ECONOMICO',;
+                   'pfpj.DT_NASCIMENTO',;
+                   'pfpj.ESTADO_CIVIL',;
+                   'grupo_economico.NM_GRP_ECONOMICO'}
+
+      laJAVA   := {'mntform',{{lcNM_FIELD,'CIP'},;
+                              {lcNM_FIELD+'_DT_NASCIMENTO','DT_NASCIMENTO'},;
+                              {lcNM_FIELD+'_ESTADO_CIVIL','ESTADO_CIVIL'},;
+                              {'PFPJ','PFPJ'}}}
+
+
+
+
+
+
+   else
+
+      laFIELDS := {'pfpj.CIP',;
+                   'pfpj.PFPJ',;
+                   'pfpj.PFPJ_NATUREZA',;
+                   'pfpj.PFPJ_TIPOS',;
+                   'pfpj.CD_GRP_ECONOMICO',;
+                   'pfpj.DT_NASCIMENTO',;
+                   'pfpj.ESTADO_CIVIL',;
+                   'grupo_economico.NM_GRP_ECONOMICO'}
+
+      laJAVA   := {'mntform',{{lcNM_FIELD,'CIP'},;
+                              {lcNM_FIELD+'_DT_NASCIMENTO','DT_NASCIMENTO'},;
+                              {lcNM_FIELD+'_ESTADO_CIVIL','ESTADO_CIVIL'},;
+                              {lcNM_FIELD+'_PFPJ','PFPJ'}}}
+
+                              
+
+   endif
+
+
+   laJOIN   := {{2,'grupo_economico','grupo_economico.CD_GRP_ECONOMICO=pfpj.CD_GRP_ECONOMICO'}}
+ 
+   laQUICK_SEARCH := {'PFPJ_CHAR','PFPJ','NM_FANTASIA',;
+                      'CIP','CIP_EMPRESA',;
+                      'CARGO','DEPTO',;
+                       'ENDERECO','CIDADE'}
+// Glauber 26/09/2013 - Customização VPar
+
+   IF EMPTY(WGET('CIP_EMPRESA'))
+      lcAUX1 := WGET('AUX1')
+   ENDIF
+ 
+   if (Wset('FILIAL') == 'ENABLE' .and. ! empty(lcAUX1) .AND. lcPFPJ_TABLE_FIELD == 'pasta.CIP_FILIAL')
+      aadd(laWHERE,'pfpj.CIP_EMPRESA='+DLAP+lcAUX1+DLAP)  
+      WPUT('AUX1',lcAUX1)
+   endif                    
+         
+ 
+   aadd(laWHERE,'FL_APROVADO='+DLAP+'S'+DLAP)
+
+
+   xbp('pfpj',;                  //Tabela Alvo
+       laJOIN,;                  //Join
+       laWHERE,;                 //Where
+       ,;                        //Order by
+       ,;                        //Sort [A]-Ascendente [D]-Descentende
+       ,;                        //Group by
+       ,;                        //Limit
+       ,;                        //Banco de Dados
+       3,;                       //Modo de funcionamento [1]-Listagem/Form para manutenção [2]-Listagem e Manutenção [3]-Search
+       'gr5',;                   //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),; //Programa chamador
+       ,;                        //Parametros para linhas clicáveis
+       ,;                        //Botoes (nil)
+       'pfpj.mnt.html',;         //Programa chamado pelos links (linhas clicáveis)
+       'gr5',;                   //Módulo do programa chamado pelos links
+       laJAVA,;                  //Retorno java
+       laQUICK_SEARCH,;          //Campos usados na pesquisa rápida
+       laINPUT_HIDDEN,;          //Campos ocultos. Usado apenas em manutenções    ***
+       ,;                        //Campos da área de manutenção/entrada de dados  ***
+       laFIELDS_GRID,;           //Campos mostratos no grid
+       laFIELDS)                 //Campos usados no select   
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

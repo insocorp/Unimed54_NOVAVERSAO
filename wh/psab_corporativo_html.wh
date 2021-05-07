@@ -1,0 +1,170 @@
+/*Alterado em 31/01/2009 - Eliana inclusao rotina para Lits
+*Chama funcoes : verifica_relacionamento
+*                ver_aba
+*                montar_filho
+*                sincroniza_pasta
+
+Project      : gr5_305
+Program      : psab.corporativo.html
+Function     : psab_corporativo_html
+Created on   : 21-Jun-2006   15:23:44
+Descripition : Aba Corporativo
+
+*/
+
+   local lcACTION      := '' ,;
+         lcWHERE       := '' ,;
+         lcTable       := '' ,;
+         lcTableP      := '' ,;
+         lcRelac       := '' ,;
+         lcProgram     := 'psab_corporativo_html' ,;
+         lcNR_PASTA    := '' ,;
+         lcTP_PASTA    := '' as string
+   local laRESULT        := {} ,;
+         laSAVE          := {} ,;
+         laSAVE_AUX      := {} ,;
+         laFIELDS        := {} ,;
+         laPUT           := {} as array
+   local ii := 0 as int
+   local llReturn   := .f. as logical
+
+   lcACTION   := upper(alltrim(WGet('ACTION','C')))
+   lcNR_PASTA := WGet('NR_PASTA','C')
+   lcTP_PASTA := WGet('TP_PASTA','C')
+   lcWHERE    := 'pasta.NR_PASTA = '+lcNR_PASTA
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   wPut('TP_PASTA',lcTP_PASTA)
+
+   carrega_cbox({{'departamento','DEPARTAMENTO','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+   carrega_cbox({{'deposito_status','FL_DEPOSITO','Y'}})
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   init_reqfield(WSet('_USER_INTERFACE'))
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   pasta_abas(lcTP_PASTA)
+
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, {'NR_PASTA','DEPARTAMENTO','CIP_DIRETORIA','CIP_DIRETORIA_PFPJ','CIP_GERENTE','CIP_GERENTE_PFPJ'})
+
+
+
+//------------  Verificando relacionamento    -----------------------------------------
+
+   lcRelac:=verifica_relacionamento(lcNR_PASTA, lcTp_pasta)
+
+//------------ Verificando se Aba pode ser alterada  ------------------------
+
+   if lcRelac = 'F' .or. lcRelac = 'P'
+      llReturn:=Ver_ABA(lcTP_PASTA, lcProgram)
+   endif    
+        
+   if lcRelac = 'F' .and. llReturn  
+      walert('Somente Para Consulta - Pasta Pertence a Litsconsorte')
+
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+      if verif_reqfield(WSet('_USER_INTERFACE'))
+         //Gravando os CIPs
+         laCIP := {'CIP_GERENTE','CIP_DIRETORIA'}
+         for ii := 1 to len(laCIP)
+            laSAVE := {{'NR_PASTA','WFIELD','CIP'}}
+            aadd(laSAVE,{val(lcNR_PASTA),laCIP[ii],WGet(laCIP[ii])})
+            lcWHERE := 'NR_PASTA='+lcNR_PASTA+' and WFIELD='+DLAP+laCIP[ii]+DLAP
+            if lcRelac = '' .or. lcRelac = 'P' .or. (lcRelac = 'F' .and. llReturn = .f.)      // se .f. posso alterar atraves do filho
+               psab_logs(laSAVE,'pasta_cip',lcWHERE,lcNR_PASTA,'Corporativo')
+               if db_replace(laSAVE,'pasta_cip',{lcWHERE}) == -1
+                  error_sys(db_error())
+               endif
+               if lcRelac = 'P' .and. llReturn 
+                  laFilho:=Montar_filho(lcNR_PASTA, lcTp_Pasta)
+                  lcTable   := 'pasta_cip'
+                  if len(laFilho) > 0
+                     for nn :=1 to len(lafilho)
+                         laSave[2,1]:=lafilho[nn]
+                         lcWHEREp  := 'NR_PASTA='+str(lafilho[nn])+' and WFIELD='+DLAP+laCIP[ii]+DLAP
+                         if db_replace(laSAVE,'pasta_cip',{lcWHEREP}) == -1
+                            error_sys(db_error())
+                         endif
+                     next ii
+                  endif   
+               endif
+            endif
+         next ii
+
+         //Salvando dados em Pasta
+         laSAVE := {{'DEPARTAMENTO'}}
+         aadd(laSAVE,{WGet('DEPARTAMENTO')})
+         lcWHERE := 'NR_PASTA='+lcNR_PASTA
+         if lcRelac = '' .or. lcRelac = 'P' .or. (lcRelac = 'F' .and. llReturn = .f.)      // se .f. posso alterar atraves do filho
+            psab_logs(laSAVE,'pasta',lcWHERE,lcNR_PASTA,'Corporativo')
+            if db_replace(laSAVE,'pasta',{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+            if lcRelac = 'P' .and. llReturn 
+               laFilho:=Montar_filho(lcNR_PASTA, lcTp_pasta)
+               if len(laFilho) > 0
+                  for nn := 1 to len(laFilho)                   // gravando abas dos filhos
+                      lcWHEREp  := 'NR_PASTA='+str(lafilho[nn])
+                      if db_replace(laSAVE,'pasta',{lcWHEREp}) == -1
+                         error_sys(db_error())
+                      endif
+                  next nn
+               endif   
+            endif
+         endif
+      endif
+   endif
+
+   if gbWAC_READ
+      if db_select({'pasta.NR_PASTA',;
+                    'pasta.DEPARTAMENTO',;
+                    'pasta_pfpj_diretoria.CIP as CIP_DIRETORIA',;
+                    'pasta_pfpj_diretoria.PFPJ as CIP_DIRETORIA_PFPJ',;
+                    'pasta_pfpj_gerente.CIP as CIP_GERENTE',;
+                    'pasta_pfpj_gerente.PFPJ as CIP_GERENTE_PFPJ'},'pasta',;
+                    {{2,'pasta_pfpj_diretoria','pasta_pfpj_diretoria.NR_PASTA=pasta.NR_PASTA'},;
+                     {2,'pasta_pfpj_gerente','pasta_pfpj_gerente.NR_PASTA=pasta.NR_PASTA'}},;
+                    {'pasta.NR_PASTA='+lcNR_PASTA}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT:=db_fetchall()
+
+      db2Put(laRESULT)
+
+   endif
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

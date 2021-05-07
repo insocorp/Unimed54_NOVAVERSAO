@@ -1,0 +1,248 @@
+/*
+
+Project      : gr5
+Program      : mnt.vl.tab.honorario.html
+Function     : mnt_vl_tab_honorario_html
+Created on   : 20-Aug-2002   16:28:18
+Descripition : Manutenção de Valores de tabela de honorário
+
+*/
+
+   private lcACTION      := '' ,;
+           lcCD_TB_HONOR := '' ,;
+           lcWHERE       := '' ,;
+           lcTABLE       := '' ,;
+           lcTABLE_DET   := '' ,;
+           lcITEM        := '' ,;
+           lcVALIDA      := ''
+
+   private laRESULT    := {} ,;
+           laFIELDS    := {} ,;
+           laSAVE      := {} ,;
+           lASAVE_AUX  := {} ,;
+           laVAR_WICDO := {} ,;
+           laVAR_WRITE := {} ,;
+           laAUX_WICDO := {} ,;
+           laAUX       := {} ,;
+           laPUT       := {} ,;
+           laVALIDA    := {}
+
+   private x     := 0 ,;
+           liPOS := 0
+
+   local laWHERE := {} as array
+
+   lcACTION      := upper(WGet('ACTION','C'))
+   lcCD_TB_HONOR := WGet('CD_TB_HONORARIO','C')
+   lcTABLE       := 'tabela_honorario'
+   lcTABLE_DET   := 'vl_tabela_honorario'
+   laFIELDS      := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+   laLABELS      := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'A')
+   if lcCD_TB_HONOR = 'New'
+      lcCD_TB_HONOR := '0'
+   endif
+   lcWHERE     := 'CD_TB_HONORARIO='+lcCD_TB_HONOR
+
+   laVAR_WICDO := {'VAR_CD_CARGO',;
+                   'VAR_NM_CARGO',;
+                   'VAR_VL_UNIT'}
+
+   laVAR_WRITE := {'CD_TB_HONORARIO',;
+                   'CD_CARGO',;
+                   'VL_UNIT'}
+
+   /* Campos obrigatórios
+   * Formato do array abaixo
+   * 1 - Campo para captura da informação no HTML - WGet()
+   * 2 - Parte do label a exibir em caso de erro, está inf. e capturado do Wictrix
+   */
+   laVALIDA := {{'NM_TB_HONORARIO',laLABELS[ascan(laFIELDS,'NM_TB_HONORARIO')]},;
+                {'CD_MOEDA',laLABELS[ascan(laFIELDS,'CD_MOEDA')]}}
+
+   /* Relacionamentos que devem ser validados
+   * Formato do array abaixo
+   * 1 - Tabela
+   * 2 - Campo para captura da informação no HTML - WGet()
+   * 3 - Campo para montagem da cláusula WHERE usada em db_findrec()
+   * 4 - Parte do label a exibir em caso de erro, está inf. e capturado do Wictrix
+   */
+   laFIND_REC := {{'moeda','CD_MOEDA','CD_MOEDA',laLABELS[ascan(laFIELDS,'CD_MOEDA')]}}
+
+   if lcACTION='NEW' .or. lcACTION='ALTER'
+      cargos()
+   endif
+
+   if lcACTION='NEW' .and. gbWAC_CREATE
+     wPut('CD_TB_HONORARIO','New')
+     aadd(laPUT,laVAR_WICDO)
+     for x := 2 to len(laRESULT)
+         lcITEM := '_'+alltrim(str(x-1))
+         aadd(laPUT,{laVAR_WICDO[1]+lcITEM,; //Código do Cargo
+                     laVAR_WICDO[2]+lcITEM,; //Descrição
+                     laVAR_WICDO[3]+lcITEM}) //Valor unitário
+
+         wPut(laVAR_WICDO[1]+lcITEM,laRESULT[x,1]) //Código do Cargo
+         wPut(laVAR_WICDO[2]+lcITEM,laRESULT[x,2]) //Descrição
+         wPut(laVAR_WICDO[3]+lcITEM,'0.00')        //Valor unitário
+     next x
+     wPut('lstCARGO',laPUT)
+   elseif lcACTION='ALTER' .and. gbWAC_READ
+     monta_grid()
+   elseif lcACTION='SAVE' .and. gbWAC_WRITE
+      // Validação de campos obrigatórios ------------------------------
+      for x := 1 to len(laVALIDA)
+          lcVALIDA := alltrim(WGet(laVALIDA[x,1],'C'))
+          if len(lcVALIDA) = 0 .or. lcVALIDA == '0'
+             walert(laVALIDA[x,2]+' é um campo obrigatório!')
+             get2Put()
+             cargos()
+             monta_grid()
+             return(.f.)
+          endif
+      next ii
+
+      //Validação de chaves estrangeiras ------------------------------
+      for ii := 1 to len(laFIND_REC)
+          lcVALIDA := alltrim(WGet(laFIND_REC[ii,2],'C'))
+          if !empty(lcVALIDA) .and. lcVALIDA <> '0'
+             if len(db_findrec({laFIND_REC[ii,3]},laFIND_REC[ii,1],laFIND_REC[ii,3]+'='+lcVALIDA)) = 0
+           walert(laFIND_REC[ii,4]+' é inválido(a) ou não pode ser encontrado(a)!')
+           get2Put()
+                cargos()
+                monta_grid()
+           return(.f.)
+             endif
+          endif
+      next ii
+
+      if lcCD_TB_HONOR <> '0' .and. !empty(lcCD_TB_HONOR)
+         if db_delete(lcTABLE_DET,lcWHERE) == -1
+            error_sys(db_error())
+         endif
+      endif
+
+      aadd(laSAVE,laFIELDS)
+      for x := 1 to len(laFIELDS)
+          aadd(laSAVE_AUX,WGet(laFIELDS[x]))
+      next x
+      aadd(laSAVE,laSAVE_AUX)
+      if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+         error_sys(db_error())
+      endif
+
+      if alltrim(lcCD_TB_HONOR) == '0'
+         lcCD_TB_HONOR := alltrim(str(db_insert_id()))
+      endif
+      laSAVE       := {}
+      y            := 1
+      lcITEM       := '_'+alltrim(str(y))
+      lcFIELD_VAR  := 'VAR_'+laVAR_WRITE[2]+lcITEM  //Controle do laço - Cód do Cargo
+      aadd(laSAVE,laVAR_WRITE)
+      do while WGet(lcFIELD_VAR,'B')
+         if WGet('VAR_'+laVAR_WRITE[3]+lcITEM,'N') <> 0
+            aadd(laSAVE,{val(lcCD_TB_HONOR),;
+                         WGet('VAR_'+laVAR_WRITE[2]+lcITEM,'N'),; //Cód do Cargo
+                         WGet('VAR_'+laVAR_WRITE[3]+lcITEM,'N')}) //Valor Unitário
+            aadd(laWHERE,'CD_TB_HONORARIO='+lcCD_TB_HONOR+' and CD_CARGO='+WGet('VAR_'+laVAR_WRITE[2]+lcITEM,'C'))
+         endif
+         y++
+         lcITEM      := '_'+alltrim(str(y))
+         lcFIELD_VAR := 'VAR_'+laVAR_WRITE[2]+lcITEM  //Controle do laço - Cód do Cargo
+      enddo
+      if len(laSAVE) > 1
+         if db_replace(laSAVE,lcTABLE_DET,laWHERE) = -1
+            error_sys(db_error())
+         endif
+      endif
+      wSet('_USER_INTERFACE','lst.tb.honorario.html')
+      lst_tb_honorario_html()
+   endif
+return
+
+/*
+* Function..: monta_grid()
+* Objetivo..: Montar a lista de Cargos com seus respectivos valores, caso esteja cadastrados
+* Parâmetros:
+*    Nenhum
+* Retorno...: Nenhum
+*/
+static function monta_grid()
+   local laFLD_GRID := {} ,;
+         laWHERE    := {} ,;
+         laPUT      := {} as array
+   local ii := 0 as int
+
+   if lcACTION = 'ALTER'
+      for ii := 1 to len(laFIELDS)
+          aadd(laFLD_GRID,lcTABLE+'.'+laFIELDS[ii])
+      next ii
+      aadd(laFLD_GRID,'moeda.NM_MOEDA')
+
+      laWHERE := {lcWHERE}
+      if db_select(laFLD_GRID,lcTABLE,{{2,'moeda','moeda.CD_MOEDA=tabela_honorario.CD_MOEDA'}},laWHERE) == -1
+         error_sys('monta_grid: '+db_error())
+      endif
+      laPUT := db_fetchall()
+      if len(laPUT) > 1
+         db2put(laPUT)
+      else
+         wSet('_USER_INTERFACE','lst.tb.honorario.html')
+         lst_tb_honorario_html()
+      endif
+      laFLD_GRID := {lcTABLE_DET+'.CD_CARGO',;
+                     'cargo.NM_CARGO',;
+                     lcTABLE_DET+'.VL_UNIT'}
+      laWHERE    := {lcWHERE+' and '+lcTABLE_DET+'.CD_CARGO=cargo.CD_CARGO'}
+      if db_select(laFLD_GRID,lcTABLE_DET+',cargo',,laWHERE,{lcTABLE_DET+'.CD_CARGO'}) == -1
+         error_sys('monta_grid: '+db_error())
+      endif
+      laAUX := db_fetchall()
+   else
+      laAUX := {}
+   endif
+
+   aadd(laAUX_WICDO,laVAR_WICDO)
+   for x := 2 to len(laRESULT)
+       lcITEM := alltrim(str(laRESULT[x,1]))  // Cód. Servico
+       liPOS  := ascan(laAUX, {|laFIND| alltrim(str(laFIND[1])) == lcITEM})
+
+       /* Se econtrar o Cargo no lançamento, junta com a matriz primaria */
+       if liPOS > 0
+          aadd(laAUX_WICDO,laAUX[liPOS])
+       else
+          aadd(laAUX_WICDO,laRESULT[x]) //Adiciona Código do Cargo e Descrição de uma vez!
+          aadd(laAUX_WICDO[x],'0.00')   //Valor unitário
+       endif
+   next x
+
+   laRESULT := {}
+   aadd(laRESULT,laVAR_WICDO)
+   for x := 2 to len(laAUX_WICDO)
+       lcITEM := '_'+alltrim(str(x-1))
+       aadd(laRESULT,{laVAR_WICDO[1]+lcITEM,; //Código do Servico
+                      laVAR_WICDO[2]+lcITEM,; //Descrição
+                      laVAR_WICDO[3]+lcITEM}) //Valor
+       for y := 1 to len(laVAR_WICDO)
+           wPut(laVAR_WICDO[y]+lcITEM,laAUX_WICDO[x,y])
+       next y
+   next x
+   wPut('lstCARGO',laRESULT)
+return(nil)
+
+/*
+* Function..: cargos()
+* Objetivo..: Selecionar cargos
+* Parâmetros:
+*    Nenhum
+* Retorno...: Nenhum
+*/
+static function cargos()
+   if db_select({'CD_CARGO','NM_CARGO'},'cargo',,,{'CD_CARGO'}) == -1
+      error_sys('cargos: '+db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) == 0
+      wSet('_USER_INTERFACE','lst.tb.honorario.html')
+      lst_tb_honorario_html()
+   endif
+return(nil)

@@ -1,0 +1,49 @@
+/*
+
+Project      : gr5
+Program      : sch.tp_expediente.html
+Function     : sch_tp_expediente_html
+Created on   : 02-Jun-2009   17:55:00
+Descripition : Pesquisa de Tipos de Expedientes
+
+*/
+
+   local lcNM_FLD      := '' as string
+
+   local laFIELDS       := {} ,;
+         laJAVA         := {} ,;
+         laQUICK_SEARCH := {} ,;
+         laWHERE        := {} as array
+
+   lcNM_FLD      := WGet('NM_FIELD','C')
+
+   if empty(lcNM_FLD)
+      lcNM_FLD := 'TP_EXPEDIENTE'
+   endif
+
+   laFIELDS       := {'TP_EXPEDIENTE','DESC_EXPEDIENTE'}
+   laQUICK_SEARCH := {'TP_EXPEDIENTE','DESC_EXPEDIENTE'}
+   laJAVA         := {'mntform',{{lcNM_FLD,'TP_EXPEDIENTE'}}}
+
+   xbp('tp_expediente',;                  //Tabela Alvo
+       ,;                                 //Join
+       laWHERE,;                          //Where
+       ,;                                 //Order by
+       ,;                                 //Sort [A]-Ascendente [D]-Descentende
+       ,;                                 //Group by
+       ,;                                 //Limit
+       ,;                                 //Banco de Dados
+       3,;                                //Modo de funcionamento [1]-Listagem/Form para manutenção [2]-Listagem e Manutenção [3]-Search
+       'gr5',;                            //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;          //Programa chamador
+       ,;                                 //Parametros para linhas clicáveis
+       ,;                                 //Botoes (nil)
+       'tp_expediente.mnt.html',;         //Programa chamado pelos links (linhas clicáveis)
+       'gr5',;                            //Módulo do programa chamado pelos links
+       laJAVA,;                           //Retorno java (nil) - usado apenas no search
+       laQUICK_SEARCH,;                   //Campos usados na pesquisa rápida
+       {{'NM_FIELD',lcNM_FLD}},;          //Campos ocultos. Usado apenas em manutenções    ***
+       ,;                                 //Campos da área de manutenção/entrada de dados  ***
+       laFIELDS,;                         //Campos mostratos no grid
+       laFIELDS)                          //Campos usados no select
+return

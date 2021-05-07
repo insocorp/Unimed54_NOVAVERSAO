@@ -1,0 +1,153 @@
+/*
+
+Project      : gr5
+Program      : mnt.acgroup.html
+Function     : mnt_acgroup_html
+Created on   : 05-Jun-2003   15:01:36
+Descripition : Manutenção de Controle de Acesso - Grupos
+
+*/
+
+   local lcWGID   := '' ,;
+         lcWHERE  := '' ,;
+         lcTABLE  := '' ,;
+         lcVALIDA := '' ,;
+         lcACTION := '' ,;
+         lcITEM   := '' as string
+
+   local laFIELDS          := {} ,;
+         laLABELS          := {} ,;
+         laRESULT          := {} ,;
+         laRES             := {} ,;
+         laSAVE            := {} ,;
+         laSAVE_AUX        := {} ,;
+         laDELETE          := {} ,;
+         laVALIDA          := {} ,;
+         laPSWG_DIASSEMANA := {} as array
+
+   local ii := 0 ,;
+         xx := 0 as int
+
+   lcACTION       := upper(alltrim(WGet('ACTION','C')))
+   liRECORD_COUNT := WGet('RECORD_COUNT','N')
+   lcWGID         := alltrim(WGet('WGID','C'))
+   if upper(lcWGID) = 'NEW'
+      lcWGID := '0'
+   endif
+
+   lcWHERE        := 'WGID= '+lcWGID
+   lcTABLE        := 'acgroup'
+   laFIELDS       := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+   laLABELS       := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'A')
+   laVALIDA       := {{'WGROUP',laLABELS[ascan(laFIELDS,'WGROUP')]}}
+
+   if val(lcWGID) > 0
+      mkgedico(lcTABLE,lcWGID)
+   endif
+
+   WPut('TITLE','Perfil de Acesso')
+   WPut('WFL_MASTER.option','Y')
+   WPut('PSW_FL_EMAILRESP.option','Y')
+   WPut('PSW_FL_EMAILLOGIN.option','Y')
+   WPut('PSWG_HR_INICIO','08:00:00')
+   WPut('PSWG_HR_FIM','18:00:00')
+
+   //Dias da semana
+   WPut('PSWG_DIASSEMANA1.option','Y')
+   WPut('PSWG_DIASSEMANA2.option','Y')
+   WPut('PSWG_DIASSEMANA3.option','Y')
+   WPut('PSWG_DIASSEMANA4.option','Y')
+   WPut('PSWG_DIASSEMANA5.option','Y')
+   WPut('PSWG_DIASSEMANA6.option','Y')
+   WPut('PSWG_DIASSEMANA7.option','Y')
+   WPut('FL_LOGIN_AUTO.option','Y')
+   WPut('FL_PWDRULE.option','Y')
+   //WPut('FL_PWDRULE','S')
+
+   if lcACTION = 'NEW' .and. gbWAC_CREATE
+      wPut('WGID','New')
+   elseif lcACTION = 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 0
+         db2Put(laRESULT)
+         // Selecionaos checkboxes correpondentes aos dias da semana --------------------------
+         laPSWG_DIASSEMANA := str2array(laRESULT[2,db_fetchncol(laRESULT,'PSWG_DIASSEMANA')],',')
+         if len(laPSWG_DIASSEMANA) > 0
+            for ii := 1 to len(laPSWG_DIASSEMANA)
+               WPut('PSWG_DIASSEMANA'+laPSWG_DIASSEMANA[ii],'Y')
+            next ii
+         endif
+         WPut('FL_PWDRULE',laRESULT[2,ascan(laRESULT[1],'FL_PWDRULE')])
+      endif
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+      // Validação dos campos -----------------------------------------------------------------
+      for ii := 1 to len(laVALIDA)
+          lcVALIDA := alltrim(WGet(laVALIDA[ii,1],'C'))
+          if len(lcVALIDA) = 0
+             walert(laVALIDA[ii,2]+' é um campo obrigatório!')
+             get2Put()
+             return(.f.)
+          endif
+      next ii
+      // Gravação -----------------------------------------------------------------------------
+      aadd(laSAVE,laFIELDS)
+      for ii := 1 to len(laFIELDS)
+          if laFIELDS[ii] == 'PSWG_DIASSEMANA'
+             for xx := 1 to 7
+                lcITEM := alltrim(str(xx))
+                if WGet('PSWG_DIASSEMANA'+lcITEM,'C') == 'Y'
+                   aadd(laPSWG_DIASSEMANA,lcITEM)
+                endif
+             next xx
+
+             if len(laPSWG_DIASSEMANA) > 0
+                aadd(laSAVE_AUX,array2str(laPSWG_DIASSEMANA,','))
+             else
+                aadd(laSAVE_AUX,'')
+             endif
+          else
+             aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+          endif
+      next
+      aadd(laSAVE,laSAVE_AUX)
+      if Wget('FL_PWDRULE','C') <> 'Y'
+         laSAVE[2,ascan(laSAVE[1],'PSW_QTDMAX')] := 0
+         laSAVE[2,ascan(laSAVE[1],'PSW_QTDMIN')] := 0
+         laSAVE[2,ascan(laSAVE[1],'PSW_QTDMINCHAR')] := 0
+         laSAVE[2,ascan(laSAVE[1],'PSW_QTDMINNUM')] := 0
+         laSAVE[2,ascan(laSAVE[1],'PSW_PICT')] := ''
+      endif
+
+      if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      WSet('_USER_INTERFACE','lst.acgroup.html')
+      lst_acgroup_html()
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+      if db_select({'count(*)'},'acuser',,{lcWHERE}) = -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchrow()
+      if len(laRES) > 0
+         if laRES[1] == 0
+            laDELETE := {'acgroup','acgroup_program','acgroup_filter','acfieldredef'}
+            for ii:= len(laDELETE) to 1 step -1
+               if db_delete(laDELETE[ii],lcWHERE) == -1
+                  error_sys(db_error())
+               endif
+            next ii
+            WSet('_USER_INTERFACE','lst.acgroup.html')
+            lst_acgroup_html()
+         else
+            walert('O perfil não pode ser excluido.\nContém usuários cadastrados.')
+            get2Put()
+         endif
+      endif
+   endif
+return
+
+
+

@@ -1,0 +1,260 @@
+
+   local lcWGID         := '' ,;
+         lcWPROGRAM     := '' ,;
+         lcACTION       := '' ,;
+         lcTABLE        := '' ,;
+         lcNM_PROGRAM   := '' as string
+   local laWICDO    := {} ,;
+         laWRITE    := {} ,;
+         laRES      := {} ,;
+         laPUT      := {} ,;
+         laPROGRAM  := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laWHERE    := {} ,;
+         laLIMIT    := {} ,;
+         laCOUNT    := {} ,;
+         laPAGES    := {} ,;
+         laFIELDS   := {} as array
+   local ii           := 0 ,;
+         lnMAX_PAGES  := 0 ,;
+         lnDEF_PAGES  := 0 ,;
+         lnNR_PAGES   := 0 ,;
+         lnGOTO_PAGE  := 0 ,;
+         lnLIMIT1     := 0 ,;
+         lnLIMIT2     := 0 as int
+
+   local llERRO := .f. as logical
+
+   lcACTION   := upper(WGet('ACTION','C'))
+   lcWGID     := WGet('WGID','C')
+   lcWPROGRAM := WGet('WPROGRAM','C')
+   lcTABLE    := 'acgroup_program'
+   laFIELDS   := structtable(WSet('DB_ACTIVE'),lcTABLE,1,'A')
+   laWICDO    := {'VAR_WPROGRAM',;
+                  'VAR_WPERM_EXEC',;
+                  'VAR_WPERM_READ',;
+                  'VAR_WPERM_WRITE',;
+                  'VAR_WPERM_CREATE',;
+                  'VAR_WPERM_DELETE',;
+                  'WGID',;
+                  'WPROGRAM',;
+                  'NM_PROGRAM'}
+   laWRITE    := {'WGID',;
+                  'WPROGRAM',;
+                  'WPERM_EXEC',;
+                  'WPERM_READ',;
+                  'WPERM_WRITE',;
+                  'WPERM_CREATE',;
+                  'WPERM_DELETE'}
+
+   wPut('FL_REWRITE.option','Y')
+   wPut('WPERM_EXEC.option','Y')
+   wPut('WPERM_READ.option','Y')
+   wPut('WPERM_WRITE.option','Y')
+   wPut('WPERM_CREATE.option','Y')
+   wPut('WPERM_DELETE.option','Y')
+   wPut('TITLE','Programas')
+
+   /* Seleciona Lista de Programas */
+   if db_select({'PROGRAM'},'wprogram',,{'PROJECT='+DLAP+WSet('_PROJECT')+DLAP}) = -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   for ii := 2 to len(laRES)
+     aadd(laPROGRAM,laRES[ii,1])
+   next ii
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      ii      := 1
+      lcITEM  := '_'+alltrim(str(ii))
+      lcVAR   := 'VAR_'+laWRITE[2]+lcITEM
+      aadd(laSAVE,laWRITE)
+      do while WGet(lcVAR,'B')
+         if !empty(alltrim(WGet('VAR_'+laWRITE[2]+lcITEM,'C')))
+            aadd(laWHERE,'WGID='+lcWGID+' and WPROGRAM='+DLAP+WGet('VAR_WPROGRAM'+lcITEM,'C')+DLAP)
+            aadd(laSAVE,{WGet('WGID'),;
+                         WGet('VAR_'+laWRITE[2]+lcITEM),;
+                         WGet('VAR_'+laWRITE[3]+lcITEM),;
+                         WGet('VAR_'+laWRITE[4]+lcITEM),;
+                         WGet('VAR_'+laWRITE[5]+lcITEM),;
+                         WGet('VAR_'+laWRITE[6]+lcITEM),;
+                         WGet('VAR_'+laWRITE[7]+lcITEM)})
+         endif
+         ii++
+         lcITEM := '_'+alltrim(str(ii))
+         lcVAR  := 'VAR_'+laWRITE[2]+lcITEM
+      enddo
+
+      if len(laSAVE) > 1
+         if db_replace(laSAVE,lcTABLE,laWHERE) = -1
+            error_sys(db_error())
+         endif
+      endif
+   elseif lcACTION == 'ADD_PROGRAM' .and. gbWAC_WRITE
+      laWHERE := {'WGID='+lcWGID+' and WPROGRAM='+DLAP+lcWPROGRAM+DLAP}
+      if empty(WGet('WPROGRAM'))
+        walert(lblfscreen('WPROGRAM')+' é um campo obrigatório!')
+        Get2Put()
+        llERRO := .t.
+      endif
+
+      if ! llERRO
+         if empty(WGet('WPERM_EXEC','C')) .and. empty(WGet('WPERM_READ','C')) .and. ;
+            empty(WGet('WPERM_WRITE','C')) .and. empty(WGet('WPERM_CREATE','C')) .and. ;
+            empty(WGet('WPERM_DELETE','C'))
+
+            if db_delete(lcTABLE,laWHERE[1]) = -1
+               error_sys(db_error())
+            endif
+         else
+            aadd(laSAVE,laFIELDS)
+            for ii := 1 to len(laFIELDS)
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+            next ii
+            aadd(laSAVE,laSAVE_AUX)
+            if db_replace(laSAVE,lcTABLE,laWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif
+   elseif lcACTION == 'ADD_ALL' .and. gbWAC_WRITE
+      if alltrim(WGet('FL_REWRITE','C')) == 'Y'
+         laRES := {}
+      else
+         if db_select({'WPROGRAM'},lcTABLE,,{'WGID='+lcWGID}) = -1
+            error_sys(db_error())
+         endif
+         laPUT:= db_fetchall()
+         for ii:= 2 to len(laPUT)
+            aadd(laRES,laPUT[ii,1])
+         next ii
+      endif
+
+      aadd(laSAVE,laWRITE)
+      for ii := 1 to len(laPROGRAM)
+         if ascan(laRES,laPROGRAM[ii]) = 0
+            aadd(laSAVE,{WGet('WGID'),;
+                         laPROGRAM[ii],;
+                         WGet('WPERM_EXEC','C'),;
+                         WGet('WPERM_READ','C'),;
+                         WGet('WPERM_WRITE','C'),;
+                         WGet('WPERM_CREATE','C'),;
+                         WGet('WPERM_DELETE','C')})
+            aadd(laWHERE,'WGID='+lcWGID+' and WPROGRAM='+DLAP+laPROGRAM[ii]+DLAP)
+         endif
+      next ii
+
+      if len(laSAVE) > 1
+         if db_replace(laSAVE,lcTABLE,laWHERE) = -1
+            error_sys(db_error())
+         endif
+      endif
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      if db_delete(lcTABLE,'WGID='+lcWGID+' and WPROGRAM='+DLAP+lcWPROGRAM+DLAP) = -1
+         error_sys(db_error())
+      endif
+   elseif lcACTION == 'DELETE_ALL' .and. gbWAC_DELETE
+      if db_delete(lcTABLE,'WGID='+lcWGID) = -1
+         error_sys(db_error())
+      endif
+   endif
+
+   /* Seleciona Grupo e seus respectivos Programas */
+   laWHERE := {'WGID='+lcWGID}
+   if db_select({'WGID','WGROUP'},'acgroup',,laWHERE) = -1
+      error_sys(db_error())
+   endif
+   db2put(db_fetchall())
+
+   /* Paginação ------------------------------------------------------------------------------*/
+   lnGOTO_PAGE    := WGet('GOTO_PAGE','N')
+   if lnGOTO_PAGE = 0
+      lnGOTO_PAGE := 1
+   endif
+
+   //if db_select({'count(*)'},lcTABLE,{{2,'wprogram','wprogram.PROGRAM=acgroup_program.WPROGRAM and wprogram.PROJECT='+DLAP+WSet('_PROJECT')+DLAP}},laWHERE,{'wprogram.NM_PROGRAM'}) = -1
+   if db_select({'count(*)'},lcTABLE,;
+                {{2,'wprogram','wprogram.PROGRAM=acgroup_program.WPROGRAM and wprogram.PROJECT='+DLAP+WSet('_PROJECT')+DLAP}},;
+                laWHERE) = -1
+      error_sys(db_error())
+   endif
+   laCOUNT := db_fetchrow()
+   if laCOUNT[1] > 0 //.and. valtype(laLIMIT) == 'U'
+      lnMAX_PAGES := iif(val(WSet('MAX_PAGES'))==0,10,val(WSet('MAX_PAGES')))
+      lnDEF_PAGES := iif(val(WSet('ROWS_PAGE'))==0,10,val(WSet('ROWS_PAGE')))
+      lnNR_PAGES  := laCOUNT[1]/lnDEF_PAGES
+      if (laCOUNT[1] % lnDEF_PAGES) > 0
+         lnNR_PAGES += 1
+      endif
+      lnNR_PAGES := iif(lnNR_PAGES > lnMAX_PAGES,lnMAX_PAGES,lnNR_PAGES)
+      aadd(laPAGES,{'PROGRAM_CALL','NR_PAGE'})
+      for ii := 1 to lnNR_PAGES
+          lcPUT := wic_action('wicaction/mnt.acprogram.html?GOTO_PAGE='+alltrim(str(ii)))
+
+          //Adiciona à paginação, os filtros digitados e os campos selecionados para busca e ordernação
+          lcPUT += '&WGID='+lcWGID
+          aadd(laPAGES,{lcPUT,alltrim(str(ii))})
+      next ii
+      WPut('ifRESULT',.T.)
+      WPut('PAGES',laPAGES)
+      lnLIMIT1 := iif(lnGOTO_PAGE == 1,0,((lnGOTO_PAGE*lnDEF_PAGES)-1)-(lnDEF_PAGES-1))
+      lnLIMIT2 := lnDEF_PAGES
+      laLIMIT  := {lnLIMIT1,lnLIMIT2}
+   elseif laCOUNT[1] == 0// .and. valtype(laLIMIT) == 'U'
+      WPut('ifEMPTY_RESULTSET',.T.)
+   endif
+
+   /* Paginação ------------------------------------------------------------------------------*/
+
+   laFIELDS := {'distinct acgroup_program.WPROGRAM',;
+                'wprogram.NM_PROGRAM',;
+                'acgroup_program.WPERM_EXEC',;
+                'acgroup_program.WPERM_READ',;
+                'acgroup_program.WPERM_WRITE',;
+                'acgroup_program.WPERM_CREATE',;
+                'acgroup_program.WPERM_DELETE'}
+
+   //aadd(laWHERE,'wprogram.NM_PROGRAM <> '+DLAP+DLAP)
+
+   if db_select(laFIELDS,lcTABLE,{{2,'wprogram','wprogram.PROGRAM=acgroup_program.WPROGRAM'}},laWHERE,{'acgroup_program.WPROGRAM'},,,laLIMIT) = -1
+      error_sys(db_error())
+   endif
+   laRES     := db_fetchall()
+   laPUT     := {}
+   aadd(laPUT,laWICDO)
+
+   for ii := 2 to len(laRES)
+      lcITEM    := '_'+alltrim(str(ii-1))
+
+      lcNM_PROGRAM := laRES[ii,db_fetchncol(laRES,'NM_PROGRAM')]
+      if empty(alltrim(lcNM_PROGRAM))
+         lcNM_PROGRAM := laRES[ii,db_fetchncol(laRES,'WPROGRAM')]
+      endif
+
+      aadd(laPUT,{laWICDO[1]+lcITEM,;
+                  laWICDO[2]+lcITEM,;
+                  laWICDO[3]+lcITEM,;
+                  laWICDO[4]+lcITEM,;
+                  laWICDO[5]+lcITEM,;
+                  laWICDO[6]+lcITEM,;
+                  lcWGID,;
+                  laRES[ii,db_fetchncol(laRES,'WPROGRAM')],;
+                  lcNM_PROGRAM})
+
+      wPut(laWICDO[2]+lcITEM+'.option','Y')
+      wPut(laWICDO[3]+lcITEM+'.option','Y')
+      wPut(laWICDO[4]+lcITEM+'.option','Y')
+      wPut(laWICDO[5]+lcITEM+'.option','Y')
+      wPut(laWICDO[6]+lcITEM+'.option','Y')
+
+      wPut(laWICDO[1]+lcITEM,laRES[ii,db_fetchncol(laRES,'WPROGRAM')])
+      wPut(laWICDO[2]+lcITEM,laRES[ii,db_fetchncol(laRES,'WPERM_EXEC')])
+      wPut(laWICDO[3]+lcITEM,laRES[ii,db_fetchncol(laRES,'WPERM_READ')])
+      wPut(laWICDO[4]+lcITEM,laRES[ii,db_fetchncol(laRES,'WPERM_WRITE')])
+      wPut(laWICDO[5]+lcITEM,laRES[ii,db_fetchncol(laRES,'WPERM_CREATE')])
+      wPut(laWICDO[6]+lcITEM,laRES[ii,db_fetchncol(laRES,'WPERM_DELETE')])
+
+   next ii
+   wPut('lstPROGRAM',laPUT)
+return

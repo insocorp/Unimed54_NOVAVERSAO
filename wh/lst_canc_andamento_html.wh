@@ -1,0 +1,12 @@
+/*
+
+Project      : gr5
+Program      : lst.canc.andamento.html
+Function     : lst_canc_andamento_html
+Created on   : 15-Aug-2002   09:36:21
+Descripition : Listagem de andamentos de pastas cancelados
+
+*/
+
+WSet('_USER_INTERFACE','lst.pasta.html')
+lst_pasta_html('mnt.canc.andamento.html')

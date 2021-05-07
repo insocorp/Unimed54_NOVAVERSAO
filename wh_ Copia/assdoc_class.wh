@@ -1,0 +1,1120 @@
+//
+// Glauber - 2016
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+
+/*
+*
+* Glauber - 06/2016
+*
+* Classe...........: AssinarDocumento
+*
+* Objetivo.........: Classe utilizada para Assinar documento do word.
+*
+* Atributos........:
+*
+*    Publico
+*
+*    EXPORT NrPasta                  AS IntVar
+*    EXPORT TpPasta                  AS String
+*    EXPORT CdBusiness               AS String
+*    EXPORT TpAndamentoAssinatura    AS String
+*    EXPORT TpDocumentoOrigem        AS String
+*    EXPORT TpNovoDocumento          AS String
+*    EXPORT GdKeyWord                AS String
+*    EXPORT GdComment                AS String
+*    EXPORT TpNovoAndamento          AS String
+*    EXPORT CorpoNovoAndamento       AS String
+*
+*
+*    Privado
+*
+*    INSTANCE DirTmp
+*    INSTANCE AppPonte
+*    INSTANCE ArqEnvio
+*    INSTANCE ArqRetorno
+*    INSTANCE CodErro
+*    INSTANCE DescErro
+*
+*
+* Metodos..........:
+*
+*    Publico
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD Execute()
+*
+*    Privado
+*
+*    METHOD ObterLoginAssinaturas()
+*    METHOD ObterDocumentoGed()
+*    METHOD GravarXmlEnvio()
+*    METHOD ChamarPonte()
+*    METHOD ObterRetorno()
+*    METHOD GerarNovoAndamento()
+*    METHOD GravarNovoDocumentoGed()
+*    METHOD ParserEval(pcCodeBlock)
+*    METHOD ValidarParametros()
+*    METHOD GetDocHexa(NrCtrGed, NrCtrGedFile, NrCtrGedFileVer)
+*    METHOD TrataErro(pcCONTEUDO) CLASS AssinarDocumento
+*    METHOD getTag(pcCONTEUDO,pcTAG) CLASS AssinarDocumento
+*    METHOD Serialize() CLASS AssinarDocumento
+*
+*
+* Classes Ligadas..:
+*
+*    null
+*
+*/
+
+
+CLASS AssinarDocumento
+
+    // Atributos privado
+
+    INSTANCE DirTmp                AS String
+    INSTANCE AppPonte              AS String
+    INSTANCE ArqEnvio              AS String
+    INSTANCE ArqRetorno            AS String
+    EXPORT INSTANCE CodErro        AS IntVar
+    EXPORT INSTANCE DescErro       AS String
+    INSTANCE DocProcessado         AS String
+    INSTANCE PdfProcessado         AS String
+
+
+    // Atributos publico
+
+    EXPORT NrPasta                  AS IntVar
+    EXPORT TpPasta                  AS String
+    EXPORT CdBusiness               AS String
+    EXPORT TpAndamentoAssinatura    AS String
+    EXPORT TpDocumentoOrigem        AS String
+    EXPORT TpNovoDocumento          AS String
+    EXPORT GdKeyWord                AS String
+    EXPORT GdComment                AS String
+    EXPORT TpNovoAndamento          AS String
+    EXPORT CorpoNovoAndamento       AS String
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Execute() CLASS AssinarDocumento
+
+    // Gets
+
+//    ACCESS CodErro()   CLASS AssinarDocumento  RETURN CodErro
+//    ACCESS DescErro()  CLASS AssinarDocumento  RETURN DescErro
+
+
+
+/*
+*
+* Glauber - 06/2016
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS AssinarDocumento
+
+    self:NrPasta                  := 0
+    self:TpPasta                  := ''
+    self:CdBusiness               := ''
+    self:TpAndamentoAssinatura    := ''
+    self:TpDocumentoOrigem        := ''
+    self:TpNovoAndamento          := ''
+    self:CorpoNovoAndamento       := ''
+    self:TpNovoDocumento          := ''
+    self:DocProcessado            := ''
+    self:PdfProcessado            := ''
+
+    self:DirTmp                   := WSET('_WTEMP')
+    self:AppPonte                 := WSET('APPASSDOC')
+    self:ArqEnvio                 := self:DirTmp + 'ADOC_' + WSET('LOGIN')+Alltrim(WIC_RANDOM()) + '.XML'
+    self:ArqRetorno               := StrTran(self:ArqEnvio,'.XML','.RET')
+    self:CodErro                  := 0
+    self:DescErro                 := ''
+
+
+     Wset('_lastsql','*******************************************************')
+     Wset('_lastsql','self:ArqEnvio:'+self:ArqEnvio)
+     Wset('_lastsql','self:ArqRetorno:'+self:ArqRetorno)
+     Wset('_lastsql','*******************************************************')
+
+return(self)
+
+
+/*
+*
+* Glauber - 06/2016
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS AssinarDocumento
+
+    self:NrPasta                  := nil
+    self:TpPasta                  := nil
+    self:CdBusiness               := nil
+    self:TpAndamentoAssinatura    := nil
+    self:TpDocumentoOrigem        := nil
+    self:TpNovoAndamento          := nil
+    self:CorpoNovoAndamento       := nil
+    self:TpNovoDocumento          := nil
+    self:DocProcessado            := nil
+    self:PdfProcessado            := nil
+
+    self:DirTmp                   := nil
+    self:AppPonte                 := nil
+    self:ArqEnvio                 := nil
+    self:ArqRetorno               := nil
+    self:CodErro                  := nil
+    self:DescErro                 := nil
+
+return(nil)
+
+
+
+
+/*
+*
+* Glauber - 06/2016
+*
+* Metodo....: Execute()
+* Objetivo..: Faz o processamento das assinaturas.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Execute() CLASS AssinarDocumento
+
+    local lcASSINA := '',;
+          lcDOC    := '' as String
+
+
+    if (! self:ValidarParametros())
+        return self
+    endif
+
+    // Recuperar Assinaturas
+
+    lcASSINA := self:ObterAssinaturas()
+
+    if (empty(lcASSINA))
+       return self
+    endif
+
+    // Recuperar documento original
+
+    lcDOC := self:ObterDocumentoGed()
+
+    if (empty(lcDOC))
+       return self
+    endif
+
+    // Grava o xml com o Envio
+
+    self:GravarXmlEnvio(lcDOC, lcASSINA)
+
+    // Chamar o plugin
+
+    self:ChamarPonte()
+
+    // Processar retorno
+
+
+//    self:ArqEnvio                 := '/home/wproject/wictrix/isj_51/tmp/ADOC_monica.santos1085345.XML'
+//    self:ArqRetorno               := StrTran(self:ArqEnvio,'.XML','.RET')
+
+//wout('Passou por execute:' + self:ArqRetorno)
+
+    self:ObterRetorno()
+
+//    lnsaida = fcreate("saida.docx")
+//    fwrite(lnsaida,self:DocProcessado)
+//    fclose(lnsaida)
+
+
+    if ! Empty(self:DocProcessado) // Em caso de sucesso Gerar o novo documento Ged e o novo andamento.
+       self:GravarNovoDocumentoGed()
+       self:GerarNovoAndamento()
+    endif
+
+return self
+
+
+
+
+
+
+/*
+*
+* Glauber - 06/2016
+*
+* Metodo....: ValidarParametros()
+* Objetivo..: Faz a validação dos campos antes de consumir o webservice.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             .T. Caso esteja válido.
+*
+*/
+
+METHOD ValidarParametros() CLASS AssinarDocumento
+
+
+    if (self:NrPasta == 0)
+       self:CodErro  := -999
+       self:DescErro := 'Número de pasta inválido ou não informado.'
+       return .F.
+    endif
+    if Empty(self:TpAndamentoAssinatura)
+       self:CodErro  := -999
+       self:DescErro := 'Tipo de andamento de assinatura inválido ou não informado.'
+       return .F.
+    endif
+
+    if Empty(self:TpDocumentoOrigem)
+       self:CodErro  := -999
+       self:DescErro := 'Tipo de documento origem inválido ou não informado.'
+       return .F.
+    endif
+
+    if Empty(self:TpNovoAndamento)
+       self:CodErro  := -999
+       self:DescErro := 'Tipo de novo andamento inválido ou não informado.'
+       return .F.
+    endif
+
+    if Empty(self:CorpoNovoAndamento)
+       self:CodErro  := -999
+       self:DescErro := 'Corpo do novo andamento inválido ou não informado.'
+       return .F.
+    endif
+
+    if Empty(self:TpNovoDocumento)
+       self:CodErro  := -999
+       self:DescErro := 'Tipo do novo documento inválido ou não informado.'
+       return .F.
+    endif
+return .T.
+
+
+
+
+/*
+*
+* Glauber - 06/2016
+*
+* Metodo....: ObterAssinaturas()
+* Objetivo..: Retorna um bloco string com as assinaturas.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Bloco de assinaturas.
+*
+*/
+
+METHOD ObterAssinaturas() CLASS AssinarDocumento
+
+    local lcRET    := '',;
+          lcCIPS   := '' AS String
+
+    local laRES    := {},;
+          laFIELDS := {},;
+          laCIPS   := {} AS Array
+
+    local ii       := 0 AS Int
+
+
+
+    // Resgatar os andamentos do tipo "assinatura"
+
+    // SELECT CIP FROM acuser WHERE login IN(SELECT login_resp FROM pasta_andamento WHERE nr_pasta = 11116 AND tp_andamento = 'DEJUR-Designação de Equipe de Trabalho')
+
+    if db_select({"CIP"},"acuser",,{"login IN(SELECT login_resp FROM pasta_andamento WHERE nr_pasta = " + AllTrim(self:NrPasta)+ " AND tp_andamento = '"+ AllTrim(self:TpAndamentoAssinatura)+ "')"}) == -1
+       error_sys(db_error())
+    endif
+
+    laRES := db_fetchall()
+
+    if len(laRES) < 2
+       self:CodErro  := -999
+       self:DescErro := "Nenhum andamento que contenha assinatura foi encontrado."
+       return ""
+    endif
+
+    for ii := 2 TO len(laRES)
+        lcCIPS += DLAP + StrZero(Val(laRES[ii,1]), 9) + DLAP + iif(ii < len(laRES), ',','')
+    next ii
+
+    // Resgatar dos documentos ged das assinaturas
+/*
+
+SELECT ged.NR_CTRGED,
+gedfile.NR_CTRGEDFILE,
+(select MAX(gedfilevers.NR_CTRGEDFILEVERS) from gedfilevers where (gedfilevers.NR_CTRGED = ged.NR_CTRGED) and gedfilevers.NR_CTRGEDFILE = gedfile.NR_CTRGEDFILE) AS NR_CTRGEDFILEVERS
+FROM ged
+inner join gedfile ON (gedfile.NR_CTRGED = ged.NR_CTRGED)
+WHERE
+(ged.WTABLE = 'pfpj' AND ged.TP_DOCUMENTO = 'gedembed' and ged.REFERENCIA4 = 'EMBED_PFPJ_MNT_HTML_ASSINATURA' AND ged.REFERENCIA1 IN('000003705','000003490'))
+
+*/
+
+    if db_select({"ged.NR_CTRGED","gedfile.NR_CTRGEDFILE",;
+                  "(select MAX(gedfilevers.NR_CTRGEDFILEVERS) from gedfilevers where (gedfilevers.NR_CTRGED = ged.NR_CTRGED) and gedfilevers.NR_CTRGEDFILE = gedfile.NR_CTRGEDFILE) AS NR_CTRGEDFILEVERS"},;
+                  "ged",;
+                  {{0,"gedfile","gedfile.NR_CTRGED = ged.NR_CTRGED"}},;
+                  {"(ged.WTABLE = 'pfpj' AND ged.TP_DOCUMENTO = 'gedembed' and ged.REFERENCIA4 = 'EMBED_PFPJ_MNT_HTML_ASSINATURA' AND ged.REFERENCIA1 IN(" + lcCIPS + "))"}) == -1
+
+       self:CodErro  := -999
+       self:DescErro := db_error()
+
+    endif
+
+    laRES := db_fetchall()
+
+    if len(laRES) < 2
+       self:CodErro  := -999
+       self:DescErro := "Nenhuma assinatura no ged foi encontrado."
+       return ""
+    endif
+
+//    lcRET := '<ASSINATURAS>' + chr(13)
+
+    for ii := 2 TO len(laRES)
+//        lcRET += '   <ASSINATURA>' + self:GetDocHexa(laRES[ii,1],laRES[ii,2],laRES[ii,3]) + '</ASSINATURA>' +chr(13)
+        lcRET +=  self:GetDocHexa(laRES[ii,1],laRES[ii,2],laRES[ii,3]) + ';' 
+    next ii
+//   lcRET  += '</ASSINATURAS>' + chr(13)
+
+   self:CodErro  := 0
+   self:DescErro := ""
+
+
+return lcRET
+
+
+/*
+*
+* Glauber - 06/2016
+*
+* Metodo....: ObterDocumentoGed()
+* Objetivo..: Retorna um bloco string com o documento ged original.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             documento original.
+*
+*/
+
+METHOD ObterDocumentoGed() CLASS AssinarDocumento
+
+    local lcRET    := ''  AS String
+
+    local laRES    := {}  AS Array
+
+    local ii       := 0 AS Int
+
+
+    // Resgatar documento modelo padrão
+/*
+
+SELECT ged.NR_CTRGED,
+gedfile.NR_CTRGEDFILE,
+(select MAX(gedfilevers.NR_CTRGEDFILEVERS) from gedfilevers where (gedfilevers.NR_CTRGED = ged.NR_CTRGED) and gedfilevers.NR_CTRGEDFILE = gedfile.NR_CTRGEDFILE) AS NR_CTRGEDFILEVERS
+FROM ged
+inner join gedfile ON (gedfile.NR_CTRGED = ged.NR_CTRGED)
+WHERE
+(ged.WTABLE = 'pasta' AND ged.CD_BUSINESS = 'Doc38'  AND ged.REFERENCIA1 = '11070')
+
+*/
+
+    if db_select({"ged.NR_CTRGED","gedfile.NR_CTRGEDFILE",;
+                  "(select MAX(gedfilevers.NR_CTRGEDFILEVERS) from gedfilevers where (gedfilevers.NR_CTRGED = ged.NR_CTRGED) and gedfilevers.NR_CTRGEDFILE = gedfile.NR_CTRGEDFILE) AS NR_CTRGEDFILEVERS"},;
+                  "ged",;
+                  {{0,"gedfile","gedfile.NR_CTRGED = ged.NR_CTRGED"}},;
+                  {"(ged.WTABLE = 'pasta' AND ged.CD_BUSINESS = " + DLAP +AllTrim(self:CdBusiness)+ DLAP + " AND ged.REFERENCIA1 = '" + AllTrim(self:NrPasta) + "')"},;
+                  {"ged.NR_CTRGED desc"}) == -1
+       self:CodErro  := -999
+       self:DescErro := db_error()
+
+    endif
+
+    laRES := db_fetchall()
+
+    if len(laRES) < 2
+       self:CodErro  := -999
+       self:DescErro := "Nenhum documento de origem para assinatura foi encontrado."
+    endif
+
+//    for ii := 2 TO len(laRES)
+        lcRET += self:GetDocHexa(laRES[2,1],laRES[2,2],laRES[2,3])
+//    next ii
+
+
+
+return lcRET
+
+
+
+/*
+*
+* Glauber - 06/2016
+*
+* Metodo....: GravarXmlEnvio()
+* Objetivo..: Faz a gravação do xml de envio.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             .T. Caso a gravação ocorra com sucesso.
+*
+*/
+
+METHOD GravarXmlEnvio(DocOrigem, Assinaturas) CLASS AssinarDocumento
+
+     local lcXML := '' AS String
+
+     lcXML := '<?xml version="1.0" encoding="UTF-8"?>' + chr(13) + '<Integracao>' + chr(13) + '<docorigem>' + '"' + DocOrigem + '"' +  '</docorigem><assinaturas>' + '"' + Assinaturas + '"' + '</assinaturas>' + chr(13) + '</Integracao>'
+     GravaArquivo(self:ArqEnvio, lcXML) // Função presente na func_wic.wh
+
+return .T.
+
+
+/*
+*
+* Glauber - 06/2016
+*
+* Metodo....: ParserEval(pcCodeBlock)
+* Objetivo..: Faz o processamento de um bloco de código.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             resultado do processamento
+*
+*/
+
+METHOD ParserEval(pcCodeBlock) CLASS AssinarDocumento
+
+    if (pcCodeBlock != nil .AND. substr(pcCodeBlock,1,1) == '=' )
+       return Eval({|| &pcCodeBlock})
+    endif
+
+return pcCodeBlock
+
+
+
+
+
+/*
+*
+* Glauber - 06/2016
+*
+* Metodo....: GetDocHexa(pnGED, pnGEDFile, pnGEDFileVer)
+* Objetivo..: Retorna uma assinatura.
+*
+* Parâmetros:
+*
+*   pnGED       : Numero do ged.
+*   pnGEDFile   : Numero do arquivo
+*   pnGEDFileVer: Numero da versão.
+*
+* Retorno...:
+*             Assinatura
+*
+*/
+
+METHOD GetDocHexa(pnGED, pnGEDFile, pnGEDFileVer) CLASS AssinarDocumento
+
+
+      local lcRET    := '',;
+            lcFILE   := '',;
+            lcMSG    := '',;
+            lcBUF    := '' AS String
+      local lnHANDLE := 0,;
+            lnTAM    := 0 AS int
+
+       if(pnGED == 0 .OR. pnGEDFile == 0 .OR. pnGEDFileVer == 0)
+         return ""
+       endif
+
+       lcFILE := if (! Empty(WSET('PATH_GED')), WSET('PATH_GED') +'/','') + gedstructfile(pnGED, pnGEDFile, pnGEDFileVer)
+
+       if empty(lcFILE)
+          PUTERROR('CLASS AssinarDocumento, method GetDocHexa: no ged file found.')
+          self:CodErro  := -999
+          self:DescErro := 'CLASS AssinarDocumento, method GetDocHexa: no ged file found.'
+       else
+          lnHANDLE := fopen(lcFILE,0)
+          if lnHANDLE < 1 .or. ferror() > 0
+             lcMSG := 'Nr. '+alltrim(str(ferror()))+' ao tentar abrir o arquivo. '
+
+             if WSET('DEBUGGED') == 'enable'
+                lcMSG := 'Nr. '+alltrim(str(ferror()))+' ao tentar abrir o arquivo ' + lcFILE
+             endif
+             self:CodErro  := -999
+             self:DescErro := lcMSG
+
+             PUTERROR(lcMSG)
+          else
+             lnTAM     := fseek(lnHANDLE,0,2)
+             lcBUF     := space(lnTAM)
+             fseek(lnHANDLE,0,0)
+             fread(lnHANDLE,@lcBUF,lnTAM)
+             fclose(lnHANDLE)
+             wstr2hex(@lcBUF,@lcRET)
+          endif
+       endif
+
+return lcRET
+
+
+
+
+/*
+*
+* Glauber - 06/2016
+*
+* Metodo....: ChamarPonte()
+* Objetivo..: Realiza a chamada para o plugin.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*
+*
+*/
+
+METHOD ChamarPonte() CLASS AssinarDocumento
+
+
+    if ( ! Empty(self:AppPonte) .AND. ! Empty(self:ArqEnvio))
+       ! (self:AppPonte + ' ' + self:ArqEnvio)
+    endif
+
+return self
+
+
+
+
+/*
+*
+* Glauber - 06/2016
+*
+* Metodo....: ObterRetorno()
+* Objetivo..: Processa o conteúdo do arquivo de retorno.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*
+*
+*/
+
+METHOD ObterRetorno() CLASS AssinarDocumento
+
+    local lcTmp  := '',;
+          lcDOCX := '',;
+          lcPDF  := ''  AS String
+
+   if (! file(self:ArqRetorno))
+      self:CodErro  := -999
+      self:DescErro := 'Erro ao receber o arquivo de retorno.Arquivo de retorno não existe:'+ self:ArqRetorno
+      return ""
+   endif
+
+  lcTmp := GetFileContent(self:ArqRetorno) // Resgata o conteúdo do arquivo de retorno. Função presente na func_wic.wh
+
+  if Empty(self:TrataErro(lcTMP))
+//     self:DocProcessado :=  self:GetTag(lcTMP,'documentoword')
+
+       self:DocProcessado :=  self:GetTag(lcTMP,'documentopdf')
+
+
+//     lcPDF  := '0x' + self:GetTag(lcTMP,'documentopdf')
+//     whex2str(lcDOCX, @self:DocProcessado)
+//     whex2str(lcPDF,  @self:PdfProcessado)
+
+//wout('lcTMP')
+//wout(lcTMP)
+
+
+//wout('DocProcessado')
+//wout(self:DocProcessado)
+
+  endif
+
+
+return self
+
+/*
+*
+* Glauber - 06/2016
+*
+* Metodo....: TrataErro(pcCONTEUDO)
+* Objetivo..: Verifica o conteúdo do xml a procura de erros.
+*
+* Parâmetros:
+* pcCONTEUDO: Conteúdo do arquivo
+* Retorno...:
+*    String com a descrição do erro.
+*
+*/
+
+METHOD TrataErro(pcCONTEUDO) CLASS AssinarDocumento
+
+      local lcRet := '',;
+            lcTMP := '' as String
+
+
+      /*
+                sbRetonro.append("<codigoerro>-999</codigoerro>");
+                sbRetonro.append("<descricaoerro>" + ex.Message + "</descricaoerro>");
+                sbRetonro.append("<documentoword></documentoword>");
+                sbRetonro.append("<documentopdf></documentopdf>");
+      */
+
+      if at('<codigoerro>',pcCONTEUDO) > 0
+          lcTMP := Substr(pcCONTEUDO,at('<codigoerro>',pcCONTEUDO) +12,len(pcCONTEUDO))
+          lcTMP := Substr(lcTMP,1,at('</codigoerro>',lcTMP)-1)
+
+          if val(lcTMP) < 0
+             self:CodErro   := val(lcTMP)
+             lcRet := ' Erro retornado do WebService: ' + lcTMP
+             lcTMP := Substr(pcCONTEUDO,at('<descricaoerro>',pcCONTEUDO) +15,len(pcCONTEUDO))
+             lcTMP := Substr(lcTMP,1,at('</descricaoerro>',lcTMP)-1)
+             lcRet += ' - ' + lcTMP
+             self:DescErro  := lcRet
+             return (lcRet)
+          endif
+      endif
+
+return ('')
+
+
+
+/*
+* Data......: 04/2015 - Glauber
+* Metodo....: getTag(pcCONTEUDO,pcTAG)
+* Objetivo..: Retorna o conteúdo da tag pcTAG em pcCONTEUDO.
+* Parâmetros:
+* pcCONTEUDO: Conteúdo do arquivo
+* pcTAG     : Tag a ter seu conteúdo extraido.
+* Retorno...: String com o conteúdo.
+*/
+
+METHOD getTag(pcCONTEUDO,pcTAG) CLASS AssinarDocumento
+
+     local lcRet   := '',;
+           lcTMP   := '',;
+           lcABRE  := '',;
+           lcFECHA := '' as String
+     local lnPOS := 0,;
+           lnTAM := 0 as int
+
+
+     lcABRE  := '<'+lower(pcTAG)+'>'
+     lcFECHA := '</'+lower(pcTAG)+'>'
+
+//wout('pcTAG.....:'+pcTAG)
+//wout('pcCONTEUDO:'+pcCONTEUDO)
+//wout('lcABRE....:'+lcABRE)
+//wout('lcFECHA...:'+lcFECHA)
+
+
+     if at(lcABRE, lower(pcCONTEUDO)) > 0
+        lnPOS := at(lcABRE, lower(pcCONTEUDO), 1)
+        lnTAM := len(pcCONTEUDO)
+//wout('lnPOS:'+ AllTrim(lnPOS))
+        lcTMP := Substr(pcCONTEUDO, lnPOS + len('<'+pcTAG+'>'), lnTAM )
+        lcTMP := Substr(lcTMP,1,at(lcFECHA,lower(lcTMP))-1)
+
+//wout('lcTMP:'+lcTMP)
+
+        lcRet := lcTMP
+     endif
+
+return (lcRet)
+
+
+/*
+*
+* Glauber - 06/2016
+*
+* Metodo....: GravarNovoDocumentoGed()
+* Objetivo..: Insere o novo documento no ged da pasta.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*
+*
+*/
+
+METHOD GravarNovoDocumentoGed() CLASS AssinarDocumento
+
+    local laSAVE       := {},;
+          laSAVE_AUX   := {},;
+          laFLD_GDFILE := {},;
+          laFLD_GDVER  := {},;
+          laFLD_GDSTOR := {},;
+          laFIELDS     := {} AS Array
+
+    local ii           := 0,;
+          lnGED        := 0,;
+          iiF          := 0,;
+          lnGEDFILE    := 0,;
+          lnGEDFVER    := 1,;
+          lnHANDLE     := 0  AS Int
+
+       // Gravando Documentos [ged] - INICIO ------------------------------------------------------------------------------------------
+       laSAVE     := {}
+       laSAVE_AUX := {}
+       laFIELDS   := {'WTABLE',;
+                      'REFERENCIA1',;
+                      'REFERENCIA2',;
+                      'REFERENCIA3',;
+                      'REFERENCIA4',;
+                      'REFERENCIA5',;
+                      'TP_STORAGE',;
+                      'CD_BUSINESS',;
+                      'TP_DOCUMENTO',;
+                      'LOGIN_INSERT',;
+                      'DT_INSERT',;
+                      'LOGIN_UPDATE',;
+                      'DT_UPDATE',;
+                      'LNK_NR_CTRGED',;
+                      'GDTP_ENTRADA',;
+                      'GDKEYWORD',;
+                      'GDCOMMENT',;
+                      'DT_ORIGEM_DOC'}
+
+       aadd(laSAVE,laFIELDS)
+       for ii := 1 to len(laFIELDS)
+           do case
+              case laFIELDS[ii] == 'WTABLE'
+                 aadd(laSAVE_AUX,'pasta')
+              case laFIELDS[ii] == 'REFERENCIA1'
+                 aadd(laSAVE_AUX,AllTrim(self:NrPasta))
+              case laFIELDS[ii] == 'REFERENCIA2'
+                 aadd(laSAVE_AUX,Self:TpPasta)
+              case laFIELDS[ii] == 'TP_STORAGE'
+                 aadd(laSAVE_AUX,'FS')
+              case laFIELDS[ii] == 'CD_BUSINESS'
+                 aadd(laSAVE_AUX, self:CdBusiness)
+              case laFIELDS[ii] == 'TP_DOCUMENTO'
+// Glauber 09/12 - Pasta 8239, andamento 24354              
+//                 aadd(laSAVE_AUX, self:TpDocumentoOrigem)
+                 aadd(laSAVE_AUX, self:TpNovoDocumento)
+              case laFIELDS[ii] == 'LOGIN_INSERT'
+                 aadd(laSAVE_AUX,WSet('LOGIN'))
+              case laFIELDS[ii] == 'DT_INSERT'
+                 aadd(laSAVE_AUX, date())
+              case laFIELDS[ii] == 'GDTP_ENTRADA'
+                 aadd(laSAVE_AUX,'A')
+              case laFIELDS[ii] == 'GDKEYWORD'
+                 aadd(laSAVE_AUX, self:GdKeyWord)
+              case laFIELDS[ii] == 'GDCOMMENT'
+                 aadd(laSAVE_AUX, self:GdComment)
+              case laFIELDS[ii] == 'DT_ORIGEM_DOC'
+                 aadd(laSAVE_AUX, date())
+              otherwise
+                 aadd(laSAVE_AUX,nil)
+           endcase
+       next ii
+       aadd(laSAVE,laSAVE_AUX)
+
+       db_begin()
+
+       if db_insert(laSAVE,'ged') == -1
+          error_sys('GED: '+db_error())
+       endif
+       lnGED := db_insert_id()
+
+       // Gravando Documentos [ged] - FIM ---------------------------------------------------------------------------------------------
+
+       laFLD_GDFILE := {'NR_CTRGED',;
+                        'NR_CTRGEDFILE',;
+                        'WCONTENT_TYPE',;
+                        'LOGIN_INSERT',;
+                        'DT_INSERT',;
+                        'LOGIN_UPDATE',;
+                        'DT_UPDATE',;
+                        'GDTEXTCONTENT',;
+                        'GDFILENAME'}
+
+       laFLD_GDVER  := {'NR_CTRGED',;
+                        'NR_CTRGEDFILE',;
+                        'NR_CTRGEDFILEVERS',;
+                        'LOGIN_INSERT',;
+                        'DT_INSERT',;
+                        'GDCOMMENT',;
+                        'FL_FILEDELETED',;
+                        'GDFILESIZE'}
+
+       laFLD_GDSTOR := {'NR_CTRGED',;
+                        'NR_CTRGEDFILE',;
+                        'NR_CTRGEDFILEVERS'}
+
+
+       for ii := 1 to 1
+
+           // Gravando Arquivos [gedfile] - INICIO ------------------------------------------------------------------------------------
+           laSAVE     := {}
+           laSAVE_AUX := {}
+           lnGEDFILE  := ii
+           aadd(laSAVE,laFLD_GDFILE)
+           for iiF := 1 to len(laFLD_GDFILE)
+               do case
+                  case laFLD_GDFILE[iiF] == 'NR_CTRGED'
+                     aadd(laSAVE_AUX,lnGED)
+                  case laFLD_GDFILE[iiF] == 'NR_CTRGEDFILE'
+                     aadd(laSAVE_AUX,lnGEDFILE)
+                  case laFLD_GDFILE[iiF] == 'WCONTENT_TYPE'
+                       aadd(laSAVE_AUX,'application/msword')
+                  case laFLD_GDFILE[iiF] == 'LOGIN_INSERT'
+                     aadd(laSAVE_AUX,WSet('LOGIN'))
+                  case laFLD_GDFILE[iiF] == 'DT_INSERT'
+                     aadd(laSAVE_AUX,date())
+                  case laFLD_GDFILE[iiF] == 'GDFILENAME'
+                     //aadd(laSAVE_AUX,'DOC_'+ self:TpDocumentoOrigem + '_ASSINADO.DOCX' )
+                     aadd(laSAVE_AUX,'DOC_'+ self:TpDocumentoOrigem + '_ASSINADO.PDF' )
+                  otherwise
+                     aadd(laSAVE_AUX,nil)
+               endcase
+           next iiF
+           aadd(laSAVE,laSAVE_AUX)
+           if db_insert(laSAVE,'gedfile') == -1
+              error_sys('GED: '+db_error())
+           endif
+           //lnGEDFILE := db_insert_id()
+           // Gravando Arquivos [gedfile] - FIM ---------------------------------------------------------------------------------------
+
+           // Gravando Arquivos [gedfilevers] - INICIO --------------------------------------------------------------------------------
+           laSAVE     := {}
+           laSAVE_AUX := {}
+           aadd(laSAVE,laFLD_GDVER)
+           for iiF := 1 to len(laFLD_GDVER)
+               do case
+                  case laFLD_GDVER[iiF] == 'NR_CTRGED'
+                     aadd(laSAVE_AUX,lnGED)
+                  case laFLD_GDVER[iiF] == 'NR_CTRGEDFILE'
+                     aadd(laSAVE_AUX,lnGEDFILE)
+                  case laFLD_GDVER[iiF] == 'NR_CTRGEDFILEVERS'
+                     aadd(laSAVE_AUX,lnGEDFVER)
+                  case laFLD_GDVER[iiF] == 'LOGIN_INSERT'
+                     aadd(laSAVE_AUX,WSet('LOGIN'))
+                  case laFLD_GDVER[iiF] == 'DT_INSERT'
+                     aadd(laSAVE_AUX,date())
+                  case laFLD_GDVER[iiF] == 'GDCOMMENT'
+                     aadd(laSAVE_AUX, self:GdComment)
+                  case laFLD_GDVER[iiF] == 'FL_FILEDELETED'
+                     aadd(laSAVE_AUX,'N')
+                  case laFLD_GDVER[iiF] == 'GDFILESIZE'
+                     aadd(laSAVE_AUX,len(self:DocProcessado)/1024)
+                  otherwise
+                     aadd(laSAVE_AUX,nil)
+               endcase
+           next iiF
+           aadd(laSAVE,laSAVE_AUX)
+           if db_insert(laSAVE,'gedfilevers') == -1
+              error_sys('GED: '+db_error())
+           endif
+           // Gravando Arquivos [gedfilevers] - FIM -----------------------------------------------------------------------------------
+
+           lcPATHFILE := if(! Empty(WSET('PATH_GED')), WSET('PATH_GED') +'/','') +gedstructfile(lnGED,lnGEDFILE,lnGEDFVER)
+
+            if empty(lcPATHFILE)
+               self:CodErro  := -999
+               self:DescErro := 'GED: Erro ao verificar disponibilidade de criação do arquivo '+getfilename(lcPATHFILE)
+               db_rollback()
+               return self
+            else
+               lnHANDLE := fcreate(lcPATHFILE,644)
+               if ferror() != 0
+                  self:CodErro  := -999
+                  self:DescErro := "GED: Não foi possível criar o arquivo " + getfilename(lcPATHFILE)
+                  db_rollback()
+                  return self
+               else
+                  fwrite(lnHANDLE, self:DocProcessado)
+                  if ferror() != 0
+                     self:CodErro  := -999
+                     self:DescErro := "GED: Não foi possível gravar o arquivo " + getfilename(lcPATHFILE)
+                     db_rollback()
+                     return self
+                  else
+                     db_commit()
+                  endif
+               endif
+               fclose(lnHANDLE)
+            endif
+
+       next ii
+
+return self
+
+
+/*
+*
+* Glauber - 06/2016
+*
+* Metodo....: GerarNovoAndamento()
+* Objetivo..: Insere o novo andamento na pasta.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*
+*
+*/
+
+METHOD GerarNovoAndamento() CLASS AssinarDocumento
+
+   local laSAVE := {{'NR_PASTA',;
+                     'TP_ANDAMENTO',;
+                     'DT_ANDAMENTO',;
+                     'ANDAMENTO',;
+                     'LOGIN_RESP',;
+                     'DT_CADASTRO',;
+                     'FL_PUBLICO',;
+                     'FL_CRITICO',;
+                     'FL_ANDAMENTO_EXTERNO',;
+                     'FL_ANDAMENTO_CANCELADO',;
+                     'LOGIN',;
+                     'FL_ANDAMENTO',;
+                     'NR_PASTA_RECURSO',;
+                     'NR_ANDAMENTO_RELACAO',;
+                     'VINCULO',;
+                     'NR_ANDAMENTO_VINCULADO',;
+                     'HORAS_TRABALHADAS',;
+                     'NR_ATO',;
+                     'HR_CADASTRO'},;
+                     {iif(valtype(pNR_PASTA) == 'C',val(self:NrPasta), self:NrPasta),;
+                      self:TpNovoAndamento,;
+                      Date(),;
+                      self:CorpoNovoAndamento,;
+                      WSet('LOGIN'),;
+                      DATE(),;
+                      'S',;
+                      'N',;
+                      'N',;
+                      'N',;
+                      WSet('LOGIN'),;
+                      '',;
+                      0,;
+                      0,;
+                      '',;
+                      0,;
+                      '',;
+                      '',;
+                      Time()}}
+
+
+   local lnPos := 0 as int
+
+   if valtype(self:NrPasta) == 'C'
+      self:NrPasta := val(self:NrPasta)
+   endif
+
+
+   if self:NrPasta > 0
+
+       if db_insert(laSAVE,'pasta_andamento') = -1
+          error_sys(db_error())
+       endif
+
+
+       if db_select({'NR_PASTA','ANDAMENTO','DT_ANDAMENTO','TP_ANDAMENTO','HR_CADASTRO'},'pasta_andamento',,{'NR_PASTA='+alltrim(self:NrPasta)},{'NR_ANDAMENTO'},'D',,{1}) = -1
+          error_sys(db_error())
+       endif
+       laSAVE := db_fetchall()
+       if len(laSAVE) > 1
+          if db_replace(laSAVE,'pasta_andamento_last',{'NR_PASTA='+alltrim(self:NrPasta)}) = -1
+             error_sys(db_error())
+          endif
+       endif
+   endif
+
+
+return
+
+
+
+
+
+
+
+/*
+*
+* Glauber - 06/2016
+*
+* Metodo....: Serialize()
+* Objetivo..: Serializa as propriedades para executar os possíveis blocos de código.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*
+*
+*/
+
+METHOD Serialize() CLASS AssinarDocumento
+
+
+    self:TpPasta                  := iif(substr(self:TpPasta,1,1)               == '=',self:ParserEval(self:TpPasta),               self:TpPasta)
+    self:CdBusiness               := iif(substr(self:CdBusiness,1,1)            == '=',self:ParserEval(self:CdBusiness),            self:CdBusiness)
+    self:TpAndamentoAssinatura    := iif(substr(self:TpAndamentoAssinatura,1,1) == '=',self:ParserEval(self:TpAndamentoAssinatura), self:TpAndamentoAssinatura)
+    self:TpDocumentoOrigem        := iif(substr(self:TpDocumentoOrigem,1,1)     == '=',self:ParserEval(self:TpDocumentoOrigem),     self:TpDocumentoOrigem)
+    self:TpNovoDocumento          := iif(substr(self:TpNovoDocumento,1,1)       == '=',self:ParserEval(self:TpNovoDocumento),       self:TpNovoDocumento)
+    self:GdKeyWord                := iif(substr(self:GdKeyWord,1,1)             == '=',self:ParserEval(self:GdKeyWord),             self:GdKeyWord)
+    self:GdComment                := iif(substr(self:GdComment,1,1)             == '=',self:ParserEval(self:GdComment),             self:GdComment)
+    self:TpNovoAndamento          := iif(substr(self:TpNovoAndamento,1,1)       == '=',self:ParserEval(self:TpNovoAndamento),       self:TpNovoAndamento)
+    self:CorpoNovoAndamento       := iif(substr(self:CorpoNovoAndamento,1,1)    == '=',self:ParserEval(self:CorpoNovoAndamento),    self:CorpoNovoAndamento)
+
+
+return self
+
+
+
+
+

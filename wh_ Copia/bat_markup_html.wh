@@ -1,0 +1,32 @@
+/*
+
+Project      : gr5
+Program      : bat.markup.html
+Function     : bat_markup_html
+Created on   : 01-Feb-2005   14:45:16
+Descripition : Calcula Markup
+
+*/
+   local lnCD_INDICE := WGet('CD_INDICE','N') as int
+   local lcAM_REF    := alltrim(WGet('AM_REF','C')) as string
+
+   WPut('TITLE','Calcula Markup')
+   if upper(WGet('ACTION')) == 'CALC'
+      if lnCD_INDICE == 0
+         walert('Selecione um Índice!')
+         get2Put()
+      elseif empty(lcAM_REF)
+         walert('Digite um Ano Mês!')
+         get2Put()
+      else
+         if mkmarkup(lnCD_INDICE,lcAM_REF)
+            walert('Cálculo realizado com sucesso!')
+         else
+            walert('Ocorreu um Problema ao Calcular o Markup!\nVerifique os Lançamentos de Índices de Reajustes e Juros.')
+         endif
+      endif
+   endif
+return
+
+
+

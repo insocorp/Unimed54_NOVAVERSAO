@@ -1,0 +1,123 @@
+
+//
+// Glauber - 10/2017
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Classe...........: I4proRetorno
+*
+* Objetivo.........: Classe global de retorno das operações.
+*
+* Atributos........:
+*
+*    EXPORT CdRetorno
+*    EXPORT NmRetorno
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD toString()
+*
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS I4proRetorno
+
+    // Atributos publico
+
+    EXPORT CdRetorno
+    EXPORT NmRetorno
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()                          CLASS I4proRetorno
+    PROTOTYPE METHOD Destroy()                       CLASS I4proRetorno
+    PROTOTYPE METHOD toString()                      CLASS I4proRetorno
+
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS I4proRetorno
+
+    self:CdRetorno      := 0
+    self:NmRetorno      := ''
+
+return(self)
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS I4proRetorno
+
+    self:CdRetorno      := nil
+    self:NmRetorno      := nil
+
+
+return(nil)
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: toString()
+* Objetivo..: Retornar uma String com a representação do Objeto.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             String
+*
+*/
+
+METHOD toString() CLASS I4proRetorno
+
+return    'I4proRetorno [CdRetorno=' +  Transform(self:CdRetorno) + ', NmRetorno=' + Transform(self:NmRetorno) + ']'
+
+
+
+
+

@@ -1,0 +1,237 @@
+/*
+Project      : gr5
+Program      : pst.consultor_externo.html
+Function     : pst_consultor_externo_html
+Created on   : 20-Apr-2006   15:46:39
+Descripition : Aba de Contrato/Locadores
+
+*/
+   local lcNR_PASTA := '' ,;
+         lcTP_PASTA := '' ,;
+         lcACTION   := '' ,;
+         lcWHERE    := '' as string
+   local laFIELDS   := {} ,;
+         laFIELD    := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laRESULT   := {} ,;
+         laPUT      := {} ,;
+         laCIP      := {} ,;
+         laDEF      := {} ,;
+         laDEFV     := {} ,;
+         laATI      := {} ,;
+         laATIV     := {} ,;
+         laINA      := {} ,;
+         laINAV     := {} ,;
+         laPUTV     := {} ,;
+         laASSUNTO  := {} as array
+         
+   local laAUX      := {} as array
+
+   local ii         := 0,;
+         liPOS      := 0 as int
+
+   lcNR_PASTA := WGet('NR_PASTA','C')
+   lcTP_PASTA := wdgtp_pasta(lcNR_PASTA)
+   lcACTION   := alltrim(upper(WGet('ACTION','C')))
+   lcWHERE    := 'NR_PASTA='+lcNR_PASTA
+   laFIELDS   := {'NR_PASTA',;
+                  'TP_PASTA',;
+                  'HR_CADASTRO',;
+                   'LOGIN_CADASTRO',;
+                   'DT_CADASTRAMENTO',;
+                   'CONSULTA_CONSULTOR_EXTERNO',;
+                   'DT_PARECER_CONSULTOR_EXT',;
+                   'HR_PARECER_CONSULTOR_EXT',;
+                   'PARECER_CONSULTOR_EXT',;
+                   'FL_PASTA',;
+                   'FL_DOCS',;
+                   'PARECER',;
+                   'ASSUNTO',;
+                   'SANSOES',;
+                   'CD_PRODUTO',;
+                   'DT_CADASTRO',;
+                   'PALAVRAS_CHAVE',;
+                   'PALAVRAS_CHAVE_PESQUISA',;
+                   'FUNDAMENTOS_LEGAIS',;
+                   'NR_PASTA_JURISPRUDENCIA',;
+                   'TP_CONSULTA'}
+
+//                   'FL_PUBLICO',;
+                   
+   wPut('TP_PASTA',lcTP_PASTA)
+   wput('LOGIN_CADASTRO',Wset('LOGIN_ALIAS')) 
+   wput('DT_CADASTRO',date())   
+   wput('HR_CADASTRO',time())
+   wput('TP_PASTA')
+   WPut('ifedit',.T.)
+   WPut('PARECER_CONSULTOR_EXT.class','winput')
+   Wput('PALAVRAS_CHAVE.readonly',.T.)
+   WPut('PALAVRAS_CHAVE.class','winput')
+   Wput('DT_PARECER_CONSULTOR_EXT.readonly',.T.)
+   WPut('DT_PARECER_CONSULTOR_EXT.class','winput')
+   Wput('ifreadonly','')
+   WPut('PALAVRAS_CHAVE.class','winput')
+   Wput('HR_PARECER_CONSULTOR_EXT',.T.)
+   WPut('HR_PARECER_CONSULTOR_EXT.class','winput')
+   Wput('NR_PASTA_JURISPRUDENCIA.readonly',.T.)
+   WPut('NR_PASTA_JURISPRUDENCIA.class','winput')
+   Wput('ifreadonlyclass','winput')
+   Wput('ifedit',.T.)            
+      
+
+   carrega_cbox({{'parecer','PARECER','Y'}})
+
+    if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   make_psthead(lcNR_PASTA,wdgtp_pasta(lcNR_PASTA)) //Cabeçalho
+   pasta_abas(lcTP_PASTA)
+   layout_pasta(lcTP_PASTA,'pasta',.F.,'consultor_externo')
+   init_reqfield(WSet('_USER_INTERFACE'))
+
+   // Alimenta combo assunto
+
+   carrega_cbox({{'pasta_tb_assunto','ASSUNTO','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+
+
+   if lcACTION = 'SAVE' .and. gbWAC_WRITE
+      // Glauber - Customização Unimed
+//      if pcUSER_INTERFACE == 'mnt.pasta.civel_consultivo2.html'
+         llAltera := PodeAlterarPasta(val(lcNR_PASTA))
+         if ! llAltera
+            WAlert('Atenção: Seu login não tem permissão para efetuar alterações nesta pasta.')
+            get2Put()
+            return(.f.)
+         endif
+//      endif
+   
+      if verif_reqfield(WSet('_USER_INTERFACE'))
+         laAUX := {}
+         laSAVE := {}
+         for ii := 1 to len(laFIELDS)
+             aadd(laAUX,Wget(laFIELDS[ii]))
+         next ii
+         aadd(laSAVE,laFIELDS)         
+         aadd(laSAVE,laAUX)
+         psab_logs(laSAVE,'pasta',lcWHERE,Wget('NR_PASTA','C'),'Consultor Externo')
+         if db_replace(laSAVE,'pasta',{lcWHERE}) = -1
+            error_sys(db_error())
+         endif         
+      endif
+   endif
+   if db_select(laFIELDS,'pasta',,{lcWHERE}) = -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      db2Put(laRESULT)
+      
+      if ! empty(laRESULT[2,ascan(laRESULT[1], 'PARECER_CONSULTOR_EXT')])
+         Wput('PARECER_CONSULTOR_EXT.readonly',.F.)
+         WPut('PARECER_CONSULTOR_EXT.class','winput')
+      endif
+            
+      // Montagem do combo de produto
+      laDEF := {}
+      laDEFV:= {}
+
+      laATI := {}
+      laATIV:= {}
+
+      laINA := {}
+      laINAV:= {}
+
+      laPUT := {}
+      laPUTV:= {}
+
+      laFIELD := structtable(WSet("DB_ACTIVE"),'produto',1,'A')
+      liPOS   := ascan(laFIELD,'FL_ATIVO')
+
+      if liPOS<>0
+         laFIELD:={'CD_PRODUTO','NM_PRODUTO','FL_ATIVO'}
+        else
+         laFIELD:={'CD_PRODUTO','NM_PRODUTO'}
+       endif
+
+      if db_select(laFIELD,'produto',,,{'NM_PRODUTO'}) == -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+
+      for jj := 2 to len(laRES)
+          if liPOS<>0
+             if laRES[jj,3] == 'D'
+                aadd(laDEF,laRES[jj,2])
+                aadd(laDEFV,laRES[jj,1])
+
+              elseif laRES[jj,3] == 'I'
+                aadd(laINA,laRES[jj,2])
+                aadd(laINAV,laRES[jj,1])
+              else
+                aadd(laATI,laRES[jj,2])
+                aadd(laATIV,laRES[jj,1])
+             endif
+          else
+             aadd(laATI,laRES[jj,2])
+             aadd(laATIV,laRES[jj,1])
+          endif
+      next jj
+
+      if len(laDEF) == 0
+         aadd(laDEF,'') // Adiciona uma linha vazia no inicio do combo, caso seja solicitado
+         aadd(laDEFV,'0')
+      endif
+
+      for jj=1 to len(laDEF)
+          aadd(laPUT,laDEF[jj])
+          aadd(laPUTV,laDEFV[jj])
+      next jj
+
+      for jj=1 to len(laATI)
+          aadd(laPUT,laATI[jj])
+          aadd(laPUTV,laATIV[jj])
+      next jj
+
+      for jj=1 to len(laINA)
+          aadd(laPUT,'INATIVO - '+laINA[jj])
+          aadd(laPUTV,laINAV[jj])
+      next jj
+
+      WPut('CD_PRODUTO.option',laPUT)
+      WPut('CD_PRODUTO.optionvalue',laPUTV)
+
+
+     // Apresentação dos nome dos cips na aba
+
+     if db_select({'CIP','WFIELD'},'pasta_cip',,{'NR_PASTA='+lcNR_PASTA+' and '+;
+                                                 '(WFIELD='+DLAP+'CIP_SOLICITANTE'+DLAP+;
+                                                 ' or WFIELD='+DLAP+'CIP_SUPSOLICITANTE'+DLAP+')'}) == -1
+        error_sys(db_error())
+     endif
+     laPUT := db_fetchall()
+     if len(laPUT) > 1
+        for ii := 2 to len(laPUT)
+           if db_select({'CIP as '+laPUT[ii,2],'PFPJ as '+laPUT[ii,2]+'_PFPJ'},'pfpj',,{'CIP='+DLAP+laPUT[ii,1]+DLAP}) == -1
+              error_sys(db_error())
+           endif
+           db2put(db_fetchall())
+        next ii
+     endif
+   endif
+RETURN
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,126 @@
+/*
+
+Project      : gr5
+Program      : sun_export.html
+Function     : sun_export_html
+Created on   : 01-Sep-2006   10:54:14
+Descripition : Exporta Movim. Contabil SUN
+
+*/
+
+    WSet('_USER_INTERFACE','none.wic')
+
+    local lcFILEOUT := WSet("FILESUNOUTPUT") as string
+
+    local lcXML     := '' ,;
+          lcWHERE   := ''  as string
+
+    local ii        := 0 ,;
+          zz        := 0 ,;
+          lnHAND    := 0  as int
+
+    local laXML     := {},;
+          laXML1    := {},;
+          laXML2    := {},;
+          laXML3    := {},;
+          laXML4    := {},;
+          laFIELDS  := {},;
+          laRESULT  := {},;
+          laJOIN    := {} as array
+
+    lcFILEOUT := strtran(lcFILEOUT,'[date]',dtos(date()))   // substitui [date] se houver no nome do arquivo.
+    lcFILEOUT := strtran(lcFILEOUT,'[time]',strtran(time(),':','-'))  // substitui [time] se houver no nome do arquivo.
+
+    if Empty(lcFILEOUT)
+       qout('Arquivo Não Informado.')
+       return(.f.)
+    endif
+
+    laJOIN := {{2,'pasta'        ,'pasta.nr_pasta = mvt_contabil.wpkey_num'},;
+               {2,'pasta_seguro' ,'pasta_seguro.nr_pasta = mvt_contabil.wpkey_num and pasta_seguro.nr_controle = mvt_contabil.wpkey_num2'}}
+
+    laFIELDS := {'mvt_contabil.NR_CONTROLE'     ,;
+                 'mvt_contabil.CD_PLCT_CREDITO' ,;
+                 'mvt_contabil.CD_PLCT_DEBITO'  ,;
+                 'mvt_contabil.VL_LANCAMENTO'   ,;
+                 'mvt_contabil.FL_CONTABILIZADO',;
+                 'pasta.NR_PASTA'               ,;
+                 'pasta.CD_LEGADO'              ,;
+                 'pasta.NR_PROCESSO'            ,;
+                 'pasta.CD_CCUSTO'               }
+
+    // Buscando os Dados contábeis a serem exportados.
+    lcWHERE := '( mvt_contabil.FL_CONTABILIZADO='+DLMT+'N'+DLMT
+    lcWHERE += 'or mvt_contabil.FL_CONTABILIZADO is null )'
+    lcWHERE += " and mvt_contabil.CD_PLCT_CREDITO <> '' "
+    lcWHERE += " and mvt_contabil.CD_PLCT_DEBITO <> '' "
+    lcWHERE += ' and mvt_contabil.WTABLE ='+DLMT+'pasta'+DLMT
+    lcWHERE += ' and mvt_contabil.WTABLE2='+DLMT+'pasta_seguro'+DLMT
+    if db_select(laFIELDS,'mvt_contabil',laJOIN,{lcWHERE}) == -1  // Filtra somente os não(N) contabilizados.
+       db_error()
+    endif
+    laRESULT := db_fetchall()
+    if len(laRESULT) > 1
+       lcWHERE := ''
+       for ii := 2 to len(laRESULT)
+
+           for zz := 1 to 2
+               if zz == 1
+                  aadd(laXML4,{'AccountCode'                    , laRESULT[ii,db_fetchncol(laRESULT,'CD_PLCT_CREDITO')]}) // mvt_contabil - Codigo conta contabil CREDITO
+               else
+                  aadd(laXML4,{'AccountCode'                    , laRESULT[ii,db_fetchncol(laRESULT,'CD_PLCT_DEBITO')]})  // mvt_contabil - Codigo conta contabil DEBITO
+               endif
+               aadd(laXML4,{'AccountingPeriod'               , strzero(month(date()),3)+str(year(date())) })              // Periodo
+               aadd(laXML4,{'AnalysisCode1'                  , ''})
+               aadd(laXML4,{'AnalysisCode2'                  , ''})
+               aadd(laXML4,{'AnalysisCode3'                  , ''})
+               aadd(laXML4,{'AnalysisCode4'                  , ''})
+               aadd(laXML4,{'AnalysisCode5'                  , iif(len(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'CD_CCUSTO')]))>0,'C'+laRESULT[ii,db_fetchncol(laRESULT,'CD_CCUSTO')] ,'') })
+               aadd(laXML4,{'AnalysisCode6'                  , ''})
+               aadd(laXML4,{'AnalysisCode7'                  , '027'})                                                    // Fixo
+               aadd(laXML4,{'AnalysisCode9'                  , ''})                                                       // em branco
+               aadd(laXML4,{'BaseAmount'                     , laRESULT[ii,db_fetchncol(laRESULT,'VL_LANCAMENTO')]})      // mvt_contabil.vl_lancamento
+               aadd(laXML4,{'Description'                    , laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')]})           // pasta.nr_pasta
+               if zz == 1
+                  aadd(laXML4,{'DebitCredit'                 , 'C'})                                                      // Fixo
+               else
+                  aadd(laXML4,{'DebitCredit'                 , 'D'})                                                      // Fixo
+               endif
+               aadd(laXML4,{'JournalSource'                  , 'GR5'})                                                    // Fixo
+               aadd(laXML4,{'JournalType'                    , 'GR5'})                                                    // Fixo
+               aadd(laXML4,{'TransactionDate'                , strtran(dtoc(date()),'/','')   })                          // Fixo  ddmmaaaa
+               aadd(laXML4,{'TransactionReference'           , substr(laRESULT[ii,db_fetchncol(laRESULT,'NR_PROCESSO')],1,30) })   // pasta.nr_processo
+               aadd(laXML3,{'Line'   ,laXML4})
+               laXML4 := {}
+           next zz
+           if len(lcWHERE) > 0
+              lcWHERE += ', '
+           endif
+           lcWHERE += alltrim(str(laRESULT[ii,db_fetchncol(laRESULT,'NR_CONTROLE')]))
+       next ii
+    endif
+    if len(laXML3) > 0
+       aadd(laXML2,{'Ledger' ,laXML3})
+       aadd(laXML1,{'Payload',laXML2})
+       aadd(laXML, {'SSC'    ,laXML1})
+       lcXML := array2xml(laXML)
+       // Gerando arquivo de exportacao
+       lnHAND := fcreate(lcFILEOUT, 0)
+       if lnHAND > 0
+          if FWrite(lnHAND,lcXML) <= 0
+             qout("Erro na gravação do arquivo.")
+             return(.f.)
+          endif
+          fclose(lnHAND)
+       else
+          qout("Problemas na criacao do arquivo: "+lcFILEOUT)
+       endif
+       // Fazendo o Update nos registros de movimento contabil
+       lcWHERE := 'mvt_contabil.NR_CONTROLE in (' + lcWHERE + ')'
+       if db_update({{"FL_CONTABILIZADO"},{'S'}},'mvt_contabil',{lcWHERE}) == -1
+          qout("Erro Update -> "+db_error())
+	    endif
+    endif
+return
+
+

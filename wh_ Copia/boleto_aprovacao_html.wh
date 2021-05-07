@@ -1,0 +1,454 @@
+/*
+
+Project      : gr5
+Program      : boleto.aprovacao.html
+Function     : boleto_aprovacao_html
+Created on   : 20/9/2011 11:56:00
+Descripition : Boletos - Aprovação
+Projeto      : Alfa
+*/
+
+   local lcACTION := '' ,;
+         lcTITUFIL:= '' ,; 
+         lcTITULOC:= '' ,;
+         lcTABLE  := '' ,;
+         lcCAMPOF1 := '',;
+         lcCONTE1  := '',;
+         lcCONTE2  := '',;
+         lcORDEM   := '',;
+         lcNRROW   := '' as string
+
+   local laFIELDS               := {} ,;
+         la1J                   := {} ,;
+         laRES1                 := {} ,;         
+         laRES2                 := {} ,;  
+         laRES3                 := {} ,; 
+         laRES4                 := {} ,;                
+         laLABEL_BOL_APROVADO   := {} ,;
+         laVALUE_BOL_APROVADO   := {} ,;
+         laLABEL_INSS           := {} ,;
+         laVALUE_INSS           := {} ,;
+         laLABEL_CSLL           := {} ,;
+         laVALUE_CSLL           := {} ,;
+         laLABEL_COFINS         := {} ,;
+         laVALUE_COFINS         := {} ,;
+         laLABEL_PIS            := {} ,;
+         laVALUE_PIS            := {} ,;
+         laVAR                  := {} ,;
+         laPUT                  := {} ,;
+         laAUX                  := {} ,;
+         laJOIN                 := {} ,;
+         laWHERE                := {} ,;
+         laWHERE2               := {} ,;
+         laCAMPOSFILTRO         := {} ,;
+         laLABELFILTRO          := {} ,;
+         laORDER                := {} ,;
+         laALERTA               := {} ,;
+         laBOLETOS              := {} ,;
+         laSAVE                 := {} ,;
+         laSAVEB                := {} as array
+
+   local ii                     := 0 as int
+
+   local lnVL_RNG1 := 0.00,;
+         lnVL_RNG2 := 0.00 as numeric
+
+   lcACTION   := WGet('ACTION','C')
+             
+   lcTABLE1   := 'mvt_despesa'
+   
+   laFIELDS1  := {'distinct mvt_despesa.NR_BOLETO',;
+                  'mvt_boleto.LOGIN',; 
+                  'mvt_boleto.CODIGO_BARRA',;
+                  'mvt_boleto.NR_FATURA',;
+                  'mvt_boleto.CD_MOEDA',;
+                  'mvt_boleto.DT_VENCTO',;
+                  'mvt_boleto.VL_TOTAL_BOLETO',;
+                  'mvt_boleto.FORMA_PAGAMENTO',;
+                  'mvt_boleto.CIP_EMPRESA_PAGADORA',;
+                  'pfpjp.pfpj as PFPJ_PAGADORA',;    
+                  'mvt_boleto.CIP_ESCRITORIO',;
+                  'mvt_boleto.CIP_FAVORECIDO',;
+                  'pfpjf.pfpj as PFPJ_FAVORECIDO',;
+                  'mvt_boleto.TP_FAVORECIDO',;
+                  'mvt_boleto.TP_DOCFISCAL',; 
+                  'mvt_boleto.DT_EMISSAO_DOCFISCAL',;
+                  'mvt_boleto.NR_DOCFISCAL',;
+                  'mvt_boleto.LOGIN_CANCELAMENTO',;
+                  'mvt_boleto.DT_CANCELAMENTO',;
+                  'mvt_boleto.MOTIVO_CANCELAMENTO',;
+                  'mvt_boleto.LOGIN_EXCLUSAO',;
+                  'mvt_boleto.DT_EXCLUSAO',;
+                  'mvt_boleto.NR_BOLETO_ANTERIOR',;
+                  'mvt_boleto.FL_HONORARIOS',;
+                  'mvt_boleto.FL_CONTABILIZADO',;
+                  'mvt_boleto.DT_CADASTRO',;
+                  'vtdesp.TOT_DESP'}
+     
+
+  laJOIN1 := {{2,'mvt_boleto','mvt_boleto.NR_BOLETO = mvt_despesa.NR_BOLETO'},;
+             {2,'pfpj as pfpjp','pfpjp.CIP=mvt_boleto.CIP_EMPRESA_PAGADORA'},;
+             {2,'pfpj as pfpjf','pfpjf.CIP=mvt_boleto.CIP_FAVORECIDO'},;            
+             {2,'(select mvt_despesa.NR_BOLETO, sum(mvt_despesa.VL_TOTAL) as tot_desp from mvt_despesa where mvt_despesa.NR_BOLETO is not null group by mvt_despesa.NR_BOLETO) as VTDESP' ,'vtdesp.NR_BOLETO=mvt_despesa.NR_BOLETO'}}
+
+
+   
+  laCAMPOSFILTRO := {'NR_DOCFISCAL',;
+                    'DT_VENCTO',;
+                    'PFPJ_PAGADORA',;
+                    'PFPJ_FAVORECIDO',;
+                    'NR_BOLETO'}
+  /*                  
+  laCF           := {'DT_VENCTO',;
+                    'mvt_boleto.NR_DOCFISCAL',;
+                    'pfpjp.pfpj as PFPJ_PAGADORA',;
+                    'pfpjf.pfpj as PFPJ_FAVORECIDO',;
+                    'NR_BOLETO'}                    
+   */                 
+  
+  laCF           := {'DT_VENCTO',;
+                     'NR_DOCFISCAL',;
+                     'PFPJ_PAGADORA',;
+                     'PFPJ_FAVORECIDO',;
+                     'NR_BOLETO'}                    
+                    
+                    
+
+   **Preechimento dos combos que alimentara o combo de filtragem
+   for ii := 1 to len(laCAMPOSFILTRO)
+       aadd(laLABELFILTRO,lblfscreen(laCAMPOSFILTRO[ii]))
+   next ii
+   WPut('FILTER_FIELD.option',laLABELFILTRO)
+
+
+   **Preechimento dos combos que alimentara o combo de classificação   
+   for ii := 1 to len(laCF)
+       aadd(laORDER,lblfscreen(laCF[ii]))
+   next ii   
+   WPut('ORDER_FIELD.option',laORDER)
+
+ 
+   WPut('TITLE','Boletos - Aprovação')
+
+// alteracao solicitada por Marcia em 25/07/2013
+
+//   laWHERE:={'mvt_despesa.NR_BOLETO is not null',;
+//             'mvt_despesa.FL_PGINTERFACE is null',;
+//             'mvt_despesa.DT_ENVIO_CTPAG is null'}
+
+   laWHERE:={'mvt_despesa.NR_BOLETO is not null',;
+             'mvt_despesa.FL_PGINTERFACE is null',;
+             'mvt_despesa.DT_ENVIO_CTPAG is null',;
+             'mvt_despesa.BOL_APROVADO <> '+DLAP+'R'+DLAP}
+
+             
+             
+   if ascan(laORDER,wget('ORDER_FIELD','C'))>0 
+      lcORDEM := laCF[ascan(laORDER,wget('ORDER_FIELD','C'))]
+     else
+      lcORDEM :='DT_VENCTO'
+   endif           
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+
+      laFIELDS :={'INSS',;
+                  'CSLL',;
+                  'COFINS',;
+                  'PIS',;
+                  'BOL_APROVADO'}   
+
+      laSAVE := {wget('VAR_INSS','C'),;
+                 wget('VAR_CSLL','C'),;
+                 wget('VAR_COFINS','C'),;
+                 wget('VAR_PIS','C'),; 
+                 wget('VAR_BOL_APROVADO','C')}
+      
+      lctipo_aprov := wget('VAR_BOL_APROVADO','C')
+        
+      aadd(laSAVEB,laFIELDS) 
+      aadd(laSAVEB,laSAVE)                
+
+// bloquear aprovacao de boleto para vencimento < d-1
+      if lctipo_aprov == 'A'
+         if db_select({'DT_VENCTO'},;
+                'mvt_boleto',,;
+                {'NR_BOLETO = '+wget('NR_BOLETO','C')},;
+                ) == -1
+            error_sys(db_error())
+         endif
+   
+         laRES4 := db_fetchall()
+         if len(laRES4) > 1
+            ldDT_VENCTO := laRES4[2,1]
+         endif
+//         ldhoje := (date() +1)
+
+//         if ctod(lddt_vencto) < ldhoje
+//         debug2(lddt_vencto)
+//debug2(ldhoje)
+//debug2(lddt_vencto - ldhoje)
+
+//debug2(lctipo_aprov)
+//            walert('Boleto fora do Vencido! (Aprovação Permitida até D-1)')
+//         else
+//            if db_update(laSAVEB,'mvt_despesa',{'NR_BOLETO = '+wget('NR_BOLETO','C')}) == -1
+//               error_sys(db_error())
+//            endif
+//         endif
+//      else
+         if db_update(laSAVEB,'mvt_despesa',{'NR_BOLETO = '+wget('NR_BOLETO','C')}) == -1
+            error_sys(db_error())
+         endif
+      endif
+   elseif lcACTION == 'EXECSEL'
+
+      lcCAMPOF1 := wget('FILTER_FIELD','C')              
+   
+      ***titulo original
+      lcTITUFIL:= laCAMPOSFILTRO[ascan(laLABELFILTRO,lcCAMPOF1)]
+      
+      ***titulo a substituir
+      lcTITULOC:= laCF[ascan(laCAMPOSFILTRO,lcTITUFIL)]
+      
+      lcCONTE1 :=  wget('FILTER_CONTENT','C')
+      
+     
+
+      if ! empty(lcCAMPOF1) .and. ! empty(lcCONTE1)
+         if lcTITULOC=='NR_BOLETO'
+            laWHERE[1]:= 'mvt_despesa.NR_BOLETO='+wget('FILTER_CONTENT','C')
+         elseif lcTITUFIL =='PFPJ_PAGADORA' 
+            aadd(laWHERE,mkwherelst({{'pfpjp.pfpj',wget('FILTER_CONTENT','C')}})) 
+         elseif lcTITUFIL =='PFPJ_FAVORECIDO' 
+            aadd(laWHERE,mkwherelst({{'pfpjf.pfpj',wget('FILTER_CONTENT','C')}}))
+         elseif lcTITUFIL =='NR_DOCFISCAL' 
+            aadd(laWHERE,mkwherelst({{'mvt_boleto.NR_DOCFISCAL',wget('FILTER_CONTENT','C')}}))            
+    
+         else        
+            aadd(laWHERE,mkwherelst({{lcTITUFIL,wget('FILTER_CONTENT','C')}}))
+         endif
+      endif
+
+      WPut('FILTER_FIELD',lcCAMPOF1)
+      WPut('FILTER_CONTENT',lcCONTE1)
+      WPut('ORDER_FIELD',WGet('ORDER_FIELD','C'))
+   endif
+
+
+   *** Pegando competência do usuário 
+   if db_select({'LOGINS','VL_DESPESA_RANGE1','VL_DESPESA_RANGE2'},;
+                'despesa_cfg_etapas',,;
+                {'FL_DESP_ETAPA = '+DLAP+'3'+DLAP+' and LOGINS like '+DLAP+'%'+WSet('LOGIN')+'%'+DLAP},;
+                {'NR_CONTROLE'}) == -1
+      error_sys(db_error())
+   endif
+   
+   laRES1 := db_fetchall()
+   if len(laRES1) > 1
+      for ii := 2 to len(laRES1)
+         laAUX := str2array(laRES1[ii,1],',')
+         if ascan(laAUX,WSet('LOGIN')) > 0 //Pega a primeira Configuração que contenha o usuário
+            lnVL_RNG1 := laRES1[ii,2]
+            lnVL_RNG2 := laRES1[ii,3]
+            exit
+         endif
+      next ii
+   endif
+
+   laFIELDS2  := {'DISTINCT mvt_despesa.NR_BOLETO',;
+                  'vtdesp.tot_lan',; 
+                  'vtdesp.tot_desp',;
+                  'mvt_boleto.CIP_EMPRESA_PAGADORA',;
+                  'pfpjp.pfpj as PFPJ_PAGADORA',;    
+                  'mvt_boleto.CIP_FAVORECIDO',;
+                  'pfpjf.pfpj as PFPJ_FAVORECIDO'}
+
+   laJOIN := {{3,'mvt_boleto','mvt_boleto.NR_BOLETO = mvt_despesa.NR_BOLETO and mvt_boleto.FL_HONORARIOS='+DLAP+'S'+DLAP},;
+             {2,'pfpj as pfpjp','pfpjp.CIP=mvt_boleto.CIP_EMPRESA_PAGADORA'},;
+             {2,'pfpj as pfpjf','pfpjf.CIP=mvt_boleto.CIP_FAVORECIDO'},;             
+             {2,'(select mvt_despesa.NR_BOLETO, count(*) as tot_lan,sum(mvt_despesa.VL_TOTAL) as TOT_DESP from mvt_despesa where mvt_despesa.NR_BOLETO is not null group by mvt_despesa.NR_BOLETO) as vtdesp' ,'vtdesp.NR_BOLETO=mvt_despesa.NR_BOLETO'}}
+
+
+      
+   *** pega numero dos boletos lançados no mvt_despesa, o numero total de lançamentos para o boleto e a soma desses lançamentos        
+   if db_select(laFIELDS2,'mvt_despesa',laJOIN,laWHERE) == -1
+      error_sys(db_error())
+   endif  
+   laRES1 := db_fetchall()
+
+   if len(laRES1)>1 //numero de linhas   
+      for ii:=2 to len(laRES1)
+   
+          ** se o valor total estiver dentro da competência do usuário 
+          if laRES1[ii,3] >=lnVL_RNG1 .or. laRES1[ii,3]<=lnVL_RNG2
+
+            laWHERE2:= {'mvt_despesa.NR_BOLETO=' + str(laRES1[ii,1]),;
+                        'mvt_despesa.FL_APROVACAO =' + DLAP + 'A' + DLAP,;
+                        'mvt_despesa.FL_REVISAO =' + DLAP + 'A' + DLAP} 
+            
+            *** verifica se todos os lançamentos desse boleto estão aprovados e revisados 
+            if db_select({'NR_BOLETO','FL_APROVACAO','FL_PGINTERFACE','FL_REVISAO','DT_ENVIO_CTPAG'},'mvt_despesa',,laWHERE2) == -1
+              error_sys(db_error())
+            endif  
+            laRES2 := db_fetchall()
+            
+            
+            *** se o numero de lançamento aprovado for o mesmo que o total de lançamentos entra mostra na tela
+            if len(laRES2)>1
+
+               if laRES1[ii,2] == len(laRES2)- 1 
+                  aadd(laBOLETOS,str(laRES1[ii,1]))       
+               endif
+                      
+            endif
+          endif
+                 
+      next ii  
+      
+      if len(laBOLETOS) == 0
+         return
+      endif       
+
+
+     for xx := 1 to len(laFIELDS1)      
+        aadd(la1J, laFIELDS1[xx])
+     next  
+  
+     laLABEL_INSS := {'Sim','Não'}
+     laVALUE_INSS := {'01','00'}
+     
+     laLABEL_PIS := {'Sim','Não'}
+     laVALUE_PIS := {'01','00'}
+  
+     laLABEL_COFINS := {'Sim','Não'}
+     laVALUE_COFINS := {'01','00'}
+  
+     laLABEL_CSLL := {'Sim','Não'}
+     laVALUE_CSLL := {'01','00'}
+  
+     laLABEL_BOL_APROVADO := {'Pendente','Aprovado','Rejeitado'}
+     laVALUE_BOL_APROVADO := {'P','A','R'}
+  
+  
+     *** ACRESCENTA MAIS OUTROS CAMPOS
+     aadd(la1J,'mvt_despesa.INSS')  
+     aadd(la1J,'mvt_despesa.CSLL') 
+     aadd(la1J,'mvt_despesa.COFINS') 
+     aadd(la1J,'mvt_despesa.PIS') 
+     aadd(la1J,'mvt_despesa.BOL_APROVADO') 
+
+     *** busca os boletos
+ 
+     if len(laBOLETOS)>0
+        if db_select(la1J,lcTABLE1,laJOIN1,{'mvt_despesa.NR_BOLETO in (' + array2str(laBOLETOS,',') + ')' },{lcORDEM}) == -1
+           error_sys(db_error())
+        endif  
+        laRES2 := db_fetchall()
+     endif
+             
+     if len(laRES2) > 1
+        
+        laVAR:={'NR_BOLETO',;
+                'DT_VENCTO',;
+                'VL_TOTAL_BOLETO',;
+                'PFPJ_PAGADORA',;
+                'PFPJ_FAVORECIDO',;
+                'NR_DOCFISCAL',;
+                'VAR_INSS',;
+                'VAR_CSLL',;
+                'VAR_COFINS',;
+                'VAR_PIS',;
+                'VAR_BOL_APROVADO',;
+                'VAR_ALTERAR',;
+                'VAR_SALVAR'}        
+        
+        
+        aadd(laPUT,laVAR)
+        
+        for ii := 2 to len(laRES2)
+           
+           lcNRROW := alltrim(str(ii-1))
+           
+           aadd(laPUT,{laRES2[ii,db_fetchncol(laRES2,'NR_BOLETO')],;
+                       laRES2[ii,db_fetchncol(laRES2,'DT_VENCTO')],;
+                       laRES2[ii,db_fetchncol(laRES2,'VL_TOTAL_BOLETO')],;
+                       laRES2[ii,db_fetchncol(laRES2,'PFPJ_PAGADORA')],; 
+                       laRES2[ii,db_fetchncol(laRES2,'PFPJ_FAVORECIDO')],; 
+                       laRES2[ii,db_fetchncol(laRES2,'NR_DOCFISCAL')],;                        
+                       laVAR[ascan(laVAR,'VAR_INSS')]+lcNRROW,;
+                       laVAR[ascan(laVAR,'VAR_CSLL')]+lcNRROW,;
+                       laVAR[ascan(laVAR,'VAR_COFINS')]+lcNRROW,;
+                       laVAR[ascan(laVAR,'VAR_PIS')]+lcNRROW,;
+                       laVAR[ascan(laVAR,'VAR_BOL_APROVADO')]+lcNRROW,;
+                       laVAR[ascan(laVAR,'VAR_ALTERAR')]+lcNRROW,;
+                       laVAR[ascan(laVAR,'VAR_SALVAR')]+lcNRROW})
+  
+             
+           WPut(laVAR[ascan(laVAR,'VAR_INSS')]+lcNRROW+'.option',laLABEL_INSS)
+           WPut(laVAR[ascan(laVAR,'VAR_INSS')]+lcNRROW+'.optionvalue',laVALUE_INSS)
+           WPut(laVAR[ascan(laVAR,'VAR_INSS')]+lcNRROW,laRES2[ii,db_fetchncol(laRES2,'INSS')])
+  
+           WPut(laVAR[ascan(laVAR,'VAR_PIS')]+lcNRROW+'.option',laLABEL_PIS)
+           WPut(laVAR[ascan(laVAR,'VAR_PIS')]+lcNRROW+'.optionvalue',laVALUE_PIS)
+           WPut(laVAR[ascan(laVAR,'VAR_PIS')]+lcNRROW,laRES2[ii,db_fetchncol(laRES2,'PIS')])
+  
+           WPut(laVAR[ascan(laVAR,'VAR_COFINS')]+lcNRROW+'.option',laLABEL_COFINS)
+           WPut(laVAR[ascan(laVAR,'VAR_COFINS')]+lcNRROW+'.optionvalue',laVALUE_COFINS)
+           WPut(laVAR[ascan(laVAR,'VAR_COFINS')]+lcNRROW,laRES2[ii,db_fetchncol(laRES2,'COFINS')])
+  
+           WPut(laVAR[ascan(laVAR,'VAR_CSLL')]+lcNRROW+'.option',laLABEL_COFINS)
+           WPut(laVAR[ascan(laVAR,'VAR_CSLL')]+lcNRROW+'.optionvalue',laVALUE_COFINS)
+           WPut(laVAR[ascan(laVAR,'VAR_CSLL')]+lcNRROW,laRES2[ii,db_fetchncol(laRES2,'CSLL')])
+    
+           WPut(laVAR[ascan(laVAR,'VAR_BOL_APROVADO')]+lcNRROW+'.option',laLABEL_BOL_APROVADO)
+           WPut(laVAR[ascan(laVAR,'VAR_BOL_APROVADO')]+lcNRROW+'.optionvalue',laVALUE_BOL_APROVADO)
+           WPut(laVAR[ascan(laVAR,'VAR_BOL_APROVADO')]+lcNRROW,laRES2[ii,db_fetchncol(laRES2,'BOL_APROVADO')])
+                        
+  
+        next ii
+        
+        
+        WPut('lstDESPESA',laPUT)     
+     endif
+   endif
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

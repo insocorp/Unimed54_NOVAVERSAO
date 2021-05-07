@@ -1,0 +1,130 @@
+
+//
+// Glauber - 10/2017
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Classe...........: I4proMkSinJuCob
+*
+* Objetivo.........: Classe que espelha uma cobertura marcada como judicial.
+*
+* Atributos........:
+*
+*    EXPORT NrRamo
+*    EXPORT IdProdutoCobertura
+*    EXPORT NmCobertura
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD toString()
+*
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS I4proMkSinJuCob
+
+    // Atributos publico
+
+    EXPORT NrRamo
+    EXPORT IdProdutoCobertura
+    EXPORT NmCobertura
+
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()                          CLASS I4proMkSinJuCob
+    PROTOTYPE METHOD Destroy()                       CLASS I4proMkSinJuCob
+    PROTOTYPE METHOD toString()                      CLASS I4proMkSinJuCob
+
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS I4proMkSinJuCob
+
+    self:NrRamo             := 0
+    self:IdProdutoCobertura := 0
+    self:NmCobertura        := ''
+
+
+return(self)
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS I4proMkSinJuCob
+
+    self:NrRamo             := nil
+    self:IdProdutoCobertura := nil
+    self:NmCobertura        := nil
+
+
+return(nil)
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: toString()
+* Objetivo..: Retornar uma String com a representação do Objeto.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             String
+*
+*/
+
+METHOD toString() CLASS I4proMkSinJuCob
+
+return    'I4proMkSinJuCob [NrRamo=' +  Transform(self:NrRamo) +;
+          ', IdProdutoCobertura=' + Transform(self:IdProdutoCobertura) +;
+          ', NmCobertura=' + Transform(self:NmCobertura) + ']'
+
+
+
+

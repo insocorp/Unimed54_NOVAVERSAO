@@ -1,0 +1,487 @@
+/*
+
+Project      : isj_395
+Program      : mkgrpdesp.wh
+Function     : mkgrpdesp_wh
+Created on   : 22-Sep-2010   08:44:33
+Alterado em  : 06/10/2011 17:52:16
+               Inserida a coluna CIP_EMPRESA_PAGADORA
+Descripition : 
+
+*/
+
+   local laFields  := {},;
+         laJoin    := {},;
+         laSave    := {},;
+         laREsjuste:= {},;
+         laRes     := {} as Array
+   local lnII        := 0,;
+         lnQuantos   := 0,;
+         lnNrDespesa := 0 as int
+   local lcWhere   := '' as String
+   local ldVcto    := date(),;
+         ldVctoProx:= date() as date
+   local lnVrParc  := 0 as numeric
+
+   laFields := {'mvtdespesagrupo.NR_PASTA',;
+                'mvtdespesagrupo.NR_DESPESA',;
+                'mvtdespesagrupo.CD_DESPESA',;
+                'mvtdespesagrupo.DIA_VENCIMENTO',;
+                'mvtdespesagrupo.REGRA_UTIL',;
+                'mvtdespesagrupo.VR_PARCELA',;
+                'mvtdespesagrupo.CD_INDICE',;
+                'mvtdespesagrupo.PER_REAJUSTE',;
+                'mvtdespesagrupo.MESANO_BASE',;
+                'mvtdespesagrupo.QTDPARCELAS',;
+                'mvtdespesagrupo.DTVCTO_PRIMEIRA',;
+                'mvtdespesagrupo.DTVCTO_ULTIMAGERADA',;
+                'mvtdespesagrupo.DTVCTO_PROXIMA',;
+                'mvtdespesagrupo.FL_REVISAO',;
+                'mvtdespesagrupo.FL_APROVACAO',;
+                'mvtdespesagrupo.LOGIN_REVISAO',;
+                'mvtdespesagrupo.LOGIN_APROVACAO',;
+                'mvtdespesagrupo.QTDEDIASGERACAO',;
+                'mvtdespesagrupo.CD_GRP_DESPESA',;
+                'mvtdespesagrupo.FL_AJUSTA_PEDIDO',;
+                'mvtdespesagrupo.NR_SINISTRO',;
+                'mvtdespesagrupo.CIP_ESCRITORIO',;
+                'mvtdespesagrupo.CIP_EMPRESA_PAGADORA',;
+                'mvtdespesagrupo.DT_REF',;
+                'mvtdespesagrupo.LOGIN',;
+                'mvtdespesagrupo.QUANTIDADE',;
+                'mvtdespesagrupo.VL_UNIT',;
+                'mvtdespesagrupo.VL_TOTAL',;
+                'mvtdespesagrupo.DT_PREVISAO_PAGTO',;
+                'mvtdespesagrupo.FORMA_PAGAMENTO',;
+                'mvtdespesagrupo.CIP_FAVORECIDO',;
+                'mvtdespesagrupo.TP_FAVORECIDO',;
+                'mvtdespesagrupo.TP_DOCFISCAL',;
+                'mvtdespesagrupo.DT_EMISSAO_DOCFISCAL',;
+                'mvtdespesagrupo.NR_DOCFISCAL',;
+                'mvtdespesagrupo.CD_CCUSTO',;
+                'mvtdespesagrupo.DTULTIMAGERACAO',;
+                'mvtdespesagrupo.HR_ULTIMAGERACAO',;
+                'mvtdespesagrupo.DT_ULTIMOREAJUSTE',;
+                'mvtdespesagrupo.DT_PROXIMOREAJUSTE',;
+                'mvtdespesagrupo.NR_PARCPROXIMOREAJUSTE',;
+                'mvtdespesagrupo.VL_MARKUP',;
+                'mvtdespesagrupo.QTPARCGERADAS',;
+                'mvtdespesagrupo.FL_GERADO'}
+
+
+   laJoin  := {{1,'pasta','pasta.NR_PASTA = mvtdespesagrupo.NR_PASTA'}}
+   lcWhere := "((pasta.FL_PASTA = 'Ativa') and (coalesce(mvtdespesagrupo.QTPARCGERADAS,0,mvtdespesagrupo.QTPARCGERADAS) <= coalesce(mvtdespesagrupo.QTDPARCELAS,0,mvtdespesagrupo.QTDPARCELAS))) " +;
+              "and ((mvtdespesagrupo.DTVCTO_PROXIMA - coalesce(mvtdespesagrupo.QTDEDIASGERACAO,0,mvtdespesagrupo.QTDEDIASGERACAO) <= " + DLAP + Dtos(Date()) + DLAP +")" +;
+              " or (mvtdespesagrupo.DTVCTO_PRIMEIRA - coalesce(mvtdespesagrupo.QTDEDIASGERACAO,0,mvtdespesagrupo.QTDEDIASGERACAO) <= " + DLAP + Dtos(Date()) + DLAP + "))";
+    // Selecionar os dados para geração das parcelas
+    if db_select(laFields,'mvtdespesagrupo',laJoin,{lcWhere}) == -1
+         error_sys(db_error())
+    endif
+    laResult := db_fetchall()
+    for lnII := 2 to len(laResult)
+        // Verificar se a despesa vai ser gerada pela data da primeira parcela ou pela data do proximo vencimento e faz o tratamento da regra de dia util.
+        if (laResult[lnII,db_fetchncol(laResult,'DTVCTO_PRIMEIRA')] - laResult[lnII,db_fetchncol(laResult,'QTDEDIASGERACAO')]) == Date()
+           ldVcto :=  TrataVcto(laResult[lnII,db_fetchncol(laResult,'DTVCTO_PRIMEIRA')],laResult[lnII,db_fetchncol(laResult,'REGRA_UTIL')])
+        else
+           ldVcto :=  TrataVcto(laResult[lnII,db_fetchncol(laResult,'DTVCTO_PROXIMA')],laResult[lnII,db_fetchncol(laResult,'REGRA_UTIL')])
+        endif
+        // Retorna o valor conforme a regra de reajuste
+        laReajuste := ReajustaValor(laResult[lnII,db_fetchncol(laResult,'VR_PARCELA')],;
+                                    laResult[lnII,db_fetchncol(laResult,'DT_ULTIMOREAJUSTE')],;
+                                    laResult[lnII,db_fetchncol(laResult,'CD_INDICE')],;
+                                    laResult[lnII,db_fetchncol(laResult,'MESANO_BASE')],;
+                                    laResult[lnII,db_fetchncol(laResult,'PER_REAJUSTE')],;
+                                    laResult[lnII,db_fetchncol(laResult,'NR_PARCPROXIMOREAJUSTE')])
+
+// *******************            Verificar a Data de vencimento da parcela                    **************************************************
+
+        // Caso ocorra o reajuste da parcela, alimentar os campos do registro da despesa antes de gerar o lançamento da despesa
+        // Alimentar os campos DT_ULTIMOREAJUSTE, DT_PROXIMOREAJUSTE, NR_PARCPROXIMOREAJUSTE e VL_MARKUP
+        if laReajuste[1] == 'S'
+           lnVrParc                                                       := laReajuste[3]
+           laResult[lnII,db_fetchncol(laResult,'DT_ULTIMOREAJUSTE')]      := date()
+           laResult[lnII,db_fetchncol(laResult,'DT_PROXIMOREAJUSTE')]     := laReajuste[4]
+           laResult[lnII,db_fetchncol(laResult,'NR_PARCPROXIMOREAJUSTE')] := laReajuste[5]
+           laResult[lnII,db_fetchncol(laResult,'VL_MARKUP')]              := laReajuste[6]
+        else
+           lnVrParc :=  laResult[lnII,db_fetchncol(laResult,'VR_PARCELA')]
+        endif
+
+        // Caso seja a primeira geração da parcela alimenta o campo DTVCTO_ULTIMAGERADA
+        if (laResult[lnII,db_fetchncol(laResult,'DTVCTO_PRIMEIRA')] - laResult[lnII,db_fetchncol(laResult,'QTDEDIASGERACAO')]) == date()
+           laResult[lnII,db_fetchncol(laResult,'DTVCTO_ULTIMAGERADA')] := laResult[lnII,db_fetchncol(laResult,'DTVCTO_PRIMEIRA')]
+        else
+           laResult[lnII,db_fetchncol(laResult,'DTVCTO_ULTIMAGERADA')] := laResult[lnII,db_fetchncol(laResult,'DTVCTO_PROXIMA')]          
+        endif
+        // Alimentar o campo DTVCTO_PROXIMA
+        ldVctoProx := AddMonth(laResult[lnII,db_fetchncol(laResult,'DTVCTO_ULTIMAGERADA')], 1)
+        laResult[lnII,db_fetchncol(laResult,'DTVCTO_PROXIMA')]    := ldVctoProx
+        // Alimentar os campos DTULTIMAGERACAO, HR_ULTIMAGERACAO, QTPARCGERADAS
+        laResult[lnII,db_fetchncol(laResult,'DTULTIMAGERACAO')]   := date()
+        laResult[lnII,db_fetchncol(laResult,'HR_ULTIMAGERACAO')]  := Time()
+        laResult[lnII,db_fetchncol(laResult,'QTPARCGERADAS')]     := laResult[lnII,db_fetchncol(laResult,'QTPARCGERADAS')] + 1
+        // Terminado os ajustes no registro de origem, fazer o lançamento na tabela de despesas
+        llErro      := (GravaDespesa(laResult,lnII) == .f.)
+        lnNrDespesa := db_insert_id()
+        wout('Gravou despesa:'+ iif(llErro,'N','S'))
+        // Caso ocorra tudo bem na gravação do registro da tabela de despesas, gravar o log de geração
+        if (! llErro) .and. (lnNrDespesa > 0)
+           llErro := GravaLogDesp(laResult,lnNrDespesa,lnII, laReajuste)
+        endif
+        wout('Gravou log de despesa:'+ iif(llErro,'N','S'))
+        // Gravações ok, fazer o update do registro na tabela pai
+        if (! llErro) .and. (lnNrDespesa > 0)
+           if db_update(laResult,'mvtdespesagrupo',{'NR_DESPESA = '+ str(laResult[lnII,db_fetchncol(laResult,'NR_DESPESA')])}) == -1
+              error_sys(db_error())
+              db_rollback()
+           else
+              db_commit()
+           endif
+        endif
+
+    next lnII
+//    wout(debug2(laResult,,30))
+//    wout(debug2(laReajuste,,30))
+
+// select * from mvtdespesagrupo where (coalesce(qtparcgeradas,0,qtparcgeradas) <= coalesce(QTDPARCELAS,0,QTDPARCELAS)) and ((dtvcto_proxima - coalesce(qtdediasgeracao,0,qtdediasgeracao) <= '20100922') or (dtvcto_primeira - coalesce(qtdediasgeracao,0,qtdediasgeracao) <= '20100922')) ;
+
+//select count(*) as QTDE from mvtdespesagrupo where (coalesce(qtparcgeradas,0,qtparcgeradas) <= coalesce(QTDPARCELAS,0,QTDPARCELAS)) and ((dtvcto_proxima - ////coalesce(qtdediasgeracao,0,qtdediasgeracao) <= '20100922') or (dtvcto_primeira - coalesce(qtdediasgeracao,0,qtdediasgeracao) <= '20100922'))
+
+return
+
+/*
+* Glauber - 22/09/2010
+* Function..: TrataVcto(pdData,pcRegra)
+* Objetivo..: Retorna a data de acordo com a regra cadastrada no campo REGRA_UTIL.
+* Parâmetros:
+*   pdData  : Data a ser tratada
+*   pcRegra : N -> Retorna a data normal do vencimento, A -> antecipa para o primeiro dia útil, P -> Posterga
+* Retorno...: Data util
+* 
+*
+*/
+
+
+Static Function TrataVcto(pdData,pcRegra)
+
+    local ldRetorno := pdData 
+
+    if pcRegra == 'A'
+       ldRetorno := WfDiaUtil(pdData)
+    elseif pcRegra == 'P'
+       ldRetorno := WfDiaUtilQtd(pdData, 1, 1)
+    endif
+
+return(ldRetorno)
+
+
+/*
+* Glauber - 22/09/2010
+* Function..: ReajustaValor(pnValor,pdUltimo,pcIndice,pcAnoMesBase,pcPerReajuste,pnParcProximoReaj)
+* Objetivo..: Retorna um vetor com os dados para reajuste das parcelas.
+* Parâmetros:
+*   pnValor          : Valor da parcela a ser reajustada
+*   pdUltimo         : Data que ocorreu o último reajuste
+*   pcIndice         : Indice para realizar o reajuste
+*   pcAnoMesBase     : Ano / mes base para o reajuste
+*   pcPercReajuste   : Periodiciodade de reajuste
+*   pnParcProximoReaj: Número da parcela do próximo reajuste
+*   
+* Retorno...: Vetor com os dados para execução do Reajuste
+* 
+*
+*/
+
+Static Function ReajustaValor(pnValor,pdUltimo,pcIndice,pcAnoMesBase,pcPerReajuste,pnParcProximoReaj)
+
+    local laRetorno := {},;
+          laMarkup  := {} as array
+    local lnQtdeMes := 0 as int
+    local lnMesAtu  := 0,;
+          lnMesFut  := 0,;
+          lnMarkup  := 0,;
+          lnCorrecao:= 0 as numeric
+    local ldTmp     := date() as date    
+    local llErro    := .f.
+
+    laRetorno := {'N',;                // Executou o Reajuste
+                  pnValor,;            // Valor original
+                  0,;                  // Valor reajustado
+                  ctod('  /  /    '),; // Data do próximo reajuste
+                  0,;                  // Numero da próxima parcela a sofrer o reajuste
+                  0}                   // Valor do markup utilizado
+
+    // Caso não seja para reajustar retornar o vetor acima
+
+    if empty(pcPerReajuste) .or. pcPerReajuste == 'N'
+       return(laRetorno)
+    endif
+
+    if pcPerReajuste == 'M'
+       lnQtdeMes := 1
+    elseif pcPerReajuste == 'B'
+       lnQtdeMes := 2
+    elseif pcPerReajuste == 'T'
+       lnQtdeMes := 3
+    elseif pcPerReajuste == 'S'
+       lnQtdeMes := 6
+    elseif pcPerReajuste == 'A'
+       lnQtdeMes := 12
+    endif
+
+    lnMesAtu := val(strzero(year(pdUltimo),4) + strzero(month(pdUltimo),2))
+    // ldTmp    := AddMonth(pdUltimo,lnQtdeMes)
+    // pdUltimo
+//    lnMesFut := val(strzero(year(pdUltimo),4) + strzero(month(pdUltimo),2))
+    lnMesFut := val(strzero(year(date()),4) + strzero(month(date()),2))
+
+    // Caso a diferença em meses da data do último reajuste feito coma a data atual seja maior ou igual a quantidade de meses definido na periodiciosidade,
+    // reajustar o valor
+
+    if (lnMesFut - lnMesAtu) >= lnQtdeMes
+       //laMarkup := getmarkup(val(pcIndice),strzero(year(date()),4) + strzero(month(date()),2),pcAnoMesBase)
+       laMarkup := getmarkup(val(pcIndice),strzero(year(pdUltimo),4) + strzero(month(pdUltimo),2),pcAnoMesBase)
+       if laMARKUP[1] > 0
+            lnCorrecao := round(pnValor * (laMARKUP[1]-1),2)
+       else
+            lnCorrecao := 0
+       endif
+       if lnCorrecao > 0
+          laRetorno := {'S',;                      // Executou o Reajuste
+                  pnValor,;                        // Valor original
+                  pnValor + lnCorrecao,;           // Valor reajustado
+                  AddMonth(date(),lnQtdeMes),;     // Data do próximo reajuste
+                  pnParcProximoReaj + lnQtdeMes,;  // Numero da próxima parcela a sofrer o reajuste
+                  laMARKUP[1]-1}                   // Valor do markup utilizado
+       endif
+    endif
+    return(laRetorno)
+
+
+/*
+* Glauber - 22/09/2010
+* Function..: GravaDespesa(paResult,pnII) 
+* Objetivo..: Grava uma despesa, retornando .t. se a operação foi bem sucedida.
+* Parâmetros:
+*   paREsult : Array com os dados do registro pai na tabela mvtdespesagrupo
+*   pnII     : Indice Atual que esta sendo processado.
+* Retorno...: Retorna .t. caso a operação tenha sido bem sucedida.
+* 
+*
+*/
+
+Static Function GravaDespesa(paResult,pnII) 
+
+    local llRetorno := .t.
+    local laFields  := {},;
+          laSave    := {},;
+          laRes     := {}  as array
+    local ii        := 0,;
+          pos       := 0 as int
+    local lcCampo   := '' as String
+
+    laFields :=  {'NR_PASTA',;
+                  'CIP_ESCRITORIO',;
+                  'CIP_EMPRESA_PAGADORA',;
+                  'DT_REF',;
+                  'LOGIN',;
+                  'CD_DESPESA',;
+                  'CD_GRP_DESPESA',;
+                  'QUANTIDADE',;
+                  'VL_UNIT',;
+                  'VL_TOTAL',;
+                  'DT_PREVISAO_PAGTO',;
+                  'FORMA_PAGAMENTO',;
+                  'NR_CONTROLE_SEGURO',;
+                  'CIP_FAVORECIDO',;
+                  'TP_FAVORECIDO',;
+                  'TP_DOCFISCAL',;
+                  'DT_EMISSAO_DOCFISCAL',;
+                  'NR_DOCFISCAL',;
+                  'CD_CCUSTO',;
+                  'DT_ENVIO_CTPAG',;
+                  'EXTRA',;
+                  'FL_REVISAO',;
+                  'DT_REVISAO',;
+                  'LOGIN_REVISAO',;
+                  'FL_APROVACAO',;
+                  'DT_APROVACAO',;
+                  'LOGIN_APROVACAO',;
+                  'VL_TT_RATEIO'}
+    // Salva laFields em laSave
+    aadd(laSave,laFields)
+    // Percorre laFields para procurar o conteúdo que vem no result em paResult
+    for ii := 1 to len(laFields)
+        lcCampo := laFields[ii]
+        pos := ascan(paResult[1],lcCampo)
+        if pos > 0
+           aadd(laRes,paResult[pnII,pos])
+        else
+           if (wmd_fieldtype(laFields[ii]) == 'FLOAT' .or. wmd_fieldtype(laFields[ii]) == 'NUMERIC' .or. wmd_fieldtype(laFields[ii]) == 'INTEGER')
+              aadd(laRes,0)
+           elseif (wmd_fieldtype(laFields[ii]) == 'CHAR' .or. wmd_fieldtype(laFields[ii]) == 'VARCHAR' .or. wmd_fieldtype(laFields[ii]) == 'TEXT')
+              aadd(laRes,'')
+           elseif (wmd_fieldtype(laFields[ii]) == 'DATE')
+              aadd(laRes,ctod(''))
+           endif
+        endif
+    next ii
+    // Valida se o vetor de conteúdo contém a mesma quantidade de elementos do cabeçalho
+
+    aadd(laSave,laRes)
+
+    if len(laFields) <> len(laRes)
+       return(.f.)
+    endif
+
+    if db_insert(laSave,'mvt_despesa') == -1
+       error_sys(db_error())
+       llRetorno := .f.
+    endif
+
+    return(llRetorno)
+
+
+/*
+* Glauber - 28/09/2010
+* Function..: GravaLogDesp(paResult,pnNrDespesa,pnII, paReajuste) 
+* Objetivo..: Grava o log de uma despesa, retornando .t. se a operação foi bem sucedida.
+* Parâmetros:
+*   paREsult   : Array com os dados do registro pai na tabela mvtdespesagrupo
+*   pnNrDespesa: Número da despesa gerada na tabela mvt_despesa
+*   pnII       : Indice Atual que esta sendo processado.
+*   paReajuste : Vetor com os informações sobre reajuste.
+* Retorno...: Retorna .t. caso a operação tenha sido bem sucedida.
+* 
+*
+*/
+
+Static Function GravaLogDesp(paResult,pnNrDespesa,pnII, paReajuste)
+
+    local llRetorno := .f. 
+    local laFields  := {},;
+          laSave    := {},;
+          laLbl     := {},;
+          laRes     := {}  as array
+    local ii        := 0,;
+          pos       := 0 as int
+    local lcCampo   := '',;
+          lcLog     := '' as String
+
+    laFields :=  structtable(WSet("DB_ACTIVE"),'LOGMVTDESPESAGRUPO',1,'A')
+
+    // Salva laFields em laSave
+    aadd(laSave,laFields)
+    // Montagem da observação com os dados do reajuste
+    laLbl := {'Reajuste executado:',;
+              'Valor Original    :',;
+              'Valor Reajustado  :',;
+              'Dt.Prox.Reajuste  :',;
+              'Parc.Prox.Reajuste:',;
+              'Markup            :'}
+
+    lcLog := 'Despesa ok.' + CRLF
+    if paReajuste[1] == 'S'
+       for ii := 1 to len(paReajuste)
+           lcLog += laLbl[ii] + CRLF
+           if valtype(paReajuste[ii]) == 'N'
+              lcLog += str(paReajuste[ii]) + CRLF
+           elseif valtype(paReajuste[ii]) == 'D'
+              lcLog += dtoc(paReajuste[ii]) + CRLF
+           else
+              lcLog += paReajuste[ii] + CRLF
+           endif
+       next ii 
+    endif
+    // Percorre laFields para procurar o conteúdo que vem no result em paResult
+    for ii := 1 to len(laFields)
+        lcCampo := laFields[ii]
+        if lcCampo == 'NR_DESPESA'
+           aadd(laRes,pnNrDespesa)
+        elseif lcCampo == 'OBSERVACAO'
+           aadd(laRes,lcLog)
+        else
+           pos := ascan(paResult[1],lcCampo)
+           if pos > 0
+              aadd(laRes,paResult[pnII,pos])
+           else
+              if (wmd_fieldtype(laFields[ii]) == 'FLOAT' .or. wmd_fieldtype(laFields[ii]) == 'NUMERIC' .or. wmd_fieldtype(laFields[ii]) == 'INTEGER')
+                 aadd(laRes,0)
+              elseif (wmd_fieldtype(laFields[ii]) == 'CHAR' .or. wmd_fieldtype(laFields[ii]) == 'VARCHAR' .or. wmd_fieldtype(laFields[ii]) == 'TEXT')
+                 aadd(laRes,'')
+              elseif (wmd_fieldtype(laFields[ii]) == 'DATE')
+                 aadd(laRes,ctod(''))
+              endif
+           endif
+        endif
+    next ii
+    // Valida se o vetor de conteúdo contém a mesma quantidade de elementos do cabeçalho
+
+    aadd(laSave,laRes)
+  //  wout('DEBUG DO LOG')
+  //  debug2(laSave,,30)
+
+    if len(laFields) <> len(laRes)
+       return(.f.)
+    endif
+    if db_insert(laSave,'LOGMVTDESPESAGRUPO') == -1
+       error_sys(db_error())
+       llRetorno := .f.
+    endif
+
+return(llRetorno)
+
+/*
+* Glauber - 22/09/2010
+* Function..: AddMonth(pData, pMeses)
+* Objetivo..: Retorna a data com a quantidade de meses adicionada
+* Parâmetros:
+*   pData  : Data a ser tratada
+*   pMeses : Quantidade de meses a adicionar.
+* Retorno...: Data com os meses somado.
+* 
+*
+*/
+
+Static Function AddMonth(pData, pMeses)
+
+local lnDia  := day(pData),;
+      lnMes  := month(pData),;
+      lnAno  := year(pData),;
+      x      := 0  as int
+local lcData := '' as String
+      for x := 1 to pMeses
+          if lnMes >= 12
+             ++lnAno
+             lnMes := 1
+          else
+             ++lnMes
+          endif
+      next x
+      lcData := alltrim(strzero(lnDia,2) + '/' + strzero(lnMes,2) +'/' +strzero(lnAno,4))
+return(ctod(lcData))
+
+/*
+insert into mvtdespesagrupo 
+(nr_pasta,dia_vencimento, regra_util,vr_parcela, cd_indice, per_reajuste, mesano_base, QTDPARCELAS, dtvcto_primeira, fl_revisao, fl_aprovacao, login_revisao, login_aprovacao, qtdediasgeracao, cd_despesa, cd_grp_despesa, fl_ajusta_pedido, cip_escritorio, dt_ref, login, login_resp, quantidade, vl_unit, vl_total, forma_pagamento, cip_favorecido, tp_favorecido, tp_docfiscal, cd_ccusto, cd_moeda,vl_parcela)
+values
+(4419,30,'N',10,5,'S','201009',10,'20100930','S','S','glauber','glauber',2,'5','5','N','2478','20100922','glauber','glauber',10,10, 100,'Cheque','192','Pessoa Juridica', 'Recibo','1',1,10)
+*/
+/*
+
+isj_395=# alter table mvtdespesagrupo add fl_pginterface char(1) default ' ';
+ALTER TABLE
+isj_395=# alter table mvtdespesagrupo add fl_interfacegem char(1) default ' ';
+ALTER TABLE
+isj_395=# alter table mvtdespesagrupo add fl_interfaceweb char(1) default ' ';
+ALTER TABLE
+
+
+alter table logmvtdespesagrupo add hr_ultima_geracao varchar(8)
+
+*/
+
+
+
+
+

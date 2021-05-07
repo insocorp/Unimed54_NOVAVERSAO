@@ -1,0 +1,114 @@
+/*
+
+Project      : gr5
+Program      : psab.locador.html
+Function     : psab_locador_html
+Created on   : 20-Apr-2006   15:46:39
+Descripition : Aba de Contrato/Locadores
+
+*/
+
+   local lcACTION      := upper(WGet('ACTION','U')),;
+         lcNR_PASTA    := WGet('NR_PASTA','C'),;
+         lcTP_PASTA    := WGet('TP_PASTA','C'),;
+         lcCIP_LOCADOR := WGet('CIP_LOCADOR','C'),;
+         lcTABLE       := '',;
+         lcWHERE       := '' as string
+   local laFIELDS   := {} ,;
+         laRESULT   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laVALIDA   := {} as array
+   local ii := 0 as int
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   get2Put({'NR_PASTA','TP_PASTA'})
+
+   laVALIDA := {'CIP_LOCADOR'}
+
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+   lcTABLE  := 'pasta_contrato_locador'
+   laFIELDS := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   lcWHERE  := 'NR_PASTA='+lcNR_PASTA+' and CIP_LOCADOR='+DLAP+lcCIP_LOCADOR+DLAP
+   // Glauber 06/01/2011
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      if verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+         //Validação de total
+         if db_select({'sum(PC_LOCADOR)'},'pasta_contrato_locador',,{'NR_PASTA='+lcNR_PASTA+' and CIP_LOCADOR<>'+DLAP+lcCIP_LOCADOR+DLAP}) == -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchrow()
+         if (laRESULT[1]+WGet('PC_LOCADOR','N')) > 100
+            walert('A soma dos Percentuais não pode ser superior a 100%')
+            get2put()
+         else
+            aadd(laSAVE,laFIELDS)
+            for ii := 1 to len(laFIELDS)
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+            next ii
+            aadd(laSAVE,laSAVE_AUX)
+
+            psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Locador') //Gravar log de alterações da pasta
+
+            if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+         endif
+      endif
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2Put(laRESULT)
+         if ! empty(laRESULT[2,db_fetchncol(laRESULT,'CIP_LOCADOR')])
+            if db_select({'PFPJ as CIP_LOCADOR_PFPJ'},'pfpj',,{'CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_LOCADOR')]+DLAP}) == -1
+               error_sys(db_error())
+            endif
+            db2Put(db_fetchall())
+         endif
+         if ! empty(laRESULT[2,db_fetchncol(laRESULT,'CIP_REPRESENTANTE')])
+            if db_select({'PFPJ as CIP_REPRESENTANTE_PFPJ'},'pfpj',,{'CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_REPRESENTANTE')]+DLAP}) == -1
+               error_sys(db_error())
+            endif
+            db2Put(db_fetchall())
+         endif
+      endif
+
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+   endif
+
+   if db_select({'pasta_contrato_locador.CIP_LOCADOR',;
+                 'pfpj.PFPJ',;
+                 'pasta_contrato_locador.PC_LOCADOR'},lcTABLE,;
+                {{2,'pfpj','pfpj.CIP=pasta_contrato_locador.CIP_LOCADOR'}},;
+                {'pasta_contrato_locador.NR_PASTA='+lcNR_PASTA},{'pasta_contrato_locador.CIP_LOCADOR'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      aadd(laRESULT[1],'(row)')
+      for ii := 2 to len(laRESULT)
+         aadd(laRESULT[ii],'(row)'+wic_action('wicaction_gr5/psab.locador.html'+;
+                                              '?TP_PASTA='+lcTP_PASTA+;
+                                              '&NR_PASTA='+lcNR_PASTA+;
+                                              '&CIP_LOCADOR='+laRESULT[ii,db_fetchncol(laRESULT,'CIP_LOCADOR')]+;
+                                              '&ACTION=ALTER'))
+      next ii
+      WPut('GRID_LOCADOR',grid_create(laRESULT))
+   endif
+   pasta_abas(lcTP_PASTA)
+return
+
+
+
+
+
+

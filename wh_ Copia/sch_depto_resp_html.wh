@@ -1,0 +1,11 @@
+/*
+
+Project      : gr5
+Program      : sch.depto.resp.html
+Function     : sch_depto_resp_html
+Created on   : 16-Apr-2003   09:23:07
+Descripition : Search de login para Departamento Responsável.
+
+*/
+
+sch_login_html()

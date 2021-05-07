@@ -1,0 +1,40 @@
+/*
+Project      : gr5
+Program      : sch.atividade.recurso.html
+Function     : sch_atividade_recurso_html
+Created on   : 05-07-2012   22:00
+Descripition : Pesquisa de atividades de recursos
+*/
+
+local laFIELDS       := {},;
+      laJAVA         := {},;
+      laQUICK_SEARCH := {} as array
+
+laFIELDS       := {'ID_ATIVIDADE','ATIVIDADE_RECURSO'} 
+laJAVA         := {'mntform',{{'ID_ATIVIDADE','ID_ATIVIDADE'},{'ATIVIDADE_RECURSO','ATIVIDADE_RECURSO'}}}
+laQUICK_SEARCH := {'STATUS_RECURSO'}
+
+xbp          ('atividade_recurso',;     //Tabela Alvo
+              ,;                        //Join
+              ,;                        //Where
+              ,;                        //Order by
+              ,;                        //Sort [A]-Ascendente [D]-Descentende
+              ,;                        //Group by
+              ,;                        //Limit
+              ,;                        //Banco de Dados
+              3,;                       //Modo de funcionamento [1]-Listagem/Form para manutenção [2]-Listagem e Manutenção [3]-Search
+              'gr5',;                  //Modulo do programa chamador
+              WSet('_USER_INTERFACE'),; //Programa chamador
+              ,;                        //Parametros para linhas clicáveis
+              ,;                        //Botoes (nil)
+              'sch.atividade.recurso.html',;  //Programa chamado pelos links (linhas clicáveis)
+              'gr5',;                  //Módulo do programa chamado pelos links
+              laJAVA,;                  //Retorno java (nil) - usado apenas no search
+              laQUICK_SEARCH,;          //Campos usados na pesquisa rápida
+              ,;                        //Campos ocultos. Usado apenas em manutenções    ***
+              ,;                        //Campos da área de manutenção/entrada de dados  ***
+              laFIELDS,;                //Campos mostratos no grid
+              laFIELDS)                 //Campos usados no select
+return
+
+

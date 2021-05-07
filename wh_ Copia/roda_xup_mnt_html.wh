@@ -1,0 +1,45 @@
+/*
+
+Project      : isj_398
+Program      : roda.xup.mnt.html
+Function     : roda_xup_mnt_html
+Created on   : 31/07/2012 12:02:59
+Descripition : 
+
+*/
+
+local lcACTION      := '' 
+      
+      
+      
+local llERRO:=.f. as logical           
+
+WPut('TITLE','Executar Xup - Correção Monetária')
+      
+//lcTABLE       := 'pasta_incorporacao'
+
+lcACTION      := upper(Wget('ACTION'))
+
+
+if lcACTION == 'EXECUT' .and. gbWAC_CREATE 
+   
+// atualizar seq_interfaces   
+      
+      xupdval()
+      
+      walert('Executado')
+
+   
+endif
+
+return
+
+
+
+
+
+
+
+
+
+

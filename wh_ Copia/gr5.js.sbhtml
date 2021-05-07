@@ -1,0 +1,1450 @@
+<script language="javascript" type="text/javascript">
+  /*
+   * Funções Genéricas
+   */
+
+   function pasta_salva(strNR_PASTA)
+   {
+      if (strNR_PASTA == 'New' || strNR_PASTA.length == 0)
+      {
+         alert('A Pasta não está salva');
+         return false;
+      } else
+         return true;
+   }
+
+   function excluir(strReg)
+   {
+           if (strReg.length != 0 && strReg != 'New')
+           {
+              if (confirm('Deseja excluir permanentemente o Registro ['+strReg+']?'))
+                      return true;
+              else
+                      return false;
+           }
+           else
+              return false;
+   }
+
+   function window_open(strURL,strNAME)
+   {
+      window.open(strURL,strNAME,'width=10,height=10,top=10,left=10,location=no,toolbar=no,status=yes,scrollbars=yes')
+   }
+
+   function show_hide()
+   {
+     var i,p,v,obj,args=show_hide.arguments;
+     for (i=0; i<(args.length-2); i+=3) if ((obj=MM_findObj(args[i]))!=null) { v=args[i+2];
+       if (obj.style) { obj=obj.style; v=(v=='show')?'visible':(v='hide')?'hidden':v; }
+       obj.visibility=v; }
+   }
+
+   function MM_findObj(n, d)
+   {
+     var p,i,x;  if(!d) d=document; if((p=n.indexOf("?"))>0&&parent.frames.length) {
+       d=parent.frames[n.substring(p+1)].document; n=n.substring(0,p);}
+     if(!(x=d[n])&&d.all) x=d.all[n]; for (i=0;!x&&i<d.forms.length;i++) x=d.forms[i][n];
+     for(i=0;!x&&d.layers&&i<d.layers.length;i++) x=MM_findObj(n,d.layers[i].document);
+     if(!x && document.getElementById) x=document.getElementById(n); return x;
+   }
+
+   function set_class(id_obj,nm_class)
+   {
+      document.getElementById(id_obj).className=nm_class;
+   }
+
+   function valida_hora(cHORA, cHORA2)
+   {
+           if (cHORA.charAt(2)!=':') {alert('A Hora digitada não é válida!');return false}
+           var hora1  = parseInt(cHORA.charAt(0));
+           var hora2  = parseInt(cHORA.charAt(1));
+           var minuto1 = parseInt(cHORA.charAt(3));
+           var minuto2 = parseInt(cHORA.charAt(4));
+           if (hora1 < 0 || hora1 > 2 || isNaN(hora1))
+              {alert('A Hora digitada não é válida!');return false}
+           if (hora2 < 0 || hora2 > 9 || isNaN(hora1))
+              {alert('A Hora digitada não é válida!');return false}
+           if (minuto1 < 0 || minuto1 > 5|| isNaN(hora1))
+              {alert('A Hora digitada não é válida!');return false}
+           if (minuto2 < 0 || minuto2 > 9|| isNaN(hora1))
+              {alert('A Hora digitada não é válida!');return false}
+
+           if (cHORA2.charAt(2)!=':') {alert('A Hora digitada não é válida!');return false}
+           var hora1  = parseInt(cHORA2.charAt(0));
+           var hora2  = parseInt(cHORA2.charAt(1));
+           var minuto1 = parseInt(cHORA2.charAt(3));
+           var minuto2 = parseInt(cHORA2.charAt(4));
+           if (hora1 < 0 || hora1 > 2 || isNaN(hora1))
+              {alert('A Hora digitada não é válida!');return false}
+           if (hora2 < 0 || hora2 > 9 || isNaN(hora1))
+              {alert('A Hora digitada não é válida!');return false}
+           if (minuto1 < 0 || minuto1 > 5|| isNaN(hora1))
+              {alert('A Hora digitada não é válida!');return false}
+           if (minuto2 < 0 || minuto2 > 9|| isNaN(hora1))
+              {alert('A Hora digitada não é válida!');return false}
+           return true;
+   }
+
+   function valida_data(cDATA,cDATA2)
+   {
+           if (cDATA.charAt(2)!='/' && cDATA.charAt(5)!='/' ) {alert('A Data digitada não é válida!'); return false}
+           var dia = parseInt(cDATA.substring(0,2));
+           var mes  = parseInt(cDATA.substring(3,5));
+           var ano = parseInt(cDATA.substring(6,10));
+
+           if (dia > 31 || dia < 1 || isNaN(dia))
+              {alert('A Data inicial digitada não é válida!');return false}
+           if (mes > 12 || mes < 1 || isNaN(mes))
+              {alert('A Data inicial digitada não é válida!');return false}
+           if (ano < 2002 || isNaN(ano))
+              {alert('A Data inicial digitada não é válida!');return false}
+
+           if (cDATA2.charAt(2)!='/' && cDATA2.charAt(5)!='/' ) {alert('A Data digitada não é válida!'); return false}
+           var dia2 = parseInt(cDATA2.substring(0,2));
+           var mes2  = parseInt(cDATA2.substring(3,5));
+           var ano2 = parseInt(cDATA2.substring(6,10));
+
+           if (dia2 > 31 || dia2 < 1 || isNaN(dia2))
+              {alert('A Data Final digitada não é válida!');return false}
+           if (mes2 > 12 || mes2 < 1 || isNaN(mes2))
+              {alert('A Data inicial digitada não é válida!');return false}
+           if (ano2 < 2002 || isNaN(ano2))
+              {alert('A Data inicial digitada não é válida!');return false}
+
+           return true;
+   }
+
+   function userdel(cLOGIN)
+   {
+           if (confirm('Deseja excluir permanentemente o Usuário ['+cLOGIN+'] do Sistema?'))
+                   return true;
+           else
+                   return false ;
+   }
+
+   function groupdel(cGROUP)
+   {
+           if (confirm('Deseja excluir permanentemente o Grupo ['+cGROUP+'] do Sistema?'))
+                   return true;
+           else
+                   return false ;
+   }
+
+   function rm_program(cProg)
+   {
+           if (confirm('Deseja excluir permanentemente o Programa ['+cProg+'] deste Grupo?'))
+                   return true;
+           else
+                   return false ;
+   }
+
+   function ltrim(str)
+   {
+      var whitespace = new String(" \t\n\r");
+      var s = new String(str);
+
+      if (whitespace.indexOf(s.charAt(0)) != -1) {
+         var j=0, i = s.length;
+
+         while (j < i && whitespace.indexOf(s.charAt(j)) != -1)
+            j++;
+         s = s.substring(j, i);
+      }
+      return s;
+   }
+   function rtrim(str)
+   {
+      var whitespace = new String(" \t\n\r");
+      var s = new String(str);
+
+      if (whitespace.indexOf(s.charAt(s.length-1)) != -1) {
+         var i = s.length - 1;       // Get length of string
+
+         while (i >= 0 && whitespace.indexOf(s.charAt(i)) != -1)
+            i--;
+         s = s.substring(0, i+1);
+      }
+      return s;
+   }
+
+   function alltrim(str)
+   {
+      return rtrim(ltrim(str));
+   }
+
+   function valida_nr_processo() {
+      strNR_PROCESSO = new String(document.mntform.NR_PROCESSO.value);
+      var erro = 0;
+      for (var ii=0; ii <= (strNR_PROCESSO.length -1); ii++) {
+         if (isNaN(parseInt(strNR_PROCESSO.substring(ii,ii+1)))) erro ++ ;
+      }
+      if (erro > 0) {
+            alert('Número de Processo Inválido!');
+            document.mntform.NR_PROCESSO.focus();
+            document.mntform.NR_PROCESSO.select();
+            return false;
+      }
+      else {
+         return true;
+      }
+   }
+
+//=============================================================================
+//                          Search de Cores
+//=============================================================================
+
+function sch_color(nm_field,objevent) {
+   var obj = document.getElementById('div_color');
+   var coratual = eval(nm_field+'.value');
+   var acolors = [['00FF00','00FF33','00FF66','00FF99','00FFCC','00FFFF','00CC00','00CC66','00CC66','00CC99','00CCCC','00CCFF','009900','009933','009966','009999','0099CC','0099FF'],
+                  ['33FF00','33FF33','33FF66','33FF99','33FFCC','33FFFF','33CC00','33CC33','33CC66','33CC99','33CCCC','33CCFF','339900','339933','339966','339999','3399CC','3399FF'],
+                  ['66FF00','66FF33','66FF66','66FF99','66FFCC','66FFFF','66CC00','66CC33','66CC66','66CC99','66CCCC','66CCFF','669900','669933','669966','669999','6699CC','6699FF'],
+                  ['99FF00','99FF33','99FF66','99FF99','99FFCC','99FFFF','99CC00','99CC33','99CC66','99CC99','99CCCC','99CCFF','999900','999933','999966','999999','9999CC','9999FF'],
+                  ['CCFF00','CCFF33','CCFF66','CCFF99','CCFFCC','CCFFFF','CCCC00','CCCC33','CCCC66','CCCC99','CCCCCC','CCCCFF','CC9900','CC9933','CC9966','CC9999','CC99CC','CC99FF'],
+                  ['FFFF00','FFFF33','FFFF66','FFFF99','FFFFCC','FFFFFF','FFCC00','FFCC33','FFCC66','FFCC99','FFCCCC','FFCCFF','FF9900','FF9933','FF9966','FF9999','FF99CC','FF99FF'],
+                  ['006600','006633','006666','006699','0066CC','0066FF','003300','003333','003366','003399','0033CC','0033FF','000000','000033','000066','000099','0000CC','0000FF'],
+                  ['336600','336633','336666','336699','3366CC','3366FF','333300','333333','333366','333399','3333CC','3333FF','330000','330033','330066','330099','3300CC','3300FF'],
+                  ['666600','666633','666666','666699','6666CC','6666FF','663300','663333','663366','663399','6633CC','6633FF','660000','660033','660066','660099','6600CC','6600FF'],
+                  ['996600','996633','996666','996699','9966CC','9966FF','993300','993333','993366','993399','9933CC','9933FF','990000','990033','990066','990099','9900CC','9900FF'],
+                  ['CC6600','CC6633','CC6666','CC6699','CC66CC','CC66FF','CC3300','CC3333','CC3366','CC3399','CC33CC','CC33FF','CC0000','CC0033','CC0066','CC0099','CC00CC','CC00FF'],
+                  ['FF6600','FF6633','FF6666','FF6699','FF66CC','FF66FF','FF3300','FF3333','FF3366','FF3399','FF33CC','FF33FF','FF0000','FF0033','FF0066','FF0099','FF00CC','FF00FF'],
+                  ['FFFFFF','F9F9F9','F1F1F1','DDDDDD','CCCCCC','C0C0C0','C0C0C0','C9C9C9','999999','969696','808080','666666','646464','4B4B4B','333333','242424','222222','000000'],
+                  ['FAFAFA','EDEEEF','C7D0D9','9CABBA','FFF5EE','FFF0F5','FFE4E1','006400','2E8B57','8FBC8F','66CDAA','8B7D6B','CDB79E','EED5B7','FFE4C4','EEDFCC','FFEFDB','FFF5EE']];
+
+   var content ='<table border="0" cellpadding="0" cellspacing="1" bgcolor="#000000">\n';
+   content +='<tr><td align="right" colspan="'+acolors[1].length+'"><a style="text-decoration:none;color:#FFFFFF;" href="javascript:kill()">fechar</a></td></tr>';
+   for (var ii = 0; ii <= (acolors.length -1); ii++) {
+      content +='<tr>\n';
+      for (var xx = 0; xx <= (acolors[ii].length -1); xx++) {
+         content +='<td width="12" height="12"'+
+                   ' title="#'+acolors[ii][xx]+'"'+
+                   ' onclick="javascript:'+nm_field+'.value=\''+acolors[ii][xx]+'\';kill()"'+
+                   ' onmouseover="javascript:document.getElementById(\'corselecionada\').innerHTML=\'#'+acolors[ii][xx]+'\';"'+
+                   ' bgcolor="#'+acolors[ii][xx]+'">\n'+
+                   ' </td>\n';
+      }
+      content +='</tr>\n';
+   }
+   content +='<tr><td colspan="18">';
+   content +='<table cellpadding="0" cellspacing="0" width="100%"><tr>';
+   content +='<td height="12"><font color="#FFFFFF">Cor atual: #'+coratual+'</font><span id="coratual" style="padding-right:24px;background-color:#'+coratual+'"></td>';
+   content +='<td align="right"><font color="#FFFFFF"><span id="corselecionada"></span></font></td>';
+   content +='</tr></table>';
+   content +='</td></tr>';
+   content += '</table>';
+
+   obj.style.top        = objevent.clientY - 100;
+   obj.style.left       = objevent.clientX - 110;
+   obj.innerHTML        = content;
+   obj.style.visibility = 'visible';
+}
+function kill() {
+   var obj = document.getElementById('div_color');
+   obj.style.visibility = 'hidden';
+}
+
+/* Calendário Dinâmico */
+/* Varáveis Globais */
+var objdate;
+var now = new Date();
+var year = now.getYear();
+if (year < 1000) year+=1900;
+var month = now.getMonth();
+
+function leapYear(year) {
+   if (year % 4 == 0)
+      return true ;
+   return false ;
+}
+
+function getDays(month, year) {
+   var ar = new Array(12);
+   ar[0] = 31;
+   ar[1] = (leapYear(year)) ? 29 : 28;
+   ar[2] = 31;
+   ar[3] = 30;
+   ar[4] = 31;
+   ar[5] = 30;
+   ar[6] = 31;
+   ar[7] = 31;
+   ar[8] = 30;
+   ar[9] = 31;
+   ar[10] = 30;
+   ar[11] = 31;
+   return ar[month];
+}
+
+function getMonthName(month) {
+var ar = new Array(12);
+ar[0] = "Janeiro";
+ar[1] = "Fevereiro";
+ar[2] = "Março";
+ar[3] = "Abril";
+ar[4] = "Maio";
+ar[5] = "Junho";
+ar[6] = "Julho";
+ar[7] = "Agosto";
+ar[8] = "Setembro";
+ar[9] = "Outubro";
+ar[10] = "Novembro";
+ar[11] = "Dezembro";
+
+return ar[month]
+}
+
+function next_month() {
+  month ++;
+  if (month > 11) {
+     month = 0;
+     year ++;
+  }
+  setcall();
+}
+
+function prev_month() {
+  month -- ;
+  if (parseInt(month)<0) {
+     month = 11;
+     year --;
+  }
+  setcall();
+}
+
+function setcall() {
+   var monthName = getMonthName(month);
+   var date = now.getDate();
+   //now = null
+
+   var firstDayInstance = new Date(year, month, 1);
+   var firstDay = firstDayInstance.getDay();
+   firstDayInstance = null;
+
+   var days = getDays(month, year);
+
+   drawCal(firstDay + 1, days, date, monthName, year);
+}
+
+function drawCal(firstDay, lastDate, date, monthName, year) {
+   var text = '';
+   if (navigator.appVersion.indexOf ('MSIE') != -1) {
+      text += ' <iframe scrolling="no" frameborder="0" width="212" height="142"></iframe>';
+   }
+   text += '<div style="position:absolute;top:0px;left:0px;z-index:1;width:300px;">'
+   text += '<table class="wcal" bgcolor="#FFFFFF" border="0" cellspacing="0" cellpadding="0">';
+   text += '<tr class="wcal_mes">'
+   text += '<td align="left" height="20"><input class="wcal_button" type="button" value="<" onclick="prev_month()"></td>';
+   text += '<td colspan=4 align="center">';
+   text += monthName + ' ' + year
+   text += '</TD>';
+   text += '<td align="right"><input class="wcal_button" type="button" value=">" onclick="next_month()"></td>';
+   text += '<td align="right"><input class="wcal_button" type="button" value="x" onclick="kill_call()"></td>';
+   text +='</tr>';
+
+   var openCol = '<TD WIDTH="30" HEIGHT="20">';
+   var closeCol = '</FONT></TD>';
+
+   var weekDay = new Array(7);
+   weekDay[0] = "Dom";
+   weekDay[1] = "Seg";
+   weekDay[2] = "Ter";
+   weekDay[3] = "Qua";
+   weekDay[4] = "Qui";
+   weekDay[5] = "Sex";
+   weekDay[6] = "Sab";
+
+   text += '<TR class="wcal_semana" ALIGN="center" VALIGN="center">';
+   for (var dayNum = 0; dayNum < 7; ++dayNum) {
+      text += openCol + weekDay[dayNum] + closeCol ;
+   }
+   text += '</TR>';
+
+   var digit = 1;
+   var curCell = 1;
+
+   for (var row = 1; row <= Math.ceil((lastDate + firstDay - 1) / 7); ++row) {
+      text += '<TR ALIGN="right" VALIGN="top">';
+      for (var col = 1; col <= 7; ++col) {
+         if (digit > lastDate) break;
+         if (curCell < firstDay) {
+            text += '<TD></TD>';
+            curCell++
+         } else {
+            if (digit < 10)
+               wday = '0'+digit
+            else
+               wday = digit;
+            if (month < 9)
+               wmonth = '0'+(month+1)
+            else
+               wmonth = month+1;
+
+            datecell = wday +'/'+wmonth+'/'+year ;
+
+            if (digit == date) {
+               text += '<TD style="color:0000FF;font-weight:bold;" onmouseout="this.className=\'wcal_dia\'" onmouseover="this.className=\'wcal_diaover\'" HEIGHT="20" onclick="javascript:chdate(\''+datecell+'\')">';
+               text += digit;
+               text += '</TD>';
+            } else {
+               text += '<TD class="wcaldia" onmouseout="this.className=\'wcal_dia\'" onmouseover="this.className=\'wcal_diaover\'" HEIGHT="20" onclick="javascript:chdate(\''+datecell+'\')">'
+               if (col==1 || col==7)
+                  text += '<font color="#FF0000">'+digit+'</font>'
+               else
+                  text += digit;
+
+               text += '</b></TD>'
+            }
+            digit++
+         }
+      }
+      text += '</TR>'
+   }
+
+   text += '</TABLE></div>'
+   document.getElementById('calendario').innerHTML = text;
+   document.getElementById('calendario').style.visibility = 'visible';
+}
+
+function sch_cal(obj,objevent) {
+
+   //Definido Posição
+   var W = document.body.clientWidth;
+   var H = document.body.clientHeight;
+   var T = (objevent.clientY);
+   var L = (objevent.clientX);
+
+   /* Impede que o calendário seja aberto fora da área cliente */
+   if (L > (W-210)) {
+      L -= 220;
+   }
+   if (T > (H-160)) {
+      T -= 170;
+   }
+
+   L += document.body.scrollLeft;
+   T += document.body.scrollTop;
+
+
+   document.getElementById('calendario').style.top = T;
+
+
+   document.getElementById('calendario').style.left = L;
+
+   objdate = obj;
+   setcall();
+}
+
+function chdate(str) {
+   objdate.value = str;
+   kill_call();
+}
+
+function kill_call() {
+   document.getElementById('calendario').innerHTML = '';
+   document.getElementById('calendario').style.visibility = 'hidden';
+}
+
+//----------------------------------------------------------------
+// Funções para gerar Janela de progresso (Carregando, aguarde...)
+//----------------------------------------------------------------
+   function disable_form(objs,msg) {
+      if (typeof(msg)!='string') {
+         msg = 'Processando, &nbsp; aguarde&nbsp;.&nbsp;.&nbsp;.';
+      }
+      var conteudo = '';
+      for (var ii = 0; ii < objs.length; ii++) {
+         if (typeof(objs[ii])=='object') {
+            objs[ii].disabled = true;
+            objs[ii].className = 'wbuttondisabled';
+         }
+      }
+      document.getElementById('divload').style.top = ((document.body.clientHeight / 2) - 15) + document.body.scrollTop ;
+      document.getElementById('divload').style.left = (document.body.clientWidth / 2) - 150;
+      document.getElementById('divload').style.visibility = 'visible';
+
+      if (navigator.appVersion.indexOf ('MSIE') != -1) {
+         conteudo += ' <iframe scrolling="no" frameborder="0" width="350" height="70"></iframe>';
+      }
+      conteudo += '<div style="position:absolute;top:0px;left:0px;z-index:1;height:70px;width:350px;">'
+      conteudo += '<table width="350" height="70" border="0" style="color:#000000;border:2px solid #333333;background-color:#F1F1F1;font-size:10px;font-weight:bold;">';
+      conteudo += '<tr><td width="30" align="center"><div id="progress"></div></td>';
+      conteudo += '<td align="center">'+msg+'</td></tr>';
+      conteudo += '</table></div>';
+      document.getElementById('divload').innerHTML = conteudo;
+      runprogress()
+   }
+
+   var count = 0;
+   function runprogress() {
+
+      var conteudo = '';
+
+      if (count == 0 ) conteudo += '|';
+      if (count == 1 ) conteudo += '/';
+      if (count == 2 ) conteudo += '--';
+      if (count == 3 ) conteudo += '\\';
+      if (count == 4 ) conteudo += '|';
+      if (count == 5 ) conteudo += '/';
+      if (count == 6 ) conteudo += '--';
+      if (count == 7 ) conteudo += '\\';
+
+      count ++ ;
+      if (count > 8 ) count = 0;
+      document.getElementById('progress').innerHTML = conteudo;
+      setTimeout('runprogress()',100);
+   }
+
+
+   /*Função Help Online  */
+
+   function HelpOnlineLayer(wfield,objevent) {
+
+      document.getElementById('helpDiv').style.display = 'block';
+      parent.helpFrame.location.href='helponline?WFIELD='+wfield;
+
+      var W = document.body.clientWidth;
+      var H = document.body.clientHeight;
+      var T = (objevent.clientY);
+      var L = (objevent.clientX);
+
+      if (L > (W-348)) {
+         L -= 308;
+      }
+      if (T > (H-162)) {
+         T -= 170;
+      }
+
+      L += document.body.scrollLeft;
+      T += document.body.scrollTop;
+
+
+      document.getElementById('helpDiv').style.top = T;
+      document.getElementById('helpDiv').style.left = L;
+
+   }
+
+    /*
+    ###### Função Textarea Dinamico ######################################
+    # Bruno Sanches Belintani
+    # 02/05/2006
+    ######################################################################
+    */
+
+    var agt=navigator.userAgent;
+       function sz(t) {
+		a = t.value.split('\n');
+		b=1;
+
+		for (x=0;x < a.length; x++) {
+		 if (a[x].length >= t.cols) b+= Math.floor(a[x].length/t.cols);
+		}
+
+		  b+= a.length;
+		   if (b > t.rows && agt.indexOf('opera') == -1) {
+			 t.rows = b;
+		   }
+
+		  z=<wicfield name=^TEXTROWS^>;
+		   if(z < t.rows && agt.indexOf('opera') == -1) {
+			 t.rows = b -1;
+		   }
+		}
+
+		var agt=navigator.userAgent;
+        function sz2(t) {
+		a = t.value.split('\n');
+		b=1;
+
+		for (x=0;x < a.length; x++) {
+		 if (a[x].length >= t.cols) b+= Math.floor(a[x].length/t.cols);
+		}
+
+		  b+= a.length;
+		   if (b > t.rows && agt.indexOf('opera') == -1) {
+			 t.rows = <wicfield name=^TEXTROWS^>;
+		   }
+
+		   z=<wicfield name=^TEXTROWS^>;
+		   if(z < t.rows && agt.indexOf('opera') == -1) {
+			 t.rows = b -1;
+		   }
+		}
+    // ###### Final  Função Textarea Dinamico ######################################
+
+   function pfpj_detalhe(fcCIP) {
+      if (fcCIP.length == 0) {
+         alert('Favor preencher o Código da Pessoa!');
+         return false;
+      }
+
+      if (typeof(document.getElementById('detalhe_pfpj'))=='object') {
+         var objDiv = document.createElement ("DIV");
+         objDiv.setAttribute ('id', 'detalhe_pfpj');
+         objDiv.style.position        = 'absolute';
+         objDiv.style.border          = '1px';
+         objDiv.style.borderStyle     = 'solid';
+         objDiv.style.borderColor     = '#306070';
+         objDiv.style.width           = '500px';
+         objDiv.style.height          = '400px';
+         objDiv.style.display         = 'none';
+         objDiv.style.backgroundColor = '#FFFFFF';
+
+         if (navigator.appVersion.indexOf ('MSIE') != -1) {
+           objDiv.innerHTML = '<iframe style="top:0px;left:0px;position:absolute;z-index:-1000;" scrolling="no" frameborder="0" width="488" height="398"></iframe>\n';
+         }
+
+         objDiv.innerHTML += '<div style="position:absolute;z-index:1000;top:0px;left:0px;">\n';
+         objDiv.innerHTML += '<div style="height:20px;" class="wgridheader"><table cellpadding="2" width="100%" style="color:#FFFFFF"><tr><td>Detalhes de Pessoa Física/Jurídica</td><td align="right" onclick="document.getElementById(\'detalhe_pfpj\').style.display=\'none\';" style="cursor:pointer;">X</td></tr></table></div>\n';
+         objDiv.innerHTML += '<div style="height:380px;overflow:auto;" id="detalhe_pfpj_conteudo"></div>\n';
+         objDiv.innerHTML += '</div>\n';
+         document.body.appendChild(objDiv);
+      }
+
+      var objP = document.getElementById('detalhe_pfpj');
+      var objC = document.getElementById('detalhe_pfpj_conteudo');
+
+      objP.style.left = document.body.scrollLeft+((document.body.clientWidth-500)/2);
+      objP.style.top = document.body.scrollTop+((document.body.clientHeight-400)/2);
+
+      objP.style.display  = 'block';
+      objC.innerHTML = '<table style="font-weight:bold;" width="100%" height="100%"><tr><td align="center" valign="middle">Carregando...</td></tr></table>';
+
+      var cAJX_TABLE   = 'pfpj';
+      var cAJX_FIELDS = 'pfpj.CIP,';
+          cAJX_FIELDS += 'pfpj.NR_CONTROLE,';
+          cAJX_FIELDS += 'pfpj.PFPJ,';
+          cAJX_FIELDS += 'pfpj.NM_FANTASIA,';
+          cAJX_FIELDS += 'pfpj.PFPJ_NATUREZA,';
+          cAJX_FIELDS += 'pfpj.CD_GRP_ECONOMICO,';
+          cAJX_FIELDS += 'grupo_economico.NM_GRP_ECONOMICO,';
+          cAJX_FIELDS += 'pfpj.CARGO,';
+          cAJX_FIELDS += 'pfpj.DEPTO,';
+          cAJX_FIELDS += 'pfpj.ENDERECO,';
+          cAJX_FIELDS += 'pfpj.NR_ENDERECO,';
+          cAJX_FIELDS += 'pfpj.EXTRA_ENDERECO,';
+          cAJX_FIELDS += 'pfpj.BAIRRO,';
+          cAJX_FIELDS += 'pfpj.CIDADE,';
+          cAJX_FIELDS += 'pfpj.UF,';
+          cAJX_FIELDS += 'pfpj.CEP,';
+          cAJX_FIELDS += 'pfpj.DDD,';
+          cAJX_FIELDS += 'pfpj.TELEFONE,';
+          cAJX_FIELDS += 'pfpj.TELEFONE2,';
+          cAJX_FIELDS += 'pfpj.FAX,';
+          cAJX_FIELDS += 'pfpj.CNPJ_CPF,';
+          cAJX_FIELDS += 'pfpj.IE,';
+          cAJX_FIELDS += 'pfpj.CCM,';
+          cAJX_FIELDS += 'pfpj.EMAIL,';
+          cAJX_FIELDS += 'pfpj.SITE,';
+          cAJX_FIELDS += 'pfpj.DT_ENTRADA,';
+          cAJX_FIELDS += 'pfpj.DT_CADASTRO,';
+          cAJX_FIELDS += 'pfpj.DT_NASCIMENTO,';
+          cAJX_FIELDS += 'pfpj.EXTRA,';
+          cAJX_FIELDS += 'pfpj.NIRE,';
+          cAJX_FIELDS += 'pfpj.PAIS,';
+          cAJX_FIELDS += 'pfpj.NACIONALIDADE,';
+          cAJX_FIELDS += 'pfpj.ESTADO_CIVIL,';
+          cAJX_FIELDS += 'pfpj.CARTEIRA_IDENTIDADE,';
+          cAJX_FIELDS += 'pfpj.FL_PFPJ,';
+          cAJX_FIELDS += 'pfpj.CIP_EMPRESA,';
+          cAJX_FIELDS += 'pfpj.CD_BANCO,';
+          cAJX_FIELDS += 'pfpj.BANCO_AGENCIA,';
+          cAJX_FIELDS += 'pfpj.BANCO_CONTA,';
+          cAJX_FIELDS += 'pfpj.RAMAL_FONE,';
+          cAJX_FIELDS += 'pfpj.RAMAL_FAX,';
+          cAJX_FIELDS += 'pfpj.DT_CANCELAMENTO,';
+          cAJX_FIELDS += 'pfpj.OAB,';
+          cAJX_FIELDS += 'pfpj.PFPJ_ATIVIDADE,';
+          cAJX_FIELDS += 'pfpj.DNPM,';
+          cAJX_FIELDS += 'pfpj.PFPJ_TIPOS,';
+          cAJX_FIELDS += 'pfpj.CELULAR,';
+          cAJX_FIELDS += 'pfpj.NR_CTPS,';
+          cAJX_FIELDS += 'pfpj.NR_PIS_PASEP,';
+          cAJX_FIELDS += 'pfpj.SMS_DEVICE,';
+          cAJX_FIELDS += 'pfpj.SMS,';
+          cAJX_FIELDS += 'pfpj.WALIAS,';
+          cAJX_FIELDS += 'pfpj.PFPJ_CHAR,';
+          cAJX_FIELDS += 'pfpj.CD_LEGADO,';
+          cAJX_FIELDS += 'pfpj.TP_EMPRESA,';
+          cAJX_FIELDS += 'pfpj.TP_CAPITAL,';
+          cAJX_FIELDS += 'pfpj.FORMA_ATUACAO,';
+          cAJX_FIELDS += 'pfpj.PFPJ_SIGLA,';
+          cAJX_FIELDS += 'pfpj.FL_DOCUMENTO_FALTA,';
+          cAJX_FIELDS += 'pfpj.DOCUMENTO_FALTA,';
+          cAJX_FIELDS += 'pfpj.LOGIN_CADASTRO,';
+          cAJX_FIELDS += 'pfpj.LOGIN_APROVACAO,';
+          cAJX_FIELDS += 'pfpj.DT_APROVACAO,';
+          cAJX_FIELDS += 'pfpj.FL_APROVADO,';
+          cAJX_FIELDS += 'pfpj.CIP_GESTOR_INTERNO,';
+          cAJX_FIELDS += 'pfpj.DT_ASSINATURA,';
+          cAJX_FIELDS += 'pfpj.DEPARTAMENTO,';
+          cAJX_FIELDS += 'pfpj.DT_VALIDADE,';
+          cAJX_FIELDS += 'pfpj.MOTIVO_CANCELAMENTO,';
+          cAJX_FIELDS += 'pfpj.FL_SEXO';
+
+      var cAJX_JOIN   = '2,grupo_economico,pfpj.CD_GRP_ECONOMICO=grupo_economico.CD_GRP_ECONOMICO';
+      var cAJX_WHERE  = 'pfpj.CIP='+DLAP+fcCIP+DLAP;
+
+      var aRETURN   = [];
+      var cRESQUEST = null;
+      var cURL      = 'query.ajx'
+      var cPARAM    = 'TABLE='+cAJX_TABLE+
+                      '&FIELDS='+cAJX_FIELDS+
+                      '&WHERE='+cAJX_WHERE+
+                      '&JOIN='+cAJX_JOIN;
+
+     //objP.innerHTML += cURL;
+
+      // Procura por um objeto nativo (Mozilla/Safari)
+      if (window.XMLHttpRequest) {
+          cRESQUEST = new XMLHttpRequest();
+
+          cRESQUEST.onreadystatechange = processReqChange;
+          cRESQUEST.open('POST', cURL, true);
+          cRESQUEST.setRequestHeader('Content-Type','text/xml');
+          cRESQUEST.setRequestHeader('encoding','ISO-8859-1');
+          cRESQUEST.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+          cRESQUEST.setRequestHeader('Content-length', cPARAM.length );
+          cRESQUEST.send(cPARAM); //Envia dados ao documento da url.
+
+      // Procura por uma versao ActiveX (IE)
+      } else if (window.ActiveXObject) {
+          cRESQUEST = new ActiveXObject("Microsoft.XMLHTTP");
+
+          if (cRESQUEST) {
+              cRESQUEST.onreadystatechange = processReqChange;
+              cRESQUEST.open("POST", cURL, true);
+              cRESQUEST.setRequestHeader('Content-Type','text/xml');
+              cRESQUEST.setRequestHeader('encoding','ISO-8859-1');
+              cRESQUEST.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+              cRESQUEST.setRequestHeader('Content-length', cPARAM.length );
+              cRESQUEST.send(cPARAM); //Envia dados ao documento da url.
+
+          }
+      }
+
+      function processReqChange() {
+         if (cRESQUEST.readyState == 4) {
+            if (cRESQUEST.status == 200) {
+                var aRETURN = eval(cRESQUEST.responseText);
+                if (aRETURN.length > 1) {
+
+                   var html = '<table width="100%" border="0" cellpadding="0" cellspacing="1">\n';
+                   var ncount = 0;
+
+                   for (var ii = 0; ii < aRETURN[0].length; ii++) {
+                      if (ncount==0) html += '<tr>\n';
+
+                      html += '<td width="20%"><nobr>\n';
+                      html += aRETURN[0][ii];
+                      html += '</nobr></td>\n';
+                      html += '<td>\n';
+                      html += '<input type="text" class="winputreadonly" value="'+aRETURN[1][ii]+'" readonly size="45">';
+                      html += '</td>\n';
+
+                      ncount++;
+
+                      if (ncount==1) {
+                         html += '</tr>\n';
+                         ncount = 0;
+                      }
+                   }
+                   html += '</table>\n';
+                   objC.innerHTML = html;
+                }
+                else {
+                   objP.style.display  = 'none';
+                   alert('Pessoa não encontrada!');
+                }
+            }
+         }
+      }
+   }
+
+
+
+     function ajx(obj) {
+
+     obj = escape(obj);
+
+     var campo    = document.mntform.CAUSAACAO;
+     var TP_PASTA = escape(document.mntform.TP_PASTA.value);
+
+     if(campo.options.length > 0 ) {
+        campo.options.length = 0;
+     }
+     var opts_b = new Option("Carregando...","",true,true)
+     campo.options[campo.options.length] = opts_b;
+
+     var cAJX_TABLE      = "causaacao"; //tabela alvo
+     var cAJX_FIELDS     = "CAUSAACAO"; // campo alvo
+     var cAJX_WHERE      = "PASTA_FAMILIA='"+obj+"' and TP_PASTA='"+TP_PASTA+"'";    // where
+     var cAJX_ORDERBY    = "CAUSAACAO"; // order by
+     var cAJX_JOIN       = '';          // Join
+
+     var aRETURN         = [];
+     var cRESQUEST       = null;
+     var cURL            = 'query.ajx';
+     var cPARAM          = 'TABLE='+cAJX_TABLE+
+                           '&FIELDS='+cAJX_FIELDS+
+                           '&WHERE='+cAJX_WHERE+
+                           '&ORDERBY='+cAJX_ORDERBY+
+                           '&JOIN='+cAJX_JOIN;
+
+      if (window.XMLHttpRequest) {
+
+          cRESQUEST2 = new XMLHttpRequest();
+
+          cRESQUEST2.onreadystatechange = processReqChange2;
+          cRESQUEST2.open("POST", cURL, true);
+          cRESQUEST2.setRequestHeader('Content-Type','text/xml');
+          cRESQUEST2.setRequestHeader('encoding','ISO-8859-1');
+          cRESQUEST2.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+          cRESQUEST2.setRequestHeader('Content-length', cPARAM.length );
+          cRESQUEST2.send(cPARAM); //Envia dados ao documento da url.
+
+      // Procura por uma versao ActiveX (IE)
+      }
+      else if (window.ActiveXObject) {
+
+          cRESQUEST2 = new ActiveXObject("Microsoft.XMLHTTP");
+
+          if (cRESQUEST2) {
+              cRESQUEST2.onreadystatechange = processReqChange2;
+              cRESQUEST2.open("POST", cURL, true);
+              cRESQUEST2.setRequestHeader('Content-Type','text/xml');
+              cRESQUEST2.setRequestHeader('encoding','ISO-8859-1');
+              cRESQUEST2.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+              cRESQUEST2.setRequestHeader('Content-length', cPARAM.length );
+              cRESQUEST2.send(cPARAM); //Envia dados ao documento da url.
+          }
+      }
+
+      function processReqChange2() {
+
+         if (cRESQUEST2.readyState == 4  || cRESQUEST2.readyState=="complete") {
+            if (cRESQUEST2.status == 200) {
+
+                var retorno_ajax = eval(cRESQUEST2.responseText);
+
+               if(retorno_ajax.length == 0) {
+                  alert("Nenhuma Causa Ação para esta Familia.");
+
+                  var campo = document.mntform.CAUSAACAO;
+
+                  if(campo.options.length > 0 ) {
+                   campo.options.length = 0;
+                  }
+               }
+               else {
+                  if (retorno_ajax.length > 0) {
+
+                       var x = eval(retorno_ajax);
+                       var campo = document.mntform.CAUSAACAO;
+                         if(campo.options.length > 0 ) {
+                          campo.options.length = 0;
+                         }
+
+                            for (ii = 0; ii < x.length; ii++) {
+                                   for (xx=0;xx < x[ii].length;xx++) {
+                                     if(xx == ii) {
+                                     var opts_b = new Option("","",true,true)
+                                     campo.options[campo.options.length] = opts_b;
+                                     }
+                                     else {
+                                       texto =  html2str(x[ii][xx])
+                                       var opts = new Option(texto)
+                                       campo.options[campo.options.length] = opts;
+                                     }
+
+                                   }
+                            }
+                  }
+               }
+            }
+         }
+     }
+  }
+
+  function html2str(sSTR) {
+      var zz = 0;
+
+        while(sSTR.indexOf('#0') > 0) {
+          for (zz = 0 ; zz <= 255; zz++) {
+            sSTR = sSTR.replace('&#0'+zz+';', String.fromCharCode(zz) );
+          }
+        }
+        for (zz = 0 ; zz <= 255; zz++) {
+         sSTR = sSTR.replace('&#'+zz+';', String.fromCharCode(zz) );
+        }
+      return(sSTR);
+  }
+  
+  // search objetos
+   function quickSearch(wPARAMETROS) {
+
+        var body = document.body;
+
+         objDiv = document.createElement ("DIV");
+         objDiv.setAttribute ('id', "quickObjeto");
+         objDiv.setAttribute ('name', "quickObjeto");
+         objDiv.style.position = "absolute";
+         objDiv.style.top = 0;
+         objDiv.style.left = 0;
+         objDiv.style.width = 600;
+         objDiv.style.height = 500;
+         objDiv.style.border = "1px solid #000000";
+         objDiv.style.display = "none";
+         objDiv.style.background = "#FFFFFF";
+
+         body.appendChild(objDiv)
+
+     document.getElementById('quickObjeto').style.top = ((document.body.clientHeight / 2) - 200) + document.body.scrollTop ;
+     document.getElementById('quickObjeto').style.left = (document.body.clientWidth / 2) -  300;
+
+  var TELA    =  wPARAMETROS.split("|");
+
+  if(TELA[5] == "Y") {
+         if (navigator.appVersion.indexOf ('MSIE') != -1) {
+           var lchtml  = '<iframe style="top:0px;left:0px;position:absolute;z-index:-1000;" scrolling="no" frameborder="0" width="488" height="398"></iframe>\n';
+               lchtml +=  '<table align="center" cellpadding="0" cellspacing="0" width="100%">';
+         }
+         else {
+           var lchtml =  '<table align="center" cellpadding="0" cellspacing="0" width="100%">';
+         }
+
+          lchtml +=  '  <tr style="cursor:move;">';
+          lchtml +=  '    <td style="height:10px;padding:5px;background-color:#306070;color:#FFFFFF;font-weight:bold;">Pesquisa de Objetos</td>';
+          lchtml +=  '    <td style="background-color:#306070;color:#FFFFFF;font-weight:bold;" width="20">';
+          lchtml +=  '    <input type="button" onclick="closeQuick();" style="border:0px;background-color:#306070;color:#FFFFFF;font-weight:bold;" value="X">';
+          lchtml +=  '    </td>';
+          lchtml +=  '  </tr>';
+          lchtml +=  '</table>';
+          lchtml +=  '<br>';
+          lchtml +=  '<table align="center" cellpadding="0" cellspacing="0">';
+          lchtml +=  '  <tr>';
+          lchtml +=  '     <td>';
+          lchtml +=  '        <input type="text" name="QUICK_SEARCH" id="QUICK_SEARCH" class="winput" size="50">';
+          lchtml +=  '        <input type="button" name="quickbutton" value="Pesquisar" class="wbutton" onclick="ajx2(\''+wPARAMETROS+'\');">';
+          lchtml +=  '     </td>';
+          lchtml +=  '  </tr>';
+          lchtml +=  ' </table>';
+          lchtml +=  ' <br>';
+          lchtml +=  ' <form name="quick">';
+          lchtml +=  ' <table align="center" cellpadding="0" border="0" cellspacing="0" width="90%" heigth="100%">';
+          lchtml +=  '  <tr>';
+          lchtml +=  '     <td align="center" width="49%">';
+          lchtml +=  '       <select name="FIELDS_1" id="FIELDS_1" size="18" multiple  style="width:250px;" value="document.mntform.DITFIELDS.value">';
+          lchtml +=  '        </select>';
+          lchtml +=  '     </td>';
+          lchtml +=  '     <td align="center" width="1%">';
+          lchtml +=  '          <input style="width:30px;" type="button" value="&gt;" onclick="move_selected_options(FIELDS_1,FIELDS_2)" class="wbutton">';
+          lchtml +=  '          <input style="width:30px;" type="button" value="&lt;" onclick="move_selected_options(FIELDS_2,FIELDS_1)" class="wbutton">';
+          lchtml +=  '          <input style="width:30px;" type="button" value="&gt;&gt;" onclick="move_all_options(FIELDS_1,FIELDS_2)" class="wbutton">';
+          lchtml +=  '          <input style="width:30px;" type="button" value="&lt;&lt;" onclick="move_all_options(FIELDS_2,FIELDS_1)" class="wbutton">';
+          lchtml +=  '     </td>';
+          lchtml +=  '     <td align="center" width="49%">';
+          lchtml +=  '      <div id="gridresultobjeto" style="height:210px;overflow:no;"></div>&nbsp;';
+          lchtml +=  '     </td>';
+          lchtml +=  '   </tr>';
+          lchtml +=  '   <tr>';
+          lchtml +=  '    <td colspan="3" align="center">';          
+          lchtml +=  '        <input align="center" type="button" name="quickbutton" value="Ok" onclick="document.mntform.OBJETO.value = select2comma(FIELDS_1);closeQuick();" class="wbutton">';
+          lchtml +=  '     </td>';
+          lchtml +=  '   </tr>';
+          lchtml +=  ' </table>';
+          lchtml +=  ' </form>';
+
+
+           document.getElementById('quickObjeto').innerHTML = lchtml;
+           document.getElementById('quickObjeto').style.display = "block";
+           document.getElementById('QUICK_SEARCH').focus();
+           
+           var valor = document.mntform.OBJETO.value;
+           var teste = valor.split(',');
+           var FIELDS_1 = document.getElementById('FIELDS_1');
+           
+           if(valor != 0) { 
+              for(var ii = 0; ii < teste.length; ii++) {
+       
+                var novaOpcao = new Option(teste[ii],teste[ii]);
+                    FIELDS_1.options[FIELDS_1.options.length] = novaOpcao;
+                 }
+              
+              }
+           ajx2(wPARAMETROS);
+           }
+          
+   else {
+      if (navigator.appVersion.indexOf ('MSIE') != -1) {
+           var lchtml  = '<iframe style="top:0px;left:0px;position:absolute;z-index:-1000;" scrolling="no" frameborder="0" width="488" height="398"></iframe>\n';
+               lchtml +=  '<table align="center" cellpadding="0" cellspacing="0" width="100%">';
+         }
+         else {
+           var lchtml =  '<table align="center" cellpadding="0" cellspacing="0" width="100%">';
+         }
+
+          lchtml +=  '  <tr style="cursor:move;">';
+          lchtml +=  '    <td style="height:10px;padding:5px;background-color:#306070;color:#FFFFFF;font-weight:bold;">Pesquisa Rapida</td>';
+          lchtml +=  '    <td style="background-color:#306070;color:#FFFFFF;font-weight:bold;" width="20">';
+          lchtml +=  '    <input type="button" onclick="closeQuick();" style="border:0px;background-color:#306070;color:#FFFFFF;font-weight:bold;" value="X">';
+          lchtml +=  '    </td>';
+          lchtml +=  '  </tr>';
+          lchtml +=  '</table>';
+          lchtml +=  '<br>';
+          lchtml +=  '<table align="center" cellpadding="0" cellspacing="0">';
+          lchtml +=  '  <tr>';
+          lchtml +=  '     <td>';
+          lchtml +=  '        <input type="text" name="QUICK_SEARCH" id="QUICK_SEARCH" class="winput" size="50">';
+          lchtml +=  '        <input type="button" name="quickbutton" value="Pesquisar" class="wbutton" onclick="ajx2(\''+wPARAMETROS+'\');">';
+          lchtml +=  '     </td>';
+          lchtml +=  '  </tr>';
+          lchtml +=  ' </table>';
+          lchtml +=  ' <br>';
+          lchtml +=  ' <table align="center" cellpadding="0" border="0" cellspacing="0" width="90%" heigth="100%">';
+          lchtml +=  '  <tr>';
+          lchtml +=  '     <td align="center">';
+          lchtml +=  '      <div id="gridresultobjeto" style="height:210px;overflow:auto;"></div>';
+          lchtml +=  '     </td>';
+          lchtml +=  '   </tr>';
+          lchtml +=  ' </table>';
+
+           document.getElementById('quickObjeto').innerHTML = lchtml;
+           document.getElementById('quickObjeto').style.display = "block";
+           document.getElementById('QUICK_SEARCH').focus();
+       }
+  }
+     function ajx2(wPARAMETROS) {
+
+     document.getElementById('gridresultobjeto').innerHTML = "Aguarde...";
+
+     var wQUICK          = document.getElementById('QUICK_SEARCH').value;
+     var novo            =  wPARAMETROS.split("|");
+
+     var cAJX_TABLE      = novo[0]; //tabela alvo
+     var cAJX_FIELDS     = novo[1]; // campo alvo
+     var cAJX_ORDERBY    = novo[3]; // order by
+     var cAJX_JOIN       = '';      // Join
+     var cAJX_PARAM      = novo[5]; // Parametro pra mudar de tela
+     var cAJX_KEYFIELD   = novo[6]; // fazer pesquisa em tabelas sem campo chave (pega o valor de outro campo)
+     var cAJX_PFILTRO    = novo[7]; // Uso na outra search
+     var cAJX_PROJECT    = novo[8]; // Uso na outra search
+     var cAJX_SCHFIELD   = novo[9];
+     var cAJX_OBJ        = document.getElementById('FIELDS_1');
+     var OBJ_OR          = "";
+      
+     if(cAJX_OBJ.options.length > 0) {  
+       OBJ_OR += ' and (';
+        for(var zz = 0; zz < cAJX_OBJ.options.length; zz++ ) {
+           if(zz > 0) { 
+           OBJ_OR += ' and ';
+           }
+           OBJ_OR += ' OBJETO <> \''+cAJX_OBJ[zz].value+'\' ';
+        }
+        OBJ_OR += ' )';
+      }
+        if(cAJX_PFILTRO == "Y") {
+           var cAJX_WHERE      = escape('TP_PASTA =\''+cAJX_KEYFIELD+'\' and '+novo[1]+ ' like \'%'+wQUICK+'%\''+OBJ_OR+'');
+        }
+        
+        else {
+           var cAJX_WHERE      = escape('TP_PASTA =\''+cAJX_KEYFIELD+'\' and '+novo[1]+ ' like \'%'+wQUICK+'%\''+OBJ_OR+'');
+        }
+      
+
+     var aRETURN         = [];
+     var cRESQUEST       = null;
+     var cURL            = 'query.ajx';
+     var cPARAM          = 'TABLE='+cAJX_TABLE+
+                             '&FIELDS='+cAJX_FIELDS+
+                             '&WHERE='+cAJX_WHERE+
+                             '&ORDERBY='+cAJX_ORDERBY+
+                             '&KEYFIELD='+cAJX_KEYFIELD+
+                             '&PROJECT='+cAJX_PROJECT+
+                             '&SCHFIELD='+cAJX_SCHFIELD+
+                             '&JOIN='+cAJX_JOIN;
+
+      //document.getElementById('debug').innerHTML = cURL+'?'+cPARAM;
+
+      if (window.XMLHttpRequest) {
+          cRESQUEST = new XMLHttpRequest();
+          cRESQUEST.onreadystatechange = processReqChange;
+          cRESQUEST.open("POST", cURL, true);
+          cRESQUEST.setRequestHeader('Content-Type','text/xml');
+          cRESQUEST.setRequestHeader('encoding','ISO-8859-1');
+          cRESQUEST.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+          cRESQUEST.setRequestHeader('Content-length', cPARAM.length );
+          cRESQUEST.send(cPARAM); //Envia dados ao documento da url.
+
+      // Procura por uma versao ActiveX (IE)
+      }
+      else if (window.ActiveXObject) {
+          cRESQUEST = new ActiveXObject("Microsoft.XMLHTTP");
+          if (cRESQUEST) {
+              cRESQUEST.onreadystatechange = processReqChange;
+              cRESQUEST.open("POST", cURL, true);
+              cRESQUEST.setRequestHeader('Content-Type','text/xml');
+          cRESQUEST.setRequestHeader('encoding','ISO-8859-1');
+          cRESQUEST.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+          cRESQUEST.setRequestHeader('Content-length', cPARAM.length );
+          cRESQUEST.send(cPARAM); //Envia dados ao documento da url.
+          }
+      }
+
+      function processReqChange() {
+         if (cRESQUEST.readyState == 4  || cRESQUEST.readyState=="complete") {
+            if (cRESQUEST.status == 200) {
+                var retorno_ajax = eval(cRESQUEST.responseText);
+
+               if(retorno_ajax.length == 0) {
+                  var html = '<select name="FIELDS_2" id="FIELDS_2" size="18" multiple class="wobjeto" style="width:250px;background-color:#FFFFFF;h">\n';
+                      html += '<option style="background:#FFFFFF;"></option>'   
+                      html += '</select>\n'   
+                   document.getElementById('gridresultobjeto').innerHTML = html;
+               }
+
+                  else {
+                       if (retorno_ajax.length > 0) {
+                                 if(cAJX_PARAM != "Y") {
+                                 var x = eval(retorno_ajax);
+                                 var html = '<table border="0" cellpadding="0" cellspacing="1" width="100%">\n';
+
+                                     for (ii = 0; ii < x.length; ii++) {
+                                          html += '<tr>\n';
+                                             for (xx=0;xx < x[ii].length;xx++) {
+                                               if (ii == 0) {
+                                                 html += '<td  class="wgridheader">\n'
+                                               }
+                                               else {
+                                                 html += '<td onmouseover="this.className=\'gridhover\'" onmouseout="this.className=\'wgridrow\'" onclick="completeField(\''+x[ii][xx]+'|'+novo[4]+'\');" class="wgridrow">\n';
+                                                 html += x[ii][xx];
+                                                 html += '</td>\n';
+                                               }
+                                             }
+                                          html += '</tr>\n';
+                                     }
+                                     html += '</table>\n'
+                                     document.getElementById('gridresultobjeto').innerHTML = html;
+                                     }
+
+                                     else {
+
+                                       var x = eval(retorno_ajax);
+                                       var html = '<select name="FIELDS_2" id="FIELDS_2" size="18" multiple class="wobjeto" style="width:250px;">\n';
+
+                                        for (ii = 1; ii < x.length; ii++) {
+                                             //html += '<td onmouseover="this.className=\'gridhover\'" onmouseout="this.className=\'wgridrow\'" onclick="completeField(\''+x[ii][xx]+'|'+novo[4]+'\');" class="wgridrow">\n';
+                                             for (xx=0;xx < x[ii].length;xx++) {
+                                             html += '<option style="background:#FFFFFF;" value="'+x[ii][xx]+'">'+x[ii][xx]+'</option>';
+                                             }
+                                         }
+                                          html += '</select>\n'
+                                          document.getElementById('gridresultobjeto').innerHTML = html;
+                                     }
+                       }
+                  }
+            }
+            else {
+               alert('Erro');
+            }
+     }
+     }
+    }
+   function completeField(wPARAMETRO) {
+
+
+    var PARA = wPARAMETRO.split("|");
+    var obj  = eval(PARA[1]);
+        obj.value = PARA[0];
+        
+        
+
+     closeQuick()
+
+   }
+
+   function closeQuick() {
+      document.getElementById('quickObjeto').style.display = "none";
+   }
+   
+   /*
+   * Funções para manipulação de Objeto Listbox
+   */
+
+   function selectUnselectMatchingOptions(obj,regex,which,only) {
+    if (window.RegExp) {
+     if (which == "select") {
+      var selected1=true;
+      var selected2=false;
+      }
+     else if (which == "unselect") {
+      var selected1=false;
+      var selected2=true;
+      }
+     else {
+      return;
+      }
+     var re = new RegExp(regex);
+     for (var i=0; i<obj.options.length; i++) {
+      if (re.test(obj.options[i].text)) {
+       obj.options[i].selected = selected1;
+       }
+      else {
+       if (only == true) {
+        obj.options[i].selected = selected2;
+        }
+       }
+      }
+     }
+    }
+
+   function selectMatchingOptions(obj,regex) {
+    selectUnselectMatchingOptions(obj,regex,"select",false);
+    }
+
+   function selectOnlyMatchingOptions(obj,regex) {
+    selectUnselectMatchingOptions(obj,regex,"select",true);
+    }
+
+   function unSelectMatchingOptions(obj,regex) {
+    selectUnselectMatchingOptions(obj,regex,"unselect",false);
+    }
+
+   function sort_select(obj) {
+    var o = new Array();
+    if (obj.options==null) { return; }
+    for (var i=0; i<obj.options.length; i++) {
+     o[o.length] = new Option( obj.options[i].text, obj.options[i].value, obj.options[i].defaultSelected, obj.options[i].selected) ;
+     }
+    if (o.length==0) { return; }
+    o = o.sort(
+     function(a,b) {
+      if ((a.text+"") < (b.text+"")) { return -1; }
+      if ((a.text+"") > (b.text+"")) { return 1; }
+      return 0;
+      }
+     );
+
+    for (var i=0; i<o.length; i++) {
+     obj.options[i] = new Option(o[i].text, o[i].value, o[i].defaultSelected, o[i].selected);
+     }
+    }
+
+   function select_all_options(obj) {
+    for (var i=0; i<obj.options.length; i++) {
+     obj.options[i].selected = true;
+     }
+    }
+
+   function move_selected_options(from,to) {
+    // Unselect matching options, if required
+    if (arguments.length>3) {
+     var regex = arguments[3];
+     if (regex != "") {
+      unSelectMatchingOptions(from,regex);
+      }
+     }
+    // Move them over
+    for (var i=0; i<from.options.length; i++) {
+     var o = from.options[i];
+     if (o.selected) {
+      to.options[to.options.length] = new Option( o.text, o.value, false, false);
+      }
+     }
+    // Delete them from original
+    for (var i=(from.options.length-1); i>=0; i--) {
+     var o = from.options[i];
+     if (o.selected) {
+      from.options[i] = null;
+      }
+     }
+    from.selectedIndex = -1;
+    to.selectedIndex = -1;
+    }
+
+   function copy_selected_options(from,to) {
+    var options = new Object();
+    for (var i=0; i<to.options.length; i++) {
+     options[to.options[i].value] = to.options[i].text;
+     }
+    for (var i=0; i<from.options.length; i++) {
+     var o = from.options[i];
+     if (o.selected) {
+      if (options[o.value] == null || options[o.value] == "undefined" || options[o.value]!=o.text) {
+       to.options[to.options.length] = new Option( o.text, o.value, false, false);
+       }
+      }
+     }
+    //if ((arguments.length<3) || (arguments[2]==true)) {
+    // sort_select(to);
+    // }
+    from.selectedIndex = -1;
+    to.selectedIndex = -1;
+    }
+
+   function move_all_options(from,to) {
+    select_all_options(from);
+    if (arguments.length==2) {
+     move_selected_options(from,to);
+     }
+    else if (arguments.length==3) {
+     move_selected_options(from,to,arguments[2]);
+     }
+    else if (arguments.length==4) {
+     move_selected_options(from,to,arguments[2],arguments[3]);
+     }
+    }
+
+   function copy_all_options(from,to) {
+    select_all_options(from);
+    if (arguments.length==2) {
+     copy_selected_options(from,to);
+     }
+    else if (arguments.length==3) {
+     copy_selected_options(from,to,arguments[2]);
+     }
+    }
+
+   function swap_options(obj,i,j) {
+    var o = obj.options;
+    var i_selected = o[i].selected;
+    var j_selected = o[j].selected;
+    var temp = new Option(o[i].text, o[i].value, o[i].defaultSelected, o[i].selected);
+    var temp2= new Option(o[j].text, o[j].value, o[j].defaultSelected, o[j].selected);
+    o[i] = temp2;
+    o[j] = temp;
+    o[i].selected = j_selected;
+    o[j].selected = i_selected;
+    }
+
+   function move_option_up(obj) {
+    for (i=0; i<obj.options.length; i++) {
+     if (obj.options[i].selected) {
+      if (i != 0 && !obj.options[i-1].selected) {
+       swap_options(obj,i,i-1);
+       obj.options[i-1].selected = true;
+       }
+      }
+     }
+    }
+
+   function move_option_down(obj) {
+    for (i=obj.options.length-1; i>=0; i--) {
+     if (obj.options[i].selected) {
+      if (i != (obj.options.length-1) && ! obj.options[i+1].selected) {
+       swap_options(obj,i,i+1);
+       obj.options[i+1].selected = true;
+       }
+      }
+     }
+    }
+
+   function remove_selected_options(from) {
+    for (var i=(from.options.length-1); i>=0; i--) {
+     var o=from.options[i];
+     if (o.selected) {
+      from.options[i] = null;
+      }
+     }
+    from.selectedIndex = -1;
+    }
+
+   function remove_all_options(from) {
+    for (var i=(from.options.length-1); i>=0; i--) {
+     from.options[i] = null;
+     }
+    from.selectedIndex = -1;
+    }
+
+   function add_option(obj,text,value,selected) {
+    if (obj!=null && obj.options!=null) {
+     obj.options[obj.options.length] = new Option(text, value, false, selected);
+     }
+    }
+
+   function select2comma(from)
+   {
+      if (from.length > 0)
+      {
+         var str = from.options[0].value;
+         for (var x = 1; x <= (from.length - 1); x++)
+         {
+            str += ',' + from.options[x].value;
+         }
+         return str;
+      }
+      else
+         return '';
+   }
+      
+
+
+function inic(){
+  //IDENTIFICA TAGS <SELECT>
+  var sels = document.getElementsByTagName("select");
+
+  for(var i=0; i<sels.length;i++){
+      var nome = sels[i].name;
+
+      //CRIA ID COM O MESMO NOME DO CAMPO
+      document.getElementsByName(nome)[0].id=nome;
+
+      //var select_element = document.getElementById(nome);
+
+
+      //SE NESSE TAG <SELECT> NÃO EXISTIR EVENTO (onchange)
+      if (document.getElementById(nome).onchange==null){
+
+         //COLOCA O EVENTO onchange chamando a função INATIVO
+         document.getElementById(nome).onchange=inativo;
+
+         //AQUI CRIA UM ATRIBUTO E TAMBEM INCLUI UM EVENTO onfocus JOGA O VALOR ENCONTRADO PARA O NOVO ATRIBUTO oldvalue
+         document.getElementById(nome).onfocus=document.getElementById(nome).setAttribute('oldvalue',document.getElementById(nome).selectedIndex);
+
+      }
+
+      //else {
+
+      //  var antchange = String(document.getElementById(nome).onchange);
+
+      //  var ini = antchange.search("{");
+
+      //  var fim = antchange.search("}");
+
+      //  var novochange = 'if(inativo()) '+antchange.substring(ini+1,fim);
+
+      //  alert(antchange);
+
+      //  alert(novochange);
+
+      //  document.getElementById(nome).onchange=novochange;
+
+      //  alert(String(document.getElementById(nome).onchange));
+
+      //  document.getElementById(nome).onfocus=document.getElementById(nome).setAttribute('oldvalue',document.getElementById(nome).selectedIndex);
+
+      //}
+
+      for(var x=0; x<document.getElementById(nome).length;x++){
+          //SE ENCONTRAR PALAVRA INATIVO MUDA A COR
+          var str = document.getElementById(nome).options[x].text;
+          var n = str.search("INATIVO");
+          if (n==0){
+            document.getElementById(nome).options[x].style.color = '#F5F5F5';
+          }
+      }
+  }
+}
+
+function inativo(){
+  //so funciona por id por name não funciona
+  var id = this.id;
+  var str = document.getElementById(id).options[this.selectedIndex].text;
+  var n = str.search("INATIVO");
+  //SE ENCONTRAR A PALAVRA INATIVO VOLTA COM O CONTEUDO ANTERIOR GUARDADO NO TRIBUTO oldvalue
+  if(n==0){
+     document.getElementById(id).value=document.getElementById(id).options[document.getElementById(id).getAttribute('oldvalue')].value;
+     return false;
+  }else{
+     return true;
+  }
+}
+</script>

@@ -1,0 +1,340 @@
+/*
+
+Project      : isj_45
+Program      : ebaolog.class
+Function     : ebaolog_class
+Created on   : 27-Apr-2016   14:39:48
+Descripition : 
+
+*/
+
+
+// Glauber - 04/2016
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Classe...........: EbaoLog
+*
+* Objetivo.........: Classe que manipula o log das requisições.
+*
+* Atributos........:
+*
+*
+*
+*
+*
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD Save()
+*    METHOD Delete()
+*    METHOD GetLog()
+*    METHOD GetAllLog()
+*    METHOD ToArray()
+*
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS EbaoLog
+
+    // Atributos privado
+
+    INSTANCE ResultSet
+
+    // Atributos publico
+
+    EXPORT NrControle
+    EXPORT Data
+    EXPORT Hora
+    EXPORT Login
+    EXPORT IdServico
+    EXPORT Requisicao
+    EXPORT Retorno
+
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()         CLASS EbaoLog
+    PROTOTYPE METHOD Destroy()      CLASS EbaoLog
+    PROTOTYPE METHOD Save()         CLASS EbaoLog
+    PROTOTYPE METHOD Delete()       CLASS EbaoLog
+    PROTOTYPE METHOD GetLog()       CLASS EbaoLog
+    PROTOTYPE METHOD GetAllLog()    CLASS EbaoLog
+    PROTOTYPE METHOD ToArray()      CLASS EbaoLog
+
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS EbaoLog
+
+      self:NrControle  := 0
+      self:Data        := Date()
+      self:Hora        := Time()
+      self:Login       := WSet('LOGIN')
+      self:IdServico   := 0
+      self:Requisicao  := ''
+      self:Retorno     := ''
+
+      self:ResultSet  := {}
+
+
+return(self)
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS EbaoLog
+
+      self:NrControle  := nil
+      self:Data        := nil
+      self:Hora        := nil
+      self:Login       := nil
+      self:IdServico   := nil
+      self:Requisicao  := nil
+      self:Retorno     := nil
+
+
+return(nil)
+
+
+
+
+/*
+* Data......: 04/2016 - Glauber
+* Metodo....: Save()
+* Objetivo..: Salva um log.
+* Parâmetros:
+*
+*
+* Retorno...: self
+*
+*
+*/
+
+METHOD Save() CLASS EbaoLog
+
+
+
+
+     local laSAVE   := {{'NR_CONTROLE',;
+                         'DATA',;
+                         'HORA',;
+                         'LOGIN',;
+                         'ID_SERVICO',;
+                         'REQUISICAO',;
+                         'RETORNO'},;
+                        {self:NrControle,;
+                         self:Data,;
+                         self:Hora,;
+                         self:Login,;
+                         self:IdServico,;
+                         self:Requisicao,;
+                         self:Retorno}} AS Array
+
+     if self:Valida()
+        if db_replace(laSAVE,'ebaologconsumer',{'NR_CONTROLE='+AllTrim(self:NrControle)}) == -1
+           error_sys(db_error())
+        endif
+     endif
+
+return self
+
+/*
+* Data......: 04/2016 - Glauber
+* Metodo....: Delete()
+* Objetivo..: Apaga um serviço.
+* Parâmetros:
+*
+*
+* Retorno...: self
+*
+*
+*/
+
+METHOD Delete() CLASS EbaoLog
+
+     if self:NrControle > 0
+        if db_delete('ebaologconsumer','NR_CONTROLE='+AllTrim(self:NrControle)) == -1
+           error_sys(db_error())
+        endif
+     endif
+
+return self
+
+
+/*
+* Data......: 04/2016 - Glauber
+* Metodo....: GetLog()
+* Objetivo..: Pesquisa um log.
+* Parâmetros:
+*
+*
+* Retorno...: self
+*
+*
+*/
+
+METHOD GetLog() CLASS EbaoLog
+
+     local laRES   := {} AS Array
+
+     if self:NrControle > 0
+        if db_select({'DATA','HORA','LOGIN','ID_SERVICO','REQUISICAO','RETORNO'},'ebaologconsumer',,{'NR_CONTROLE='+AllTrim(self:NrControle)}) == -1
+           error_sys(db_error())
+        endif
+        laRES := db_fetchall()
+        if len(laRES) > 1
+           self:Data        := laRES[2,1]
+           self:Hora        := laRES[2,2]
+           self:Login       := laRES[2,3]
+           self:IdServico   := laRES[2,4]
+           self:Requisicao  := laRES[2,5]
+           self:Retorno     := laRES[2,6]
+        endif
+     endif
+
+return self
+
+/*
+* Data......: 04/2016 - Glauber
+* Metodo....: GetAllLog()
+* Objetivo..: Pesquisa todos os logs.
+* Parâmetros:
+*
+*
+* Retorno...: self
+*
+*
+*/
+
+METHOD GetAllLog() CLASS EbaoLog
+
+     local laWHERE   := {} AS Array
+     
+
+     if ( ! Empty(Dtos(self:Data)))
+        aadd(laWHERE,'DATA = ' + DLAP + Dtos(self:Data) + DLAP)
+     endif
+     if ( ! Empty(self:Hora))
+        aadd(laWHERE,'HORA = ' + DLAP + self:Hora + DLAP)
+     endif
+
+     if ( ! Empty(self:Login))
+        aadd(laWHERE,'LOGIN = ' + DLAP + self:Login + DLAP)
+     endif
+
+     if ( self:IdServico != 9)
+        aadd(laWHERE,'ID_SERVICO = ' + AllTrim(self:IdServico))
+     endif
+
+     if ( ! Empty(Dtos(self:Requisicao)))
+        aadd(laWHERE,'REQUISICAO like  ' + DLAP + '%' + self:Requsicao  + '%' + DLAP)
+     endif
+
+     if ( ! Empty(Dtos(self:Retorno)))
+        aadd(laWHERE,'RETORNO like  ' + DLAP + '%' + self:Retorno+ '%' + DLAP)
+     endif
+
+     if db_select({'NR_CONTROLE','DATA','HORA','LOGIN','ID_SERVICO','REQUISICAO','RETORNO'},'ebaologconsumer',,laWHERE) == -1
+        error_sys(db_error())
+     endif
+
+     self:ResultSet := db_fetchall()
+
+
+return self
+
+/*
+* Data......: 04/2016 - Glauber
+* Metodo....: ToArray()
+* Objetivo..: Retorna o valor de GetAllLog no formato array do wictrix.
+* Parâmetros:
+*
+*
+* Retorno...: self
+*
+*
+*/
+
+METHOD ToArray() CLASS EbaoLog
+
+
+return self:ResultSet
+
+
+
+
+/*
+* Data......: 04/2016 - Glauber
+* Metodo....: Valida()
+* Objetivo..: Valida os dados para operação de salvar.
+* Parâmetros:
+*
+*
+* Retorno...: .T. caso seja valido
+*
+*
+*/
+
+METHOD Valida() CLASS EbaoLog
+
+return (! Empty(Dtos(self:Data)) .AND. ! Empty(self:Hora) .AND. ! empty(self:Login) .AND. ! Empty(self:Requisicao) .AND. ! Empty(self:Retorno))
+
+
+
+
+
+
+
+

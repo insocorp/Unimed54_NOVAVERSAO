@@ -1,0 +1,301 @@
+/*
+
+Project      : gr5
+Program      : escalonamento.honorarios.mnt.html
+Function     : escalonamento_honorarios_mnt_html
+Created on   : 17/12/2012 10:47:44
+Descripition : Escalonamento de Honorários Advocatícios
+
+*/
+
+local lcACTION      := '' ,;
+      lcTABLE       := '' ,;
+      lcTABLE_DET   := '' ,;
+      lcWHERE       := '' ,;
+      lcWHERE_DET   := '' as string
+      
+local laRES        := {} ,;
+      laFIELDS     := {} ,;
+      laFIELDS_AUX := {} ,;
+      laFIELDS_DET := {} ,;
+      laSAVE       := {} ,;   
+      laVALIDA     := {} ,;
+      laREPLACE    := {} ,;
+      laJOIN       := {} as array 
+
+local lcID_HONORARIOS := '' AS string
+      
+     
+local llERRO:=.f. as logical         
+
+WPut('TITLE','Escalonamento de Honorários Advocatícios')
+      
+lcTABLE       := 'escalonamento_honorarios'
+lcTABLE_DET   := 'detalhe_honorarios'
+
+laFIELDS      := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+laFIELDS_DET  := structtable(WSet("DB_ACTIVE"),lcTABLE_DET,1,'N')
+
+lcACTION      := upper(Wget('ACTION'))
+
+if empty(lcACTION)
+   lcACTION = 'NEW'
+endif
+
+if gbWAC_DELETE == .t. // Usuario tem permissão para excluir registros, então ativar os botões
+   Wput('ifEXCLUIR',.t.)
+   Wput('ifWAC_DELETE',.t.)
+else 
+   Wput('ifEXCLUIR',.f.)
+   Wput('ifWAC_DELETE',.f.)      
+endif
+
+lcUSUARIO := wSet('LOGIN')
+Wput('LOGIN',lcUSUARIO)
+
+*** campos obrigatorios
+*
+laVALIDA:={"REGRA",; 
+           "DT_VIGENCIA_INI",; 
+           "DT_VIGENCIA_FIN",; 
+           "PASTAS",;
+           "CIP_ESCRITORIO",; 
+           "CD_DESPESA",; 
+           "TP_FAVORECIDO",; 
+           "FORMA_PAGAMENTO",;
+           "CD_CCUSTO"} 
+
+                     
+init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+/* Carga de combos */
+carrega_cbox({{'forma_pagamento','forma_pagamento','Y'}})
+carrega_cbox({{'tipo_favorecido','tp_favorecido','Y'}})
+
+/* Array com os campos Textarea de tamanho dinâmico */
+   *laTEXT := {'PASTAS'}
+
+   *for ii := 1 to len(laTEXT)
+   *   WPut(laTEXT[ii]+'_ROWS',3)
+   *next ii
+
+
+lcWHERE         := 'ID_HONORARIOS = '+wget('ID_HONORARIOS','C')
+lcWHERE_DET     := 'NR_CONTROLE = '  +wget('NR_CONTROLE','C')
+
+lcID_HONORARIOS := wget('ID_HONORARIOS','C')
+
+
+if lcACTION = 'NEW' .and. gbWAC_CREATE
+
+     WPut('ID_HONORARIOS','New')
+     WPut('ifDETALHE',.F.)
+
+elseif lcACTION == 'ALTER'
+
+   WPut('ifDETALHE',.T.) 
+  
+   lst_hono(laFIELDS,lcWHERE)
+   lst_detalhe(laFIELDS_DET,lcWHERE)
+
+   //--------------        Salvar        ----------------------------------------
+elseif lcACTION == 'SAVE'  .and. gbWAC_WRITE      
+ 
+      llERROR := .f.
+      
+      *** verifica se campos obrigatorios estão com dados
+           
+      if len(alltrim(Wget('FILTRO','C')))==0
+         walert('Atenção falta incluir tipo de pasta.')
+         llERRO := .t.
+      endif 
+      
+      if ! verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+         llERRO := .t.
+      endif 
+      
+
+      
+       
+   
+      if ! llERRO
+     
+         aadd(laSAVE,laFIELDS)
+        
+         laSAVE_AUX := {}
+         for ii := 1 to len(laFIELDS)
+             if laFIELDS[ii] == 'PASTAS'
+                if len(alltrim(Wget('FILTRO','C')))>0 //nome das empresas
+                   aadd(laSAVE_AUX,(Wget('FILTRO','C')))
+                endif   
+             else
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+             endif  
+         next ii          
+
+         aadd(laSAVE,laSAVE_AUX)
+
+         if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+            error_sys(db_error())
+         endif
+
+         if WGet('ID_HONORARIOS','C')=='New' .or. WGet('ID_HONORARIOS','N')==0
+
+            if db_select({'max(ID_HONORARIOS)'},lcTABLE) == -1
+	             error_sys(db_error())
+    	      endif             
+            laRES     := db_fetchrow()            
+            
+            WPut('ID_HONORARIOS',laRES[1])
+            
+            lcWHERE:= 'ID_HONORARIOS = ' + str(laRES[1])
+
+         endif
+      else
+         get2put()
+      endif
+   
+      
+      lst_hono(laFIELDS,lcWHERE)
+      lst_detalhe(laFIELDS_DET,lcWHERE)      
+
+   //--------------        Salvar  Detalhe      ----------------------------------------
+elseif lcACTION == 'SAVE_DET'  .and. gbWAC_WRITE  
+
+      lcWHERE_DET     := 'ID_HONORARIOS = ' + wget('ID_HONORARIOS','C') + ' AND QTDE_INICIO = ' + wget('QTDE_INICIO','C') + ' AND QTDE_INICIO = ' + wget('QTDE_FINAL','C')
+      
+      llERROR := .f.
+      
+      if db_select(laFIELDS_DET,'detalhe_honorarios',,{lcWHERE_DET}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchrow() 
+      
+
+      if len(laRESULT) > 0
+         walert('Essa quantidade inicial e final já existe no cadastro.')
+
+      else
+
+         aadd(laSAVE,laFIELDS_DET)
+        
+         laSAVE_AUX := {}
+         for ii := 1 to len(laFIELDS_DET)
+             aadd(laSAVE_AUX,WGet(laFIELDS_DET[ii]))
+         next ii          
+
+         aadd(laSAVE,laSAVE_AUX)
+
+         if db_insert(laSAVE,lcTABLE_DET) = -1
+            error_sys(db_error())
+         endif
+
+      endif
+      
+      lst_hono(laFIELDS,lcWHERE)
+      lst_detalhe(laFIELDS_DET,lcWHERE)
+
+elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+
+      if db_delete(lcTABLE,lcWHERE) = -1
+         error_sys(db_error())
+      endif
+      
+      if db_delete(lcTABLE_DET,lcWHERE) = -1
+         error_sys(db_error())
+      endif
+      
+      WPut('ID_HONORARIOS','New')
+      
+elseif lcACTION == 'DELETE_DET' .and. gbWAC_DELETE
+
+      if db_delete(lcTABLE_DET,lcWHERE_DET) = -1
+         error_sys(db_error())
+      endif
+      
+      lst_hono(laFIELDS,lcWHERE)
+      lst_detalhe(laFIELDS_DET,lcWHERE)
+endif
+ 
+
+/* Listagem */
+
+if db_select(laFIELDS,'escalonamento_honorarios',,) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+if len(laRES) > 0
+   aadd(laRES[1],'(row)')
+   for ii := 2 to len(laRES)
+     aadd(laRES[ii],'(row)'+wic_action('wicaction/escalonamento.honorarios.mnt.html'+;
+                                   '?ACTION=ALTER'+;
+                                   '&ID_HONORARIOS='+str(laRES[ii,db_fetchncol(laRES,'ID_HONORARIOS')])))
+   next ii
+   WPut('GRID_ESCALONAMENTO',grid_create(laRES))
+endif   
+
+
+
+laLST_NOVA:={} 
+if db_select({'distinct TP_PASTA'},'pasta_config',,,{'TP_PASTA'}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+   
+for ii:=2 to len(laRES)
+    aadd(laLST_NOVA,laRES[ii,1])
+next ii    
+
+wPut('ALL_FIELDS_OPT',laLST_NOVA)
+
+        
+return
+
+
+******************************************
+static function lst_hono(faFIELDS,fcWHERE)
+******************************************
+local  laRESULT := {},;
+       laPASTAS := {} as array
+   
+if db_select(faFIELDS,'escalonamento_honorarios',,{fcWHERE}) == -1
+   error_sys(db_error())
+endif
+
+laRESULT := db_fetchall()
+db2Put(laRESULT)
+
+if len(laRESULT)>1
+   laPASTAS:=str2array(laRESULT[2,5],',')
+
+   wPut('DEP_OPT',{})
+   wPut('DEP_OPT',laPASTAS)
+endif   
+
+
+return(nil) 
+   
+
+*************************************************
+static function lst_detalhe(faFIELDS_DET,fcWHERE)
+*************************************************
+local  laRESULT := {} as array
+
+if db_select(faFIELDS_DET,'detalhe_honorarios',,{fcWHERE}) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchall()     
+   
+WPut('ifDETALHE',.T.)
+ 
+wPut('lstESCALONAMENTO_DETALHE',laRESULT)
+   
+return(nil)
+
+
+
+
+
+
+

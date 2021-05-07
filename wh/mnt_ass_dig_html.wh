@@ -1,0 +1,1239 @@
+/*
+
+Project      : gr5
+Program      : mnt.ass.dig.html
+Function     : mnt_ass_dig_html.wh
+Created on   : 31/08/2016 10:35:24
+Descripition : Assinar digitalmente
+
+*/
+
+local lcACTION      := '' ,;
+      lcVIN         := '' ,;
+      lcTMP1        := '' ,;
+      lcTMP2        := '' ,;
+      lcTMP3        := '' ,;
+      lcTMP4        := '' ,;
+      lcTMP5        := '' ,;
+      lcTMP6        := '' ,;
+      lcTMP7        := '' ,;
+      lcTMP8        := '' as string
+
+local lcFIM         := '' as string
+
+local laRESULT      := {},;
+      laLINHA_ATUAL := {},;
+      laSAVE        := {},;
+      laTMP         := {},;
+      laFINALIZA    := {} as array
+
+
+local ii       := 0  as int
+
+WPut('TITLE','Assinar digitalmente')
+
+lcACTION     := WGet('ACTION','C')
+
+if lcACTION == 'SAVE' .and. gbWAC_WRITE
+
+   laRESULT     :={}
+
+   if WGet('ASSINADOS','C')<>''
+      laRESULT := str2array(WGet('ASSINADOS','C'),'|')
+
+ //     db_begin() //Iniciando Transação
+
+      for ii := 1 to len(laRESULT)
+
+          laLINHA_ATUAL:={}
+          laTMP        :={}
+
+          aadd(laTMP,str2array(laRESULT[ii],','))
+
+          laSAVE  := {'NR_PASTA',;
+                     'DT_ANDAMENTO',;
+                     'ANDAMENTO',;
+                     'FL_ANDAMENTO_CANCELADO',;
+                     'NR_PASTA_RECURSO',;
+                     'DT_CADASTRO',;
+                     'LOGIN_RESP',;
+                     'NR_AUTOPROC',;
+                     'TP_ANDAMENTO',;
+                     'FL_ANDAMENTO_EXTERNO',;
+                     'FL_CRITICO',;
+                     'HR_CADASTRO',;
+                     'VINCULO'}
+
+          aadd(laLINHA_ATUAL,laSAVE)
+
+          lcTMP0:=alltrim(laTMP[1,1])
+          lcTMP1:=alltrim(laTMP[1,2])
+          lcTMP2:=alltrim(laTMP[1,3])
+          lcTMP3:=alltrim(laTMP[1,4])
+          lcTMP4:=alltrim(laTMP[1,5])
+          lcTMP5:=alltrim(laTMP[1,6])
+          lcTMP6:=alltrim(laTMP[1,7])
+          lcTMP7:=alltrim(laTMP[1,8])
+          lcTMP8:=alltrim(laTMP[1,9])
+
+
+          if len(lcTMP2)>0
+             lcVIN:='Aditivo : ' + lcTMP2
+             aadd(laLINHA_ATUAL[1],'NR_CONTRATO_ADITIVO')
+          endif
+
+          if len(lcTMP3)>0
+             lcVIN:='Anexo : ' + lcTMP3
+             aadd(laLINHA_ATUAL[1],'NR_CONTRATO_ANEXO')
+          endif
+
+          if len(lcTMP4)>0
+             lcVIN:='Ato : ' + lcTMP4
+             aadd(laLINHA_ATUAL[1],'NR_ATO')
+          endif
+
+             laSAVE  := {lcTMP1,;
+                        date(),;
+                        lcTMP6,;
+                        'N',;
+                        0,;
+                        date(),;
+                        gcLOGIN,;
+                        0,;
+                        lcTMP5,;
+                        'N',;
+                        'N',;
+                        time(),;
+                        lcVIN}
+
+          aadd(laLINHA_ATUAL,laSAVE)
+
+          if len(lcTMP2)>0
+             aadd(laLINHA_ATUAL[2],lcTMP2)
+          endif
+
+          if len(lcTMP3)>0
+             aadd(laLINHA_ATUAL[2],lcTMP3)
+          endif
+
+          if len(lcTMP4)>0
+             aadd(laLINHA_ATUAL[2],lcTMP4)
+          endif
+
+          laFINALIZA:=aclone(laLINHA_ATUAL)
+
+          if db_insert(laLINHA_ATUAL,'pasta_andamento') == -1
+//              db_rollback()
+              error_sys(db_error())
+          endif
+
+
+          lcFIM := finaliza(lcTMP1,lcTMP0,lcTMP2,lcTMP3,lcTMP4,gcLOGIN)
+
+          if lcFIM == 'S'
+
+             laFINALIZA[2,3]:=lcTMP8
+             laFINALIZA[2,9]:=lcTMP8
+
+             if db_insert(laFINALIZA,'pasta_andamento') == -1
+//                 db_rollback()
+                 error_sys(db_error())
+             endif
+
+          endif
+
+      next ii
+
+//      db_commit()     //Efetivando alterações no Banco de Dados
+
+    endif
+endif
+
+
+alimenta_grid()
+
+return
+
+****************************************************************************************************************
+static function faltass(tipo,nr_pasta,nr_aditivo,nr_anexo,nr_ato,login,regras,lcstart,lcstop,nivelstop,meunivel)
+****************************************************************************************************************
+
+local lcQUERY       := '' as string
+local fcMOSLANC     := '' as string
+local lcUSERS       := '' as string
+
+local xx               := 0 as int
+local ww               := 0 as int
+local lnMEUNIVEL       := 0 as int
+local lnTUSERS         := 0 as int
+
+local laRESULT      := {} as array
+
+lcQUERY := 'SELECT '
+lcQUERY += 'pasta_andamento.NR_PASTA,'
+lcQUERY += 'pasta_andamento.NR_ANDAMENTO,'
+lcQUERY += 'CASE'
+lcQUERY += '   WHEN len(pasta_andamento.NR_CONTRATO_ADITIVO)=0 THEN null'
+lcQUERY += "   WHEN pasta_andamento.NR_CONTRATO_ADITIVO='0' THEN null"
+lcQUERY += '   ELSE pasta_andamento.NR_CONTRATO_ADITIVO'
+lcQUERY += ' END,'
+
+lcQUERY += 'CASE'
+lcQUERY += '   WHEN len(pasta_andamento.NR_CONTRATO_ANEXO)=0 THEN null'
+lcQUERY += "   WHEN pasta_andamento.NR_CONTRATO_ANEXO='0' THEN null"
+lcQUERY += '   ELSE pasta_andamento.NR_CONTRATO_ANEXO'
+lcQUERY += ' END,'
+lcQUERY += 'CASE'
+lcQUERY += '   WHEN len(pasta_andamento.NR_ATO)=0 THEN null'
+lcQUERY += "   WHEN pasta_andamento.NR_ATO='0' THEN null"
+lcQUERY += '   ELSE pasta_andamento.NR_ATO'
+lcQUERY += ' END,'
+lcQUERY += ' pasta_andamento.NR_AUTOPROC,'
+lcQUERY += 'pasta_andamento.TP_ANDAMENTO,'
+
+lcQUERY += 'pasta_andamento.LOGIN_RESP'
+lcQUERY += ' from PASTA_ANDAMENTO'
+
+
+*** nesse left forço pegar os lançamentos apos o ultimo start
+lcQUERY += ' left join('
+lcQUERY += ' select nr_pasta,nr_andamento'
+lcQUERY += ' from pasta_andamento'
+lcQUERY += ' where pasta_andamento.NR_PASTA=' + str(nr_pasta)
+lcQUERY += " and pasta_andamento.TP_ANDAMENTO='" + lcstart + "'"
+lcQUERY += " and pasta_andamento.FL_ANDAMENTO_CANCELADO='N'"
+lcQUERY += ' order by pasta_andamento.nr_andamento desc limit 1) start on start.nr_pasta = pasta_andamento.NR_PASTA'
+
+lcQUERY += " where pasta_andamento.NR_PASTA=" + str(nr_pasta)
+
+if nr_aditivo = ''
+   lcQUERY += " and (pasta_andamento.NR_CONTRATO_ADITIVO is null or pasta_andamento.NR_CONTRATO_ADITIVO ='')"
+  else
+   lcQUERY += " and pasta_andamento.NR_CONTRATO_ADITIVO='" + nr_aditivo + "'"
+endif
+
+if nr_anexo = ''
+   lcQUERY += " and (pasta_andamento.NR_CONTRATO_ANEXO is null or pasta_andamento.NR_CONTRATO_ANEXO ='')"
+  else
+   lcQUERY += " and pasta_andamento.NR_CONTRATO_ANEXO='" + nr_anexo + "'"
+endif
+
+if nr_ato = ''
+   lcQUERY += " and (pasta_andamento.NR_ATO is null or pasta_andamento.NR_ATO ='')"
+  else
+   lcQUERY += " and pasta_andamento.NR_ATO='" + nr_ato + "'"
+endif
+
+lcMEUNIVEL := meunivel[1]
+
+if tipo == "="
+   *** o stop e de outra pessoa com o mesmo nivel que eu
+   *** Vejo se ja não existe um stop com meu login ou do meu substituto
+
+   lcUSERS:=''
+   for ww=1 to len(regras)
+       if val(regras[ww,2]) == val(lcMEUNIVEL)
+          *** pega apenas se for eu ou meu parceiro
+          if (alltrim(regras[ww,1])==alltrim(login) .or. alltrim(regras[ww,3])==alltrim(login))
+             lcUSERS := "'" + regras[ww,1] + "','" + regras[ww,3] + "'"
+             exit
+          endif
+       endif
+   next ww
+endif
+
+if tipo == "<"
+   *** Por exemplo sou de nivel 3 e o lançamento de stop e de nivel 1 menor que o meu:
+   *** Tenho que procurar todos stops de nivel 2
+   lcUSERS:=''
+   for ww=1 to len(regras)
+       *** pega todos que estejam um nivel abaixo do meu
+
+       if val(regras[ww,2]) == val(lcMEUNIVEL)-1
+          if lcUSERS == ''
+             lcUSERS := "'"  + regras[ww,1] + "'"
+             lcUSERS += ",'" + regras[ww,3] + "'"
+          else
+             lcUSERS += ",'" + regras[ww,1] + "'"
+             lcUSERS += ",'" + regras[ww,3] + "'"
+          endif
+       endif
+   next ww
+
+   if lcUSERS == ''
+
+       ***  não colocar mensagem conforme reunião alexandre.
+       *** walert('Atenção: algo está errado, não encotrei assinante de nivel ' + str(val(lcMEUNIVEL)-1) + ' para o tipo de pasta ' + regras[1,4] + '.\nVerifique a configuração de assinaturas.\Na pasta numero ' +  str(nr_pasta))
+
+       fcMOSLANC := 'N'
+       return(fcMOSLANC)
+   endif
+
+endif
+
+lcQUERY += " and pasta_andamento.login_resp in (" + lcUSERS + ")"
+
+lcQUERY += " and pasta_andamento.TP_ANDAMENTO='" + lcstop + "'"
+
+lcQUERY += " and pasta_andamento.NR_ANDAMENTO > start.NR_ANDAMENTO"
+
+lcQUERY += " and pasta_andamento.FL_ANDAMENTO_CANCELADO='N'"
+
+lcQUERY += ' order by pasta_andamento.nr_andamento desc'
+
+if db_query(lcQUERY) == -1
+   error_sys(db_error())
+endif
+laRESULT  := db_fetchall()
+
+if tipo == "="
+   *** o nivel do stop encontrado e igual ao meu
+   *** Vejo se ja existe um stop com meu login ou do meu substituto
+
+   if len(laRESULT) == 1
+      *** Se não existir indica que ainda não assinei deixa eu ver o lançamento.
+      fcMOSLANC := 'S'
+   else
+      *** Se existir igora o lançamento ja assinei ou meu substituto
+      fcMOSLANC := 'N'
+   endif
+
+endif
+
+if tipo == "<"
+   *** nivel encontrado e menor que o meu nivel
+   *** Por exemplo sou de nivel 3 e o lançamento de stop e de nivel 1 menor que o meu:
+   *** o select acima procura o stop do usuario abaixo do meu nivel nesse caso o 2
+
+   if len(laRESULT) == 1
+      *** Se não existir indica que o nivel abaixo do meu não assinou.
+      fcMOSLANC := 'N'
+   else
+      *** Se existir indica que pode subir o nivel libere para mim assinar.
+
+      *** o numero de lancamentos stop e o mesmo que a metade da quantidade de usuarios de mesmo nivel (assinante ou o substituto)
+
+      *** se o numero de stops for igual ao numero de usuarios indica que todos do desse nivel assinaram
+      *** ou se a metade dos usuarios encontrados assinaram (metade pois junta assinante com substituto e so um dos dois assinam)
+
+      lnTUSERS:= len(str2array(lcUSERS,','))
+
+      if (len(laRESULT)-1) == len(str2array(lcUSERS,',')) .or. (len(laRESULT)-1) == lnTUSERS/2
+         *** indica que todos ja assinaram
+         fcMOSLANC := 'S'
+      else
+         *** falta alguem do mesmo nivel assinar
+         fcMOSLANC := 'N'
+      endif
+
+   endif
+endif
+
+return(fcMOSLANC)
+
+*******************************
+static function alimenta_grid()
+*******************************
+
+
+local lcQUERY       := '' as string
+local lcFAZPARTE    := '' as string
+local lcMOSTRA      := '' as string
+local lcFINAL       := '' as string
+local lcANDA        := '' as string
+local lcAREJ        := '' as string
+local lcREJ         := '' as string
+local lcENCERRA     := '' as string
+local lcREGRA       := '' as string
+
+local laRESULT      := {} as array
+local laAUX         := {} as array
+local laJOINS       := {} as array
+local laREGRAS      := {} as array
+local laXREGRAS     := {} as array
+
+
+local ii            := 0 as int
+local xx            := 0 as int
+local xtpp          := 0 as int
+local aux           := 0 as int
+local ww            := 0 as int
+
+local lnSTOP        := 0 as int
+local lnMEUNIVEL    := 0 as int
+
+local laSTOP        := {} as array
+local laMEUNIVEL    := {} as array
+local laREGRA       := {} as array
+
+local lcSTOP        := '' as string
+local lcMEUNIVEL    := '' as string
+local lcTMP1        := '' as string
+local lcUSERS       := '' as string
+local laTIPO        := '' as string
+
+local luSEGUE       // untyped variables
+
+
+lcQUERY := 'SELECT '
+lcQUERY += 'pasta.TP_PASTA,'
+lcQUERY += 'pasta_andamento.NR_PASTA,'
+lcQUERY += 'pasta_andamento.NR_ANDAMENTO,'
+lcQUERY += 'CASE'
+lcQUERY += '   WHEN len(pasta_andamento.NR_CONTRATO_ADITIVO)=0 THEN null'
+lcQUERY += "   WHEN pasta_andamento.NR_CONTRATO_ADITIVO='0' THEN null"
+lcQUERY += '   ELSE pasta_andamento.NR_CONTRATO_ADITIVO'
+lcQUERY += ' END,'
+
+lcQUERY += 'CASE'
+lcQUERY += '   WHEN len(pasta_andamento.NR_CONTRATO_ANEXO)=0 THEN null'
+lcQUERY += "   WHEN pasta_andamento.NR_CONTRATO_ANEXO='0' THEN null"
+lcQUERY += '   ELSE pasta_andamento.NR_CONTRATO_ANEXO'
+lcQUERY += ' END,'
+lcQUERY += 'CASE'
+lcQUERY += '   WHEN len(pasta_andamento.NR_ATO)=0 THEN null'
+lcQUERY += "   WHEN pasta_andamento.NR_ATO='0' THEN null"
+lcQUERY += '   ELSE pasta_andamento.NR_ATO'
+lcQUERY += ' END,'
+lcQUERY += ' pasta_andamento.NR_AUTOPROC,'
+lcQUERY += 'pasta_andamento.TP_ANDAMENTO,'
+
+lcQUERY += 'pasta_pfpj_empresa.CIP as CIP_EMPRESA,'
+lcQUERY += 'pasta_pfpj_empresa.PFPJ as EMPRESA,'
+lcQUERY += 'pasta_pfpj_contratante.CIP as CIP_CONTRATANTE,'
+lcQUERY += 'pasta_pfpj_contratante.PFPJ as CONTRATANTE,'
+lcQUERY += 'pasta_pfpj_contratado.CIP as CIP_CONTRATADO,'
+lcQUERY += 'pasta_pfpj_contratado.PFPJ as CONTRATADO,'
+lcQUERY += 'pasta_pfpj_solicitante.CIP as CIP_SOLICITANTE,'
+lcQUERY += 'pasta_pfpj_solicitante.PFPJ as SOLICITANTE,'
+
+lcQUERY += 'pasta_andamento.LOGIN_RESP'
+lcQUERY += ' from PASTA_ANDAMENTO'
+
+lcQUERY += ' right join ('
+lcQUERY += "select max(nr_andamento) as ultanda from pasta_andamento where pasta_andamento.FL_ANDAMENTO_CANCELADO='N'"
+lcQUERY += ' group by pasta_andamento.nr_pasta, pasta_andamento.nr_contrato_anexo, pasta_andamento.nr_contrato_aditivo'
+lcQUERY += ') mxanda on mxanda.ultanda=pasta_andamento.nr_andamento'
+
+lcQUERY += ' left join pasta on pasta.nr_pasta = pasta_andamento.nr_pasta'
+
+lcQUERY += ' left join pasta_pfpj_empresa on pasta_pfpj_empresa.nr_pasta = pasta_andamento.nr_pasta'
+lcQUERY += ' left join pasta_pfpj_contratante on pasta_pfpj_contratante.nr_pasta = pasta_andamento.nr_pasta'
+lcQUERY += ' left join pasta_pfpj_contratado on pasta_pfpj_contratado.nr_pasta = pasta_andamento.nr_pasta'
+lcQUERY += ' left join pasta_pfpj_solicitante on pasta_pfpj_solicitante.nr_pasta = pasta_andamento.nr_pasta'
+
+lcQUERY += ' right join ('
+lcQUERY += 'select distinct tp_pasta from cfg_ass_digital'
+lcQUERY += ') regras on regras.tp_pasta=pasta.tp_pasta'
+
+lcQUERY += ' right join ('
+lcQUERY += 'select distinct tp_and_inicial,tp_and_final from cfg_ass_digital'
+lcQUERY += ') regras2 on (regras2.tp_and_inicial=pasta_andamento.tp_andamento or regras2.tp_and_final=pasta_andamento.tp_andamento)'
+
+lcQUERY += " where pasta_andamento.FL_ANDAMENTO_CANCELADO='N'"
+** não tenho como saber tp_andamento start sem saber em qual regra o usuario esta cadastrado
+**lcQUERY += " and (pasta_andamento.tp_andamento = 'Aguardando via assinada')"
+lcQUERY += 'order by pasta.tp_pasta,pasta_andamento.nr_pasta'
+
+if db_query(lcQUERY) == -1
+   error_sys(db_error())
+endif
+
+ppaRESULT  := db_fetchall()
+
+if len(ppaRESULT )>1
+
+   aadd(ppaRESULT[1],'VAR_TP_PASTA')
+   aadd(ppaRESULT[1],'VAR_NR_PASTA')
+   aadd(ppaRESULT[1],'VAR_NR_CONTRATO_ADITIVO')
+   aadd(ppaRESULT[1],'VAR_NR_CONTRATO_ANEXO')
+   aadd(ppaRESULT[1],'VAR_NR_ATO')
+   aadd(ppaRESULT[1],'VAR_DOCUMENTO')
+   aadd(ppaRESULT[1],'VAR_ASSINAR')
+   aadd(ppaRESULT[1],'VAR_REJEITAR')
+   aadd(ppaRESULT[1],'VAR_STOP')
+   aadd(ppaRESULT[1],'VAR_ANDA')
+   aadd(ppaRESULT[1],'VAR_AREJ')
+   aadd(ppaRESULT[1],'VAR_REJ')
+   aadd(ppaRESULT[1],'VAR_ENCE')
+
+   aadd(laRESULT,ppaRESULT[1])
+
+   for ppiX =2 to len(ppaRESULT)
+
+       lcNR_PASTA:=str(ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'NR_PASTA')])
+       lcTP_PASTA:=ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'TP_PASTA')]
+
+       *** traz as regras em que o usuario se encontra
+
+       ***user:="cdias"
+
+       user:=WSet('LOGIN')
+
+
+       laREGRAS:=buscausers(lcNR_PASTA,lcTP_PASTA,user)
+
+       if len(laREGRAS) == 0
+          *** se não encotrou regra para esse tipo de pasta/usuario ignora lançamento
+          loop
+       endif
+
+       lcFAZPARTE:='N'
+
+***| rufino     | 1          |            | Contrato L | Aguardando | Minuta vis | d444d      | 1,00       |
+***| ------------------------------------------------------------------------------------------------------------------------
+***| afonseca   | 1          |            | Contrato L | Aguardando | Minuta vis |            | 25,00      |
+***| ------------------------------------------------------------------------------------------------------------------------
+***| aferraz    | 2          |            | Contrato L | Aguardando | Minuta vis | d444d      | 1,00       |
+***| ------------------------------------------------------------------------------------------------------------------------
+
+       for xtpp=1 to len(laREGRAS)
+
+           lcFINAL :=''
+           lcANDA  :=''
+
+           lcAREJ  :=''
+           lcREJ   :=''
+
+           *** verifica se esse tipo de pasta esta em alguma regra encontrada
+
+           if laREGRAS[xtpp,4] == lcTP_PASTA
+
+              lcREGRA:=laREGRAS[xtpp,7]
+
+              if len(lcREGRA)>0
+                 *** se existe regra de negocio
+                 *** verifica se essa pasta satisfaz a regra
+
+
+                 ** modelos abaixo
+                 **luSEGUE:=iif((wfdbregra('VL_CONTRATO','pasta','NR_PASTA = '+lcNR_PASTA,'N') >= 500 .and. wfdbregra('VL_CONTRATO','pasta','NR_PASTA = '+lcNR_PASTA,'N') <2000), 'T', 'F')
+
+                 **luSEGUE:=iif(wfdbregra('TP_CONTRATO','pasta','NR_PASTA = '+lcNR_PASTA+' and TP_CONTRATO =^Marketing^','C')== '','T','F')
+
+                 lcREGRA := STRTRAN(lcREGRA, '^', '"')
+
+                 luSEGUE:=eval({||&lcREGRA})
+
+                 if luSEGUE == 'T'
+                    loop
+                 endif
+
+              endif
+
+              *** pega só se o usuario for assinante ou substituto
+              if (alltrim(laREGRAS[xtpp,1])!='' .and. alltrim(laREGRAS[xtpp,1]) == alltrim(user)) .or. (alltrim(laREGRAS[xtpp,3])!='' .and. alltrim(laREGRAS[xtpp,3]) == alltrim(user))
+
+                 *** tipo de andamento encontrado e igual o inicial (inicia nivel 1)
+                 if laREGRAS[xtpp,5] == ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'TP_ANDAMENTO')]
+                    *** indica que deve iniciar as assinaturas
+
+                    if laREGRAS[xtpp,2] == '1'
+                       *** o usuario e de prioridade 1
+                       lcFAZPARTE:='S'
+                       lcFINAL  := laREGRAS[xtpp,6]
+                       lcANDA   := laREGRAS[xtpp,8]
+                       lcAREJ   := laREGRAS[xtpp,10]
+                       lcREJ    := laREGRAS[xtpp,11]
+                       lcENCERRA:= laREGRAS[xtpp,12]
+                       exit
+                    endif
+
+                 else
+                    *** tipo de andamento encontrado e igual stop
+
+                    *** se o stop for da mesma pessoa que esta logada iguinora lançamento
+                    if alltrim(ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'LOGIN_RESP')]) ==  alltrim(laREGRAS[xtpp,1])
+                       lcFAZPARTE:= 'N'
+                       exit
+                    endif
+
+                    *** se o stop for do meu substituto iguinora lançamento
+                    if alltrim(ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'LOGIN_RESP')]) ==  alltrim(laREGRAS[xtpp,3])
+                       lcFAZPARTE:= 'N'
+                       exit
+                    endif
+
+
+                    *** pego o nivel de quem criou o stop
+                    lnSTOP:= ascan(laREGRAS,{|x| x[1]== alltrim(ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'LOGIN_RESP')])})
+                    laTIPO:= 'A'
+
+                    *** não achou como assinante procura como substituto
+                    if lnSTOP == 0
+                       lnSTOP:= ascan(laREGRAS,{|x| x[3]== alltrim(ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'LOGIN_RESP')])})
+                       laTIPO:= 'S'
+                    endif
+                    laSTOP:={laREGRAS[lnSTOP,2],laTIPO}
+
+                    *** pego o meu nivel
+                    lnMEUNIVEL:= ascan(laREGRAS,{|x| x[1]== alltrim(user)})
+                    laTIPO:= 'A'
+
+                    *** não achou como assinante procura como substituto
+                    if lnMEUNIVEL == 0
+                       lnMEUNIVEL:= ascan(laREGRAS,{|x| x[3]== alltrim(user)})
+                       laTIPO:= 'S'
+                    endif
+
+                    laMEUNIVEL:={laREGRAS[lnMEUNIVEL,2],laTIPO}
+
+                    lcSTOP := laSTOP[1]
+                    lcMEUNIVEL := laMEUNIVEL[1]
+
+                    *** se o nivel do stop for maior que o meu indica que ja passou por mim então eu ja assinei ignora o lançamento
+                    if val(lcSTOP) > val(lcMEUNIVEL)
+                       lcFAZPARTE:= 'N'
+                       exit
+
+                    elseif val(lcSTOP) == val(lcMEUNIVEL)
+                           *** o stop e de outra pessoa com o mesmo nivel que eu
+                           *** Vejo se ja não existe um stop com meu login ou do meu substituto
+
+                           lcMOSTRA:=faltass("=",ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'NR_PASTA')],ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'NR_CONTRATO_ADITIVO')],ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'NR_CONTRATO_ANEXO')],ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'NR_ATO')],user,laREGRAS,laREGRAS[xtpp,5],laREGRAS[xtpp,6],laSTOP,laMEUNIVEL)
+
+                    elseif val(lcSTOP) < val(lcMEUNIVEL)
+                           *** Por exemplo sou de nivel 3 e o lançamento de stop e de nivel 1 menor que o meu:
+                           *** Tenho que procurar todos stops de nivel 2
+
+                           lcMOSTRA:=faltass("<",ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'NR_PASTA')],ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'NR_CONTRATO_ADITIVO')],ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'NR_CONTRATO_ANEXO')],ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'NR_ATO')],user,laREGRAS,laREGRAS[xtpp,5],laREGRAS[xtpp,6],laSTOP,laMEUNIVEL)
+
+                    endif
+
+                    if lcMOSTRA == 'S'
+
+                       lcFINAL  := laREGRAS[xtpp,6]
+                       lcANDA   := laREGRAS[xtpp,8]
+                       lcAREJ   := laREGRAS[xtpp,10]
+                       lcREJ    := laREGRAS[xtpp,11]
+                       lcENCERRA:= laREGRAS[xtpp,12]
+                       lcFAZPARTE:= 'S'
+                       exit
+                    endif
+                 endif
+              endif
+           endif
+       next xtpp
+
+       if lcFAZPARTE == 'N'
+          *** esse tipo de pasta não foi encontrado nas regras ignora lançamento
+          loop
+       endif
+
+       xx:=xx+1
+       lcNR_ROW := alltrim(str(xx))
+
+      *** Inserção do link do ged na grid *
+
+
+
+      lcTMP1 := "winged('open'," + DLAP + mkgedruf('pasta',{lcNR_PASTA,lcTP_PASTA,'','',''}) + DLAP + ',event)'
+      lcTMP1 := '<a href=javascript:void(0) onclick="'+lcTMP1+'">GED ('+totged(lcNR_PASTA)+')</a>'
+
+      ***
+
+       aadd(ppaRESULT[ppiX],'VAR_TP_PASTA'+lcNR_ROW)
+       aadd(ppaRESULT[ppiX],'VAR_NR_PASTA'+lcNR_ROW)
+       aadd(ppaRESULT[ppiX],'VAR_NR_CONTRATO_ADITIVO'+lcNR_ROW)
+       aadd(ppaRESULT[ppiX],'VAR_NR_CONTRATO_ANEXO'+lcNR_ROW)
+       aadd(ppaRESULT[ppiX],'VAR_NR_ATO'+lcNR_ROW)
+
+
+       aadd(ppaRESULT[ppiX],lcTMP1)
+
+
+       aadd(ppaRESULT[ppiX],'VAR_ASSINAR'+lcNR_ROW)
+       aadd(ppaRESULT[ppiX],'VAR_REJEITAR'+lcNR_ROW)
+
+
+       aadd(ppaRESULT[ppiX],'VAR_STOP'+lcNR_ROW)
+       aadd(ppaRESULT[ppiX],'VAR_ANDA'+lcNR_ROW)
+
+
+       aadd(ppaRESULT[ppiX],'VAR_AREJ'+lcNR_ROW)
+       aadd(ppaRESULT[ppiX],'VAR_REJ'+lcNR_ROW)
+       aadd(ppaRESULT[ppiX],'VAR_ENCE'+lcNR_ROW)
+
+
+       WPut('VAR_TP_PASTA'+lcNR_ROW,ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'TP_PASTA')])
+       WPut('VAR_NR_PASTA'+lcNR_ROW,ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'NR_PASTA')])
+       WPut('VAR_NR_CONTRATO_ADITIVO'+lcNR_ROW,ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'NR_CONTRATO_ADITIVO')])
+       WPut('VAR_NR_CONTRATO_ANEXO'+lcNR_ROW,ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'NR_CONTRATO_ANEXO')])
+       WPut('VAR_NR_ATO'+lcNR_ROW,ppaRESULT[ppiX,db_fetchncol(ppaRESULT,'NR_ATO')])
+
+
+       WPut('VAR_ASSINAR'+lcNR_ROW,'N')
+       WPut('VAR_REJEITAR'+lcNR_ROW,'N')
+
+       WPut('VAR_STOP'+lcNR_ROW,lcFINAL)
+       WPut('VAR_ANDA'+lcNR_ROW,lcANDA)
+
+       WPut('VAR_AREJ'+lcNR_ROW,lcAREJ)
+       WPut('VAR_REJ'+lcNR_ROW,lcREJ)
+
+       WPut('VAR_ENCE'+lcNR_ROW,lcENCERRA)
+
+       aadd(laRESULT,ppaRESULT[ppiX])
+
+
+   next ppiX
+
+   WPut('ASSTODOS','N')
+
+   WPut('GRID_APROV',laRESULT)
+  else
+   walert('Não foi encontrada pasta para sua aprovação !')
+
+endif
+
+return(nil)
+
+
+/*
+* Data......: 04/05/2015 10:58:27 - Rufino
+* Function..: mkgedruf(fcWTABLE, faValues)
+* Objetivo..: Verificar a existencia de configurções GED para uma determinada tabela e criar o link para o ícone do GED
+* Parâmetros:
+*   fcWTABLE: Nome da tabela
+*   faValues: Vetor com os valores para WFIELD1,WFIELD2..WFIELD5
+* Retorno...: Nenhum
+*/
+static function mkgedruf(fcWTABLE,faValues)
+   local lcPARAMS  := '' ,;
+         lcHTML    := '' ,;
+         lcCONTENT := '' as string
+
+   local laFIELDS := {} ,;
+         laRESULT := {} as array
+
+   local ii := 0 as int
+
+   if valtype(fcWTABLE) == 'U' .or. empty(fcWTABLE)
+      puterror('mkgedico: Tabela não definida')
+      return(nil)
+   endif
+
+   laFIELDS := {'WTABLE','CD_BUSINESS','WFIELD1','WFIELD2','WFIELD3','WFIELD4','WFIELD5'}
+   if db_select(laFIELDS,'gdrelacionamento',,{'WTABLE='+DLAP+fcWTABLE+DLAP}) == -1
+      puterror('mkgedico: ('+alltrim(str(procline()))+') '+db_error())
+      return(nil)
+   endif
+   laRESULT := db_fetchrow()
+
+   if len(laRESULT) > 0
+      if !empty(laRESULT[2]) .and. !empty(laRESULT[3])
+         lcPARAMS += 'WTABLE='+fcWTABLE
+         lcPARAMS += '&CD_BUSINESS='+alltrim(laRESULT[2])
+         for ii := 1 to 5
+             if !empty(laRESULT[ascan(laFIELDS,'WFIELD'+alltrim(str(ii)))])
+                //lcCONTENT := alltrim(getwput(laRESULT[ascan(laFIELDS,'WFIELD'+alltrim(str(ii)))],'C')) // Recupera dados da UI
+                lcCONTENT := faValues[ii]
+                if !empty(lcCONTENT)
+                   lcPARAMS += '&WFIELD'+alltrim(str(ii))+'='+alltrim(lcCONTENT)
+                else
+                   lcPARAMS += '&WFIELD'+alltrim(str(ii))+'=RELATIONEMPTY.'+laRESULT[ascan(laFIELDS,'WFIELD'+alltrim(str(ii)))]
+                endif
+             endif
+         next ii
+
+         lcPARAMS := wic_action('wicaction_workflow/ged.mgr.html')+'?'+lcPARAMS
+      endif
+    else
+      lcPARAMS := 'ERRO! Falta relacionamento no GED.'
+   endif
+return(lcPARAMS)
+*****************************************
+static function totged(fcNR_PASTA)
+*****************************************
+local laRESULT:={} as array
+
+if db_select({'count(*)'},'ged',,{'wtable="pasta"','REFERENCIA1='+fcNR_PASTA}) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchrow()
+
+return(alltrim(str(laRESULT[1])))
+
+**************************************************
+static function buscausers(nr_pasta,tp_pasta,user)
+**************************************************
+local laRESULT   :={} as array
+local tcips      :={} as array
+local tusr       :={} as array
+local assinantes :={} as array
+local aux        :={} as array
+local regras     :={} as array
+
+local ii      :=0  as int
+local n1      :=0  as int
+local n2      :=0  as int
+local acho    :=0  as int
+local li      :=0  as int
+local lnUSER  :=0  as int
+
+local cips      :='' as string
+local logs      :='' as string
+local assi      :='' as string
+local assinante :='' as string
+local substituto:='' as string
+
+if db_select({"CIPS_ASS,ASSINANTES,TP_PASTA,TP_AND_INICIAL,TP_AND_FINAL,REGRAS,ANDAPROV,NR_CONTROLE,TP_ANDAREJ,ANDAREJ,TP_ANDAPROV"},"cfg_ass_digital",,{"TP_PASTA = '" + tp_pasta + "'"},{'NR_CONTROLE'}) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchall()
+
+for ii := 2 to len(laRESULT)
+
+     cips = laRESULT[ii,1] //coluna CIPS_ASS
+
+     *** transforma string em array
+     tcips    := str2array(cips,'|')
+
+     for cip := 1 to len(tcips)
+         logs = tcips[cip]
+
+         *** transforma string em array
+         tusr    := str2array(logs,',')
+
+         *** campo não esta vazio
+         if len(tusr[1]) >0
+
+            *** busca palavra CIP  no cip
+            n1 = rat('CIP',tusr[1])
+
+            *** busca palavra CIP no substituto
+            n2 = rat('CIP',tusr[3])
+
+            *** achou
+            if (n1 >0)
+                assinante = setuser(nr_pasta,tusr[1])
+            else
+                assinante = tusr[1]
+            endif
+
+
+            if (n2 >0)
+                substituto = setuser(nr_pasta,tusr[3])
+            else
+                substituto = tusr[3]
+            endif
+
+            if (len(assinante) > 0 .or. len(substituto) > 0)
+                aux:={}
+                aadd(aux,assinante)
+                aadd(aux,tusr[2])
+                aadd(aux,substituto)
+                aadd(aux,laRESULT[ii,3])
+                aadd(aux,laRESULT[ii,4])
+                aadd(aux,laRESULT[ii,5])
+                aadd(aux,laRESULT[ii,6])
+                aadd(aux,laRESULT[ii,7])
+                aadd(aux,laRESULT[ii,8])
+                aadd(aux,laRESULT[ii,9])
+                aadd(aux,laRESULT[ii,10])
+                aadd(aux,laRESULT[ii,11])
+
+                aadd(assinantes,aux)
+            endif
+
+         endif
+
+     next cip
+
+     assi = laRESULT[ii,2] //coluna ASSINANTES
+
+     *** transforma string em array
+     tassi    := str2array(assi,'|')
+
+     for cip := 1 to len(tassi)
+
+
+         logs = tassi[cip]
+
+         *** transforma string em array
+         tusr    := str2array(logs,',')
+
+         *** campo não esta vazio
+         if len(tusr[1]) >0
+
+            *** busca palavra CIP no substituto
+            n2 = rat('CIP',tusr[3])
+            assinante = tusr[1];
+
+            *** achou
+            if (n2 >0)
+                substituto = setuser(nr_pasta,tusr[3])
+            else
+                substituto = tusr[3]
+            endif
+
+            if (len(assinante) > 0 .or. len(substituto) > 0)
+                aux:={}
+                aadd(aux,assinante)
+                aadd(aux,tusr[2])
+                aadd(aux,substituto)
+                aadd(aux,laRESULT[ii,3])
+                aadd(aux,laRESULT[ii,4])
+                aadd(aux,laRESULT[ii,5])
+                aadd(aux,laRESULT[ii,6])
+                aadd(aux,laRESULT[ii,7])
+                aadd(aux,laRESULT[ii,8])
+                aadd(aux,laRESULT[ii,9])
+                aadd(aux,laRESULT[ii,10])
+                aadd(aux,laRESULT[ii,11])
+
+                aadd(assinantes,aux)
+            endif
+
+         endif
+
+     next cip // fim da linha da regra
+
+next ii
+
+lnUSER:=ascan(assinantes,{|x| x[1]== alltrim(user)})
+
+if lnUSER == 0
+   lnUSER:=ascan(assinantes,{|x| x[3]== alltrim(user)})
+endif
+
+if lnUSER == 0
+   return({})
+endif
+
+
+for ii := 1 to len(assinantes)
+    *** pega apenas regra que o usuario esta cadastrado
+    if assinantes[ii,9] == assinantes[lnUSER,9]
+       aux:={}
+       aadd(aux,assinantes[ii,1])
+       aadd(aux,assinantes[ii,2])
+       aadd(aux,assinantes[ii,3])
+       aadd(aux,assinantes[ii,4])
+       aadd(aux,assinantes[ii,5])
+       aadd(aux,assinantes[ii,6])
+       aadd(aux,assinantes[ii,7])
+       aadd(aux,assinantes[ii,8])
+       aadd(aux,assinantes[ii,9])
+       aadd(aux,assinantes[ii,10])
+       aadd(aux,assinantes[ii,11])
+       aadd(aux,assinantes[ii,12])
+
+       aadd(regras,aux)
+    endif
+next ii
+
+*** coloca por ordem de prioridade
+regras := asort(regras,,,{|x,y| x[2] < y[2]})
+
+return(regras)
+
+*******************************************
+static function setuser(nr_pasta,campo_cip)
+*******************************************
+local laRESULT   :={} as array
+
+if db_select({"pasta_cip.CIP,acuser.LOGIN"},"pasta_cip",{{2,'acuser','acuser.CIP=pasta_cip.CIP'}},{"pasta_cip.WFIELD = '" + campo_cip + "' and pasta_cip.NR_PASTA = " + nr_pasta}) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchall()
+
+if len(laRESULT) == 1
+   return ''
+endif
+
+return laRESULT[2,2]
+
+**********************************************************************************************************
+static function finaliza(nr_pasta,tp_pasta,nr_aditivo,nr_anexo,nr_ato,login)
+**********************************************************************************************************
+*** verifico se meu nivel e o mair da regra
+*** se não for falta assinar
+
+*** se for procura stop de todos assinantes da regra ou do parceiro.
+*** se todos assinarem crio fim de assinatura
+
+local laREGRAS   :={}  as array
+local laMEUNIVEL :={}  as array
+local laRESULT   :={}  as array
+
+local lnMEUNIVEL := 0  as int
+local xx         := 0  as int
+local lnTUSERS   := 0  as int
+
+local lcMEUNIVEL := '' as string
+local laTIPO     := '' as string
+local lcFINAL    := '' as string
+local lcUSERS    := '' as string
+local fcSTART    := '' as string
+local fcSTOP     := '' as string
+
+laREGRAS:=buscausers(nr_pasta,tp_pasta,login)
+
+***| rufino     | 1          |            | Contrato L | Aguardando | Minuta vis | d444d      | 1,00       |
+***| ------------------------------------------------------------------------------------------------------------------------
+***| afonseca   | 1          |            | Contrato L | Aguardando | Minuta vis |            | 25,00      |
+***| ------------------------------------------------------------------------------------------------------------------------
+***| aferraz    | 2          |            | Contrato L | Aguardando | Minuta vis | d444d      | 1,00       |
+***| ------------------------------------------------------------------------------------------------------------------------
+
+if len(laREGRAS) == 0
+   *** se não encotrou regra para esse tipo de pasta/usuario ignora lançamento
+   return('N')
+endif
+
+*** pego o meu nivel
+lnMEUNIVEL:= ascan(laREGRAS,{|x| x[1]== alltrim(login)})
+laTIPO:= 'A'
+
+*** não achou como assinante procura como substituto
+if lnMEUNIVEL == 0
+   lnMEUNIVEL:= ascan(laREGRAS,{|x| x[3]== alltrim(login)})
+   laTIPO:= 'S'
+endif
+
+laMEUNIVEL:={laREGRAS[lnMEUNIVEL,2],laTIPO}
+
+lcMEUNIVEL := laMEUNIVEL[1]
+
+fcSTART := laREGRAS[lnMEUNIVEL,5]
+fcSTOP  := laREGRAS[lnMEUNIVEL,6]
+
+for xx:= 1 to len(laREGRAS)
+
+    *** pega todos usuarios da regra
+    if lcUSERS == ''
+       lcUSERS := "'" + laREGRAS[xx,1] + "'"
+       lcUSERS += ",'" + laREGRAS[xx,3] + "'"
+    else
+       lcUSERS += ",'" + laREGRAS[xx,1] + "'"
+       lcUSERS += ",'" + laREGRAS[xx,3] + "'"
+    endif
+
+    if val(laREGRAS[xx,2]) > val(lcMEUNIVEL)
+       *** encontrou nivel maior que o meu ainda falta assinar
+       lcFINAL:='N'
+    endif
+
+next xx
+
+if lcFINAL == 'N'
+   return(lcFINAL)
+endif
+
+*** não encontrou nivel maior que o meu
+
+
+
+lcQUERY := 'SELECT '
+lcQUERY += 'pasta_andamento.NR_PASTA,'
+lcQUERY += 'pasta_andamento.NR_ANDAMENTO,'
+lcQUERY += 'CASE'
+lcQUERY += '   WHEN len(pasta_andamento.NR_CONTRATO_ADITIVO)=0 THEN null'
+lcQUERY += "   WHEN pasta_andamento.NR_CONTRATO_ADITIVO='0' THEN null"
+lcQUERY += '   ELSE pasta_andamento.NR_CONTRATO_ADITIVO'
+lcQUERY += ' END,'
+
+lcQUERY += 'CASE'
+lcQUERY += '   WHEN len(pasta_andamento.NR_CONTRATO_ANEXO)=0 THEN null'
+lcQUERY += "   WHEN pasta_andamento.NR_CONTRATO_ANEXO='0' THEN null"
+lcQUERY += '   ELSE pasta_andamento.NR_CONTRATO_ANEXO'
+lcQUERY += ' END,'
+lcQUERY += 'CASE'
+lcQUERY += '   WHEN len(pasta_andamento.NR_ATO)=0 THEN null'
+lcQUERY += "   WHEN pasta_andamento.NR_ATO='0' THEN null"
+lcQUERY += '   ELSE pasta_andamento.NR_ATO'
+lcQUERY += ' END,'
+lcQUERY += ' pasta_andamento.NR_AUTOPROC,'
+lcQUERY += 'pasta_andamento.TP_ANDAMENTO,'
+
+lcQUERY += 'pasta_andamento.LOGIN_RESP'
+lcQUERY += ' from PASTA_ANDAMENTO'
+
+*** nesse left forço pegar os lançamentos apos o ultimo start
+lcQUERY += ' left join('
+lcQUERY += ' select nr_pasta,nr_andamento'
+lcQUERY += ' from pasta_andamento'
+lcQUERY += ' where pasta_andamento.NR_PASTA=' + nr_pasta
+lcQUERY += " and pasta_andamento.TP_ANDAMENTO='" + fcSTART + "'"
+lcQUERY += " and pasta_andamento.FL_ANDAMENTO_CANCELADO='N'"
+lcQUERY += ' order by pasta_andamento.nr_andamento desc limit 1) start on start.nr_pasta = pasta_andamento.NR_PASTA'
+
+lcQUERY += " where pasta_andamento.NR_PASTA=" + nr_pasta
+
+if nr_aditivo = ''
+   lcQUERY += " and (pasta_andamento.NR_CONTRATO_ADITIVO is null or pasta_andamento.NR_CONTRATO_ADITIVO ='')"
+  else
+   lcQUERY += " and pasta_andamento.NR_CONTRATO_ADITIVO='" + nr_aditivo + "'"
+endif
+
+if nr_anexo = ''
+   lcQUERY += " and (pasta_andamento.NR_CONTRATO_ANEXO is null or pasta_andamento.NR_CONTRATO_ANEXO ='')"
+  else
+   lcQUERY += " and pasta_andamento.NR_CONTRATO_ANEXO='" + nr_anexo + "'"
+endif
+
+if nr_ato = ''
+   lcQUERY += " and (pasta_andamento.NR_ATO is null or pasta_andamento.NR_ATO ='')"
+  else
+   lcQUERY += " and pasta_andamento.NR_ATO='" + nr_ato + "'"
+endif
+
+lcQUERY += " and pasta_andamento.login_resp in (" + lcUSERS + ")"
+
+lcQUERY += " and pasta_andamento.TP_ANDAMENTO='" + fcSTOP + "'"
+
+lcQUERY += " and pasta_andamento.NR_ANDAMENTO > start.NR_ANDAMENTO"
+
+lcQUERY += " and pasta_andamento.FL_ANDAMENTO_CANCELADO='N'"
+
+lcQUERY += ' order by pasta_andamento.nr_andamento desc'
+
+
+if db_query(lcQUERY) == -1
+   error_sys(db_error())
+endif
+laRESULT  := db_fetchall()
+
+if len(laRESULT) == 1
+   return('N')
+endif
+
+*** o numero de lancamentos stop e o mesmo que a metade da quantidade de usuarios de mesmo nivel (ou assina o assinante ou o substituto)
+
+*** se o numero de stops for igual ao numero de usuarios indica que todos do desse nivel assinaram
+*** ou se a metade dos usuarios encontrados assinaram (metade pois junta assinante com substituto e so um dos dois assinam)
+
+lnTUSERS:= len(str2array(lcUSERS,','))
+
+if (len(laRESULT)-1) == len(str2array(lcUSERS,',')) .or. (len(laRESULT)-1) == (lnTUSERS/2)
+   *** indica que todos ja assinaram
+   lcFINAL := 'S'
+else
+   *** falta alguem assinar
+   lcFINAL := 'N'
+endif
+
+return(lcFINAL)
+
+/*
+* Function..: wfdbregra(fcFIELD,fcTABLE,fcWHERE,fcTYPE)
+* Objetivo..: Buscar o conteudo de um campo em uma determinada tabela.
+* Parâmetros:
+*  fcFIELD: Campo a pesquisar
+*  fcTABLE: Tabela alvo
+*  fcWHERE: Condição de Pesquisa
+*  fcTYPE.: Tipo do retorno.
+*    Tipos suportados:
+*      C: Caracter
+*      N: Numérico
+*      D: Data
+*      L: Lógico
+* Retorno...:
+*    Conteúdo de fcFIELD em fcTABLE, convertido para fcTYPE se informado.
+*    Se não for encontrado nenhum registro, retorna vazio ('')
+*/
+
+*********************************************************
+function wfdbregra(fcFIELD,fcTABLE,fcWHERE,fcTYPE)
+*********************************************************
+
+
+   local laRESULT := {} as array
+   local luRETURN // untyped variables
+
+
+   if valtype(fcTABLE) == 'U' .or. empty(fcTABLE)
+      puterror('wfdbgetvalue: Table not defined')
+      return('')
+   endif
+   if valtype(fcFIELD) == 'U' .or. empty(fcFIELD)
+      puterror('wfdbgetvalue: Field not defined')
+      return('')
+   endif
+   if valtype(fcWHERE) == 'U' .or. empty(fcWHERE)
+      puterror('wfdbgetvalue: Where condition not defined')
+      return('')
+   endif
+
+   if db_select({fcFIELD},fcTABLE,,{fcWHERE},,,,{1}) == -1
+      puterror('wfdbgetvalue: '+db_error())
+      return('')
+   endif
+   laRESULT := db_fetchrow()
+
+   if len(laRESULT) > 0
+         if valtype(fcTYPE) != 'U' .or. !empty(fcTYPE)
+            do case
+
+               case fcTYPE == 'C'
+                 if valtype(laRESULT[1]) == 'N' .or. valtype(laRESULT[1]) == 'I'
+                    luRETURN := alltrim(str(laRESULT[1]))
+                    if luRETURN == ''
+                       luRETURN := ' '
+                    endif
+                 elseif valtype(laRESULT[1]) == 'D'
+                    luRETURN := dtoc(laRESULT[1])
+                 else
+                    luRETURN := alltrim(laRESULT[1])
+                    if luRETURN == ''
+                       luRETURN := ' '
+                    endif
+                 endif
+
+               case fcTYPE == 'N'
+                 if valtype(laRESULT[1]) == 'C'
+                    luRETURN := val(laRESULT[1])
+                 elseif valtype(laRESULT[1]) == 'D'
+                    luRETURN := ''
+                 else
+                    luRETURN := laRESULT[1]
+                 endif
+
+               case fcTYPE == 'D'
+                 if valtype(laRESULT[1]) == 'N' .or. valtype(laRESULT[1]) == 'I'
+                    luRETURN := ''
+                 elseif valtype(laRESULT[1]) == 'C'
+                    luRETURN := ctod(laRESULT[1])
+                 else
+                    luRETURN := laRESULT[1]
+                 endif
+
+               case fcTYPE == 'L'
+                 if valtype(laRESULT[1]) == 'N'
+                    if laRESULT[1] == 0
+                       luRETURN := .F.
+                    else
+                       luRETURN := .T.
+                    endif
+                 elseif valtype(laRESULT[1]) == 'C'
+                    if laRESULT[1] == 'S' .or. laRESULT[1] == 'Y'
+                       luRETURN := .T.
+                    else
+                       luRETURN := .F.
+                    endif
+                 endif
+            endcase
+         else
+            luRETURN := laRESULT[1]
+         endif
+   else
+      if valtype(fcTYPE) != 'U' .or. !empty(fcTYPE)
+         do case
+            case fcTYPE == 'C'
+            luRETURN := ''
+            case fcTYPE == 'N'
+            luRETURN := 0
+            case fcTYPE == 'D'
+            luRETURN := ctod('')
+            case fcTYPE == 'L'
+            luRETURN := ''
+         endcase
+      else
+         luRETURN := ''
+      endif
+   endif
+
+return(luRETURN)
+
+

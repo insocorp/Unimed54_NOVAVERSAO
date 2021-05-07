@@ -1,0 +1,57 @@
+/*
+
+Project      : gr5_366
+Program      : sch.riscoperda_pedido.html
+Function     : sch_riscoperda_pedido_html
+Created on   : 26-Mar-2007   10:49:44
+Descripition :
+
+*/
+local laPARAM        := {} ,;
+      laINPUT_OBJ    := {} ,;
+      laSELECT       := {} ,;
+      laJAVA         := {} ,;
+      laINPUT_HIDDEN := {} ,;
+      laQUICK_SEARCH := {} as array
+local lcNM_FIELD := '' as string
+
+lcNM_FIELD  := alltrim(WGet('NM_FIELD','C'))
+laPARAM     := {{'PC_RISCO'        ,''     ,'*'}}
+laINPUT_OBJ := {{'PC_RISCO'         ,0,   ,'Y',   }}
+laSELECT    := {'PC_RISCO'}
+laJAVA         := {'mntform',{{lcNM_FIELD,'PC_RISCO'}}}
+laQUICK_SEARCH := {'PC_RISCO'}
+laINPUT_HIDDEN := {{'NM_FIELD',lcNM_FIELD}}
+laWHERE        := {'FL_ATIVO <> '+DLAP+'I'+DLAP}
+
+xbp('riscoperda_pedido',;                                               //Tabela alvo
+    ,;                                                                  //Joins
+    laWHERE,;                                                                  //Where
+    {'PC_RISCO'},;                                                      //Order by
+    ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+    ,;                                                                  //Group by
+    ,;                                                                  //Limit
+    ,;                                                                  //Banco de Dados
+    3,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+    'gr5',;                                                             //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                                           //Programa chamador
+    laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+    ,;                                                                  //Parâmetros para os botões das linhas do grid
+    'riscoperda_pedido.mnt.html',;                                      //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+    laJAVA,;                                                            //Retorno java (nil) - usado apenas para Search
+    laQUICK_SEARCH,;                                                    //Campos usados na pesquisa rápida
+    laINPUT_HIDDEN,;                                                    //Campos Ocultos
+    laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+    laSELECT,;                                                          //Campos exibidos no grid
+    laSELECT)                                                           //Campos usados no select
+return
+
+
+
+
+
+
+
+
+

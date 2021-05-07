@@ -1,0 +1,1572 @@
+/*
+
+Project      : isj_391
+Program      : ressarc_conv.html
+Function     : ressarc_conv_html
+Created on   : 03/12/2009
+Description  : Conversão ressarcimento
+       Autor : Hélio
+*/
+
+     local lcPATHIN   := '' ,;
+           lcFILEIN   := '' ,;
+           lcStatus   := '3' ,;
+           lcHORAINI  := time() ,;
+           lcTABLEINT := 'seq_interfaces',;
+           lcFILELOG  := '' as string
+
+     local lnSEQ   := 0,;
+           lnHAND1 := 0,;
+           lnHAND2 := 0,;
+           lnHAND3 := 0,;
+           lnHAND4 := 0,;
+           lnHAND5 := 0,;
+           lnHAND6 := 0,;
+           lnHAND7 := 0,;
+           lnHAND8 := 0 as int
+
+     local ldData   := date() ,;
+           ldDIAINI := date() as date
+
+     local laFIELDSINT := {} ,;
+           laSAVEINT   := {} ,;
+           laWHEREINT  := {} ,;
+           laRESULT    := {} ,;
+           laRESULTINT := {} ,;
+           laLOG       := {} as array
+
+
+     If !(R_Tabelas(@lnHAND1,@lnHAND2,@lnHAND3,@lnHAND4,@lnHAND5,@lnHAND6,@lnHAND7,@lnHAND8))
+        lcStatus := '2'  //Atualiza seq_interfaces - erro no processo
+     Else
+        lcStatus := '1'  //Atualiza seq_interfaces - processo ok
+     Endif
+
+     fclose(lnHAND1)
+     fclose(lnHAND2)
+     fclose(lnHAND3)
+     fclose(lnHAND4)
+     fclose(lnHAND5)
+     fclose(lnHAND6)
+     fclose(lnHAND7)
+     fclose(lnHAND8)
+
+     //Atualizar Interfaces - seq_interfaces
+     laFIELDSINT := {'PROGRAM','NR_SEQUENCIA','DT_INICIO','HR_INICIO','DT_TERMINO','HR_TERMINO','STATUS'} //structtable(WSet("DB_ACTIVE"),lcTABLEINT,1,'N')
+     laWHEREINT  := {"PROGRAM = 'ressarc_conv_html'"}
+     if db_select(laFIELDSINT, lcTABLEINT,,laWHEREINT) == -1
+        error_sys(db_error())
+     endif
+     laRESULTINT := db_fetchrow()
+
+     lnSEQ       := laRESULTINT[2] + 1
+     aadd(laSAVEINT,laFIELDSINT)
+     aadd(laSAVEINT,{laRESULTINT[1],lnSEQ, ldDIAINI, lcHORAINI, date(), time(), lcStatus})
+     if db_replace(laSAVEINT,lcTABLEINT,laWHEREINT) == -1
+        error_sys(db_error())
+     endif
+     
+return
+
+/*----------------------------------------------------------------------------------------------------------------
+* Function  : R_Tabelas(lnHAND1,lnHAND2,lnHAND3,lnHAND4,lnHAND5,lnHAND6,lnHAND7,lnHAND8)
+* Objetivo  : Importa os dados para as devidas tabelas.
+* Parâmetros:
+*/
+static function R_Tabelas(lnHAND1,lnHAND2,lnHAND3,lnHAND4,lnHAND5,lnHAND6,lnHAND7,lnHAND8)
+
+     local lcLINE     := '' ,;
+           lcProgram  := 'ressarc_conv_html' ,;
+           lcTABLEP   := 'pasta' ,;
+           lcTABLES   := 'pasta_seguro' ,;
+           lcTABLEPD  := 'pasta_pedidos',;
+           lcTABLEMPR := 'mvt_parc_ressarc',;
+           lcTABLERR  := 'receb_ressarcimento',;
+           lcTABLEMD  := 'mvt_despesa',;
+           lcTABLED   := 'despesa',;
+           lcTABLEPJ  := 'pfpj',;    //--- pfpj Cia
+           lcTABLEPJA := 'pfpj',;    //--- pfpj Advogado
+           lcTABLEPJR := 'pfpj',;    //--- pfpj Reu
+           lcTABLEC   := 'pasta_cip',;  //--- pasta_cip Cia
+           lcTABLECA  := 'pasta_cip',;  //--- pasta_cip Advogado
+           lcTABLECR  := 'pasta_cip',;  //--- pasta_cip Reu
+           lcTABLEO   := 'pasta_outraspartes',;  //--- pasta_outraspartes Cia
+           lcTABLEOR  := 'pasta_outraspartes',;  //--- pasta_outraspartes Reu
+           lcTABLEAA  := 'pasta_andamento',;     //--- pasta_outraspartes Hist. Advogado
+           lcTABLEAL  := 'pasta_andamento_last',;
+           lcWHERE    := '' ,;
+           lcWHERED   := '' ,;
+           lcCHAR     := '' ,;
+           lcSitu     := '' ,;
+           lcPFPJChar := '' ,;
+           lcNrPA     := '' ,;
+           lcQUERY    := '' as string
+
+
+     local laDETALHE  := {} ,;
+           laFIELDS   := {} ,;  //'pasta_seguro'
+           laSAVES    := {} ,;
+           laFIELDP   := {} ,;  //'pasta'
+           laSAVEP    := {} ,;
+           laFIELDPD  := {} ,;  //'pasta_pedidos'
+           laSAVEPD   := {} ,;
+           laFIELDMPR := {} ,;  //'mvt_parc_ressarc'
+           laSAVEMPR  := {} ,;
+           laFIELDRR  := {} ,;  //receb_ressarcimento
+           laSAVERR   := {} ,;
+           laFIELDMD  := {} ,;  //'mvt_despesa'
+           laSAVEMD   := {} ,;
+           laFIELDD   := {} ,;  //'despesa'
+           laSAVED    := {} ,;
+           laFIELDPJ  := {} ,;  //'pfpj' Cia
+           laSAVEPJ   := {} ,;
+           laFIELDPJA := {} ,;  //'pfpj' Advogado
+           laSAVEPJA  := {} ,;
+           laFIELDPJR := {} ,;  //'pfpj' Reu
+           laSAVEPJR  := {} ,;
+           laFIELDC   := {} ,;  //'pasta_cip' Cia
+           laSAVEC    := {} ,;
+           laSAVECA   := {} ,;  //'pasta_cip' Advogado  laFIELDCA := laFIELDC
+           laSAVECR   := {} ,;  //'pasta_cip' Reu   laFIELDCR := laFIELDC
+           laFIELDO   := {} ,;  //'pasta_outraspartes' Cia
+           laSAVEO    := {} ,;
+           laFIELDOA  := {} ,;  //'pasta_outraspartes' Advogado
+           laSAVEOA   := {} ,;
+           laFIELDOR  := {} ,;  //'pasta_outraspartes' Reu
+           laSAVEOR   := {} ,;
+           laFIELDAA  := {} ,;  //'pasta_andamento'  // Hist. Advogado
+           laSAVEAA   := {} ,;
+           laFIELDAL  := {} ,;  //'pasta_andamento_last'
+           laSAVEAL   := {} ,;
+           laJOIN     := {} ,;
+           laRESULT   := {} ,;
+           laPastaAdv := {} ,;
+           laFIELDTmp := {} ,;
+           laNRSeguro := {} ,;
+           laCONTROLE := {} ,;
+           laRetorno  := {} ,;
+           laSeguro   := {} ,;
+           laPFPJCia  := {} ,;
+           LaPFPJReu  := {} ,;
+           LaRR       := {} ,;
+           laCipAdv   := {} ,;
+           laChar     := {} ,;
+           laCia      := {} ,;
+           laReu      := {} ,;
+           laAdv      := {} ,;
+           laDesp     := {} as array
+
+
+     local ii          := 0 ,;
+           hh          := 0 ,;
+           zz          := 0 ,;
+           jj          := 0 ,;
+           lnNPasta    := 0 ,;
+           lnNParc     := 0 ,;
+           lnInsert    := 0 ,;
+           LnNR_PASTA  := 0 ,;
+           lnSEQ_PASTA := 0 ,;
+           lnSEQ_CONTR := 0 ,;
+           lnSeguro    := 0 ,;
+           lnPFPJCia   := 0 ,;
+           lnPFPJReu   := 0 ,;
+           lnTamanho   := 0 ,;
+           lnRR        := 0 as int
+
+
+     local lnTotal    := 0 as numeric
+
+
+     local ld1Venc    := date() as date
+
+
+     /* abre arquivos leitura ---------------------------------------------*/
+     lnHAND1 := fopen('Ressarcimento.csv')
+
+     If lnHAND1 < 0
+        wout("Erro: Arquivo Ressarcimento.csv não encontrado")
+        Return(.f.)
+     Endif
+     
+     lnHAND2 := fopen('Ressarc_Processos.csv')
+
+     If lnHAND2 < 0
+        wout("Erro: Arquivo Ressarc_Processos.csv não encontrado")
+        Return(.f.)
+     Endif
+
+     lnHAND3 := fopen('Ressarc_Receitas.csv')
+
+     If lnHAND3 < 0
+        wout("Erro: Arquivo Ressarc_Receitas.csv não encontrado")
+        Return(.f.)
+     Endif
+
+     lnHAND4 := fopen('Ressarc_Despesas.csv')
+
+     If lnHAND4 < 0
+        wout("Erro: Arquivo Ressarc_Despesas.csv não encontrado")
+        Return(.f.)
+     Endif
+
+     lnHAND5 := fopen('TabHistoricoDespesas.csv')
+
+     If lnHAND5 < 0
+        wout("Erro: Arquivo TabHistoricoDespesas.csv não encontrado")
+        Return(.f.)
+     Endif
+
+     lnHAND6 := fopen('Cad_Advogado.csv')
+
+     If lnHAND6 < 0
+        wout("Erro: Arquivo Cad_Advogado.csv não encontrado")
+        Return(.f.)
+     Endif
+
+     lnHAND7 := fopen('Ressarc_Advogado.csv')
+
+     If lnHAND7 < 0
+        wout("Erro: Arquivo Ressarc_Advogado.csv não encontrado")
+        Return(.f.)
+     Endif
+
+     lnHAND8 := fopen('Ressarc_Historico.csv')
+
+     If lnHAND8 < 0
+        wout("Erro: Arquivo Ressarc_Historico.csv não encontrado")
+        Return(.f.)
+     Endif
+
+     /* final abre arquivos leitura -----------------------------------------*/
+
+     /* grava pasta, pasta_seguro, pasta_pedidos, pfpj Cia/Reu, pasta_cip Cia/Reu, pasta_outraspartes Cia/Reu ----------*/
+
+     * pasta
+     laFIELDP  := {'NR_PASTA',;
+                   'NR_PASTA_ARQUIVO',;
+                   'TP_SEGMENTO',;
+                   'TP_PASTA',;
+                   'OBJETO',;
+                   'DT_CADASTRO',;
+                   'UF',;
+                   'COMARCA',;
+                   'VL_RISCO_HONORARIO',;
+                   'VL_CAUSA',;
+                   'VL_ACAO',;
+                   'DT_ENCERRAMENTO',;
+                   'FL_PASTA',;
+                   'MOTIVO_ENCERRAMENTO'}
+
+     laSAVEP := {}
+     aadd(laSAVEP,laFIELDP)
+
+     * pasta_seguro
+     laFIELDS   := {'NR_CONTROLE',;
+                    'NR_PASTA',;
+                    'CD_CCUSTO',;
+                    'CD_CAUSA_NIS',;
+                    'CIP_SEGURADO',;
+                    'NR_SINISTRO',;
+                    'NR_APOLICE',;
+                    'CD_RAMOSRSN',;
+                    'FL_VICIOCONSTR'}
+
+     laSAVES := {}
+     aadd(laSAVES,laFIELDS)
+
+     * pasta_pedidos
+     laFIELDPD  := {'NR_PASTA',;
+                    'NR_CONTROLE',;
+                    'PEDIDO_PROCESSO',;
+                    'NR_CONTROLE_SEGURO',;
+                    'DT_RISCO',;
+                    'VL_RISCO',;
+                    'PC_RISCO',;
+                    'DT_MOVTO_PED'}
+
+     laSAVEPD := {}
+     aadd(laSAVEPD,laFIELDPD)
+
+     * pfpj Cia
+     laFIELDPJ   := {'NR_CONTROLE',;
+                     'CIP',;
+                     'PFPJ',;
+                     'NM_FANTASIA',;
+                     'PFPJ_NATUREZA',;
+                     'CIP_EMPRESA',;
+                     'PFPJ_TIPOS',;
+                     'PFPJ_CHAR',;
+                     'LOGIN_CADASTRO',;
+                     'LOGIN_APROVACAO',;
+                     'DT_APROVACAO',;
+                     'FL_APROVADO'}
+
+     laSAVEPJ := {}
+     aadd(laSAVEPJ,laFIELDPJ)
+
+     * pfpj Reu
+     laFIELDPJR := {'NR_CONTROLE',;
+                    'CIP',;
+                    'PFPJ',;
+                    'PFPJ_NATUREZA',;
+                    'PFPJ_TIPOS',;
+                    'PFPJ_CHAR',;
+                    'LOGIN_CADASTRO',;
+                    'LOGIN_APROVACAO',;
+                    'DT_APROVACAO',;
+                    'FL_APROVADO'}
+
+     laSAVEPJR := {}
+     aadd(laSAVEPJR,laFIELDPJR)
+
+     * pasta_cip Cia
+     laFIELDC   := {'NR_PASTA',;
+                    'WFILED',;
+                    'CIP'}
+
+     laSAVEC := {}
+     aadd(laSAVEC,laFIELDC)
+
+     * pasta_cip Reu         //  estrutura para pasta_cip Reu é a mesma de pasta_cip Cia (laFIELDC)
+     laSAVECR := {}
+     aadd(laSAVECR,laFIELDC)
+
+     * pasta_outraspartes Cia
+     laFIELDO  := {'NR_PASTA',;
+                   'NM_PARTE',;
+                   'CIP_PARTE'}
+
+     laSAVEO := {}
+     aadd(laSAVEO,laFIELDO)
+
+     * pasta_outraspartes Reu
+     laFIELDOR := {'NR_PASTA',;
+                   'NM_PARTE',;
+                   'CIP_PARTE',;
+                   'POSICAO_PARTE'}
+
+     laSAVEOR := {}
+     aadd(laSAVEOR,laFIELDOR)
+
+
+     db_query("alter system set open_cursors = 10000 scope=both")
+
+     * pasta
+     if db_query("select ipasta.nextval as NR_PASTA from dual") = -1
+        error_sys(db_error())
+     endif
+
+     laCONTROLE := db_fetchrow()
+
+     IF len(laCONTROLE) > 0
+
+        lnSEQ_PASTA := laCONTROLE[01]
+     ENDIF
+     
+     //? debug2(laCONTROLE,,40)
+     //?
+     //? "lnSEQ_PASTA :" + str(lnSEQ_PASTA)
+     //?
+
+     * pasta_seguro
+     if db_query("select ipasta_seguro.nextval as NR_CONTROLE from dual") = -1
+        error_sys(db_error())
+     endif
+
+     laSeguro := db_fetchrow()
+
+     IF len(laSeguro) > 0
+        lnSeguro := laSeguro[01]
+     ENDIF
+     
+     //?
+     //? "lnSeguro :" + str(lnSeguro)
+     //?
+
+     lnTamanho := FSeek(lnHAND1,0,2) // Posiciona o cursor no final do arquivo retornando a quantidade de bytes
+     FSeek(lnHAND1,0,0) // Posiciona o ponteiro no inicio do arquivo novamente
+     lcLine := space(lnTamanho)
+
+     ii := fread(lnHAND1,@lcLine,lnTamanho) //Ressarcimento.csv
+     
+     //? "Retorno de Fread lnHAND1: " + str(ii)
+     
+     laDETALHE := str2array(lcLINE,{';',chr(13)+chr(10)})
+     
+     //? debug2(laDETALHE,,40)
+     
+     hh := 1
+
+     * pasta
+     While hh <= len(laDETALHE)
+
+        If empty(laDETALHE[hh,01])
+           exit
+        Endif
+        
+        If laDETALHE[hh,19] == 'E' .or. empty(ctod(substr(laDETALHE[hh,18],01,10)))
+           lcSitu := 'Encerrada'
+        Else
+           lcSitu := 'Ativa'
+        Endif
+
+        aadd(laSAVEP,{lnSEQ_PASTA,;
+                      laDETALHE[hh,01],;
+                      laDETALHE[hh,02],;
+                      'RESSARCIMENTO ADMINISTRATIVO',;
+                      'RESSARCIMENTO ADMINISTRATIVO',;
+                      ctod(substr(laDETALHE[hh,05],01,10)),;
+                      laDETALHE[hh,07],;
+                      laDETALHE[hh,08],;
+                      val(strtran(laDETALHE[hh,15], "," , "." )),;
+                      val(strtran(laDETALHE[hh,17], "," , "." )),;
+                      val(strtran(laDETALHE[hh,17], "," , "." )),;
+                      ctod(substr(laDETALHE[hh,18],01,10)),;
+                      lcSitu,;
+                      laDETALHE[hh,20]})
+
+        if db_insert(laSAVEP,lcTABLEP) == -1
+           wout("Erro Insert ressarc_conv (pasta)")
+           db_error()
+           Return(.f.)
+        endif
+
+        laSAVEP := {}
+        aadd(laSAVEP,laFIELDP)
+
+        aadd(laPastaAdv,{lnSEQ_PASTA, laDETALHE[hh,10], laDETALHE[hh,01]})  // NR_PASTA sequence, Advog_ID e NR_PASTA_ARQUIVO
+
+        lnSEQ_PASTA ++
+
+        hh++
+
+     End  //(hh)
+     
+     //?
+     //? "lnSEQ_PASTA :" + str(lnSEQ_PASTA)
+     //?
+
+     db_query("alter sequence ipasta minvalue " + str(lnSEQ_PASTA))
+
+
+     hh := 1
+
+     * pasta_seguro
+     While hh <= len(laDETALHE)
+
+        If empty(len(laDETALHE[hh,01]))
+           Exit
+        Endif
+        
+        aadd(laSAVES,{lnSeguro,;
+                      laPastaAdv[hh,01],;
+                      laDETALHE[hh,03],;
+                      val(laDETALHE[hh,04]),;
+                      laDETALHE[hh,09],;
+                      laDETALHE[hh,11],;
+                      laDETALHE[hh,12],;
+                      laDETALHE[hh,13],;
+                      If(empty(laDETALHE[hh,14]), 'S','')})
+
+        if db_insert(laSAVES,lcTABLES) == -1
+           wout("Erro Insert ressarc_conv (pasta_seguro)")
+           db_error()
+           Return(.f.)
+        endif
+
+        laSAVES := {}
+        aadd(laSAVES,laFIELDS)
+
+
+        *pasta_pedidos
+        *
+        aadd(laSAVEPD,{laPastaAdv[hh,01],;
+                      'ipasta_pedidos.nextval',;
+                      If(empty(laDETALHE[hh,02]),'RESSARCIMENTO',laDETALHE[hh,02]) ,;
+                      lnSeguro,;
+                      ctod(substr(laDETALHE[hh,16],01,10)),;
+                      0,;           // por enquanto zero - receberá de receb_ressarcimento.VL_TT_REC adiante
+                      100,;
+                      date()})
+
+        if db_insert(laSAVEPD,lcTABLEPD) == -1
+           wout("Erro Insert ressarc_conv (pasta_pedidos)")
+           db_error()
+           Return(.f.)
+        endif
+
+        laSAVEPD := {}
+        aadd(laSAVEPD,laFIELDPD)
+
+
+        lnSeguro ++
+        hh++
+        
+     End  //(hh)
+
+     db_query("alter sequence ipasta_seguro minvalue " + str(lnSeguro))
+     
+
+     hh := 1
+
+     * pfpj Cia
+
+     /* duplicidade em pfpj Cia --------------------------------------*/
+
+     lcCia := ''
+
+     While hh <= len(laDETALHE)
+
+        If empty(len(laDETALHE[hh,01]))
+           Exit
+        Endif
+
+        lcPFPJchar := lower(alltrim(lat2char(laDETALHE[hh,06])))
+
+        If lcCia = lcPFPJchar
+           hh++
+           loop
+        Else
+           lcCia := lcPFPJchar
+        Endif
+        
+        if db_select({'distinct PFPJ_CHAR'},'pfpj',,{'PFPJ_CHAR = '+ DLAP + lcPFPJchar + DLAP}) == -1
+             error_sys(db_error())
+        endif
+
+        laChar := db_fetchrow()
+
+        If len(laChar) > 0
+
+           aadd(laCia, lcPFPJchar)
+        Endif
+
+        hh++
+
+     End  //(hh)
+
+     //? "laCia"
+     //?
+     //? debug2(laCia,,40)
+     //?
+
+     /* final duplicidade em pfpj Cia -------------------------------------*/
+
+
+     if db_query("select ipfpj.nextval as NR_CONTROLE from dual") = -1
+        error_sys(db_error())
+     endif
+
+     laPFPJCia := db_fetchrow()
+
+     IF len(laPFPJCia) > 0
+
+        lnPFPJCia := laPFPJCia[01]
+     ENDIF
+     
+     //?
+     //? "lnPFPJCia :" + str(lnPFPJCia)
+     //?
+
+     hh := 1
+
+     While hh <= len(laDETALHE)
+     
+        If empty(len(laDETALHE[hh,01]))
+           Exit
+        Endif
+
+        If len(laCia) > 0
+
+           If ascan(laCia, { |x| x[1]== lower(alltrim(lat2char(laDETALHE[hh,06]))) } ) > 0
+              hh++
+              loop
+           Endif
+
+        Endif
+
+        aadd(laSAVEPJ,{lnPFPJCia,;
+                       str(lnPFPJCia),;
+                       laDETALHE[hh,06],;   // Cia
+                       laDETALHE[hh,06],;   // Cia
+                       'Juridica',;
+                       'TMSR',;
+                       '#EMP#',;
+                       lower(alltrim(lat2char(laDETALHE[hh,06]))),;
+                       "CONVERSÃO",;
+                       "CONVERSÃO",;
+                       Date(),;
+                       'S'})
+
+        if db_insert(laSAVEPJ,lcTABLEPJ) == -1
+           wout("Erro Insert ressarc_conv (pfpj Cia)")
+           db_error()
+           Return(.f.)
+        endif
+
+        For zz := 1 to len(laPastaAdv)   //--- NR_PASTA, Advog_ID e NR_PASTA_ARQUIVO
+
+           If laPastaAdv[zz,03] = laDETALHE[hh,01]
+
+              * pasta_cip Cia
+              aadd(laSAVEC,{laPastaAdv[zz,01],;
+                            'CIP_EMPRESA',;
+                            str(lnPFPJCia)})
+
+              if db_insert(laSAVEC,lcTABLEC) == -1
+                 wout("Erro Insert ressarc_conv (pasta_cip Cia)")
+                 db_error()
+                 Return(.f.)
+              endif
+
+              * pasta_outraspartes  Cia
+              aadd(laSAVEO,{laPastaAdv[zz,01],;
+                            laDETALHE[hh,06],;   // Cia
+                            str(lnPFPJCia)})
+
+              if db_insert(laSAVEO,lcTABLEO) == -1
+                 wout("Erro Insert ressarc_conv (pasta_outraspartes Cia)")
+                 db_error()
+                 Return(.f.)
+              endif
+
+
+              laSAVEC := {}
+              aadd(laSAVEC,laFIELDC)
+
+              laSAVEO := {}
+              aadd(laSAVEO,laFIELDO)
+              
+              Exit
+
+           Endif
+
+        Next zz
+        
+        laSAVEPJ := {}
+        aadd(laSAVEPJ,laFIELDPJ)
+
+        lnPFPJCia++
+        hh++
+
+     End  //(hh)
+
+     db_query("alter sequence ipfpj minvalue " + str(lnPFPJCia))
+
+     laCia := {}
+
+
+     * pfpj Reu
+
+     /* duplicidade em pfpj Reu --------------------------------------------------------------*/
+
+     hh := 1
+
+     While hh <= len(laDETALHE)
+     
+        If empty(len(laDETALHE[hh,01]))
+           Exit
+        Endif
+
+        lcPFPJchar := lower(alltrim(lat2char(laDETALHE[hh,21])))
+
+        if db_select({'distinct PFPJ_CHAR'},'pfpj',,{'PFPJ_CHAR = '+ DLAP + lcPFPJchar + DLAP}) == -1
+             error_sys(db_error())
+        endif
+
+        laChar := db_fetchrow()
+
+        If len(laChar) > 0
+
+           aadd(laReu, lcPFPJchar)
+
+        Endif
+
+        hh++
+
+     End  //(hh)
+
+     //? "laReu"
+     //?
+     //? debug2(laReu,,40)
+     //?
+
+     /* final duplicidade em pfpj Reu --------------------------------------------------------------*/
+     
+     
+     if db_query("select ipfpj.nextval as NR_CONTROLE from dual") = -1
+        error_sys(db_error())
+     endif
+
+     laPFPJReu := db_fetchrow()
+     
+     IF len(laPFPJReu) > 0
+
+        lnPFPJReu := laPFPJReu[01]
+     ENDIF
+
+
+     hh := 1
+
+     While hh <= len(laDETALHE)
+
+        If empty(len(laDETALHE[hh,01]))
+           Exit
+        Endif
+
+        If len(laReu) > 0
+
+           If ascan(laReu, { |x| x[1]== lower(alltrim(lat2char(laDETALHE[hh,21]))) } ) > 0
+              hh++
+              loop
+           Endif
+
+        Endif
+
+        aadd(laSAVEPJR,{lnPFPJReu,;
+                        str(lnPFPJReu),;
+                        laDETALHE[hh,21],;   // Reu
+                        'Juridica',;
+                        '#PRT#',;
+                        lower(alltrim(lat2char(laDETALHE[hh,21]))),;
+                        "CONVERSÃO",;
+                        "CONVERSÃO",;
+                        Date(),;
+                        'S'})
+
+
+        if db_insert(laSAVEPJR,lcTABLEPJR) == -1
+           wout("Erro Insert ressarc_conv (pfpj  Reu)")
+           db_error()
+           Return(.f.)
+        endif
+
+
+        For zz := 1 to len(laPastaAdv)   //--- NR_PASTA, Advog_ID e NR_PASTA_ARQUIVO
+
+           If laPastaAdv[zz,03] = laDETALHE[hh,01]
+
+              * pasta_cip Reu
+              aadd(laSAVECR,{laPastaAdv[zz,01],;
+                             'CIP_PARTE_CONTRARIA',;
+                             str(lnPFPJReu)})
+
+              if db_insert(laSAVECR,lcTABLECR) == -1
+                 wout("Erro Insert ressarc_conv (pasta_cip  Reu)")
+                 db_error()
+                 Return(.f.)
+              endif
+
+              laSAVECR := {}
+              aadd(laSAVECR,laFIELDC)
+
+
+              * pasta_outraspartes Reu
+              aadd(laSAVEOR,{laPastaAdv[zz,01],;
+                             laDETALHE[hh,21],;   // Reu
+                             str(lnPFPJReu),;
+                             'REU'})
+
+              if db_insert(laSAVEOR,lcTABLEOR) == -1
+                 wout("Erro Insert ressarc_conv (pasta_outraspartes Reu)")
+                 db_error()
+                 Return(.f.)
+              endif
+
+              laSAVEOR := {}
+              aadd(laSAVEOR,laFIELDOR)
+
+              Exit
+
+           Endif
+
+        Next zz
+
+        laSAVEPJR := {}
+        aadd(laSAVEPJR,laFIELDPJR)
+
+        lnPFPJReu ++
+        hh++
+
+     End // (hh)
+
+     db_query("alter sequence ipfpj minvalue " + str(lnPFPJReu))
+
+     laReu := {}
+     
+     /*---------incluindo Processos ---------------------------------*/
+
+     laDETALHE := {}
+     lcLine    := ''
+
+     lnTamanho := FSeek(lnHAND2,0,2) // Posiciona o cursor no final do arquivo retornando a quantidade de bytes
+     FSeek(lnHAND2,0,0) // Posiciona o ponteiro no inicio do arquivo novamente
+     lcLine := space(lnTamanho)
+
+     ii := fread(lnHAND2,@lcLine,lnTamanho) //ressarc_processos.csv
+
+     //? "Retorno de Fread lnHAND2: " + str(ii)
+
+     laDETALHE := str2array(lcLINE,{';',chr(13)+chr(10)})
+
+     //? debug2(laDETALHE,,40)
+
+     hh := 1
+
+     while hh <= len(laDETALHE)
+     
+        If empty(len(laDETALHE[hh,01]))
+           Exit
+        Endif
+
+        For zz := 1 to len(laPastaAdv)   //--- NR_PASTA, Advog_ID e NR_PASTA_ARQUIVO
+
+           If laPastaAdv[zz,03] = laDETALHE[hh,01]
+
+              if db_update( { {'NR_PROCESSO', 'NR_VARA'},{laDETALHE[hh,01], val(laDETALHE[hh,02])} },'pasta',{'NR_PASTA = ' + alltrim(str(laPastaAdv[zz,01]))} ) == -1
+                 wout("Erro Update ressarc_conv (pasta - processos)")
+                 db_error()
+                 Return(.f.)
+              endif
+
+           Endif
+
+        Next zz
+
+        hh++
+     End // (hh)
+
+
+     /*--------- final incluindo Processos ---------------------------------*/
+
+     /* final  grava pasta, pasta_seguro, pasta_pedidos, pfpj Cia/Reu, pasta_cip Cia/Reu, pasta_outraspartes Cia/Reu ------*/
+
+
+     /* grava mvt_parc_ressarc e receb_ressarcimento ---------------------------------------------------*/
+
+     * mvt_parc_ressarc
+     laFIELDMPR  := {'NR_CONTROLE_PARC',;
+                     'NR_PASTA',;
+                     'NR_CONTROLE_REC',;
+                     'DT_VENCTO_REC',;
+                     'CD_BANCO',;
+                     'BANCO_AGENCIA',;
+                     'NR_CHEQUE',;
+                     'VL_PARC_REC',;
+                     'VL_JUROS_REC',;
+                     'DT_PAGTO_REC',;
+                     'VL_RECEBIDO_REC'}
+
+     laSAVEMPR := {}
+     aadd(laSAVEMPR,laFIELDMPR)
+
+     * receb_ressarcimento
+     laFIELDRR   := {'NR_PASTA',;
+                     'NR_CONTROLE_REC',;
+                     'VL_TT_REC',;
+                     'VENCTO_1_PARC_REC',;
+                     'NR_PARC_TT_REC',;
+                     'LOGIN_CADASTRO',;
+                     'NR_SINISTRO',;
+                     'NR_CONTROLE_SEGURO'}
+
+     laSAVERR := {}
+     aadd(laSAVERR,laFIELDRR)
+
+     laDETALHE := {}
+     lcLine    := ''
+
+     lnTamanho := FSeek(lnHAND3,0,2) // Posiciona o cursor no final do arquivo retornando a quantidade de bytes
+     FSeek(lnHAND3,0,0) // Posiciona o ponteiro no inicio do arquivo novamente
+     lcLine := space(lnTamanho)
+
+     ii := fread(lnHAND3,@lcLine,lnTamanho) //Ressarc_Receitas.csv
+
+     //? "Retorno de Fread lnHAND3: " + str(ii)
+
+     laDETALHE := str2array(lcLINE,{';',chr(13)+chr(10)})
+
+     //? debug2(laDETALHE,,40)
+
+
+     For zz := 1 to len(laPastaAdv)   //--- NR_PASTA, Advog_ID e NR_PASTA_ARQUIVO
+
+        hh := 1
+
+        While hh <= len(laDETALHE)
+
+           If laPastaAdv[zz,03] = laDETALHE[hh,01]
+
+              lnNR_PASTA := laPastaAdv[zz,01]
+
+
+              * mvt_parc_ressarc
+
+              aadd(laSAVEMPR,{'imvt_parc_ressarc.nextval',;
+                              lnNR_PASTA,;
+                              val(laDETALHE[hh,02]),;
+                              ctod(substr(laDETALHE[hh,03],01,10)),;
+                              laDETALHE[hh,04],;
+                              laDETALHE[hh,05],;
+                              laDETALHE[hh,06],;
+                              val(strtran(laDETALHE[hh,07], "," , "." )),;
+                              val(strtran(laDETALHE[hh,08], "," , "." )),;
+                              ctod(substr(laDETALHE[hh,09],01,10)),;
+                              If(laDETALHE[hh,10] == 'L', val(strtran(laDETALHE[hh,07], "," , "." )), 0)})
+
+              if db_insert(laSAVEMPR,lcTABLEMPR) == -1
+                 wout("Erro Insert ressarc_conv (mvt_parc_ressarc)")
+                 db_error()
+
+                 Return(.f.)
+              Endif
+
+              laSAVEMPR := {}
+              aadd(laSAVEMPR,laFIELDMPR)
+              
+           Endif
+           
+           hh++
+           
+        End // hh
+
+     Next zz
+
+
+     * receb_ressarcimento
+
+     //?
+     //? 'receb_ressarcimento'
+     //?
+     
+     For zz := 1 to len(laPastaAdv)   //--- NR_PASTA, Advog_ID e NR_PASTA_ARQUIVO
+
+        lcQUERY := "select NR_PASTA, "
+        lcQUERY +=        "sum(VL_PARC_REC + VL_JUROS_REC) as lnTotal, "
+        lcQUERY +=        "max(NR_CONTROLE_REC) as lnNParc, "
+        lcQUERY +=        "min(DT_VENCTO_REC) as ld1Venc "
+        lcQUERY +=   "from mvt_parc_ressarc "
+        lcQUERY +=  "where NR_PASTA = " + alltrim(str(laPastaAdv[zz,01])) + " "
+        lcQUERY +=  "group by NR_PASTA"
+
+        if db_query(lcQUERY) = -1
+           error_sys(db_error())
+        endif
+
+        laResult := db_fetchrow()
+        
+        //? debug2(laResult,,40)
+        
+        IF len(laResult) > 0
+
+           aadd(laSAVERR,{laResult[01],;
+                         'ireceb_ressarcimento_seq.nextval',;
+                          laResult[02],;
+                          laResult[04],;
+                          laResult[03],;
+                          'CONVERSÃO',;
+                          '1',;
+                          1})
+
+
+           if db_insert(laSAVERR,lcTABLERR) == -1
+              wout("Erro Insert ressarc_conv (receb_ressarcimento)")
+              db_error()
+              Return(.f.)
+           endif
+
+           laSAVERR := {}
+           aadd(laSAVERR,laFIELDRR)
+
+
+           /*--- incluindo pasta_pedidos.VL_RISCO (estava pendente)------------------------*/
+
+           if db_update( { {'VL_RISCO'},{laResult[01]} },'pasta_pedidos',{'NR_PASTA = ' + alltrim(str(laResult[01]))} ) == -1
+              wout("Erro Update ressarc_conv (pasta_pedidos - VL_RISCO)")
+              db_error()
+              Return(.f.)
+           endif
+
+           /*--- fim incluindo pasta_pedidos.VL_RISCO ------------------------------------*/
+
+        ENDIF
+        
+     Next zz
+
+
+     /*--- final mvt_parc_ressarc e receb_ressarcimento -----------------------------------------*/
+
+
+     /*--- incluindo receb_ressarcimento.NR_SINISTRO e receb_ressarcimento.NR_CONTROLE_SEGURO (estava pendente)--*/
+
+     laDETALHE := {}
+     laRESULT  := {}
+     lcLine    := ''
+
+     lnTamanho := FSeek(lnHAND3,0,2) // Posiciona o cursor no final do arquivo retornando a quantidade de bytes
+     FSeek(lnHAND3,0,0) // Posiciona o ponteiro no inicio do arquivo novamente
+     lcLine := space(lnTamanho)
+
+     ii := fread(lnHAND3,@lcLine,lnTamanho) //Ressarc_Receitas.csv
+
+     //? "Retorno de Fread lnHAND3: " + str(ii)
+
+     laDETALHE := str2array(lcLINE,{';',chr(13)+chr(10)})
+
+     //? debug2(laDETALHE,,40)
+
+
+     For zz := 1 to len(laPastaAdv)   //--- NR_PASTA, Advog_ID e NR_PASTA_ARQUIVO
+     
+        hh := 1
+
+        While hh <= len(laDETALHE)
+
+           If laPastaAdv[zz,03] = laDETALHE[hh,01]
+
+              lnNR_PASTA := laPastaAdv[zz,01]
+
+              if db_select({'distinct NR_PASTA','NR_CONTROLE','NR_SINISTRO'},'pasta_seguro',,{'NR_PASTA = '+ alltrim(str(lnNR_PASTA))}) == -1
+                   error_sys(db_error())
+              endif
+
+              laRESULT := db_fetchrow()
+
+              If len(laRESULT) > 0
+
+                 If db_update( { {'NR_CONTROLE_SEGURO','NR_SINISTRO'},{laRESULT[02],laRESULT[03]} },'receb_ressarcimento',{'NR_PASTA = ' alltrim(str(laRESULT[01]))} ) == -1
+                    wout("Erro Update ressarc_conv (receb_ressarcimento - NR_SINISTRO e NR_CONTROLE_SEGURO)")
+                    db_error()
+                    Return(.f.)
+                 endif
+
+              Endif
+
+           Endif
+           
+           hh++
+           
+        End //hh
+     
+     Next zz
+
+     /*--- fim incluindo receb_ressarcimento.NR_SINISTRO e receb_ressarcimento.NR_CONTROLE_SEGURO --*/
+
+
+     /*--- grava pfpj Advogado ------------------------------------------------------------ */
+
+
+     * pfpj Advogado
+     laFIELDPJA := {'NR_CONTROLE',;
+                    'CIP',;
+                    'PFPJ',;
+                    'OAB',;
+                    'ENDERECO',;
+                    'BAIRRO',;
+                    'CIDADE',;
+                    'UF',;
+                    'CEP',;
+                    'TELEFONE',;
+                    'TELEFONE2',;
+                    'CD_BANCO',;
+                    'BANCO_AGENCIA',;
+                    'BANCO_CONTA',;
+                    'PFPJ_NATUREZA',;
+                    'PFPJ_TIPOS',;
+                    'PFPJ_CHAR',;
+                    'LOGIN_CADASTRO',;
+                    'LOGIN_APROVACAO',;
+                    'DT_APROVACAO',;
+                    'FL_APROVADO'}
+
+     laSAVEPJA := {}
+     aadd(laSAVEPJA,laFIELDPJA)
+
+     * pasta_cip Advogado         //  estrutura para pasta_cip Advogado é a mesma de pasta_cip Cia (laFIELDC)
+     laSAVECA := {}
+     aadd(laSAVECA,laFIELDC)
+
+
+     * pfpj Advogado
+
+     laDETALHE := {}
+     lcLine    := ''
+
+     lnTamanho := FSeek(lnHAND6,0,2) // Posiciona o cursor no final do arquivo retornando a quantidade de bytes
+     FSeek(lnHAND6,0,0) // Posiciona o ponteiro no inicio do arquivo novamente
+     lcLine := space(lnTamanho)
+
+     ii := fread(lnHAND6,@lcLine,lnTamanho) //Cad_Advogado.csv
+
+     /*
+     ?
+     ? "Retorno de Fread lnHAND6: " + str(ii)
+     ?
+     */
+     
+     laDETALHE := str2array(lcLINE,{';',chr(13)+chr(10)})
+
+     /*
+     ? "debug2 pfpj Advogado:"
+     ? debug2(laDETALHE,,40)
+     ?
+     */
+
+     /* duplicidade em pfpj Advogado -------------------------------------------*/
+
+     hh := 1
+     
+     While hh <= len(laDETALHE)
+     
+        If empty(len(laDETALHE[hh,01]))
+           Exit
+        Endif
+
+        lcPFPJchar := lower(alltrim(lat2char(laDETALHE[hh,02])))
+
+        if db_select({'distinct PFPJ_CHAR'},'pfpj',,{'PFPJ_CHAR = '+ DLAP + lcPFPJchar + DLAP}) == -1
+             error_sys(db_error())
+        endif
+
+        laChar := db_fetchrow()
+
+        If len(laChar) > 0
+
+           aadd(laAdv, lcPFPJchar)
+        Endif
+
+        hh++
+
+     End  //(hh)
+
+     /* final duplicidade em pfpj Advogado -------------------------------------------*/
+     
+     
+     if db_query("select ipfpj.nextval as NR_CONTROLE from dual") = -1
+        error_sys(db_error())
+     endif
+     laCONTROLE := db_fetchrow()
+
+     IF len(laCONTROLE) > 0
+
+        lnSEQ_CONTR := laCONTROLE[01]
+     ENDIF
+
+     hh := 1
+
+     While hh <= len(laDETALHE)
+     
+        If empty(len(laDETALHE[hh,01]))
+           Exit
+        Endif
+
+        If len(laAdv) > 0
+
+           If ascan(laAdv, { |x| x[1]== lower(alltrim(lat2char(laDETALHE[hh,02]))) } ) > 0
+              hh++
+              loop
+           Endif
+
+        Endif
+
+        aadd(laSAVEPJA, {lnSEQ_CONTR,;
+                         str(lnSEQ_CONTR),;
+                         laDETALHE[hh,02],;
+                         laDETALHE[hh,03],;
+                         laDETALHE[hh,04],;
+                         laDETALHE[hh,05],;
+                         laDETALHE[hh,06],;
+                         laDETALHE[hh,07],;
+                         laDETALHE[hh,08],;
+                         laDETALHE[hh,09],;
+                         laDETALHE[hh,10],;
+                         laDETALHE[hh,11],;
+                         laDETALHE[hh,12],;
+                         laDETALHE[hh,13],;
+                         'Juridica',;
+                         '#ESC#FAV#',;
+                         lower(alltrim(lat2char(laDETALHE[02]))),;
+                         'CONVERSÃO',;
+                         'CONVERSÃO',;
+                         Date(),;
+                         'S'})
+
+
+        if db_insert(laSAVEPJA,lcTABLEPJA) == -1
+           wout("Erro Insert ressarc_conv (pfpj Advogado)")
+           db_error()
+           Return(.f.)
+        endif
+
+        laSAVEPJA := {}
+        aadd(laSAVEPJA,laFIELDPJA)
+
+
+        * pasta_cip Advogado
+
+        For zz := 1 to len(laPastaAdv)   //--- NR_PASTA, Advog_ID e NR_PASTA_ARQUIVO
+
+           If laPastaAdv[zz,02] = laDETALHE[hh,01]
+
+              aadd(laSAVECA,{laPastaAdv[zz,01],;
+                             'CIP_ESCRITORIO',;
+                             str(lnSEQ_CONTR)})
+
+              aadd(laCipAdv, {laPastaAdv[zz,01],str(lnSEQ_CONTR)}) // --- NR_PASTA e CIP
+
+              if db_insert(laSAVECA,lcTABLECA) == -1
+                 wout("Erro Insert ressarc_conv (pasta_cip  Advogado)")
+                 db_error()
+                 Return(.f.)
+              endif
+
+              laSAVECA := {}
+              aadd(laSAVECA,laFIELDC)
+
+              Exit
+           Endif
+
+        Next zz
+
+        lnSEQ_CONTR++
+        hh++
+
+     End // (hh)
+
+     db_query("alter sequence ipfpj minvalue " + str(lnSEQ_CONTR)) // pfpj Advogado
+
+     laAdv := {}
+
+     
+     /*--- final grava pfpj Advogado ------------------------------------------------------------ */
+
+
+     /*--- gravando despesa e mvt_despesa ----------------------------------------------------------*/
+
+
+     * mvt_despesa
+     laFIELDMD   := {'NR_DESPESA',;
+                     'NR_PASTA',;
+                     'DT_REF',;
+                     'DT_PREVISAO_PAGTO',;
+                     'CD_DESPESA',;
+                     'VL_UNIT',;
+                     'QUANTIDADE',;
+                     'CD_MOEDA',;
+                     'DT_APROVACAO',;
+                     'LOGIN_APROVACAO',;
+                     'LOGIN_RESP',;
+                     'CIP_FAVORECIDO'}
+
+     laSAVEMD := {}
+     aadd(laSAVEMD,laFIELDMD)
+
+
+     * despesa
+     laFIELDD    := {'CD_DESPESA',;
+                     'NM_DESPESA',;
+                     'CD_MOEDA'}
+
+     laSAVED := {}
+     aadd(laSAVED,laFIELDD)
+
+
+     * despesa
+
+     laDETALHE := {}
+     lcLine    := ''
+
+     lnTamanho := FSeek(lnHAND5,0,2) // Posiciona o cursor no final do arquivo retornando a quantidade de bytes
+     FSeek(lnHAND5,0,0) // Posiciona o ponteiro no inicio do arquivo novamente
+     lcLine := space(lnTamanho)
+
+     ii := fread(lnHAND5,@lcLine,lnTamanho) //TabHistoricoDespesas.csv
+
+     //? "Retorno de Fread lnHAND5: " + str(ii)
+
+     laDETALHE := str2array(lcLINE,{';',chr(13)+chr(10)})
+
+
+     For hh := 1 to len(laDETALHE)
+
+        lcNM_DESPESA := laDETALHE[hh,02]
+
+        if db_select({'distinct NM_DESPESA'},'despesa',,{'NM_DESPESA = '+ DLAP + lcNM_DESPESA + DLAP}) == -1
+             error_sys(db_error())
+        endif
+
+        laChar := db_fetchrow()
+
+        If len(laChar) = 0    // duplicidade em despesa
+
+           aadd(laSAVED, {laDETALHE[hh,01],;
+                          laDETALHE[hh,02],;
+                          1})
+
+           if db_insert(laSAVED,lcTABLED) == -1
+              wout("Erro Insert ressarc_conv (despesa)")
+              db_error()
+              Return(.f.)
+           endif
+
+           laSAVED := {}
+           aadd(laSAVED,laFIELDD)
+
+        Endif
+
+     Next hh
+
+     
+     * mvt_despesa
+
+     laDETALHE := {}
+     lcLine    := ''
+
+     lnTamanho := FSeek(lnHAND4,0,2) // Posiciona o cursor no final do arquivo retornando a quantidade de bytes
+     FSeek(lnHAND4,0,0) // Posiciona o ponteiro no inicio do arquivo novamente
+     lcLine := space(lnTamanho)
+
+     ii := fread(lnHAND4,@lcLine,lnTamanho) //Ressarc_Despesas.csv
+
+     //? "Retorno de Fread lnHAND4: " + str(ii)
+
+     laDETALHE := str2array(lcLINE,{';',chr(13)+chr(10)})
+
+     //? debug2(laDETALHE,,40)
+
+
+     For zz := 1 to len(laPastaAdv)   //--- NR_PASTA, Advog_ID e NR_PASTA_ARQUIVO
+
+         hh := 1
+
+         While hh <= len(laDETALHE)
+
+            If laPastaAdv[zz,03] = laDETALHE[hh,01]
+
+               lnNR_PASTA := laPastaAdv[zz,01]
+
+               For jj := 1 to len(laCipAdv)   // --- NR_PASTA e CIP
+
+                  If laCipAdv[jj,01] = lnNR_PASTA
+
+                     lcCIP_FAV := laCipAdv[jj,02]
+
+                     aadd(laSAVEMD, {'imvt_despesa.nextval',;
+                                     lnNR_PASTA,;
+                                     ctod(substr(laDETALHE[hh,02],01,10)),;
+                                     ctod(substr(laDETALHE[hh,02],01,10)),;
+                                     laDETALHE[hh,04],;
+                                     val(strtran(laDETALHE[hh,03], "," , "." )),;
+                                     1,;
+                                     1,;
+                                     date(),;
+                                     "CONVERSÃO",;
+                                     "CONVERSÃO",;
+                                     lcCIP_FAV})
+
+                     if db_insert(laSAVEMD,lcTABLEMD) == -1
+                        wout("Erro Insert ressarc_conv (mvt_despesa)")
+                        db_error()
+                        Return(.f.)
+                     endif
+
+                     laSAVEMD := {}
+                     aadd(laSAVEMD,laFIELDMD)
+
+                  Endif
+
+               Next jj
+
+            Endif
+
+            hh++
+
+         End // hh
+
+     Next zz
+
+     /*--- final gravando despesa e mvt_despesa --------------------------------------------*/
+
+
+     /*--- grava pasta_andamento Hist. Advogado e pasta_andamento_last -----------*/
+
+
+     * pasta_andamento Hist. Advogado
+     laFIELDAA  := {'NR_PASTA',;
+                    'NR_ANDAMENTO',;
+                    'DT_ANDAMENTO',;
+                    'ANDAMENTO',;
+                    'FL_ANDAMENTO_CANCELADO',;
+                    'DT_CADASTRO',;
+                    'TP_ANDAMENTO',;
+                    'DT_CRIACAO',;
+                    'LOGIN'}
+
+     laSAVEAA := {}
+     aadd(laSAVEAA,laFIELDAA)
+
+     * pasta_andamento_last
+     laFIELDAL  := {'NR_PASTA',;
+                    'ANDAMENTO',;
+                    'DT_ANDAMENTO',;
+                    'TP_ANDAMENTO'}
+
+     laSAVEAL :={}
+     aadd(laSAVEAL,laFIELDAL)
+
+
+     * pasta_andamento Hist. Advogado
+
+     laDETALHE := {}
+     lcLine    := ''
+
+     lnTamanho := FSeek(lnHAND7,0,2) // Posiciona o cursor no final do arquivo retornando a quantidade de bytes
+     FSeek(lnHAND7,0,0) // Posiciona o ponteiro no inicio do arquivo novamente
+     lcLine := space(lnTamanho)
+
+     ii := fread(lnHAND7,@lcLine,lnTamanho) //Ressarc_Advogado.csv
+
+     //? "Retorno de Fread lnHAND7: " + str(ii)
+
+     laDETALHE := str2array(lcLINE,{';',chr(13)+chr(10)})
+
+     //? debug2(laDETALHE,,40)
+
+     For zz := 1 to len(laPastaAdv)   //--- NR_PASTA, Advog_ID e NR_PASTA_ARQUIVO
+
+        hh := 1
+
+        While hh <= len(laDETALHE)
+
+           If laPastaAdv[zz,03] = laDETALHE[hh,01]
+
+              lnNR_PASTA := laPastaAdv[zz,01]
+
+              aadd(laSAVEAA, {lnNR_PASTA,;
+                              'ipasta_andamento.nextval',;
+                              ctod(substr(laDETALHE[hh,04],01,10)),;
+                              laDETALHE[hh,02] + ' Tentativas: ' + laDETALHE[hh,03],;
+                              'N',;
+                              Date(),;
+                              'TRANS ESCRITÓRIO',;
+                              Date(),;
+                              'CONVERSÃO'})
+
+              if db_insert(laSAVEAA,lcTABLEAA) == -1
+                 wout("Erro Insert ressarc_conv (pasta_andamento Hist. Advogado)")
+                 db_error()
+                 Return(.f.)
+              endif
+
+
+              * pasta_andamento_last
+              aadd(laSAVEAL, {lnNR_PASTA,;
+                              laDETALHE[hh,02] + ' Tentativas: ' + laDETALHE[hh,03],;
+                              ctod(substr(laDETALHE[hh,04],01,10)),;
+                              'TRANS ESCRITÓRIO'})
+
+
+              if db_insert(laSAVEAL,lcTABLEAL) == -1
+                 wout("Erro Insert ressarc_conv (pasta_andamento_last)-> " + db_error())
+                 db_error()
+                 Return(.f.)
+              endif
+
+              laSAVEAL := {}
+              aadd(laSAVEAL,laFIELDAL)
+
+              laSAVEAA := {}
+              aadd(laSAVEAA,laFIELDAA)
+
+           Endif
+
+           hh++
+        End /hh
+
+     Next zz
+
+     /*--- final grava pasta_andamento Hist. Advogado e pasta_andamento_last -----------*/
+
+
+     /*--- grava pasta_andamento Hist. Ressarc. e pasta_andamento_last -----------------*/
+
+     laSAVEAA := {}
+     aadd(laSAVEAA,laFIELDAA) //(mesma estrutura de pasta_andamento Hist. Advogado)
+
+     laSAVEAL := {}
+     aadd(laSAVEAL,laFIELDAL)
+
+     laDETALHE := {}
+     lcLine    := ''
+
+     lnTamanho := FSeek(lnHAND8,0,2) // Posiciona o cursor no final do arquivo retornando a quantidade de bytes
+     FSeek(lnHAND8,0,0) // Posiciona o ponteiro no inicio do arquivo novamente
+     lcLine := space(lnTamanho)
+
+     ii := fread(lnHAND8,@lcLine,lnTamanho) //Ressarc_Historico.csv
+
+     //? "Retorno de Fread lnHAND8: " + str(ii)
+
+     laDETALHE := str2array(lcLINE,{';',chr(13)+chr(10)})
+
+     //? debug2(laDETALHE,,40)
+
+
+     For zz := 1 to len(laPastaAdv)   //--- NR_PASTA, Advog_ID e NR_PASTA_ARQUIVO
+     
+        hh := 1
+        
+        While hh <= len(laDETALHE)
+        
+           If laPastaAdv[zz,03] = laDETALHE[hh,01]
+
+              lnNR_PASTA := laPastaAdv[zz,01]
+
+              * pasta_andamento Hist. Ressarc.  (mesma estrutura de pasta_andamento Hist. Advogado)
+              aadd(laSAVEAA, {lnNR_PASTA,;
+                              'ipasta_andamento.nextval',;
+                              date(),;
+                              laDETALHE[hh,02],;
+                              'N',;
+                              Date(),;
+                              'HISTORICO',;
+                              Date(),;
+                              'CONVERSÃO'})
+
+
+              if db_insert(laSAVEAA,lcTABLEAA) == -1
+                 wout("Erro Insert ressarc_conv (pasta_andamento  Hist. Advogado)")
+                 db_error()
+                 Return(.f.)
+              endif
+
+              laSAVEAA := {}
+              aadd(laSAVEAA,laFIELDAA) //(mesma estrutura de pasta_andamento Hist. Advogado)
+
+
+              * pasta_andamento_last
+              aadd(laSAVEAL, {lnNR_PASTA,;
+                              laDETALHE[hh,02],;
+                              date(),;
+                              'HISTORICO'})
+
+
+              if db_insert(laSAVEAL,lcTABLEAL) == -1
+                  wout("Erro Insert ressarc_conv (pasta_andamento_last)")
+                  db_error()
+                  Return(.f.)
+              endif
+
+              laSAVEAL := {}
+              aadd(laSAVEAL,laFIELDAL)
+
+           Endif
+
+           hh++
+        End /hh
+     
+     Next zz
+
+     /*--- final grava pasta_andamento Hist. Ressarc. e pasta_andamento_last -----------*/
+     
+return(.t.)

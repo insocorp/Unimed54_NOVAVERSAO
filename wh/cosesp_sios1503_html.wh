@@ -1,0 +1,222 @@
+/*
+
+Project      : gr5
+Program      : cosesp_sios1503.html
+Function     : cosesp_sios1503_html
+Created on   : 28-Nov-2006   13:20:22
+Descripition : Exportação de dados da Cosesp
+
+*/
+    WSet('_USER_INTERFACE','none.wic')
+
+    #define NEWLINE chr(13) + chr(10)
+
+    local lcFILEOUT := WSet("COSESP1503") as string
+
+    local lcWHERE   := '' ,;
+    		 lcLINE    := '' as string
+
+    local laFIELDS   := {},;
+          laRESULT   := {},;
+          laDETVAL   := {},;
+          laJOIN     := {},;
+          laGAMBI    := {},;
+          laRES    	:= {}  as array
+
+    local jj 			:= 0 ,;
+          ii         := 0 ,;
+          zz         := 0  as int
+    local llFLAG     := .f. as logical
+
+    if Empty(lcFILEOUT)
+       qout('Arquivo não Informado.')
+       return(.f.)
+    endif
+
+    lcFILEOUT := strtran(lcFILEOUT,'[date]',dtos(date()))             // substitui [date] se houver no nome do arquivo.
+    lcFILEOUT := strtran(lcFILEOUT,'[time]',strtran(time(),':','-'))  // substitui [time] se houver no nome do arquivo.
+
+	 laJOIN := {{2,'pasta'        ,'pasta.nr_pasta = mvt_contabil.wpkey_num'},;
+               {2,'pasta_seguro' ,'pasta_seguro.nr_pasta = mvt_contabil.wpkey_num and pasta_seguro.nr_controle = mvt_contabil.wpkey_num2'}}
+
+    laFIELDS := {'pasta_seguro.NR_SINISTRO'       ,;
+                 'pasta_seguro.FL_STATUSINTERFACE',;
+                 'mvt_contabil.VL_LANCAMENTO'     ,;
+                 'mvt_contabil.LOGIN'			     ,;
+                 'mvt_contabil.WPKEY_NUM'  		  ,;
+                 'mvt_contabil.HISTORICO'  		  ,;
+                 'mvt_contabil.DT_LANCAMENTO'     ,;
+                 'mvt_contabil.NR_CONTROLE'		  ,;
+                 'pasta.NR_PASTA'                  }
+
+    // Buscando os Dados contábeis a serem exportados.
+    lcWHERE := '( mvt_contabil.FL_CONTABILIZADO='+DLMT+'N'+DLMT
+    lcWHERE += "or mvt_contabil.FL_CONTABILIZADO = '' "
+    lcWHERE += 'or mvt_contabil.FL_CONTABILIZADO is null )'
+    lcWHERE += ' and mvt_contabil.WTABLE ='+DLMT+'pasta'+DLMT
+    lcWHERE += ' and mvt_contabil.WTABLE2='+DLMT+'pasta_seguro'+DLMT
+    if db_select(laFIELDS,'mvt_contabil',laJOIN,{lcWHERE}) == -1  // Filtra somente os não(N) contabilizados.
+       db_error()
+    endif
+
+    if len(laRESULT := db_fetchall()) > 1
+       if db_select({'nr_sequencia'},'seq_interfaces',,{"program = 'cosesp_sios1503_html'"}) == -1
+       	db_error()
+    	 endif
+       laRES := db_fetchall()
+
+    	 lnHAND := fcreate(lcFILEOUT, 0)
+		 if lnHAND < 0
+       	 qout('Problemas na criacao do arquivo de envio: '+lcFILEOUT)
+       	 return
+    	 endif
+    	 lcLINE   := ''
+    	 lcLINE = '00'+ '0000000' + dtos(DATE()) + strzero(laRES[2,1],7) + replicate(" ",56) + NEWLINE
+    	 if FWrite(lnHAND,lcLINE) <= 0
+       	walert("Erro na gravação do arquivo.")
+    	 	return(.f.)
+    	 endif
+
+       laDETVAL := cria_array()
+
+       for ii := 2 to len(laRESULT)
+           // **********************************************************************************
+           //                                  G A M B I A R R A
+           // **********************************************************************************
+           if (upper(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'HISTORICO')]))= 'AJUSTE RISCO' .or. ;
+              upper(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'HISTORICO')]))= 'AJUSTE CM' .or. ;
+              upper(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'HISTORICO')]))= 'AJUSTE JUROS' )
+              if empty(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')]))
+                 if db_select({'nr_sinistro','fl_statusinterface'},'pasta_seguro',,{'nr_pasta ='+str(laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')])}) == -1
+                    db_error()
+                 endif
+                 if len(laGAMBI := db_fetchall()) > 1
+                    for zz := 2 to len(laGAMBI)
+                        if !empty(laGAMBI[zz,1]) .and. alltrim(laGAMBI[zz,2]) = '3'
+                           laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')] := laGAMBI[zz,1]
+                           laRESULT[ii,db_fetchncol(laRESULT,'FL_STATUSINTERFACE')] := laGAMBI[zz,2]
+                           exit
+                        endif
+                    next zz
+                 endif
+
+              endif
+           endif
+           // **********************************************************************************
+           //                            F I M   D A   G A M B I A R R A
+           // **********************************************************************************
+
+           if !empty(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')])) .and. ; // tem um nr sinistro cadastrado
+              alltrim(laRESULT[ii,db_fetchncol(laRESULT,'FL_STATUSINTERFACE')]) = '3'    // dados do sinistro OK
+
+              lcLINE := ''
+              if (upper(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'HISTORICO')]))= 'AJUSTE RISCO' .or. ;
+              		upper(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'HISTORICO')]))= 'AJUSTE CM' .or. ;
+                  upper(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'HISTORICO')]))= 'AJUSTE JUROS' )
+                  llFLAG := .t.
+              		for zz := 1 to len(laDETVAL)
+                  	if laDETVAL[zz,8] == 'F'
+                        if(laDETVAL[zz,1]=" ")
+                           lcLINE += " "
+                     	elseif empty(laDETVAL[zz,1])
+                        	lcLINE += replicate('0', laDETVAL[zz,4])
+	                  	else
+                     		lcLINE += laDETVAL[zz,1]
+                     	endif
+                  	elseif laDETVAL[zz,8] == 'I'
+                        lcLINE += strzero((++jj),laDETVAL[zz,4])
+                     elseif laDETVAL[zz,8] == 'V'
+                        if (upper(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'HISTORICO')]))= 'AJUSTE RISCO' )
+		                  	lcLINE += '1'
+      	                     elseif (upper(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'HISTORICO')]))= 'AJUSTE CM' )
+               		      lcLINE += '2'
+                  		elseif (upper(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'HISTORICO')]))= 'AJUSTE JUROS' )
+                           lcLINE += '3'
+ 		                  endif
+                     elseif laDETVAL[zz,8] == 'S'
+                        if laDETVAL[zz,2] == 'A'   //campos string
+                        	if len(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]) > 0
+                 								  // verifica se o que vem do banco não está vazio...
+                           	if len(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]) > laDETVAL[zz,4]
+                               	lcLINE += substr(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )] , 1,laDETVAL[zz,4])
+                           	else
+                               	if laDETVAL[zz,9] == 'A'
+                              	  	lcLINE += laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])] + replicate(' ', (laDETVAL[zz,4] - len(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )])) )
+                               	elseif laDETVAL[zz,9] == 'N'
+                                   	lcLINE += strzero(val(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]),;
+                                   			(laDETVAL[zz,4] - len(alltrim(str(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )])))))
+                               	endif
+                           	endif
+                           else    // Sim, o que vem do banco está vazio...
+                           	if laDETVAL[zz,9] == 'N'
+                              	lcLINE += replicate('0', laDETVAL[zz,4])
+                           	else
+                              	lcLINE += replicate(' ', laDETVAL[zz,4])
+                           	endif
+                        	endif
+                        elseif laDETVAL[zz,2] == 'N'      // campos numericos
+                        	if laDETVAL[zz,5] = 0          // não contem casas decimais
+                           	if laDETVAL[zz,9] == 'N'
+                              	lcLINE += strzero(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )], laDETVAL[zz,4],laDETVAL[zz,5])
+                           	else
+                           		lcLINE += alltrim(str(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]))+;
+			            		         	replicate(' ', (laDETVAL[zz,4] - len(alltrim(str( laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])] ))) ))
+                           	endif
+                        	else
+                           	lcLINE += strzero(val(strtran( str(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])]) , '.','')), laDETVAL[zz,4])
+                        	endif
+                        elseif laDETVAL[zz,9] == 'D'
+                          if len(dtos(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )])) > 0
+                          		lcLINE += dtos(laRESULT[ii,db_fetchncol(laRESULT,'DT_LANCAMENTO')])
+                          else
+                              lcLINE += "00000000"
+                          endif
+                     	endif
+                     endif
+              		next zz
+              		lcLINE += NEWLINE
+              		if FWrite(lnHAND,lcLINE) <= 0
+                 		walert("Erro na gravação do arquivo.")
+                 		return(.f.)
+              		endif
+                   if db_update({{'fl_contabilizado'},{'S'}},'mvt_contabil',{"nr_controle ="+str(laRESULT[ii,db_fetchncol(laRESULT,'NR_CONTROLE')])}) == -1
+			             db_error()
+        	          endif
+              endif
+           endif
+       next ii
+       lcLINE := ''
+       lcLINE = '09'+ strzero((jj+1), 7) + strzero(jj, 7) + replicate(" ",64) + NEWLINE
+       if FWrite(lnHAND,lcLINE) <= 0
+       	 walert("Erro na gravação do arquivo.")
+          return(.f.)
+       endif
+       fclose(lnHAND)
+       if llFLAG
+          if db_update({{'nr_sequencia'},{laRES[2,1]+1}},'seq_interfaces',{"program ='cosesp_sios1503_html'"}) == -1
+             db_error()
+          endif
+       endif
+    endif
+return
+
+static function cria_array()
+
+   local laESTRU := {} as array
+   aadd(laESTRU,{ "01"   , "N",   1,   2, 0, ""                 , ""       		     ,"F" ,'N' } ) // 01 Tipo de Reistro
+   aadd(laESTRU,{ "" 	 , "N",   3,   7, 0, ""                 , ""                  ,"I" ,'N' } ) // 02 Numero Sequencial
+   aadd(laESTRU,{ ""     , "A",  10,  11, 0, "pasta_seguro"     , "NR_SINISTRO"       ,"S" ,'N' } ) // 03 Numero do Sinistro
+   aadd(laESTRU,{ ""     , "N",  21,   5, 0, ""                 , ""                  ,"F" ,'N' } ) // 04 Fonte Filial
+   aadd(laESTRU,{ ""     , "D",  26,   8, 0, "mvt_contabil"     , "DT_LANCAMENTO"     ,"S" ,'D' } ) // 05 Data da Estimativa (YYYYMMDD)
+   aadd(laESTRU,{ "000"  , "N",  34,   3, 0, ""     				 , ""        			  ,"F" ,'N' } ) // 06 Seq de Ajuste do Sinistro
+   aadd(laESTRU,{ ""     , "N",  37,  15, 2, "mvt_contabil"     , "VL_LANCAMENTO"     ,"S" ,'N' } ) // 07 Valor Total
+   aadd(laESTRU,{ "1"    , "N",  52,   1, 0, ""     				 , ""       			  ,"F" ,'N' } ) // 08 Item da Estimativa
+   aadd(laESTRU,{ ""     , "N",  53,   1, 0, ""                 , ""      				  ,"V" ,'N' } ) // 09 Tipo de Estimativa
+   aadd(laESTRU,{ ""     , "A",  54,  20, 0, "mvt_contabil"     , "LOGIN"             ,"S" ,'A' } ) // 10 Usuario (login)
+   aadd(laESTRU,{ ""     , "N",  74,   6, 0, "mvt_contabil"     , "WPKEY_NUM"         ,"S" ,'N' } ) // 11 Numero da Pasta (WPkey_Num)
+   aadd(laESTRU,{ " "    , "A",  80,   1, 0, ""                 , ""       			  ,"F" ,'A' } ) // 12 Filler
+
+return(laESTRU)
+
+
+

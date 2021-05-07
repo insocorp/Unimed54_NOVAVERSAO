@@ -1,0 +1,1041 @@
+/*
+
+Project      : gr5
+Program      : ps.esc.despesa.html
+Function     : ps_esc_despesa_html
+Created on   : 28-Mar-2005   15:58:27
+Descripition : Despesas Pasta - Filtrado por Escritório
+
+*/
+
+
+
+   local laRESULT   := {},;
+         laRESULT1  := {},;
+         laSAVE     := {},;
+         laSAVEAUX  := {},;
+         laFIELDS_DESP_PAG := {},;
+         laSAVE_DESP_PAG := {},;
+         laMVTSAVE  := {},;
+         laRES      := {},;
+         laAUX1     := {},;
+         laAUX2     := {},;
+         laVALIDA   := {},;
+         laFIELDS   := {} as array
+
+   local lcNR_PASTA := '',;
+         lcTP_PASTA := '',;
+         lcACTION   := '',;
+         lcUSUARIO  := '',;
+         lcWHERE    := '',;
+         lcfavorecido := '',;
+         lcNR_CONTROLE := '',;
+         lcFLPASTA     := '',;
+         lcCIP_ESCRITORIO := '',;
+         lcNR_DESPESA := '' as string
+
+   local lnQUANTIDADE := 0,;
+         lnVL_UNIT := 0,;
+         lnVL_TOTAL := 0,;
+         lnelemento := 0,;
+         lnCOLUNA   := 0,;
+         lnSET_VL_REVISAO := 0,;
+         lnSET_VL_APROVACAO := 0,;
+         lnACUMULADO := 0,;
+         lnXX       := 0 as numeric
+   local lltempagto := .F. as logical
+
+   lcACTION := upper(Wget('ACTION'))
+   laMVTSAVE := {'NR_PASTA','NR_DESPESA','CIP_ESCRITORIO','DT_REF','LOGIN','CD_DESPESA',;
+                'CD_GRP_DESPESA','QUANTIDADE','VL_UNIT','VL_TOTAL','DT_PREVISAO_PAGTO',;
+                'FORMA_PAGAMENTO','NR_SINISTRO','CIP_FAVORECIDO','TP_FAVORECIDO',;
+                'TP_DOCFISCAL','DT_EMISSAO_DOCFISCAL','NR_DOCFISCAL','CD_CCUSTO',;
+                'DT_ENVIO_CTPAG','EXTRA','FL_REVISAO','DT_REVISAO','LOGIN_REVISAO',;
+                'FL_APROVACAO','DT_APROVACAO','LOGIN_APROVACAO'}
+   laFIELDS_DESP_PAG := {'NR_PASTA','NR_DESPESA','NR_CONTROLE','DT_PAGAMENTO','VL_PAGO','DT_CADASTRO',;
+                         'LOGIN_CADASTRO','FL_PAGAMENTO'}
+   laSAVE_DESPP_PAG := {{'NR_PASTA','NR_DESPESA','NR_CONTROLE','DT_PAGAMENTO','VL_PAGO','DT_CADASTRO',;
+                         'LOGIN_CADASTRO','FL_PAGAMENTO'}}
+   laVALIDA := {'NR_PASTA','CD_DESPESA','QUANTIDADE','VL_UNIT','CIP_FAVORECIDO'}
+   laREADONLY := {'CD_DESPESA','QUANTIDADE','VL_UNIT','DT_REF','CIP_FAVORECIDO'}
+   // Glauber 05/01/2011
+   AbasPerfil(WGet('TP_PASTA'), laFIELDS_DESP_PAG)
+// Glauber 05/01/2011 - Campos utilizados nas grids
+AbasPerfil(WGet('TP_PASTA'), {'NR_PASTA',;
+                              'NR_DESPESA',;
+                              'CD_DESPESA',;
+                              'NM_DESPESA',;
+                              'CIP_ESCRITORIO',;
+                              'PFPJ',;
+                              'DT_REF',;
+                              'FL_APROVACAO',;
+                              'LOGIN_APROVACAO',;
+                              'DT_APROVACAO',;
+                              'FL_REVISAO',;
+                              'LOGIN_REVISAO',;
+                              'DT_REVISAO',;
+                              'QUANTIDADE',;
+                              'VL_UNIT',;
+                              'VL_TOTAL',;
+                              'NR_CONTROLE',;
+                              'DT_PAGAMENTO',;
+                              'VL_PAGO',;
+                              'DT_CADASTRO',;
+                              'LOGIN_CADASTRO',;
+                              'FL_PAGAMENTO'})
+
+   if gbWAC_DELETE == .t. // Usuario tem permissão para excluir registros, então ativar os botões
+      Wput('ifEXCLUIR',.t.)
+      Wput('ifWAC_DELETE',.t.)
+   endif
+   Wput('ifWAC_WRITE', .t.)
+   Wput('ifBUTTON', .t.)
+   lcUSUARIO := wSet('LOGIN')
+   Wput('LOGIN',lcUSUARIO)
+   Wput('LOGIN_CADASTRO',lcUSUARIO)
+   Wput('DT_CADASTRO',DATE())
+   Wput('ACTION','NEW')
+   Wput('CIP_ESCRITORIO_PFPJ',' ')
+   wput('ifDT_REF_RO',.f.)
+   wput('ifDT_REF_NO_RO',.t.)
+   wput('ifCD_DESPESA_RO',.f.)
+   wput('ifCD_DESPESA_NO_RO',.t.)
+   wput('ifQUANTIDADE_RO',.f.)
+   wput('ifQUANTIDADE_NO_RO',.t.)
+   wput('ifVL_UNIT_RO',.f.)
+   wput('ifVL_UNIT_NO_RO',.t.)
+   wput('ifCIP_FAVORECIDO_RO',.f.)
+   wput('ifCIP_FAVORECIDO_NO_RO',.t.)
+   wput('ifDTREF',.T.)
+   wput('ifCD_DESPESA',.T.)
+   wput('ifINCPAG',.T.)
+   wput('ifCIP_FAVORECIDO',.T.)
+
+   *WPut('CD_DESPESA.label.style.color','#FF0000')
+   *WPut('CD_DESPESA.label.style.font-weight','bold')
+   WPut('CD_DESPESA.style.border','2px solid red')
+
+   *WPut('CIP_FAVORECIDO.label.style.color','#FF0000')
+   *WPut('CIP_FAVORECIDO.label.style.font-weight','bold')
+   WPut('CIP_FAVORECIDO.style.border','2px solid red')
+
+   lcNR_PASTA := wGet('NR_PASTA','C')
+   lcTP_PASTA := wGet(lcNR_PASTA)
+   lcCIP_ESCRITORIO := wGet('CIP_ESCRITORIO')
+   Wput('NR_PASTA',lcNR_PASTA)
+   Wput('CIP_ESCRITORIO',lcCIP_ESCRITORIO)
+
+   lcWHERE := 'NR_PASTA = ' + lcNR_PASTA
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+
+   // Setar o usuario corrente
+
+   laFIELDS := {'PFPJ_TIPOS'}
+   lcwhere := 'PFPJ_TABLE_FIELD = '+DLAP+'pasta.CIP_ESCRITORIO'+DLAP
+   if db_select(laFIELDS,'pfpj_conftipocampo',,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT)>= 2
+      laAUX1 := str2array(laRESULT[2,1],',')
+   endif
+   laFIELDS := {'PFPJ_TIPOS','PFPJ'}
+   lcWHERE := 'CIP = '+ DLAP+ WSET('CIP_EMPRESA') + DLAP
+   if db_select(laFIELDS,'pfpj',,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) >= 2
+      laAUX2 := str2array(laRESULT[2,1],',')
+   endif
+   for xx := 1 to len(laAUX2)
+       lnelemento := ascan(laAUX1,laAUX2[xx])
+       if lnelemento > 0
+          if val(WSET('CIP_EMPRESA')) > 0
+             wPut('CIP_ESCRITORIO',WSET('CIP_EMPRESA'))
+             lcCIP_ESCRITORIO :=   WSET('CIP_EMPRESA')
+             wPUT('CIP_ESCRITORIO_PFPJ',laRESULT[2,2])
+             WPUT('CIP_ESCRITORIO.readonly',.T.)
+             WPUT('CIP_ESCRITORIO.class','winputreadonly')
+             wPut('ifBUTTON',.F.)
+             exit
+          endif
+       endif
+   next xx
+
+   lcWHERE := 'NR_PASTA = ' + lcNR_PASTA
+   carrega_cbox({{'forma_pagamento','forma_pagamento','Y'}})
+   carrega_cbox({{'tipo_favorecido','tp_favorecido','Y'}})
+   carrega_cbox({{'tipo_docfiscal','tp_docfiscal','Y'}})
+   // Alimenta combo do filtro
+   WPut('FT_REVISAO.option',{'','Aprovada','Pendente','Rejeitado'})
+   WPut('FT_REVISAO.optionvalue',{'','A','P','R'})
+   WPut('FT_APROVACAO.option',{'','Aprovada','Pendente','Rejeitado'})
+   WPut('FT_APROVACAO.optionvalue',{'','A','P','R'})
+   lcFT_REVISAO   := WGet('FT_REVISAO','C')
+   lcFT_APROVACAO := WGet('FT_APROVACAO','C')
+
+   WPut('FT_REVISAO',lcFT_REVISAO)
+   WPut('FT_APROVACAO',lcFT_APROVACAO)
+
+   // Monta Somente a Grade com as Despesas
+   Monta_Grid_Pagto(lcNR_PASTA,lcTP_PASTA,.F.,'','',0,lcCIP_ESCRITORIO)
+   // Filtrar Despesas
+
+   if lcACTION == 'EXECSEL'
+      lcFT_REVISAO   := WGet('FT_REVISAO','C')
+      lcFT_APROVACAO := WGet('FT_APROVACAO','C')
+      Monta_Grid_Pagto(lcNR_PASTA,lcTP_PASTA,.T.,lcFT_REVISAO,lcFT_APROVACAO,1,lcCIP_ESCRITORIO)
+      wput('NR_PASTA',lcNR_PASTA)
+      return
+   endif
+   // Novo Registro
+   if (lcACTION == 'NEW' .or. empty(lcACTION)).and. gbWAC_CREATE
+      lcTP_PASTA := Wget(lcNR_PASTA)
+      lcNR_PASTA := wGet('NR_PASTA','C')
+      Wput('NR_DESPESA','New')
+      carrega_cbox({{'forma_pagamento','forma_pagamento','Y'}})
+      carrega_cbox({{'tipo_favorecido','tp_favorecido','Y'}})
+      carrega_cbox({{'tipo_docfiscal','tp_docfiscal','Y'}})
+      wput('ifDT_REF_RO',.f.)
+      wput('ifDT_REF_NO_RO',.t.)
+      wput('ifDTREF',.t.) // Botão da Data
+      wput('ifCD_DESPESA_RO',.f.)
+      wput('ifCD_DESPESA_NO_RO',.t.)
+      wput('ifCD_DESPESA',.t.)  // Botão da Despesa
+      wput('ifQUANTIDADE_RO',.f.)
+      wput('ifQUANTIDADE_NO_RO',.t.)
+      wput('ifVL_UNIT_RO',.f.)
+      wput('ifVL_UNIT_NO_RO',.t.)
+      wput('ifCIP_FAVORECIDO_RO',.f.)
+      wput('ifCIP_FAVORECIDO_NO_RO',.t.)
+      wput('ifCIP_FAVORECIDO',.t.) // Botão do Favorecido
+      Pagto_Grade(1,lcNR_PASTA,lcTP_PASTA,lcCIP_ESCRITORIO)
+      if empty(alltrim(lcCIP_ESCRITORIO))
+          wPUT('CIP_ESCRITORIO_PFPJ',' ')
+      endif
+      return
+   endif
+
+   // Alteração
+
+   if lcACTION == 'ALTER'
+      lcTP_PASTA := Wget(lcNR_PASTA)
+      lcNR_PASTA := wGet('NR_PASTA','C')
+      Pagto_Grade(1,lcNR_PASTA,lcTP_PASTA,lcCIP_ESCRITORIO)
+      carrega_cbox({{'forma_pagamento','forma_pagamento','Y'}})
+      carrega_cbox({{'tipo_favorecido','tp_favorecido','Y'}})
+      carrega_cbox({{'tipo_docfiscal','tp_docfiscal','Y'}})
+      lcNR_DESPESA := wGet('NR_DESPESA','C')
+      MostraPG(lcNR_PASTA,lcNR_DESPESA)
+      Grid_DespPG(lcNR_PASTA,lcNR_DESPESA)
+      return
+   endif
+
+   // Salvar
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      if verif_reqfield(WSET('_USER_INTERFACE'),laVALIDA) == .F.
+         get2put()
+         return
+      endif
+      laSAVE := {{'NR_PASTA','NR_DESPESA','CIP_ESCRITORIO','DT_REF','LOGIN','CD_DESPESA',;
+                'CD_GRP_DESPESA','QUANTIDADE','VL_UNIT','VL_TOTAL','DT_PREVISAO_PAGTO',;
+                'FORMA_PAGAMENTO','NR_SINISTRO','CIP_FAVORECIDO','TP_FAVORECIDO',;
+                'TP_DOCFISCAL','DT_EMISSAO_DOCFISCAL','NR_DOCFISCAL','CD_CCUSTO',;
+                'DT_ENVIO_CTPAG','EXTRA','FL_REVISAO','DT_REVISAO','LOGIN_REVISAO',;
+                'FL_APROVACAO','DT_APROVACAO','LOGIN_APROVACAO'}}
+      laSAVEAUX := {}
+      /* Pegando Valores De faixa de Revisão e Aprovação */
+      if db_select({'SET_VL_REVISAO','SET_VL_APROVACAO'},'despesa',,{'CD_DESPESA='+DLAP+WGet('CD_DESPESA','C')+DLAP}) == -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchrow()
+      if len(laRES) > 0
+         lnSET_VL_REVISAO   := laRES[1]                                     //Valor de Revisão
+         lnSET_VL_APROVACAO := laRES[2]                                     //Valor de Aprovação
+         lnVL_TOTAL         := WGet('QUANTIDADE','N') * WGet('VL_UNIT','N') //Valor total da Despesa
+      else
+         lnSET_VL_REVISAO   := 0
+         lnSET_VL_APROVACAO := 0
+         lnVL_TOTAL         := 0
+      endif
+      Wput('VL_TOTAL',lnVL_TOTAL) // Atualiza o valor total
+      for lnXX := 1 to len(laMVTSAVE)
+
+          if laMVTSAVE[lnXX] == 'NR_DESPESA'
+             if (wget('NR_DESPESA','C') == 'New') .or. empty((wget('NR_DESPESA','C')))
+                lcNR_DESPESA := '0'
+                aadd(laSAVEAUX, 0)
+             else
+                aadd(laSAVEAUX, wget('NR_DESPESA'))
+                lcNR_DESPESA := wget('NR_DESPESA','C')
+             endif
+          elseif laMVTSAVE[lnXX] == 'VL_TOTAL'
+                aadd(laSAVEAUX, wget('QUANTIDADE','N') *  wget('VL_UNIT','N'))
+                Wput('VL_TOTAL', wget('QUANTIDADE','N') *  wget('VL_UNIT','N')) // Atualiza o valor total
+          elseif laMVTSAVE[lnXX] == 'FL_REVISAO'
+             if substr(wget('FL_REVISAO','C'),1,1) <> 'A'
+                if lnVL_TOTAL <= lnSET_VL_REVISAO //Caso o Valor Total seja menor que Valor de Revisão
+                   aadd(laSAVEAUX,'A')          //Define FL_REVISAO para A-Automatica
+                else
+                   aadd(laSAVEAUX,'')
+                endif
+             else
+                aadd(laSAVEAUX,wGet(laMVTSAVE[lnXX]))
+             endif
+          elseif laMVTSAVE[lnXX] == 'DT_REVISAO'
+             if substr(wget('FL_REVISAO','C'),1,1) <> 'A'
+                if lnVL_TOTAL <= lnSET_VL_REVISAO
+                   aadd(laSAVEAUX,date())
+                else
+                   aadd(laSAVEAUX,CTOD('  /  /    '))
+                endif
+             else
+                aadd(laSAVEAUX,wGet(laMVTSAVE[lnXX]))
+             endif
+          elseif laMVTSAVE[lnXX] == 'LOGIN_REVISAO'
+             if substr(wget('FL_REVISAO','C'),1,1) <> 'A'
+                if lnVL_TOTAL <= lnSET_VL_REVISAO
+                   aadd(laSAVEAUX,WSet('LOGIN'))
+                else
+                   aadd(laSAVEAUX,'')
+                endif
+             else
+                aadd(laSAVEAUX,wGet(laMVTSAVE[lnXX]))
+             endif
+          elseif laMVTSAVE[lnXX] == 'FL_APROVACAO'
+             if substr(wget('FL_APROVACAO','C'),1,1) <> 'A'
+                if lnVL_TOTAL <= lnSET_VL_APROVACAO //Caso o Valor Total seja menor que Valor de Aprovação
+                   aadd(laSAVEAUX,'A')            //Define FL_REVISAO para A-Automatica
+                   if empty(laSAVEAUX[ascan(laMVTSAVE,'FL_REVISAO')])
+                      laSAVEAUX[ascan(laMVTSAVE,'FL_REVISAO')] := 'A'
+                      laSAVEAUX[ascan(laMVTSAVE,'DT_REVISAO')] := date()
+                      laSAVEAUX[ascan(laMVTSAVE,'LOGIN_REVISAO')] := WSet('LOGIN')
+                   endif
+                 else
+                   aadd(laSAVEAUX,'')
+                endif
+             else
+                aadd(laSAVEAUX,wGet(laMVTSAVE[lnXX]))
+             endif
+          elseif laMVTSAVE[lnXX] == 'DT_APROVACAO'
+             if substr(wget('FL_APROVACAO','C'),1,1) <> 'A'
+                if lnVL_TOTAL <= lnSET_VL_APROVACAO
+                   aadd(laSAVEAUX,date())
+                else
+                   aadd(laSAVEAUX,CTOD('  /  /    '))
+                endif
+             else
+                aadd(laSAVEAUX,wGet(laMVTSAVE[lnXX]))
+             endif
+          elseif laMVTSAVE[lnXX] == 'LOGIN_APROVACAO'
+             if substr(wget('FL_APROVACAO','C'),1,1) <> 'A'
+                if lnVL_TOTAL <= lnSET_VL_APROVACAO
+                   aadd(laSAVEAUX,WSet('LOGIN'))
+                else
+                   aadd(laSAVEAUX,'')
+                endif
+             else
+                aadd(laSAVEAUX,wget('LOGIN_APROVACAO'))
+             endif
+          elseif laMVTSAVE[lnXX] == 'DT_PREVISAO_PAGTO'
+             if WGet('DT_PREVISAO_PAGTO') < date()
+                WAlert(lblFSCREEN('DT_PREVISAO_PAGTO')+ ' não pode ser inferior a data atual.')
+                get2put()
+                return
+             endif
+             aadd(laSAVEAUX,wGet(laMVTSAVE[lnXX]))
+          else
+             aadd(laSAVEAUX,wGet(laMVTSAVE[lnXX]))
+          endif
+      next lnXX
+      aadd(laSAVE,laSAVEAUX)
+      lcWHERE := 'NR_PASTA = ' + lcNR_PASTA + ' AND NR_DESPESA = '+ lcNR_DESPESA
+      psab_logs(laSAVE,'mvt_despesa',lcWHERE, lcNR_PASTA,'Despesas')
+      if db_replace(laSAVE,'mvt_despesa',{lcWHERE},) == -1
+         error_sys(db_error())
+      endif
+      if val(lcNR_DESPESA) == 0
+         lcNR_DESPESA := alltrim(str(db_insert_id()))
+         lcWHERE := 'NR_PASTA = ' + lcNR_PASTA + ' AND NR_DESPESA = '+ lcNR_DESPESA
+      endif
+      // Verifica se o registro é do tipo despesa_pagamento e salva na tabela
+
+      if (! empty(alltrim(strtran(wget('DT_PAGAMENTO','DS'),'/'))))   .and. (wGet('VL_PAGO','N') > 0)
+         // Verifica se a Despesa esta aprovada para permitir a gravação do pagamento
+         if db_select({'FL_REVISAO','FL_APROVACAO','FL_PGINTERFACE','DT_ENVIO_CTPAG'},'mvt_despesa',,{lcWHERE},,,,,) == -1
+            error_sys(db_error())
+         endif
+         laRESULT1 := db_fetchall()
+
+         // verifica se o lançamento ja foi feito via PAG-NET
+         if dtoc(laRESULT1[2,ascan(laRESULT1[1],'DT_ENVIO_CTPAG')]) <> '  /  /    '
+            Walert('Pagamento não pode ser lançado manualmente, pagamento feito via PAG_NET')
+            get2put()
+            return
+         endif
+
+         if (laRESULT1[2,ascan(laRESULT1[1],'FL_REVISAO')] == 'A' .or. laRESULT1[2,ascan(laRESULT1[1],'FL_REVISAO')] == 'S') .and. (laRESULT1[2,ascan(laRESULT1[1],'FL_APROVACAO')] == 'A' .or. laRESULT1[2,ascan(laRESULT1[1],'FL_APROVACAO')] == 'S')
+
+            // Pega a flag de tipo de lançamento na configuração da Pasta
+            if db_select({'FL_CTPAG'},'pasta_config',,{'TP_PASTA = '+DLAP+lcTP_PASTA+DLAP},,,,,) == -1
+               error_sys(db_error())
+            endif
+            laRESULT := db_fetchall()
+            if len(laRESULT) >= 2
+               lcFLPASTA := laRESULT[2,1]
+            else
+               lcFLPASTA := ' '
+            endif
+            // verifica se o lançamento pode ser feito manualmente
+            if lcFLPASTA == 'I'
+               if laRESULT1[2,ascan(laRESULT1[1],'FL_PGINTERFACE')] == 'S'
+                  Walert('Pagamento não pode ser lançado manualmente')
+                  get2put()
+                  return
+               endif
+            endif
+
+	         laFIELDS_DESP_PAG := {'NR_PASTA','NR_DESPESA','NR_CONTROLE','DT_PAGAMENTO','VL_PAGO','DT_CADASTRO',;
+                                  'LOGIN_CADASTRO','FL_PAGAMENTO'}
+	         laSAVE_DESP_PAG := {{'NR_PASTA','NR_DESPESA','NR_CONTROLE','DT_PAGAMENTO','VL_PAGO','DT_CADASTRO',;
+	                               'LOGIN_CADASTRO','FL_PAGAMENTO'}}
+
+	         laSAVEAUX := {}
+	         for lnXX := 1 to len(laFIELDS_DESP_PAG)
+	             if laFIELDS_DESP_PAG[lnXX] == 'NR_CONTROLE'
+	                aadd(laSAVEAUX,0)
+	             elseif laFIELDS_DESP_PAG[lnXX] == 'FL_PAGAMENTO'
+	                aadd(laSAVEAUX,'A')
+	             else
+	                aadd(laSAVEAUX,wGet(laFIELDS_DESP_PAG[lnXX]))
+	             endif
+	         next lnXX
+	         aadd(laSAVE_DESP_PAG,laSAVEAUX)
+	         lnCOLUNA := ascan(laSAVE_DESP_PAG[1],'VL_PAGO')
+            // Verifica o valor pago das despesas
+            laFIELDS := {'VL_PAGO'}
+            lcWHERE := 'NR_PASTA = '+lcNR_PASTA+' AND NR_DESPESA = '+lcNR_DESPESA+;
+                       ' AND FL_PAGAMENTO = '+DLAP+'A'+DLAP
+            if db_select(laFIELDS,'mvt_despesa_pagamento',,{lcWHERE},,,,,) == -1
+               error_sys(db_error())
+            endif
+            laRESULT := db_fetchall()
+            lnelemento := ascan(laRESULT[1],'VL_PAGO')
+            for lnXX := 2 to len(laRESULT)
+                lnACUMULADO := lnACUMULADO + laRESULT[lnXX,lnelemento]
+            next lnXX
+            lnACUMULADO := lnACUMULADO + laSAVE_DESP_PAG[2,lnCOLUNA]
+            if lnACUMULADO > lnVL_TOTAL //wGet('VL_TOTAL','N')
+               Walert('Atenção: Valor pago não deve ultrapassar o valor total da despesa.')
+               Get2Put()
+               Pagto_Grade(1,lcNR_PASTA,lcTP_PASTA,lcCIP_ESCRITORIO)
+               return
+            endif
+
+	         lnCOLUNA := ascan(laSAVE_DESP_PAG[1],'NR_DESPESA')
+	         if laSAVE_DESP_PAG[2,lnCOLUNA] == 0
+	            laSAVE_DESP_PAG[2,lnCOLUNA] := db_insert_id()
+	            lcWHERE := 'NR_PASTA = ' + lcNR_PASTA + ' AND NR_DESPESA = '+ alltrim(str(db_insert_id()))
+	         endif
+	         psab_logs(laSAVE_DESP_PAG,'mvt_despesa_pagamento',lcWHERE,lcNR_PASTA,'Despesas')
+	         if db_insert(laSAVE_DESP_PAG,'mvt_despesa_pagamento') == -1
+	            error_sys(db_error())
+	         endif
+            lltempagto := .T.
+            Grid_DespPG(lcNR_PASTA,str(laSAVE_DESP_PAG[2,2]))
+            if lltempagto == .T.
+               MostraPG(lcNR_PASTA, lcNR_DESPESA)
+            endif
+            Pagto_Grade(1,lcNR_PASTA,lcTP_PASTA,lcCIP_ESCRITORIO)
+         else
+             if lltempagto == .T.
+                MostraPG(lcNR_PASTA, lcNR_DESPESA)
+             endif
+             Pagto_Grade(1,lcNR_PASTA,lcTP_PASTA,lcCIP_ESCRITORIO)
+             Walert('O pagamento não pode ser efetuado!\nDespesa pendente de Aprovação')
+         endif
+	   else
+             Pagto_Grade(1,lcNR_PASTA,lcTP_PASTA,lcCIP_ESCRITORIO)
+	   endif
+      if lltempagto == .T.
+	      MostraPG(lcNR_PASTA, lcNR_DESPESA)
+         Pagto_Grade(1,lcNR_PASTA,lcTP_PASTA,lcCIP_ESCRITORIO)
+      else
+         lcTP_PASTA := Wget(lcNR_PASTA)
+         lcNR_PASTA := wGet('NR_PASTA','C')
+         Pagto_Grade(1,lcNR_PASTA,lcTP_PASTA,lcCIP_ESCRITORIO)
+      endif
+      Wput('VL_TOTAL',0)
+      //Wput('NR_DESPESA','New')
+   	return
+	endif
+
+   // Excluir Registro Principal e Pagamentos
+
+   if lcACTION == 'DELETE'  .and. gbWAC_DELETE
+      lcTP_PASTA := wGet(lcNR_PASTA)
+      lcNR_PASTA := wGet('NR_PASTA','C')
+      lcNR_DESPESA := wGet('NR_DESPESA','C')
+      lcCIP_ESCRITORIO := wGet('CIP_ESCRITORIO','C')
+      lcWHERE := 'NR_PASTA = ' + lcNR_PASTA + ' AND NR_DESPESA = '+ lcNR_DESPESA
+
+      if db_delete('mvt_despesa_pagamento',lcWHERE) = -1
+         error_sys(db_error())
+      endif
+      psab_logdel(wGet('VL_PAG','C'),'VL_PAG',lcNR_DESPESA,,'Despesa')
+      if db_delete('mvt_despesa',lcWHERE) = -1
+         error_sys(db_error())
+      endif
+      Pagto_Grade(1,lcNR_PASTA,lcTP_PASTA,lcCIP_ESCRITORIO)
+      return
+   endif
+
+   // Excluir Somente Pagamentos
+
+   if lcACTION == 'DELETE_PG'  .and. gbWAC_DELETE
+      lcTP_PASTA := wGet(lcNR_PASTA)
+      lcNR_PASTA := wGet('NR_PASTA','C')
+      lcNR_DESPESA := wGet('NR_DESPESA','C')
+      lcNR_CONTROLE := wGet('NR_CONTROLE','C')
+      lcWHERE := 'NR_CONTROLE = ' + lcNR_CONTROLE
+      psab_logdel(lcNR_PASTA,'NR_DESPESA',lcNR_DESPESA,,'Despesa')
+      if db_delete('mvt_despesa_pagamento',lcWHERE) = -1
+         error_sys(db_error())
+      endif
+      MostraPG(lcNR_PASTA,lcNR_DESPESA)
+      Grid_DespPG(lcNR_PASTA,lcNR_DESPESA)
+      Pagto_Grade(1,lcNR_PASTA,lcTP_PASTA,lcCIP_ESCRITORIO)
+      return
+   endif
+
+   // Ativar/Cancelar Pagamento
+
+   if ((lcACTION == 'ATIVAR') .or. (lcACTION == 'CANCELAR')) .and. gbWAC_WRITE
+      lcTP_PASTA := wGet(lcNR_PASTA)
+      lcNR_PASTA := wGet('NR_PASTA','C')
+      lcNR_DESPESA := wGet('NR_DESPESA','C')
+      lcNR_CONTROLE := wGet('NR_CONTROLE','C')
+      lcACAO := wGet('FL_PAGAMENTO','C')
+      laSAVE := {}
+      laFIELDS := {}
+      laRESULT := {}
+      laFIELDS := {'NR_PASTA','NR_DESPESA','NR_CONTROLE','FL_PAGAMENTO','VL_PAGO'}
+      laSAVE   := {{'FL_PAGAMENTO'}}
+      lcWHERE := 'NR_PASTA = ' + lcNR_PASTA + ' and NR_DESPESA = '+ lcNR_DESPESA +;
+                 ' AND NR_CONTROLE = '+lcNR_CONTROLE
+      if db_select(laFIELDS,'mvt_despesa_pagamento',,{lcWHERE},,,,,) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) >= 2
+         lnELEMENTO := ascan(laRESULT[1],'FL_PAGAMENTO')
+         if laRESULT[2,lnELEMENTO] == 'A'
+            laRESULT[2,lnELEMENTO] := 'C'
+         else
+
+            // Verifica o valor pago das despesas
+            laFIELDS := {'VL_PAGO'}
+            lcWHERE := 'NR_PASTA = '+lcNR_PASTA+' AND NR_DESPESA = '+lcNR_DESPESA+;
+                       ' AND FL_PAGAMENTO = '+DLAP+'A'+DLAP
+            if db_select(laFIELDS,'mvt_despesa_pagamento',,{lcWHERE},,,,,) == -1
+               error_sys(db_error())
+            endif
+            laRESULT1 := db_fetchall()
+            lnelemento := ascan(laRESULT1[1],'VL_PAGO')
+            for lnXX := 2 to len(laRESULT1)
+                lnACUMULADO := lnACUMULADO + laRESULT1[lnXX,lnelemento]
+            next lnXX
+            lnACUMULADO += laRESULT[2,ascan(laRESULT[1],'VL_PAGO')]
+            if db_select({'VL_TOTAL'},'mvt_despesa',,{'NR_PASTA = '+lcNR_PASTA+' AND NR_DESPESA = '+lcNR_DESPESA},,,,,) == -1
+               error_sys(db_error())
+            endif
+            laRESULT1 := db_fetchrow()
+            if len(laRESULT1) > 0
+               lnVL_TOTAL := laRESULT1[1]
+            else
+               lnVL_TOTAL := 0
+            endif
+            if round(lnACUMULADO,2) > round(lnVL_TOTAL,2) //wGet('VL_TOTAL','N')
+               Walert('Atenção: Valor pago não deve ultrapassar o valor total da despesa.')
+               Grid_DespPG(lcNR_PASTA,lcNR_DESPESA)
+               MostraPG(lcNR_PASTA,lcNR_DESPESA)
+               Get2Put()
+               return
+            endif
+            laRESULT[2,lnELEMENTO] := 'A'
+         endif
+      endif
+      aadd(laSAVE,{laRESULT[2,lnELEMENTO]})
+      // Gravar Log de Alteração de Pasta Antes de executar o db_replace
+      psab_logs(laSAVE,'mvt_despesa_pagamento',lcWHERE,lcNR_PASTA,'Despesas')
+      //debug2(laSAVE)
+      lcWHERE := 'NR_PASTA = ' + lcNR_PASTA + ' and NR_DESPESA = '+ lcNR_DESPESA +;
+                 ' AND NR_CONTROLE = '+lcNR_CONTROLE
+
+      if db_replace(laSAVE,'mvt_despesa_pagamento',{lcWHERE},) == -1
+         error_sys(db_error())
+      endif
+      Grid_DespPG(lcNR_PASTA,lcNR_DESPESA)
+      MostraPG(lcNR_PASTA,lcNR_DESPESA)
+      Pagto_Grade(1,lcNR_PASTA,lcTP_PASTA,lcCIP_ESCRITORIO)
+      return
+   endif
+return
+
+/*
+* Data da Criação: 03/07/2006 - Glauber Vicente Duma
+* Function.......: Pagto_Grade()
+* Objetivo.......: Montar a Grade de Despesa e atualização dos campos descrição na ui
+* Parâmetros.....:
+*                  <pcorigem>     origem do programa chamador: .t. => ps.mvt.despesa, .f. => psab.mvt.despesa
+*                                 com este parametro é montada url de retorno correta para o programa chamador.
+*                  <pcpasta>      número da pasta.
+*                  <pctipopasta>  tipo da pasta.
+*
+* Retorno........: Nenhum
+*/
+
+Static Function Pagto_Grade(porigem as numeric, pcpasta as string, pctipopasta as string, pcESCRITORIO)
+
+local laFIELDS  := {},;
+      laRESULT  := {},;
+      laPAGINAS := {},;
+      laLIMIT   := {},;
+      laJOIN    := {} as array
+local lcwhere   := '',;
+      lcfavorecido := '' as string
+local lnelemento := 0,;
+      lnCOUNT    := 0,;
+      ii         := 0 as numeric
+
+
+
+
+if ! empty(pcpasta) // .and. val(pcpasta) > 0
+   lcwhere := 'nr_pasta = ' + pcpasta
+else
+  lcwhere := ''
+endif
+
+if val(pcESCRITORIO) > 0
+   if ! empty(lcWHERE)
+      lcWHERE += ' AND '
+   endif
+   lcWHERE += 'CIP_ESCRITORIO = '+ DLAP + pcESCRITORIO + DLAP
+endif
+aadd(laFIELDS,'mvt_despesa.NR_PASTA')
+aadd(laFIELDS,'mvt_despesa.NR_DESPESA')
+aadd(laFIELDS,'mvt_despesa.CD_DESPESA')
+aadd(laFIELDS,'despesa.NM_DESPESA')
+aadd(laFIELDS,'mvt_despesa.CIP_ESCRITORIO')
+aadd(laFIELDS,'pfpj.PFPJ')
+aadd(laFIELDS,'mvt_despesa.CIP_FAVORECIDO')
+aadd(laFIELDS,'pfpj_favorecido.PFPJ')
+aadd(laFIELDS,'mvt_despesa.DT_REF')
+aadd(laFIELDS,'mvt_despesa.FL_APROVACAO')
+aadd(laFIELDS,'mvt_despesa.LOGIN_APROVACAO')
+aadd(laFIELDS,'mvt_despesa.DT_APROVACAO')
+aadd(laFIELDS,'mvt_despesa.FL_REVISAO')
+aadd(laFIELDS,'mvt_despesa.LOGIN_REVISAO')
+aadd(laFIELDS,'mvt_despesa.DT_REVISAO')
+aadd(laFIELDS,'mvt_despesa.QUANTIDADE')
+aadd(laFIELDS,'mvt_despesa.VL_UNIT')
+aadd(laFIELDS,'mvt_despesa.VL_TOTAL')
+
+laJOIN   := {{2,'pfpj','mvt_despesa.CIP_ESCRITORIO = pfpj.CIP'},;
+             {2,'pfpj as pfpj_favorecido','mvt_despesa.CIP_FAVORECIDO = pfpj_favorecido.CIP'},;
+             {2,'despesa','mvt_despesa.CD_DESPESA = despesa.CD_DESPESA'}}
+
+if ! empty(lcwhere)
+   if db_select({'count(*)'},'mvt_despesa',laJOIN,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+else
+   if db_select({'count(*)'},'mvt_despesa',laJOIN) == -1
+      error_sys(db_error())
+   endif
+endif
+
+laRESULT  := db_fetchrow()
+lnCOUNT   := laRESULT[1]
+laPAGINAS := paginacao(lnCOUNT,'','','ps.esc.despesa.html')
+laLIMIT   := param_fetch(laPAGINAS,'LIMIT')
+
+if ! empty(lcwhere)
+   if db_select(laFIELDS,'mvt_despesa',laJOIN,{lcWHERE},,,,laLIMIT) == -1
+      error_sys(db_error())
+   endif
+else
+   if db_select(laFIELDS,'mvt_despesa',laJOIN,,,,,laLIMIT) == -1
+      error_sys(db_error())
+   endif
+endif
+laRESULT := db_fetchall()
+
+if len(laRESULT) > 1
+   //Resumo da pesquisa
+   lcCODE := alltrim(str(laLIMIT[1]+1))+'-'
+   if ((len(laRESULT)-1) < (laLIMIT[2]-laLIMIT[1]))
+      lcCODE += alltrim(str(len(laRESULT)-1))
+   elseif param_fetch(laPAGINAS,'GOTO_PAGE') == param_fetch(laPAGINAS,'NR_PAGES') //lnNR_PAGES
+      lcCODE += alltrim(str(lnCOUNT))
+   else
+      lcCODE += alltrim(str(laLIMIT[1]+param_fetch(laPAGINAS,'ROWS_PAGE')))
+   endif
+   lcCODE += ' de '+alltrim(str(lnCOUNT))
+   if lnCOUNT > 1
+      lcCODE := ' Resultados '+lcCODE+' registros'
+   else
+      lcCODE := ' Resultado '+lcCODE+' registro'
+   endif
+   wput('RESUME_RESULTSET',lcCODE)
+   lnelemento := ascan(laRESULT[1],'NM_GRP_DESPESA')
+   if lnelemento  > 0
+      wPut('NM_GRP_DESPESA',laRESULT[2,lnelemento])
+   endif
+   lnelemento := ascan(laRESULT[1],'CIP_FAVORECIDO')
+   if lnelemento  > 0
+      lcfavorecido := DLAP+laRESULT[2,lnelemento]+DLAP
+   else
+      lcfavorecido := DLAP+' '+DLAP
+   endif
+   aadd(laRESULT[1],'(row)')
+   for ii := 2 to len(laRESULT)
+       if laRESULT[ii, ascan(laRESULT[1],'FL_APROVACAO')] == 'A'
+          laRESULT[ii, ascan(laRESULT[1],'FL_APROVACAO')] := 'Aprovada'
+       elseif laRESULT[ii, ascan(laRESULT[1],'FL_APROVACAO')] == 'P'
+          laRESULT[ii, ascan(laRESULT[1],'FL_APROVACAO')] := 'Pendente'
+       elseif laRESULT[ii, ascan(laRESULT[1],'FL_APROVACAO')] == 'R'
+          laRESULT[ii, ascan(laRESULT[1],'FL_APROVACAO')] := 'Rejeitado'
+       endif
+       if laRESULT[ii, ascan(laRESULT[1],'FL_REVISAO')] == 'A'
+          laRESULT[ii, ascan(laRESULT[1],'FL_REVISAO')] := 'Aprovada'
+       elseif laRESULT[ii, ascan(laRESULT[1],'FL_REVISAO')] == 'P'
+          laRESULT[ii, ascan(laRESULT[1],'FL_REVISAO')] := 'Pendente'
+       elseif laRESULT[ii, ascan(laRESULT[1],'FL_REVISAO')] == 'R'
+          laRESULT[ii, ascan(laRESULT[1],'FL_REVISAO')] := 'Rejeitado'
+       endif
+       laRESULT[ii, ascan(laRESULT[1],'QUANTIDADE')] := wpictrans('QUANTIDADE',laRESULT[ii, ascan(laRESULT[1],'QUANTIDADE')])
+       laRESULT[ii, ascan(laRESULT[1],'VL_UNIT')]    := wpictrans('VL_UNIT',   laRESULT[ii, ascan(laRESULT[1],'VL_UNIT')])
+       laRESULT[ii, ascan(laRESULT[1],'VL_TOTAL')]   := wpictrans('VL_TOTAL',  laRESULT[ii, ascan(laRESULT[1],'VL_TOTAL')])
+       aadd(laRESULT[ii],'(row)'+wic_action('wicaction/ps.mvt.despesa.html?'+;
+                                        'TP_PASTA='+pctipopasta+;
+                                        '&NR_PASTA='+alltrim(str(laRESULT[ii, db_fetchncol(laRESULT,'NR_PASTA')]))+;
+                                        '&NR_DESPESA='+alltrim(str(laRESULT[ii, db_fetchncol(laRESULT,'NR_DESPESA')]))+;
+                                        '&ACTION=ALTER'))
+   next ii
+   wPut('GRID_MVT_DESPESA',grid_create(laRESULT))
+endif
+return
+
+/*
+* Data da Criação: 03/07/2006 - Glauber Vicente Duma
+* Function.......: Grid_DespPG()
+* Objetivo.......: Montar a Grade de Despesa / Pagamentos
+* Parâmetros.....:
+*                  <pcpasta>        número da pasta
+*                  <pcnr_despesa>   número da despesa
+*
+* Retorno........: Nenhum
+*/
+
+
+Static Function Grid_DespPG(pcpasta,pcnr_despesa)
+
+local laFIELDS := {},;
+      laRESULT := {} as array
+local xx := 0,;
+      lnelemento := 0 as numeric
+
+laFIELDS := {'NR_PASTA','NR_DESPESA','NR_CONTROLE','DT_PAGAMENTO','VL_PAGO',;
+             'DT_CADASTRO','LOGIN_CADASTRO','FL_PAGAMENTO'}
+lcWHERE := 'NR_PASTA = '+pcpasta + ' AND NR_DESPESA = '+pcnr_despesa
+if db_select(laFIELDS,'mvt_despesa_pagamento',,{lcWHERE},,,,,) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchall()
+if len(laRESULT) >= 2
+   wPut('ifATIVAR', .T.)
+   aadd(laRESULT[1],'STYLE_CANCELADO')
+   lnelemento := ascan(laRESULT[1],'FL_PAGAMENTO')
+   lnelem2 := ascan(laRESULT[1],'DT_PAGAMENTO')
+   for xx := 2 to len(laRESULT)
+       if laRESULT[xx,lnelemento] == 'C'
+          laRESULT[xx,lnelem2] := '(Cancelado)' + dtoc(laRESULT[xx,lnelem2])
+          aadd(laRESULT[XX],'color:red')
+       else
+          laRESULT[xx,lnelemento2] := dtoc(laRESULT[xx,lnelem2])
+          aadd(laRESULT[XX],'color:black')
+       endif
+   next xx
+   Wput('lstPAGAMENTO',laRESULT)
+endif
+return
+/*
+* Data da Criação: 03/07/2006 - Glauber Vicente Duma
+* Function.......: Monta_Grid_Pagto()
+* Objetivo.......: Montar a Grade de Pagamentos.
+* Parâmetros.....:
+*                  <pcpasta>        número da pasta.
+*                  <pctipopasta>    tipo da pasta.
+*                  <plfiltrar>      flag utilizada para indicar que deve filtrar as despesas pelos campos
+*                                   fl_aprovacao e fl_revisao caso o parametro seja .t.
+*                  <pcFT_APROVACAO> Parametro com o valor escolhido para o campo FT_APROVACAO
+*                  <pcFT_REVISAO>   Parametro com o valor escolhido para o campo FT_REVISAO
+*                  <porigem>        origem do programa chamador: .t. => ps.mvt.despesa, .f. => psab.mvt.despesa
+*                                   com este parametro é montada url de retorno correta para o programa chamador.
+*
+* Retorno........: Nenhum
+*/
+
+Static Function Monta_Grid_Pagto(pcpasta as string, pctipopasta as string, plfiltrar as logical, pcFT_REVISAO as string, pcFT_APROVACAO as string, pORIGEM as numeric, pcESCRITORIO)
+
+local laFIELDS  := {},;
+      laRESULT  := {},;
+      laPAGINAS := {},;
+      laLIMIT   := {},;
+      laJOIN    := {} as array
+local lcwhere   := '',;
+      lcfavorecido := '',;
+      lcCODE       := '' as string
+
+local lnelemento := 0,;
+      lnCOUNT    := 0,;
+      ii         := 0 as numeric
+
+laFIELDS := {'mvt_despesa.NR_PASTA',;
+             'mvt_despesa.NR_DESPESA',;
+             'mvt_despesa.CD_DESPESA',;
+             'despesa.NM_DESPESA',;
+             'mvt_despesa.CIP_ESCRITORIO',;
+             'pfpj.PFPJ',;
+             'mvt_despesa.DT_REF',;
+             'mvt_despesa.FL_APROVACAO',;
+             'mvt_despesa.LOGIN_APROVACAO',;
+             'mvt_despesa.DT_APROVACAO',;
+             'mvt_despesa.FL_REVISAO',;
+             'mvt_despesa.LOGIN_REVISAO',;
+             'mvt_despesa.DT_REVISAO',;
+             'mvt_despesa.QUANTIDADE',;
+             'mvt_despesa.VL_UNIT',;
+             'mvt_despesa.VL_TOTAL'}
+
+laJOIN   := {{2,'pfpj','mvt_despesa.CIP_ESCRITORIO = pfpj.CIP'},;
+             {2,'despesa','mvt_despesa.CD_DESPESA = despesa.CD_DESPESA'}}
+
+if ! empty(pcpasta) .and. val(pcpasta) > 0
+   lcWHERE := 'NR_PASTA = '+ pcpasta
+endif
+
+if val(pcESCRITORIO) > 0
+   if ! empty(lcWHERE)
+      lcWHERE += ' AND '
+   endif
+   lcWHERE += 'CIP_ESCRITORIO = '+ DLAP + pcESCRITORIO + DLAP
+endif
+
+if plfiltrar == .T.
+   if .not. empty(pcFT_APROVACAO)
+      aadd(laFIELDS,'FL_APROVACAO')
+      if ! empty(lcWHERE)
+         lcWHERE += ' AND '
+      endif
+      lcwhere := lcwhere + 'FL_APROVACAO = '+ DLAP+pcFT_APROVACAO+DLAP
+   endif
+   if .not. empty(pcFT_REVISAO)
+      aadd(laFIELDS,'FL_REVISAO')
+      if ! empty(lcWHERE)
+         lcWHERE += ' AND '
+      endif
+      lcwhere := lcwhere + 'FL_REVISAO = '+ DLAP+pcFT_REVISAO+DLAP
+   endif
+endif
+
+if ! empty(lcWHERE)
+   if db_select({'count(*)'},'mvt_despesa',laJOIN,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+else
+   if db_select({'count(*)'},'mvt_despesa',laJOIN) == -1
+      error_sys(db_error())
+   endif
+endif
+
+laRESULT  := db_fetchrow()
+lnCOUNT   := laRESULT[1]
+laPAGINAS := paginacao(lnCOUNT,'','','ps.esc.despesa.html')
+laLIMIT   := param_fetch(laPAGINAS,'LIMIT')
+
+if ! empty(lcWHERE)
+   if db_select(laFIELDS,'mvt_despesa',laJOIN,{lcWHERE},,,,laLIMIT) == -1
+      error_sys(db_error())
+   endif
+else
+   if db_select(laFIELDS,'mvt_despesa',laJOIN,,,,,laLIMIT) == -1
+      error_sys(db_error())
+   endif
+endif
+
+laRESULT := db_fetchall()
+
+if len(laRESULT) >= 2
+   lcCODE := alltrim(str(laLIMIT[1]+1))+'-'
+   if ((len(laRESULT)-1) < (laLIMIT[2]-laLIMIT[1]))
+      lcCODE += alltrim(str(len(laRESULT)-1))
+   elseif param_fetch(laPAGINAS,'GOTO_PAGE') == param_fetch(laPAGINAS,'NR_PAGES') //lnNR_PAGES
+      lcCODE += alltrim(str(lnCOUNT))
+   else
+      lcCODE += alltrim(str(laLIMIT[1]+param_fetch(laPAGINAS,'ROWS_PAGE')))
+   endif
+   lcCODE += ' de '+alltrim(str(lnCOUNT))
+   if lnCOUNT > 1
+      lcCODE := ' Resultados '+lcCODE+' registros'
+   else
+      lcCODE := ' Resultado '+lcCODE+' registro'
+   endif
+   wput('RESUME_RESULTSET',lcCODE)
+   aadd(laRESULT[1],'(row)')
+   for ii := 2 to len(laRESULT)
+       aadd(laRESULT[ii],'(row)'+wic_action('wicaction/ps.mvt.despesa.html?'+;
+                                            'TP_PASTA='+pctipopasta+;
+                                            '&NR_PASTA='  +alltrim(str(laRESULT[ii, db_fetchncol(laRESULT,'NR_PASTA')]))+;
+                                            '&NR_DESPESA='+alltrim(str(laRESULT[ii, db_fetchncol(laRESULT,'NR_DESPESA')]))+;
+                                            '&ACTION=ALTER'))
+       if (plfiltrar == .T.) .and. (.not. empty(pcFT_APROVACAO))
+          if laRESULT[ii,db_fetchncol(laRESULT,'FL_APROVACAO')] == 'A'
+             laRESULT[ii,db_fetchncol(laRESULT,'FL_APROVACAO')] := 'Aprovada'
+          elseif laRESULT[ii,db_fetchncol(laRESULT,'FL_APROVACAO')] == 'P'
+             laRESULT[ii,db_fetchncol(laRESULT,'FL_APROVACAO')] := 'Pendente'
+          elseif laRESULT[ii,db_fetchncol(laRESULT,'FL_APROVACAO')] == 'R'
+             laRESULT[ii,db_fetchncol(laRESULT,'FL_APROVACAO')] := 'Rejeitado'
+          endif
+       endif
+       laRESULT[ii, ascan(laRESULT[1],'QUANTIDADE')] := wpictrans('QUANTIDADE',laRESULT[ii, ascan(laRESULT[1],'QUANTIDADE')])
+       laRESULT[ii, ascan(laRESULT[1],'VL_UNIT')]    := wpictrans('VL_UNIT',laRESULT[ii, ascan(laRESULT[1],'VL_UNIT')])
+       laRESULT[ii, ascan(laRESULT[1],'VL_TOTAL')]   := wpictrans('VL_TOTAL',laRESULT[ii, ascan(laRESULT[1],'VL_TOTAL')])
+   next ii
+   wPut('GRID_MVT_DESPESA',grid_create(laRESULT))
+else
+   wPut('GRID_MVT_DESPESA','<center> Nenhum registro foi encontrado </center>')
+endif
+return
+
+/*
+* Data da Criação: 03/07/2006 - Glauber Vicente Duma
+* Function.......: MostraPG()
+* Objetivo.......: Mostra o conteudo do registro na ui.
+* Parâmetros.....:
+*                  <pc_nr_pasta>    número da pasta.
+*                  <pc_nr_despesa>  número da despesa.
+*
+* Retorno........: Nenhum
+*/
+
+Static Function MostraPG(pcNR_PASTA,pcNR_DESPESA)
+
+local lcWHERE := '' as string
+local laFIELDS := {},;
+      laJOIN   := {},;
+      laREADONLY := {},;
+      laRESULT := {} as array
+local lnelemento := 0,;
+      ii         := 0 as numeric
+
+      lcWHERE := 'NR_PASTA = '+pcNR_PASTA+' AND NR_DESPESA = '+pcNR_DESPESA
+      laFIELDS := {'mvt_despesa.NR_PASTA','mvt_despesa.NR_DESPESA','mvt_despesa.CIP_ESCRITORIO',;
+                   'mvt_despesa.DT_REF','mvt_despesa.LOGIN','mvt_despesa.CD_DESPESA',;
+                   'mvt_despesa.CD_GRP_DESPESA','mvt_despesa.QUANTIDADE','mvt_despesa.VL_UNIT',;
+                   'mvt_despesa.VL_TOTAL','mvt_despesa.DT_PREVISAO_PAGTO','mvt_despesa.FORMA_PAGAMENTO',;
+                   'mvt_despesa.NR_SINISTRO','mvt_despesa.CIP_FAVORECIDO','mvt_despesa.TP_FAVORECIDO',;
+                   'mvt_despesa.TP_DOCFISCAL','mvt_despesa.DT_EMISSAO_DOCFISCAL','mvt_despesa.NR_DOCFISCAL',;
+                   'mvt_despesa.CD_CCUSTO','mvt_despesa.DT_ENVIO_CTPAG','mvt_despesa.EXTRA','pfpj.PFPJ',;
+                   'mvt_despesa.FL_APROVACAO','mvt_despesa.FL_REVISAO','mvt_despesa.DT_APROVACAO',;
+                   'mvt_despesa.DT_REVISAO','mvt_despesa.LOGIN_APROVACAO','mvt_despesa.LOGIN_REVISAO',;
+                   'despesa.NM_DESPESA','grupo_despesa.NM_GRP_DESPESA','tipo_favorecido.TP_FAVORECIDO',;
+                   'tipo_docfiscal.TP_DOCFISCAL','centrocusto.NM_CCUSTO'}
+      laJOIN   := {{2,'pfpj','mvt_despesa.CIP_ESCRITORIO = pfpj.CIP'},;
+                   {2,'despesa','mvt_despesa.CD_DESPESA = despesa.CD_DESPESA'},;
+                   {2,'grupo_despesa','mvt_despesa.CD_GRP_DESPESA = grupo_despesa.CD_GRP_DESPESA'},;
+                   {2,'tipo_favorecido','mvt_despesa.TP_FAVORECIDO = tipo_favorecido.TP_FAVORECIDO'},;
+                   {2,'tipo_docfiscal','mvt_despesa.TP_DOCFISCAL = tipo_docfiscal.TP_DOCFISCAL'},;
+                   {2,'centrocusto','mvt_despesa.CD_CCUSTO = centrocusto.CD_CCUSTO'}}
+      laREADONLY := {'CD_DESPESA','QUANTIDADE','VL_UNIT','DT_REF','CIP_FAVORECIDO'}
+      if db_select(laFIELDS,'mvt_despesa',laJOIN,{lcWHERE},,,,,) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) >= 2
+         db2put(laRESULT)
+         if laRESULT[2,ascan(laRESULT[1],'FL_APROVACAO')] == 'A'
+            wput('NM_FL_APROVACAO','Aprovada')
+         elseif laRESULT[2,ascan(laRESULT[1],'FL_APROVACAO')] == 'R'
+            wput('NM_FL_APROVACAO','Reprovada')
+         elseif laRESULT[2,ascan(laRESULT[1],'FL_APROVACAO')] == 'P'
+            wput('NM_FL_APROVACAO','Pendente')
+         endif
+
+         if laRESULT[2,ascan(laRESULT[1],'FL_REVISAO')] == 'A'
+            wput('NM_FL_REVISAO','Aprovada')
+         elseif laRESULT[2,ascan(laRESULT[1],'FL_REVISAO')] == 'R'
+            wput('NM_FL_REVISAO','Reprovada')
+         elseif laRESULT[2,ascan(laRESULT[1],'FL_REVISAO')] == 'P'
+            wput('NM_FL_REVISAO','Pendente')
+         endif
+         lnelemento := ascan(laRESULT[1],'PFPJ')
+         if lnelemento  > 0
+            wPut('CIP_ESCRITORIO_PFPJ',laRESULT[2,lnelemento])
+         endif
+         lnelemento := ascan(laRESULT[1],'NM_GRP_DESPESA')
+         if lnelemento  > 0
+            wPut('NM_GRP_DESPESA',laRESULT[2,lnelemento])
+         endif
+         lnelemento := ascan(laRESULT[1],'CIP_FAVORECIDO')
+         if lnelemento  > 0
+            lcfavorecido := DLAP+laRESULT[2,lnelemento]+DLAP
+         else
+            lcfavorecido := DLAP+' '+DLAP
+         endif
+         // Regra para alteração de despesa quando a mesma ja foi aprovada, deixar os campos abaixo read-only
+         if laRESULT[2,ascan(laRESULT[1],'FL_APROVACAO')] == 'A' .OR. laRESULT[2,ascan(laRESULT[1],'FL_REVISAO')] == 'A'
+            wput('ifDT_REF_RO',.t.)
+            wput('ifDT_REF_NO_RO',.f.)
+            wput('ifDTREF',.f.) // Botão da Data
+            wput('ifCD_DESPESA_RO',.t.)
+            wput('ifCD_DESPESA_NO_RO',.f.)
+            wput('ifCD_DESPESA',.f.)  // Botão da Despesa
+            wput('ifQUANTIDADE_RO',.t.)
+            wput('ifQUANTIDADE_NO_RO',.f.)
+            wput('ifVL_UNIT_RO',.t.)
+            wput('ifVL_UNIT_NO_RO',.f.)
+            wput('ifCIP_FAVORECIDO_RO',.t.)
+            wput('ifCIP_FAVORECIDO_NO_RO',.f.)
+            wput('ifCIP_FAVORECIDO',.f.) // Botão do Favorecido
+            if dtoc(laRESULT[2,ascan(laRESULT[1],'DT_ENVIO_CTPAG')]) <> '  /  /    '
+               wput('ifINCPAG',.F.)
+            endif
+         endif
+         if db_select({'CIP','PFPJ'},'pfpj',,{'CIP = '+lcfavorecido}) == -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchall()
+         if len(laRESULT) >= 2
+            wPut('CIP_FAVORECIDO_PFPJ',laRESULT[2,2])
+         endif
+      endif
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+

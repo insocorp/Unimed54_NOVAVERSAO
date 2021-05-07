@@ -1,0 +1,59 @@
+/***
+*
+* Glauber - 16/06/2010
+*
+* Encerramento automatico de pasta do tipo Procuracao ou Procuracao2
+*
+*
+*/
+
+   local laRESULT := {} as array
+   local lcFILTRO := "" as string
+   local lnII := 0 as int
+
+  /* Selecionando os tipos de pasta */
+
+   if db_select({'TP_PASTA'},'pasta_config',,{'LAYOUT_PASTA IN('+DLAP + "Procuracao" + DLAP + "," + DLAP + "Procuracao2" + DLAP + ")"}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) < 2
+      return
+   endif
+   for lnII := 2 to len(laRESULT)
+       lcFILTRO += DLAP + laRESULT[lnII,1] + DLAP
+       if lnII < len(laRESULT)
+          lcFILTRO += ","
+       endif
+   next lnII
+
+   /* Selecionando as pastas Ativas */
+
+   if db_select({'NR_PASTA'},'pasta',,{'TP_PASTA IN('+lcFILTRO + ") and FL_PASTA = " + DLAP + "Ativa" + DLAP + " and DT_VENCTO = " + DLAP + DTOS(date()) + DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   for lnII := 2 to len(laRESULT)
+       /* Atualiza o status da pasta */
+       if db_replace({{'FL_PASTA'},{'Encerrada'}},'pasta',{'NR_PASTA='+str(laRESULT[lnii,1])}) == -1
+             error_sys('pastaencerra('+alltrim(str(procline()))+'): '+db_error())
+       endif
+       /* Gravacao do log de alteracao */
+       if db_insert({{'NR_PASTA','LOGIN','WFIELD','CONTEUDO_ANTERIOR','CONTEUDO_NOVO','DT_ALTERACAO','HR_ALTERACAO'},;
+                    {laRESULT[lnii,1],'auto_encerra','FL_PASTA','Ativa','Encerrada',date(),time()}},'pasta_log_altera') == -1
+             error_sys('pastaencerra('+alltrim(str(procline()))+'): '+db_error())
+       endif
+
+   next lnII
+
+   return
+
+
+
+
+
+
+
+
+
+

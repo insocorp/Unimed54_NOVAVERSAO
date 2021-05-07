@@ -1,0 +1,205 @@
+/*
+
+Project      : isj_45
+Program      : sch.sinebao.html
+Function     : sch_sinebao_html
+Created on   : 29-Apr-2016   08:05:20
+Descripition :
+
+*/
+
+
+local lcACTION   := WGET('ACTION') ,;
+      lcRAMO     := '',;
+      lcNR_ROW   := '',;
+      lcDATA     := '' AS String
+
+
+local ii         := 0,;
+      lnPOS      := 0  AS Int
+
+local laSINIS    := {} ,;
+      laFields   := {'LMI_COD_COBERTURA',;
+                     'LMI_NM_COBERTURA',;
+                     'VL_COBERTURA'},;
+      laCONF     := {} ,;
+      laRESULT   := {} ,;
+      laDEPARA   := {} ,;
+      laAUX      := {} AS Array
+
+
+local llErro     := .F.,;
+      llDebug    := .F.,;
+      llBOTOES   := (WGET('ORIGEM','C') != 'LST')
+
+
+local objSinis   := EbaoConsultarRequestNew() AS Object
+local headerReq  := HeaderRequestNew() AS Object
+local objRetorno := RespEbaoConsultarNew() AS Object
+local objStatus  := RetornoEbaoNew() AS Object
+local objUtils   := EbaoUtilsNew() AS Object
+
+
+  headerReq:TpIntegracao   := 1
+  headerReq:SinistroNumero := WGET('NR_SINISTRO')
+  headerReq:Ramo           := WGET('CD_RAMOSRSN')
+
+  if Empty(headerReq:SinistroNumero) .or. Empty(headerReq:Ramo)
+     WAlert('Sinistro / Ramo não informado !')
+     return
+  endif
+
+  objSinis:HeaderRequest := headerReq
+  objRetorno             := objSinis:DetalheSinistro()
+
+
+  objStatus := objRetorno:Retorno
+
+//  wout('Codigo:'+Alltrim(objStatus:CdRetorno))
+//  wout('Descricao:'+Alltrim(objStatus:NmRetorno))
+
+  if objStatus:CdRetorno != 0
+     WAlert('Erro ao consultar sinistro:' + AllTrim(objStatus:CdRetorno) + ' - ' + objStatus:NmRetorno)
+     return
+  endif
+
+
+  WPut('ifBOTOES', llBOTOES) // Exibir os botões de aceitar e rejeitar
+
+  WPut('NR_SINISTRO',            objRetorno:SinistroNumero)
+  WPut('CD_RAMOSRSN',            objRetorno:Ramo)
+  WPut('FL_SINISTRO',            objRetorno:StatusSinistro)
+  WPut('TP_SINISTRO',            objRetorno:TipoSinistro)
+  WPut('PREMIO_PENDENTE',        objRetorno:PremioPendente)
+  WPut('NR_APOLICE',             objRetorno:NumApolice)
+  WPut('PRODUTO',                objRetorno:Produto)
+
+  // Verificar se o produto é cadastrado
+
+  laAUX := objUtils:CadastrarProduto(objRetorno:Produto)
+
+  WPut('CD_PRODUTO',             laAUX[1])
+  WPut('NM_PRODUTO',             laAUX[2])
+
+  // Verificar se a Causa do Sinistro esta cadastrada
+
+  laAUX := objUtils:CadastrarCausaSinisto(objRetorno:CausaSinistro)
+
+  WPut('CD_CAUSA_SINISTRO',      laAUX[2,1])
+  WPut('NM_CAUSA_SINISTRO',      laAUX[2,2])
+
+  // Verificar se o titular e reclamante estão cadastrados
+
+  laAUX := objUtils:TratarPfPj(objRetorno)
+
+  lnPOS := ascan(laAUX, {|x| x[1] == 'CIP_TITULAR'})
+  
+  if (lnPOS > 0 )
+     WPut('CIP_SEGURADO',      laAUX[lnPOS,2])
+  endif
+
+  lnPOS := ascan(laAUX, {|x| x[1] == 'CIP_RECLAMANTE'})
+
+  if (lnPOS > 0 )
+     WPut('CIP_RECLAMANTE',      laAUX[lnPOS,2])
+  endif
+
+
+
+  WPut('TITULAR',                objRetorno:TitularApolice)
+  WPut('NR_DOCUMENTOTITULAR',    objRetorno:DocumentoTitular)
+
+  WPut('FL_COSSEGURO',           objRetorno:FlCosseguro)
+  lcDATA := substr(objRetorno:IniVigencia,7,2) + '/' + substr(objRetorno:IniVigencia,5,2) + '/' + substr(objRetorno:IniVigencia,1,4)
+  WPut('DT_VIGENCIA_INI',        lcDATA)
+  lcDATA := substr(objRetorno:FimVigencia,7,2) + '/' + substr(objRetorno:FimVigencia,5,2) + '/' + substr(objRetorno:FimVigencia,1,4)
+  WPut('DT_VIGENCIA_FIN',        lcDATA)
+  WPut('NM_CAUSA_SINISTRO',      objRetorno:CausaSinistro)
+  lcDATA := substr(objRetorno:DataSinistro,7,2) + '/' + substr(objRetorno:DataSinistro,5,2) + '/' + substr(objRetorno:DataSinistro,1,4)
+  WPut('DT_SINISTRO',            lcDATA)
+  lcDATA := substr(objRetorno:DataRegistro,7,2) + '/' + substr(objRetorno:DataRegistro,5,2) + '/' + substr(objRetorno:DataRegistro,1,4)
+  WPut('DT_CADASTRO',            lcDATA)
+  WPut('CONTRATO',               objRetorno:PessoaContato)
+  WPut('TELEFONE',               objRetorno:TelefoneContato)
+  WPut('UF',                     objRetorno:EstadoAcidente)
+  WPut('CIDADE',                 objRetorno:CidadeAcidente)
+  WPut('OBJETO_SINISTRO',        objRetorno:ObjetoSegurado)
+  WPut('NOME_RECLAMANTE',        objRetorno:Reclamante)
+  WPut('TELEFONE_RECLAMANTE',    objRetorno:TelefoneReclamante)
+  WPut('NR_DOCUMENTORECLAMANTE', objRetorno:DocumentoReclamante)
+  WPut('TIPO_DANO',              objRetorno:TipoDano)
+
+  // Alimentar os campos hiden
+
+  WPut('STATUSCODE',     objStatus:CdRetorno)
+  WPut('STATUSMESSAGE',  objStatus:NmRetorno)
+  WPut('CPFSEGURADO',    objRetorno:DocumentoTitular)
+  WPut('NOMEDOSEGURADO', objRetorno:TitularApolice)
+  WPut('DT_OCORRENCIA',  substr(objRetorno:DataSinistro,7,2) + '/' + substr(objRetorno:DataSinistro,5,2) + '/' + substr(objRetorno:DataSinistro,1,4))
+  WPut('DATAVISO',       substr(objRetorno:DataRegistro,7,2) + '/' + substr(objRetorno:DataRegistro,5,2) + '/' + substr(objRetorno:DataRegistro,1,4))
+  WPut('STATUSSINISTRO', objRetorno:StatusSinistro)
+  WPut('INICIOVIGENCIA', substr(objRetorno:IniVigencia,7,2) + '/' + substr(objRetorno:IniVigencia,5,2) + '/' + substr(objRetorno:IniVigencia,1,4))
+  WPut('FIMVIGENCIA',    substr(objRetorno:FimVigencia,7,2) + '/' + substr(objRetorno:FimVigencia,5,2) + '/' + substr(objRetorno:FimVigencia,1,4))
+  WPut('FL_COSSEGURO',   objRetorno:FlCosseguro)
+  WPut('TODAS_COBERTURAS', objRetorno:Cobertura)
+
+//WPut('CERTIFICADO',    objRetorno:TitularApolice)
+//WPut('CARENCIA',    objRetorno:TitularApolice)
+//WPut('FRANQUIA',    objRetorno:TitularApolice)
+//  WPut('IS',    objRetorno:TitularApolice)
+// WPut('VALORPAGOSINISTRO',    objRetorno:TitularApolice)
+
+
+// WPut('PARCEIRO',    objRetorno:TitularApolice)
+// WPut('ACEITOCEDIDO',    objRetorno:TitularApolice)
+
+
+//      <input type="hidden" name="CIP_SEGURADO" wicinput>
+//      <input type="hidden" name="CIP_FILIAL" wicinput>
+//      <input type="hidden" name="LMI_NM_COBERTURA" wicinput>
+
+
+
+
+
+  // Ajustar os dados para processar as informações das coberturas / subcoberturas
+
+  objRetorno:Cobertura := StrTran(objRetorno:Cobertura,'<CTList>','')
+  objRetorno:Cobertura := StrTran(objRetorno:Cobertura,'<CT>','')
+  objRetorno:Cobertura := StrTran(objRetorno:Cobertura,'</CTList>','')
+  objRetorno:Cobertura := StrTran(objRetorno:Cobertura,'<SI>','')
+  objRetorno:Cobertura := StrTran(objRetorno:Cobertura,'<cTCode>','')
+  objRetorno:Cobertura := StrTran(objRetorno:Cobertura,'<cTName>','')
+
+  objRetorno:Cobertura := StrTran(objRetorno:Cobertura,'</SI>','[;]')
+  objRetorno:Cobertura := StrTran(objRetorno:Cobertura,'</cTCode>','[;]')
+  objRetorno:Cobertura := StrTran(objRetorno:Cobertura,'</cTName>','[;]')
+
+  laAUX := Str2Array(objRetorno:Cobertura,{'[;]','</CT>'})
+
+
+
+  aadd(laRESULT, laFields)
+
+  aadd(laRESULT[1],'VAR_LMI_COD_COBERTURA')
+  aadd(laRESULT[1],'VAR_LMI_NM_COBERTURA')
+  aadd(laRESULT[1],'VAR_VL_COBERTURA')
+
+
+  for ii := 1 to (len(laAUX) -1)
+      lcNR_ROW := alltrim(str(ii))
+      aadd(laRESULT, { laAUX[ii,2],;
+                       laAUX[ii,3],;
+                       wpictrans('VL_COBERTURA', val(laAUX[ii,1])),;
+                       'VAR_LMI_COD_COBERTURA_'+lcNR_ROW,;
+                       'VAR_LMI_NM_COBERTURA_'+lcNR_ROW,;
+                       'VAR_VL_COBERTURA_'+lcNR_ROW })
+      WPut('VAR_LMI_COD_COBERTURA_'+lcNR_ROW, laAUX[ii,2])
+      WPut('VAR_LMI_NM_COBERTURA_'+lcNR_ROW, laAUX[ii,3])
+      WPut('VAR_VL_COBERTURA_'+lcNR_ROW, wpictrans('VL_COBERTURA', val(laAUX[ii,1])))
+
+  next ii
+
+  WPut('lstCOBERTURAS', laRESULT)
+
+return

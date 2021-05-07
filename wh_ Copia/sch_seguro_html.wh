@@ -1,0 +1,85 @@
+/*
+
+Project      : gr5
+Program      : sch.seguro.html
+Function     : sch_seguro_html
+Created on   : 01-Sep-2006   08:56:10
+Descripition : Pesquisa de Seguros
+
+*/
+
+   local lcNM_FLD      := '' ,;
+         lcNM_FLD2     := '' ,;
+         lcNM_FLD3     := '' ,;
+         lcNR_PASTA    := '' ,;
+         lcFL_SINISTRO := '' as string
+
+   local laFIELDS       := {} ,;
+         laJAVA         := {} ,;
+         laQUICK_SEARCH := {} ,;
+         laWHERE        := {} as array
+
+   lcFL_SINISTRO := WGet('FL_SINISTRO','C')
+   lcNM_FLD      := WGet('NM_FIELD','C')
+   lcNM_FLD2     := WGet('NM_FIELD2','C')
+   lcNM_FLD3     := WGet('NM_FIELD3','C')
+   lcNR_PASTA    := WGet('NR_PASTA','C')
+
+   if empty(lcNM_FLD)
+      lcNM_FLD  := 'NR_CONTROLE'
+   endif
+   if empty(lcNM_FLD2)
+      lcNM_FLD2 := 'NR_SINISTRO'
+   endif
+   if empty(lcNM_FLD3)
+      lcNM_FLD3 := 'TP_EXPEDIENTE'
+   endif
+   if ! empty(lcNR_PASTA)
+      aadd(laWHERE,'NR_PASTA='+lcNR_PASTA)
+   endif
+   if lcFL_SINISTRO == 'S'
+      aadd(laWHERE,'NR_SINISTRO <> '+DLAP+DLAP)
+   endif
+
+   if db_select({'NM_MENU'},'wmenu',,{'NM_MENU like '+DLAP+'%Expediente%'+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRES_MENU := db_fetchrow()
+       
+   if len(laRES_MENU) > 0
+      laFIELDS       := {'NR_PASTA','NR_CONTROLE','NR_SINISTRO','NR_EXPEDIENTE','TP_EXPEDIENTE','FL_SINISTRO','TP_SINISTRO','DT_SINISTRO','FL_INTERFACEWEB'}
+      laQUICK_SEARCH := {'NR_SINISTRO','FL_SINISTRO','TP_SINISTRO','NR_EXPEDIENTE','TP_EXPEDIENTE'}
+   else 
+      laFIELDS       := {'NR_PASTA','NR_CONTROLE','NR_SINISTRO','FL_SINISTRO','TP_SINISTRO','DT_SINISTRO','FL_INTERFACEWEB'}
+      laQUICK_SEARCH := {'NR_SINISTRO','FL_SINISTRO','TP_SINISTRO'}
+   endif
+   laJAVA         := {'mntform',{{lcNM_FLD ,'NR_CONTROLE'},;
+                                 {lcNM_FLD2,'NR_SINISTRO'},;
+                                 {lcNM_FLD3,'TP_EXPEDIENTE'}}}
+
+   xbp('pasta_seguro',;                   //Tabela Alvo
+       ,;                                 //Join
+       laWHERE,;                          //Where
+       ,;                                 //Order by
+       ,;                                 //Sort [A]-Ascendente [D]-Descentende
+       ,;                                 //Group by
+       ,;                                 //Limit
+       ,;                                 //Banco de Dados
+       3,;                                //Modo de funcionamento [1]-Listagem/Form para manutenção [2]-Listagem e Manutenção [3]-Search
+       'gr5',;                            //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;          //Programa chamador
+       ,;                                 //Parametros para linhas clicáveis
+       ,;                                 //Botoes (nil)
+       'sch.seguro.html',;                //Programa chamado pelos links (linhas clicáveis)
+       'gr5',;                            //Módulo do programa chamado pelos links
+       laJAVA,;                           //Retorno java (nil) - usado apenas no search
+       laQUICK_SEARCH,;                   //Campos usados na pesquisa rápida
+       {{'NR_PASTA',lcNR_PASTA},;
+        {'NM_FIELD',lcNM_FLD},;
+        {'NM_FIELD2',lcNM_FLD2},;
+        {'NM_FIELD3',lcNM_FLD3},;
+        {'FL_SINISTRO',lcFL_SINISTRO}},;  //Campos ocultos. Usado apenas em manutenções    ***
+       ,;                                 //Campos da área de manutenção/entrada de dados  ***
+       laFIELDS,;                         //Campos mostratos no grid
+       laFIELDS)                          //Campos usados no select
+return

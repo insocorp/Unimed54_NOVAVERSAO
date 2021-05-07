@@ -1,0 +1,131 @@
+/*
+
+Project      : gr5
+Program      : psab.filiais.html
+Function     : psab_filiais_html
+Created on   : 26/09/2013 14:50
+Descripition : Lista filiais pertinentes a empresa
+Projeto      :
+*/
+
+   local lcWHERE    := '' ,;
+         lcNR_PASTA := '' ,;
+         lcTABLE    := '' ,;
+         lcTP_PASTA := '' ,;
+         lcWFIELD   := '' ,;
+         lcAUX      := '' as string
+
+   local laRES     := {} ,;
+         laRES1    := {} ,;
+         laOPTIONS := {} ,;
+         laLABELS  := {} ,;
+         laFIELDS  := {} as array
+
+   local ii    := 0 ,;
+         xx    := 0 ,;
+         lnPOS := 0 as int
+
+   lcNR_PASTA := WGet('NR_PASTA','C')
+   lcTP_PASTA := WGet('TP_PASTA','C')
+
+   WPut('NR_PASTA',lcNR_PASTA)
+   WPut('TP_PASTA',lcTP_PASTA)
+
+   lcTABLE    := 'pfpj'
+
+   laFIELDS   := {'CIP',;
+                  'PFPJ',;
+                  'ENDERECO',;
+                  'NR_ENDERECO',;
+                  'EXTRA_ENDERECO',;
+                  'CEP',;
+                  'CIDADE',;
+                  'UF',;
+                  'PAIS',;
+                  'CNPJ_CPF',;
+                  'IE',;
+                  'NIRE',;
+                  'FL_PFPJ'}
+
+
+   lcACTION   := WGet('ACTION','C')
+             
+   WPut('TITLE','Filiais')
+
+   init_reqfield(WSet('_USER_INTERFACE'))
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   pasta_abas(lcTP_PASTA)   // Função coloca abas lado esquerdo
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+
+
+   if db_select({'CIP'},'pasta_cip',,{'NR_PASTA='+lcNR_PASTA,'WFIELD='+DLAP+'CIP_EMPRESA'+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchrow()
+   WPut('CIP_EMPRESA', laRES)
+
+   lcWHERE := 'CIP_EMPRESA=' + laRES[1] + 'and pfpj_tipos LIKE '+DLAP+'%FIL%'+DLAP
+
+   if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+
+   if len(laRES)>1
+      for ii=2 to len(laRES)
+          if laRES[ii,db_fetchncol(laRES,'FL_PFPJ')] == 'A'
+             laRES[ii,db_fetchncol(laRES,'FL_PFPJ')] := 'Ativa'
+          elseif laRES[ii,db_fetchncol(laRES,'FL_PFPJ')] == 'E'
+             laRES[ii,db_fetchncol(laRES,'FL_PFPJ')] := 'Encerrado'
+          elseif laRES[ii,db_fetchncol(laRES,'FL_PFPJ')] == 'I'
+             laRES[ii,db_fetchncol(laRES,'FL_PFPJ')] := 'Inativa'
+          endif
+      next ii
+   endif
+
+   WPut('lstFILIAIS',laRES)
+
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

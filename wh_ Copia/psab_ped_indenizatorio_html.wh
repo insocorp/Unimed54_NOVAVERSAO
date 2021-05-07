@@ -1,0 +1,353 @@
+/*
+
+Project      : gr5
+Program      : psab.ped_indenizatorio.html
+Function     : psab_ped_indenizatorio_html
+Created on   : 30/09/2014 15:01:16
+Descripition : Aba de Pedido Indenizatorio
+
+*/
+
+   local lcACTION     := '' ,;
+         lcTP_PASTA   := '' ,;
+         lcWHERE      := '' ,;
+         lcTABLE      := '' ,;
+         lcProgram    := 'psab_ped_indenizatorio_html' ,;
+         lcRelac      := '' ,;
+         lcNR_PASTA   := '' ,;
+         lcNR_CONTROLE := '' as string
+
+   local laRESULT   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laSAVEFILHO:= {} ,;
+         laFIELDS   := {} ,;
+         laLABELS   := {} ,;
+         laFOREIGN  := {} ,;
+         laVALIDA   := {} as array
+
+   local ii         := 0 as int
+   local lnAuto     := 0 as int
+   local llReturn   := .f. as logical
+
+   lcACTION     := upper(alltrim(WGet('ACTION','C')))
+   lcNR_PASTA   := WGet('NR_PASTA','C')
+  
+   lcUSUARIO := wSet('LOGIN')
+   Wput('LOGIN',lcUSUARIO)
+   Wput('LOGIN_CADASTRO',lcUSUARIO)
+   Wput('DT_CADASTRO',DATE())
+
+   lcTP_PASTA    := WGet('TP_PASTA','C')
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   if lcNR_CONTROLE = 'New'
+      lcNR_CONTROLE := '0'
+   endif
+   lcTABLE      := 'pasta_ped_indeniza'
+   lcWHERE1     := 'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE = '+lcNR_CONTROLE
+   lcWHERE      := 'NR_PASTA='+lcNR_PASTA
+   laFIELDS     := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS     := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+
+   make_psthead(lcNR_PASTA,lcTP_PASTA) //Cabeçalho
+
+   WPut('NOTIFICACAO_SEGURADORA.option',{'','Não','Sim'})
+   WPut('NOTIFICACAO_SEGURADORA.optionvalue',{'','N', 'S'})
+
+   WPut('COBERTURA_SEGURO.option',{'','Não','Sim'})
+   WPut('COBERTURA_SEGURO.optionvalue',{'','N', 'S'})
+
+   WPut('AREA_RISCO_OPT','Y')
+      
+   carrega_cbox({{'assedio','TP_ASSEDIO','Y'}})
+   carrega_cbox({{'causa_pedido','CAUSA_PEDIDO','Y'}})
+   
+   cblincidente()
+   cbconse()
+
+   if gbWAC_CREATE
+      WPut('ifWAC_CREATE',.t.)
+   endif
+
+   if gbWAC_WRITE
+      WPut('ifWAC_WRITE',.t.)
+   endif
+
+   WPut('ifWAC_DELETE',.f.)
+
+   if empty(lcACTION)
+      lcACTION = 'NEW'
+   endif
+
+   wPut('TP_PASTA',lcTP_PASTA)
+   wPut('DT_CADASTRO',date())
+   wPut('TITLE',lcTP_PASTA+' - Inclusão de Pedidos')
+
+   if lcACTION = 'NEW' .and. gbWAC_CREATE
+
+       lcLOGIN := wSet('LOGIN')
+       Wput('LOGIN_CADASTRO',lcLOGIN)
+       Wput('DT_CADASTRO',DATE())
+       WPut('NR_CONTROLE','New')
+
+   elseif lcACTION = 'ALTER' .and. gbWAC_READ
+      mkgedico(lcTABLE,lcNR_PASTA)
+      if db_select(laFIELDS,lcTABLE,,{'NR_PASTA='+WGet('NR_PASTA','C')+' and NR_CONTROLE = '+WGet('NR_CONTROLE','C')}) == -1
+         error_sys(db_error())
+      endif
+      db2put(db_fetchall())
+      WPut('NR_CONTROLE',WGet('NR_CONTROLE','C'))
+      lcNR_CONTROLE := WGet('NR_CONTROLE','C') 
+
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+                if val(lcNR_CONTROLE) == 0    
+                  lcNR_CONTROLE := alltrim(str(db_insert_id()))
+                  if db_select({'max(NR_CONTROLE)'},'pasta_ped_indeniza') == -1
+	                   error_sys(db_error())
+    	            endif
+               
+                  laRES     := db_fetchrow() 
+                  lNNR_CONTROLE := laRES[1]
+                  lcNR_CONTROLE := STR(LNNR_CONTROLE)
+               endif
+
+     if verif_reqfield(WSet('_USER_INTERFACE'))
+
+        if db_select({'ID_CAUSA','CAUSA_PEDIDO'},'causa_pedido',,{'CAUSA_PEDIDO='+DLAP+WGet('CAUSA_PEDIDO','C')+DLAP}) == -1
+           error_sys(db_error())
+        endif
+        laRES1 := db_fetchall()
+
+        if len(laRES1) > 1
+           lnID_CAUSA := laRES1[2,1]
+
+         laSAVE_AUX := {}
+         laSAVE     := {}
+ 
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            if laFIELDS[ii] == 'ID_CAUSA'
+               aadd(laSAVE_AUX,lnID_CAUSA)
+            elseif laFIELDS[ii] == 'NR_CONTROLE'
+              if (wget('NR_CONTROLE','C') == 'New') .or. empty(lcNR_CONTROLE)  
+                 aadd(laSAVE_AUX, 0)
+              else             
+                 lcNR_CONTROLE := wget('NR_CONTROLE','C')
+                 if (wget('NR_CONTROLE','C') == 'New') .or. empty(lcNR_CONTROLE)  
+                    aadd(laSAVE_AUX, 0)
+                 else
+                    aadd(laSAVE_AUX, wget('NR_CONTROLE'))
+                 endif
+               endif 
+            elseif laFIELDS[ii] == 'DT_CADASTRO'
+                   aadd(laSAVE_AUX,date())
+            elseif laFIELDS[ii] ==  'LOGIN_CADASTRO'
+                   aadd(laSAVE_AUX,WSet('LOGIN'))
+            elseif laFIELDS[ii] ==  'DESCRICAO'
+                   aadd(laSAVE_AUX,WGet('DESCRICAO','C'))
+            else
+                   aadd(laSAVE_AUX,Wget(laFIELDS[ii]))
+            endif
+         next ii
+
+         aadd(laSAVE,laSAVE_AUX)
+//         debug2(lasave)
+ //             psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Pedido Indenizario') //Gravar log de alterações da pasta
+
+                        
+                 if (Lower(Wget('NR_CONTROLE')) == 'new') .or. (Wget('NR_CONTROLE','N') == 0)
+                    if db_insert(laSAVE,'pasta_ped_indeniza') == -1
+                       error_sys(db_error())
+                    endif
+                 else
+                     if db_replace(laSAVE,lcTABLE,{'NR_PASTA='+WGet('NR_PASTA','C')+' and NR_CONTROLE = '+lcNR_CONTROLE}) == -1
+                       error_sys(db_error())
+                     endif
+                 endif
+     
+             endif
+         endif
+         elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+         if db_delete(lcTABLE,'NR_CONTROLE = '+(Wget('NR_CONTROLE','C'))) = -1
+            error_sys(db_error())
+         endif
+
+   endif
+   if val(lcNR_CONTROLE) > 0 .and. gbWAC_READ
+     if db_select(laFIELDS,lcTABLE,,{'NR_PASTA='+WGet('NR_PASTA','C')+' and NR_CONTROLE = '+WGet('NR_CONTROLE','C')}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2Put(laRESULT)
+ 
+        /* Tabelas estrangeiras   */
+
+
+        laFOREIGN := {{'ID_CLASSIFICACAO_DOENCA','ID_CLASSIFICACAO_DOENCA','classificacao_doenca','CLASSIFICACAO_DOENCA'},;
+                       {'ID_CAUSA','ID_CAUSA','causa_pedido','CAUSA_PEDIDO'}}
+
+         /* Selecionando Relacionamentos */
+         for ii := 1 to len(laFOREIGN)
+            lnPOS := ascan(laRESULT[1],laFOREIGN[ii,1])
+            if lnPOS > 0
+               if valtype(laRESULT[2,lnPOS]) == 'N'
+                  if laRESULT[2,lnPOS] == 0
+                     llAUX := .f.
+                  else
+                     lcAUX := laFOREIGN[ii,2]+'='+str(laRESULT[2,lnPOS])
+                     llAUX := .t.
+                  endif
+               else
+                  if empty(alltrim(laRESULT[2,lnPOS]))
+                     llAUX := .f.
+                  else
+                     lcAUX := laFOREIGN[ii,2]+'='+DLAP+laRESULT[2,lnPOS]+DLAP
+                     llAUX := .t.
+                  endif
+               endif
+
+               if llAUX
+                  if db_select({laFOREIGN[ii,4]},laFOREIGN[ii,3],,{lcAUX}) == -1
+                     error_sys(db_error())
+                  endif
+                  db2Put(db_fetchall())
+               endif
+            endif
+         next ii
+
+     endif
+     make_psthead(lcNR_PASTA,lcTP_PASTA)
+//     RETURN
+   endif
+   laORDER_BY := {'NR_CONTROLE'}
+ //  if db_select({'NR_CONTROLE','COBERTURA_SEGURO','NOTIFICACAO_SEGURADORA','NR_APOLICE','CAUSA_PEDIDO','DT_NOTIFICACAO','LOCAL_INCIDENTE'},;
+ //  if db_select({'sum(VL_RATEADO)'},'mvt_desprat',,{lcWHERE},,,{'NR_PASTA','NR_CONTROLE_DESPESA'}) == -1
+  
+   if db_select({'NR_CONTROLE','COBERTURA_SEGURO','NOTIFICACAO_SEGURADORA','NR_APOLICE','pasta_ped_indeniza.ID_CAUSA','CAUSA_PEDIDO','DT_NOTIFICACAO','LOCAL_INCIDENTE','AREA_RISCO'},;
+                 lcTABLE,;
+                 {{2,'causa_pedido','causa_pedido.ID_CAUSA=pasta_ped_indeniza.ID_CAUSA'}},;
+                 {'pasta_ped_indeniza.NR_PASTA='+lcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 0
+      aadd(laRES[1],'(row)')
+      for ii := 2 to len(laRES)
+         aadd(laRES[ii],'(row)'+wic_action('wicaction/psab.ped_indenizatorio.html?'+;
+                                           'TP_PASTA='+lcTP_PASTA+;
+                                           '&NR_PASTA='+lcNR_PASTA+;
+                                           '&NR_CONTROLE='+str(laRES[ii, db_fetchncol(laRES,'NR_CONTROLE')])+;
+                                           '&ACTION=ALTER'))
+      next ii
+
+      if len(laRES) > 0
+         WPut('GRID_INDENIZA',laRES)
+      endif
+   endif
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+return
+
+
+******************************
+static function cblincidente()
+******************************
+*** alimenta combo local incidente
+
+local laOPT  :={},;
+      laOPTV :={},;
+      laRES  :={} as array
+      
+local ii:=0 as int      
+
+laOPT := {}
+laOPTV:= {}
+if db_select({'LOCAL_INCIDENTE'},'local_incidente',,,{'LOCAL_INCIDENTE'}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+
+if len(laRES) > 1
+   aadd(laOPT,{''})
+   aadd(laOPTV,{0})
+   for ii := 2 to len(laRES)
+     aadd(laOPT,laRES[ii,1])
+     aadd(laOPTV,laRES[ii,1])
+   next ii
+   
+   WPut('LOCAL_INCIDENTE_1.option',laOPT)
+   WPut('LOCAL_INCIDENTE_1.optionvalue',laOPTV)
+   
+   WPut('LOCAL_INCIDENTE_2.option',laOPT)
+   WPut('LOCAL_INCIDENTE_2.optionvalue',laOPTV)
+   
+   WPut('LOCAL_INCIDENTE_3.option',laOPT)
+   WPut('LOCAL_INCIDENTE_3.optionvalue',laOPTV)
+   
+   WPut('LOCAL_INCIDENTE_4.option',laOPT)
+   WPut('LOCAL_INCIDENTE_4.optionvalue',laOPTV)
+endif
+
+return(nil)
+
+******************************
+static function cbconse()
+******************************
+*** alimenta combo consequencia
+
+local laOPT  :={},;
+      laOPTV :={},;
+      laRES  :={} as array
+      
+local ii:=0 as int      
+
+laOPT := {}
+laOPTV:= {}
+if db_select({'CONSEQUENCIA'},'consequencia',,,{'CONSEQUENCIA'}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+
+if len(laRES) > 1
+   aadd(laOPT,{''})
+   aadd(laOPTV,{0})
+   for ii := 2 to len(laRES)
+     aadd(laOPT,laRES[ii,1])
+     aadd(laOPTV,laRES[ii,1])
+   next ii
+   
+   WPut('CONSEQUENCIA_1.option',laOPT)
+   WPut('CONSEQUENCIA_1.optionvalue',laOPTV)
+   
+   WPut('CONSEQUENCIA_2.option',laOPT)
+   WPut('CONSEQUENCIA_2.optionvalue',laOPTV)
+
+endif
+
+return(nil)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,63 @@
+/*
+
+Project      : gr5
+Program      : sch.pedido.html
+Function     : sch_pedido_html
+Created on   : 01-Aug-2006   13:57:26
+Descripition : sch.pedido.html
+
+*/
+
+
+
+   local laFIELDS       := {},;
+         laJAVA         := {},;
+         laQUICK_SEARCH := {} as array
+   local lcNM_FIELD := WGet('NM_FIELD','C'),;
+         lcTP_PASTA := WGet('TP_PASTA','C') as string
+
+   if empty(lcNM_FIELD)
+      lcNM_FIELD := 'PEDIDO_PROCESSO'
+   endif
+
+   laFIELDS       := {'OBJETO'}
+   laJAVA         := {'mntform',{{lcNM_FIELD,'OBJETO'}}}
+   laQUICK_SEARCH := {'OBJETO'}
+
+   xbp('pasta_objeto',;                                                                      //Tabela Alvo
+       ,;                                                                                    //Join
+       {'TP_PASTA='+DLAP+lcTP_PASTA+DLAP,'OBJETO<>'+DLAP+'Sucumbência de Condenação'+DLAP},; //Where
+       ,;                                                                                    //Order by
+       ,;                                                                                    //Sort [A]-Ascendente [D]-Descentende
+       ,;                                                                                    //Group by
+       ,;                                                                                    //Limit
+       ,;                                                                                    //Banco de Dados
+       3,;                                                                                   //Modo de funcionamento [1]-Listagem/Form para manutenção [2]-Listagem e Manutenção [3]-Search
+       'gr5',;                                                                               //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;                                                             //Programa chamador
+       ,;                                                                                    //Parametros para linhas clicáveis
+       ,;                                                                                    //Botoes (nil)
+       'sch.pedido.html',;                                                                   //Programa chamado pelos links (linhas clicáveis)
+       'gr5',;                                                                               //Módulo do programa chamado pelos links
+       laJAVA,;                                                                              //Retorno java (nil) - usado apenas no search
+       laQUICK_SEARCH,;                                                                      //Campos usados na pesquisa rápida
+       {{'NM_FIELD',lcNM_FIELD},{'TP_PASTA',lcTP_PASTA}},;                                   //Campos ocultos. Usado apenas em manutenções    ***
+       ,;                                                                                    //Campos da área de manutenção/entrada de dados  ***
+       laFIELDS,;                                                                            //Campos mostratos no grid
+       laFIELDS)                                                                             //Campos usados no select
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

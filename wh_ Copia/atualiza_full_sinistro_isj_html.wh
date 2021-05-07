@@ -1,0 +1,866 @@
+/*
+
+Project      : gr5
+Program      : atualiza_full_sinistro_isj.html
+Function     : atualiza_full_sinistro_isj_html
+Created on   : 29/07/2009 10:20:01 - Valdimari Martins
+Descripition : Atualização de Sinistros no ISJ
+               Interface Mapfre
+               Parametro: sinistro_full
+*/
+   local lcWHERE_EXT     := '' ,;
+         lcWHERE_SIN     := '' ,;
+         lcWHERE_PEDIDOS := '' ,;
+         lcWHERE_COB     := '' ,;
+         lcWHERE_RESERVA := '' ,;
+         lcWHERE_SEG     := '' ,;
+         lcWHERE         := '' ,;
+         lcOBJETO        := '' ,;
+         lcNR_PASTA      := '' ,;
+         lcSINISTRO      := '' ,;
+         lcNOME_SEG      := '' ,;
+         lcCIP_SEG       := '' ,;
+         lcSTATUS        := '' as string
+   
+   local laSAVE             := {} ,;
+         laSAVE_AUX         := {} ,;
+         laSAVE_PEDIDOS     := {} ,;
+         laSAVE_DETAL       := {} ,;
+         laFIELDS_ISJ       := {} ,;
+         laFIELDS_TRONWEB   := {} ,;
+         laFIELDS_SINISTRO  := {} ,;
+         laRES_AUX          := {} ,;       
+         laRES_PED_TRONWEB  := {} ,;
+         laRES_SIN_TRONWEB  := {} ,;
+         laRES_TRONWEB      := {} ,;
+         laRES_COB          := {} ,;
+         laRES_COTACAO      := {} ,;
+         laRES_RESERVA      := {} ,;
+         laRES_PASTA        := {} ,;
+         laRES_SINISTRO     := {} ,;
+         laRES_LIQUID       := {} ,;
+         laRES_TPFAV        := {} ,;
+         laRES_DESP         := {} ,;
+         laRES_GRP          := {} ,;
+         laRES_ISJ          := {} as array
+
+   local lnNR_DESPESA := 0    ,;
+         lnREG_INI    := 1    ,;
+         lnLIMITE     := 3000 ,;
+         ii           := 0    ,;
+         jj           := 0    ,;
+         rr           := 0    ,;
+         ss           := 0    as int
+
+   //---------- Abrindo base Tronweb
+   //---------- Alimentando Tabela de Tipo de Expediente
+   if db_select({'distinct TIP_EXP','NOM_EXP'},'a7009165_vcr',,,{'TIP_EXP'}) == -1
+      db_rollback() 
+      error_sys(db_error())
+   endif
+   laRES_TRONWEB := db_fetchall()
+   
+   db_begin() 
+   if len(laRES_TRONWEB) > 1
+      laFIELDS_ISJ := {'TP_EXPEDIENTE','DESC_EXPEDIENTE'}
+      aadd(laSAVE,laFIELDS_ISJ) 
+      for ii := 2 to len(laRES_TRONWEB)
+         if db_select({'TP_EXPEDIENTE'},'tp_expediente',,{'TP_EXPEDIENTE = '+DLAP+laRES_TRONWEB[ii,1]+DLAP}) == -1
+            db_rollback() 
+            error_sys(db_error())
+         endif
+         laRES_AUX := db_fetchrow()
+
+         if len(laRES_AUX) == 0
+            aadd(laSAVE,{laRES_TRONWEB[ii,1], laRES_TRONWEB[ii,2]})
+         endif   
+      next ii
+      if len(laSAVE) > 1
+         if db_insert(laSAVE,'tp_expediente') == -1
+            db_rollback() 
+            error_sys(db_error())
+         endif   
+      endif
+   endif   
+   db_commit()
+
+   //---------- Alimentando Tabela de Tipo de Sinistro
+   laSAVE      := {}
+   laSAVE_AUX  := {}
+   laTRONWEB   := {}
+   if db_select({'distinct NOM_CAUSA_SINI_VCR'},'a7009164_vcr') == -1
+      db_rollback() 
+      error_sys(db_error())
+   endif
+   laRES_TRONWEB := db_fetchall()
+   
+   db_begin() 
+   if len(laRES_TRONWEB) > 1
+      laFIELDS_ISJ := {'TP_SINISTRO'}
+      aadd(laSAVE,laFIELDS_ISJ) 
+      for ii := 2 to len(laRES_TRONWEB)
+         if db_select({'TP_SINISTRO'},'tipo_sinistro',,{'TP_SINISTRO = '+DLAP+laRES_TRONWEB[ii,1]+DLAP}) == -1
+            db_rollback() 
+            error_sys(db_error())
+         endif
+         laRES_AUX := db_fetchrow()
+
+         if len(laRES_AUX) == 0
+            aadd(laSAVE,{laRES_TRONWEB[ii,1]})
+         endif   
+      next ii
+      if len(laSAVE) > 1
+         if db_insert(laSAVE,'tipo_sinistro') == -1
+            db_rollback() 
+            error_sys(db_error())
+         endif   
+      endif
+   endif
+   db_commit()
+
+   //---------- Alimentando Tabela de Sinistro
+   laSAVE    := {}
+   laTRONWEB := {}
+   do while .t.
+      //---------- Selecionando os Sinistros que tem pastas no ISJ.
+      if db_select({'a7009165_vcr.NUM_SINI',;
+                    'a7009165_vcr.NUM_EXP',;
+                    'a7009165_vcr.TIP_EXP',;
+                    'a7009165_vcr.MCA_SISTEMAS_VCR',;
+                    'pasta.NR_SINISTRO',;
+                    'pasta.NR_PASTA'},;
+                    'a7009165_vcr',;
+                    {{2,'pasta','pasta.NR_SINISTRO=TO_CHAR(a7009165_vcr.NUM_SINI)'}},;
+                    {'pasta.NR_SINISTRO is not null'},{'NUM_SINI'},,,{lnREG_INI,lnLIMITE}) == -1
+         db_rollback() 
+         error_sys(db_error())
+      endif
+      laRES_AUX := db_fetchall()
+
+      if len(laRES_AUX) <= 1
+         //---------- Se não foi encontrado nenhum registro, finaliza rotina 
+         exit
+      endif   
+      laFIELDS_SINISTRO := {'NUM_POLIZA','FEC_VIG_INI_VCR','FEC_VIG_FIM_VCR','NOM_ASEG_VCR',;
+                            'NUM_SINI','FEC_SINI','NOM_CAUSA_SINI_VCR','MCA_EST_SINI_VCR',;
+                            'MCA_SISTEMAS_VCR','NOM_CAUSA_SINI_VCR'}
+      for ss := 2 to len(laRES_AUX)
+         laRES_TRONWEB := {}
+         lcNR_PASTA    := alltrim(str(laRES_AUX[ss,db_fetchncol(laRES_AUX,'NR_PASTA')])) 
+         lcSINISTRO    := alltrim(str(laRES_AUX[ss,db_fetchncol(laRES_AUX,'NUM_SINI')]))
+         lcWHERE_EXT   := 'NUM_SINI = '+lcSINISTRO
+      
+         //---------- Selecionando o Sinistro na tabela A7009164_vcr - TRONWEB
+         if db_select(laFIELDS_SINISTRO,'A7009164_vcr',,{lcWHERE_EXT}) == -1
+            db_rollback() 
+            error_sys(db_error())
+         endif
+         laRES_SIN_TRONWEB := db_fetchall()
+      
+         wout('linha: '+str(ss))
+      
+         if len(laRES_SIN_TRONWEB) > 1
+            for jj := 2 to len(laRES_SIN_TRONWEB)
+               laSAVE_AUX  := {}
+               laSAVE      := {{'NR_PASTA','NR_CONTROLE','NR_SINISTRO','NR_APOLICE','CIP_SEGURADO',;
+                                'FL_SINISTRO','TP_SINISTRO','DT_VIGENCIA_INI','DT_VIGENCIA_FIN',;
+                                'NR_EXPEDIENTE','TP_EXPEDIENTE','DT_SINISTRO','DT_CADASTRO','LOGIN_CADASTRO'}}
+               lcWHERE_SIN := 'NR_PASTA = '+lcNR_PASTA
+               lcWHERE_SIN += ' and NR_SINISTRO = '+lcSINISTRO
+               lcWHERE_SIN += ' and NR_EXPEDIENTE = '+alltrim(str(laRES_AUX[ss,db_fetchncol(laRES_AUX,'NUM_EXP')]))  
+  
+               //---------- Verificando se o Sinistro já existe na tabela pasta_seguro - ISJ
+               if db_select({'NR_SINISTRO'},'pasta_seguro',,{lcWHERE_SIN}) == -1
+                  db_rollback() 
+                  error_sys(db_error())
+               endif
+               laRES_ISJ := db_fetchrow()
+               if len(laRES_ISJ) == 0
+                  lcNOME_SEG := alltrim(laRES_SIN_TRONWEB[jj,db_fetchncol(laRES_SIN_TRONWEB,'NOM_ASEG_VCR')])
+                  lcCIP_SEG  := incluir_cip_pfpj(lcNOME_SEG,'SEG')
+                  aadd(laSAVE_AUX,laRES_AUX[ss,db_fetchncol(laRES_AUX,'NR_PASTA')])
+                  aadd(laSAVE_AUX,0)
+                  aadd(laSAVE_AUX,lcSINISTRO)
+                  aadd(laSAVE_AUX,laRES_SIN_TRONWEB[jj,db_fetchncol(laRES_SIN_TRONWEB,'NUM_POLIZA')])
+                  aadd(laSAVE_AUX,lcCIP_SEG)
+                  aadd(laSAVE_AUX,iif(laRES_SIN_TRONWEB[jj,db_fetchncol(laRES_SIN_TRONWEB,'MCA_EST_SINI_VCR')]=='T','Terminado','Pendente'))
+                  aadd(laSAVE_AUX,laRES_SIN_TRONWEB[jj,db_fetchncol(laRES_SIN_TRONWEB,'NOM_CAUSA_SINI_VCR')])
+                  aadd(laSAVE_AUX,laRES_SIN_TRONWEB[jj,db_fetchncol(laRES_SIN_TRONWEB,'FEC_VIG_INI_VCR')])
+                  aadd(laSAVE_AUX,laRES_SIN_TRONWEB[jj,db_fetchncol(laRES_SIN_TRONWEB,'FEC_VIG_FIM_VCR')])
+                  aadd(laSAVE_AUX,laRES_AUX[ss,db_fetchncol(laRES_AUX,'NUM_EXP')])
+                  aadd(laSAVE_AUX,laRES_AUX[ss,db_fetchncol(laRES_AUX,'TIP_EXP')])
+                  aadd(laSAVE_AUX,laRES_SIN_TRONWEB[jj,db_fetchncol(laRES_SIN_TRONWEB,'FEC_SINI')])
+                  aadd(laSAVE_AUX,date())
+                  aadd(laSAVE_AUX,'inso')
+               endif
+               if len(laSAVE_AUX) > 0
+                  aadd(laSAVE,laSAVE_AUX)
+               endif              
+               if len(laSAVE) > 1
+                  //---------- Incluir novos Sinistros
+wout('Seguro')                  
+                  if db_insert(laSAVE,'pasta_seguro') == -1
+                     db_rollback() 
+                     error_sys(db_error())
+                  endif
+               endif
+            next jj
+         endif                               
+
+         //---------- Alimentando Tabela de Pedidos
+         laRES_PED_TRONWEB := {}
+         laSAVE            := {}
+         laSAVE_AUX        := {}
+         lcNR_PASTA        := alltrim(str(laRES_AUX[ss,db_fetchncol(laRES_AUX,'NR_PASTA')])) 
+         lcWHERE_SEG       := 'NR_SINISTRO = '+alltrim(str(laRES_AUX[ss,db_fetchncol(laRES_AUX,'NUM_SINI')]))
+      
+         //---------- Selecionando o Sinistro na tabela pasta_seguro - TRONWEB
+      
+         if db_select({'NR_CONTROLE','TP_EXPEDIENTE'},'pasta_seguro',,{lcWHERE_SEG},{'NR_CONTROLE'}) == -1
+            db_rollback() 
+            error_sys(db_error())
+         endif
+         laRES_PED_TRONWEB := db_fetchall()
+         //---------- Correndo Tabela de Sinistros encontrados 
+         for jj := 2 to len(laRES_PED_TRONWEB)
+
+            lcWHERE_PEDIDOS := 'NR_PASTA = '+lcNR_PASTA
+            lcWHERE_PEDIDOS += ' and NR_CONTROLE_SEGURO = '+alltrim(str(laRES_PED_TRONWEB[jj,db_fetchncol(laRES_PED_TRONWEB,'NR_CONTROLE')]))
+
+            if db_select({'NR_CONTROLE'},'pasta_pedidos',,{lcWHERE_PEDIDOS}) == -1
+               db_rollback() 
+               error_sys(db_error()) 
+            endif
+            laRES_PEDIDO := db_fetchrow()
+            
+            if len(laRES_PEDIDO) == 0
+               //----------- Buscar tipo da pasta atual
+               lcWHERE_PASTA := 'NR_PASTA = '+lcNR_PASTA
+               if db_select({'TP_PASTA'},'pasta',,{lcWHERE_PASTA}) == -1
+                  db_rollback()
+                  error_sys(db_error())
+               endif
+               laRES_PASTA   := db_fetchrow()
+               lcTP_PASTA    := laRES_PASTA[1]
+               lcWHERE_PASTA := 'TP_PASTA = '+DLAP+lcTP_PASTA+DLAP
+               if db_select({'OCOR_PEDIDO_INICIO'},'pasta_config',,{lcWHERE_PASTA}) == -1
+                  db_rollback()
+                  error_sys(db_error())
+               endif
+               laRES_PASTA       := db_fetchrow()
+               lcOCOR_PED_INICIO := iif(len(laRES_PASTA) > 0,iif(laRES_PASTA[1] = '','Lançamento Inicial',laRES_PASTA[1]),'Lançamento Inicial')
+               lcWHERE_RESERVA   := 'NUM_SINI = '+str(laRES_AUX[ss,db_fetchncol(laRES_AUX,'NUM_SINI')])
+               //------------ Selecionando Reservas referentes ao Sinistro 
+               if db_select({'NUM_SINI','NUM_EXP','COD_COB','COD_MON','IMP_VAL','IMP_LIQ','FEC_PROCESO'},;
+                             'A7009167_vcr',,{lcWHERE_RESERVA}) == -1
+                  db_rollback()
+                  error_sys(db_error())
+               endif
+               laRES_RESERVA := db_fetchall()
+               if len(laRES_RESERVA) > 1
+                  laSAVE_DETAL    := {{'NR_DETAL',;
+                                       'NR_PASTA',;
+                                       'NR_CONTROLE',;
+                                       'PEDIDO_PROCESSO',;
+                                       'DT_MOVTO_PED',;
+                                       'DT_RISCO',;
+                                       'VL_RISCO',;
+                                       'VL_RISCO_CALC',;
+                                       'PC_RISCO',;
+                                       'VL_CORRECAO',;
+                                       'VL_JUROS',;
+                                       'FL_CALCULO',;
+                                       'COMENTARIOS_PED',;
+                                       'OCOR_PEDIDO',;
+                                       'DT_ALTERACAO',;
+                                       'HR_ALTERACAO',;
+                                       'LOGIN_CADASTRO'}}
+                  for rr := 2 to len(laRES_RESERVA)
+                     lcWHERE_COB := 'COD_COB = '+str(laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'COD_COB')])
+                     if db_select({'NOM_COB'},'A7009168_vcr',,{lcWHERE_COB}) == -1
+                        db_rollback()
+                        error_sys(db_error())
+                     endif
+                     laRES_COB := db_fetchrow()
+                     lcOBJETO  := incluir_objeto(laRES_COB[1],lcTP_PASTA,'W')
+                     if len(laRES_COB) == 0
+                        loop
+                     endif      
+                     /*---------- Testar a Moeda registrada na Reserva.
+                                  1 - Real 
+                                  2 - US$
+                                  3 - FAJ
+                     */
+                     lnMOEDA := laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'COD_MON')]
+                     lcMOEDA := ''
+                     if lnMOEDA == 2
+                        lcMOEDA := 'Dólar'
+                      
+                     elseif lnMOEDA == 3
+                        lcMOEDA := 'FAJ'
+                     endif    
+                     //---------- Qdo moeda for diferente de Real (R$)                                                  
+                     if lnMOEDA <> 1
+                        if db_select({'CD_INDICE'},'indice_reajuste',,{'NM_INDICE = '+DLAP+lcMOEDA+DLAP}) == -1
+                           db_rollback()
+                           error_sys(db_error())
+                        endif
+                        laRES_COTACAO := db_fetchrow()
+                        if db_select({'VL_INDICE'},'mvt_indice_diario',,{'CD_INDICE='+str(laRES_COTACAO[1])+' and DT_REF='+dtos(date())}) == -1
+                           db_rollback()
+                           error_sys(db_error())
+                        endif   
+                        laRES_COTACAO  := db_fetchrow()
+                        lnCOTACAO      := iif(len(laRES_COTACAO)>0,laRES_COTACAO[1],1)
+                        lcMOEDA        := ' - ('+lcMOEDA+')'
+                        lcOBJETO       := incluir_objeto(laRES_COB[1]+lcMOEDA,lcTP_PASTA,'R')
+                        laSAVE_PEDIDOS := {{'NR_PASTA',;
+                                            'NR_CONTROLE',;
+                                            'PEDIDO_PROCESSO',;
+                                            'NR_CONTROLE_SEGURO',;
+                                            'DT_RISCO',;
+                                            'VL_RISCO',;
+                                            'VL_RISCO_CALC',;
+                                            'PC_RISCO',;
+                                            'VL_CORRECAO',;
+                                            'VL_JUROS',;
+                                            'FL_CALCULO',;
+                                            'DT_MOVTO_PED',;
+                                            'COMENTARIOS_PED',;
+                                            'OCOR_PEDIDO',;
+                                            'TP_EXPEDIENTE'}}
+                        aadd(laSAVE_PEDIDOS,{lcNR_PASTA,;
+                                             0,;
+                                             lcOBJETO,;
+                                             alltrim(str(laRES_PED_TRONWEB[jj,db_fetchncol(laRES_PED_TRONWEB,'NR_CONTROLE')])),;
+                                             laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'FEC_PROCESO')],;
+                                             laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'IMP_VAL')],;
+                                             laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'IMP_VAL')],;
+                                             100,;
+                                             0,;
+                                             0,;
+                                             'S',;
+                                             date(),;
+                                             '',;
+                                             '',;                                                                                                                                
+                                             laRES_PED_TRONWEB[jj,db_fetchncol(laRES_PED_TRONWEB,'TP_EXPEDIENTE')]})                                            
+
+wout('Pedidos FAJ ou US$')
+
+                        if db_insert(laSAVE_PEDIDOS,'pasta_pedidos') == -1
+                           db_rollback()
+                           error_sys(db_error())
+                        endif
+                        lnNR_PEDIDO := db_insert_id()
+                        aadd(laSAVE_DETAL,{0,;
+                                           lcNR_PASTA,;
+                                           lnNR_PEDIDO,;
+                                           lcOBJETO,;
+                                           date(),;
+                                           laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'FEC_PROCESO')],;
+                                           laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'IMP_VAL')],;
+                                           laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'IMP_VAL')],;
+                                           100,;
+                                           0,;
+                                           0,;
+                                           'S',;
+                                           lcOCOR_PED_INICIO+', via interface.',;                                                                                                                                
+                                           lcOCOR_PED_INICIO,;
+                                           date(),;
+                                           substr(time(),1,8),;
+                                           'inso'})                                                                                                                                
+                     endif
+
+                     laSAVE_PEDIDOS := {{'NR_PASTA',;
+                                         'NR_CONTROLE',;
+                                         'PEDIDO_PROCESSO',;
+                                         'NR_CONTROLE_SEGURO',;
+                                         'DT_RISCO',;
+                                         'VL_RISCO',;
+                                         'VL_RISCO_CALC',;
+                                         'PC_RISCO',;
+                                         'VL_CORRECAO',;
+                                         'VL_JUROS',;
+                                         'FL_CALCULO',;
+                                         'DT_MOVTO_PED',;
+                                         'COMENTARIOS_PED',;
+                                         'OCOR_PEDIDO',;
+                                         'TP_EXPEDIENTE'}}
+                     aadd(laSAVE_PEDIDOS,{lcNR_PASTA,;
+                                          0,;
+                                          lcOBJETO,;
+                                          alltrim(str(laRES_PED_TRONWEB[jj,db_fetchncol(laRES_PED_TRONWEB,'NR_CONTROLE')])),;
+                                          laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'FEC_PROCESO')],;
+                                          laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'IMP_VAL')]*iif(lnMOEDA=1,1,lnCOTACAO),;
+                                          laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'IMP_VAL')]*iif(lnMOEDA=1,1,lnCOTACAO),;
+                                          100,;
+                                          0,;
+                                          0,;
+                                          'S',;
+                                          date(),;
+                                          '',;
+                                          '',;                                                                                                                                
+                                          laRES_PED_TRONWEB[jj,db_fetchncol(laRES_PED_TRONWEB,'TP_EXPEDIENTE')]})                                            
+
+wout('Pedido NormaL')
+
+                     if db_insert(laSAVE_PEDIDOS,'pasta_pedidos') == -1
+                        db_rollback()
+                        error_sys(db_error())
+                     endif
+                     lnNR_PEDIDO := db_insert_id()
+                     aadd(laSAVE_DETAL,{0,;
+                                        lcNR_PASTA,;
+                                        lnNR_PEDIDO,;
+                                        lcOBJETO,;
+                                        date(),;
+                                        laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'FEC_PROCESO')],;
+                                        laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'IMP_VAL')]*iif(lnMOEDA=1,1,lnCOTACAO),;
+                                        laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'IMP_VAL')]*iif(lnMOEDA=1,1,lnCOTACAO),;
+                                        100,;
+                                        0,;
+                                        0,;
+                                        'S',;
+                                        lcOCOR_PED_INICIO+', via interface.',;                                                                                                                                
+                                        lcOCOR_PED_INICIO,;
+                                        date(),;
+                                        substr(time(),1,8),;
+                                        'inso'})                                                                                                                                
+                  next rr   
+                  if len(laSAVE_DETAL) > 1 
+
+wout('Pedido Detalhe')
+
+                     if db_insert(laSAVE_DETAL,'pasta_detal_pedidos') == -1
+                        db_rollback()
+                        error_sys(db_error())
+                     endif
+                  endif
+               endif          
+            endif   
+         next jj
+         //---------- Alimentando tabela de Liquidação (Despesa, Ressarcimento, Depósitos)
+         laFIELDS_TRONWEB := {'NUM_SINI','FEC_LIQ','FEC_EST_PAGO','FEC_PAGTO_VCR','VAL_INDENIZACAO_VCR',;
+                              'DES_ACTIVIDAD','OBS_PAGTO_VCR','MCA_SISTEMAS_VCR','NUM_EXP','TIP_LIQ',;
+                              'TIP_EXP','COD_MON_LIQ','VAL_CAMBIO','NUM_CHEQUE','COD_ENTIDAD','COD_OFICINA',;
+                              'CTA_CTE','NOM_BENEF_VCR','COD_CTO_COB_PAG','NOM_CTO_CTABLE','COD_COB',;
+                              'COD_CTO_RVA','NOM_CTO_RVA','NUM_LIQ'}
+         laRES_TRONWEB    := {}
+         lcNR_PASTA       := alltrim(str(laRES_AUX[ss,db_fetchncol(laRES_AUX,'NR_PASTA')])) 
+         lcWHERE_SEG      := 'NUM_SINI = '+alltrim(str(laRES_AUX[ss,db_fetchncol(laRES_AUX,'NUM_SINI')]))
+         lcWHERE_SEG      += ' and NUM_EXP ='+alltrim(str(laRES_AUX[ss,db_fetchncol(laRES_AUX,'NUM_EXP')]))
+         if db_select(laFIELDS_TRONWEB,'a7009166_vcr',,{lcWHERE_SEG},{'NUM_SINI','NUM_EXP'}) == -1
+            db_rollback()
+            error_sys(db_error())
+         endif
+         laRES_TRONWEB := db_fetchall()
+
+         if len(laRES_TRONWEB) > 1
+            for jj := 2 to 2
+               //---------- Alimentando Depósitos referentes ao sinistro / pasta
+               lcWHERE     := 'NR_PASTA = '+lcNR_PASTA
+               laSAVE      := {}
+               laSAVE_AUX  := {}
+               laRES_PASTA := {}
+
+               if db_select({'sum(VAL_INDENIZACAO_VCR)'},'a7009166_vcr',,{lcWHERE_SEG},{'NUM_SINI','NUM_EXP'},'A',{'NUM_SINI','NUM_EXP'}) == -1
+                  db_rollback()
+                  error_sys(db_error())
+               endif
+               laRES_LIQUID := db_fetchrow()
+            
+               if laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'TIP_EXP')] == 'JUI'
+                  if db_select({'CD_INDICE'},'pasta',,{lcWHERE}) == -1
+                     db_rollback()
+                     error_sys(db_error())
+                  endif
+                  laRES_PASTA := db_fetchrow()
+                  laSAVE:= {{'NR_PASTA','NR_CONTROLE','DT_DEPOSITO','TP_DEPOSITO','VL_DEPOSITO','FL_DEPOSITO',;
+                             'FL_CALCULO','VL_CORRECAO','VL_JUROS','VL_ATUAL','DT_LEVANTAMENTO','CD_INDICE'}}
+                  aadd(laSAVE,{lcNR_PASTA,;
+                               0,;
+                               iif(laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'TIP_LIQ')] = 'T',laRES_TRONWEB[jj,db_fetchncol('laRES_TRONWEB','FEC_LIQ')],laRES_TRONWEB[jj,db_fetchncol('laRES_TRONWEB','FEC_PAGTO_VCR')]),;
+                               laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'NOM_CTO_TABLE')],;
+                               laRES_LIQUID[1],;
+                               iif(laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'TIP_LIQ')] = 'T','Total','Parcial'),;
+                               'S',;
+                               0,;
+                               0,;
+                               laRES_LIQUID[1],;
+                               date(),;
+                               iif(len(laRES_PASTA) > 0,laRES_PASTA[1],0)})                          
+                  if len(laSAVE) > 1
+                  
+wout('Deposito')
+                  
+                     if db_insert(laSAVE,'pasta_deposito') == -1
+                        db_rollback()
+                        error_sys(db_error())
+                     endif
+                  endif          
+            
+               //---------- Alimentando Ressarcimentos referentes ao sinistro / pasta
+               elseif laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'TIP_EXP')] == 'REP'
+                  laSAVE     := {{'NR_PASTA','NR_SINISTRO','NR_CONTROLE','NR_CONTROLE_REC','LOGIN_CADASTRO',;
+                                  'VL_TT_REC','NR_PARC_TT_REC','VECNTO_1_PARC_REC'}}
+                  laSAVE_AUX := {{'NR_CONTROLE_REC','NR_CONTROLE','NR_PASTA','NR_PARC_REC','VL_RECEBIDO_REC',;
+                                  'VL_MULTA_REC','VL_JUROS_REC','DESC_CONC_REC','TP_RECEB','DT_PAGTO_REC',;
+                                  'LOGIN_CADASTRO','BANCO_AGENCIA','BANCO_CONTA','NR_CHEQUE','VL_PARC_REC',;
+                                  'DT_VENCTO_REC','CD_BANCO'}}                          
+                  aadd(laSAVE,{lcNR_PASTA,;
+                               'NUM_SINI = '+alltrim(str(laRES_AUX[ss,db_fetchncol(laRES_AUX,'NUM_SINI')])),;
+                               ,;
+                               0,;
+                               'inso',;
+                               laRES_LIQUID[1],;
+                               1,;
+                               iif(laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'TIP_LIQ')] = 'T',laRES_TRONWEB[jj,db_fetchncol('laRES_TRONWEB','FEC_LIQ')],laRES_TRONWEB[jj,db_fetchncol('laRES_TRONWEB','FEC_PAGTO_VCR')])})
+                  
+                  aadd(laSAVE_AUX,{0,;
+                                   lcNR_PASTA,;
+                                   1,;
+                                   laRES_LIQUID[1],;
+                                   0,;
+                                   0,;
+                                   0,;
+                                   iif(laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'NUM_CHEQUE')] > 0,2,1),;
+                                   iif(laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'TIP_LIQ')] = 'T',laRES_TRONWEB[jj,db_fetchncol('laRES_TRONWEB','FEC_LIQ')],laRES_TRONWEB[jj,db_fetchncol('laRES_TRONWEB','FEC_PAGTO_VCR')]),;
+                                   'inso',;
+                                   iif(laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'NUM_CHEQUE')] > 0,laRES_TRONWEB[jj,db_fetchncol('laRES_TRONWEB','COD_OFICINA')],''),;
+                                   iif(laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'NUM_CHEQUE')] > 0,laRES_TRONWEB[jj,db_fetchncol('laRES_TRONWEB','CTA_CTE')],''),;
+                                   laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'NUM_CHEQUE')],;
+                                   laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'NUM_CHEQUE')],;
+                                   laRES_LIQUID[1],;
+                                   iif(laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'TIP_LIQ')] = 'T',laRES_TRONWEB[jj,db_fetchncol('laRES_TRONWEB','FEC_LIQ')],laRES_TRONWEB[jj,db_fetchncol('laRES_TRONWEB','FEC_PAGTO_VCR')]),;
+                                   iif(laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'NUM_CHEQUE')] > 0,laRES_TRONWEB[jj,db_fetchncol('laRES_TRONWEB','COD_ENTIDAD')],'')})
+                                
+                  if len(laSAVE) > 1
+
+wout('Ressarcimento')
+                  
+                     if db_insert(laSAVE,'receb_ressarc') == -1
+                        db_rollback()
+                        error_sys(db_error())
+                     endif
+                  endif 
+                  if len(laSAVE_AUX) > 1
+                     if db_insert(laSAVE_AUX,'mvt_parc_ressarc') == -1
+                        db_rollback()
+                        error_sys(db_error())
+                     endif
+                  endif 
+
+               //---------- Alimentando Despesas referentes ao sinistro / pasta
+               else
+                  lcAJUSTA_PEDIDO := iif(laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'COD_COB')] > 0,'S','N')
+                  lcWHERE         := 'NM_GRP_DESPESA = '+DLAP+laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'NOM_CTO_RVA')]+DLAP
+                  //---------- Buscando Grupo de Despesa
+                  if db_select({'CD_GRP_DESPESA'},'grupo_despesa',,{lcWHERE}) == -1
+                     db_rollback()
+                     error_sys(db_error())
+                  endif
+                  laRES_GRP := db_fetchrow()
+                  if len(laRES_GRP) == 0
+                     //------------ Se o grupo de Despesa não existe, insere um novo grupo
+                     laSAVE := {{'CD_GRP_DESPESA','NM_GRP_DESPESA'},;
+                                 {alltrim(str(laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'COD_CTO_RVA')])),;
+                                  laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'NOM_CTO_RVA')]}}
+                     if db_insert(laSAVE,'grupo_despesa') == -1
+                        db_rollback()
+                        error_sys(db_error())
+                     endif
+                  endif
+                  //------------ Localiza a Despesa
+                  lcWHERE := 'NM_DESPESA = '+DLAP+laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'NOM_CTO_CTABLE')]+DLAP
+                  lcWHERE += ' and CD_GRP_DESPESA = '+iif(len(laRES_GRP)>0,laRES_GRP[1],alltrim(str(laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'COD_CTO_RVA')])))
+                  if db_select({'CD_DESPESA'},'despesa',,{lcWHERE}) == -1
+                     db_rollback()
+                     error_sys(db_error())
+                  endif
+                  laRES_DESP := db_fetchrow()
+
+                  lcWHERE := 'NR_SINISTRO = '+DLAP+str(laRES_AUX[ss,db_fetchncol(laRES_AUX,'NUM_SINI')])+DLAP
+                  if db_select({'NR_CONTROLE'},'pasta_seguro',,{lcWHERE}) == -1
+                     db_rollback()
+                     error_sys(db_error())
+                  endif
+                  laRES_SINISTRO := db_fetchrow()
+                              
+                  if len(laRES_DESP) == 0
+                     //------------ Se a Despesa não existe, insere um nova Despesa
+                     laSAVE := {{'CD_DESPESA','NM_DESPESA','CD_MOEDA','CD_GRP_DESPESA','FL_AJUSTA_PEDIDO',;
+                                 'FL_CONTABILIZA_PEDIDO','FL_CONTABILIZA_LANCTOS_CONT','CD_DESPESA_INTERFACE',;
+                                 'OCOR_PEDIDO_QUITA'}}
+                     aadd(laSAVE,{laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'COD_CTO_COB_PAG')],;
+                                  laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'NOM_CTO_CTABLE')],;
+                                  laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'COD_MON_LIQ')],;
+                                  alltrim(str(laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'COD_CTO_RVA')])),;
+                                  lcAJUSTA_PEDIDO,;
+                                  lcAJUSTA_PEDIDO,;
+                                  lcAJUSTA_PEDIDO,;
+                                  alltrim(str(laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'NUM_LIQ')])),;
+                                 'Liquidação de Pedidos'})
+
+wout('despesa')
+
+                     if db_insert(laSAVE,'despesa') == -1
+                        db_rollback()
+                        error_sys(db_error())
+                     endif
+                  endif
+                  //---------- Localiza Tipo de Favorecido
+                  lcWHERE := 'TP_FAVORECIDO = '+DLAP+laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'DES_ACTIVIDAD')]+DLAP
+                  if db_select({'TP_FAVORECIDO'},'tipo_favorecido',,{lcWHERE}) == -1
+                     db_rollback()
+                     error_sys(db_error())
+                  endif
+                  laRES_TPFAV := db_fetchrow()
+                  if len(laRES_TPFAV) == 0
+                     //---------- Se o Tipo de Favorecido não é encontrado, insere.
+                     laSAVE := {{'TP_FAVORECIDO'},{laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'DES_ACTIVIDAD')]}}
+                     if db_insert(laSAVE,'tipo_favorecido') == -1
+                        db_rollback()
+                        error_sys(db_error())
+                     endif
+                  endif   
+                  //---------- Insere o Movto de Despesa
+                  laSAVE     := {{'NR_PASTA','NR_DESPESA','DT_REF','CD_DESPESA','QUANTIDADE','VL_UNIT','EXTRA',;
+                                  'LOGIN_RESP','CD_MOEDA','VL_TOTAL','CD_GRP_DESPESA','DT_PREVISAO_PAGTO',;
+                                  'FORMA_PAGAMENTO','CIP_FAVORECIDO','TP_FAVORECIDO','NR_CONTROLE_SEGURO'}}
+                  laSAVE_AUX := {}            
+                  aadd(laSAVE_AUX,lcNR_PASTA)
+                  aadd(laSAVE_AUX,0)
+                  aadd(laSAVE_AUX,laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'FEC_LIQ')])
+                  aadd(laSAVE_AUX,iif(len(laRES_DESP) > 0,laRES_DESP[1],laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'COD_CTO_COB_PAG')]))
+                  aadd(laSAVE_AUX,1)
+                  aadd(laSAVE_AUX,laRES_LIQUID[1])
+                  aadd(laSAVE_AUX,laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'OBS_PAGTO_VCR')])
+                  aadd(laSAVE_AUX,'inso')
+                  aadd(laSAVE_AUX,laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'COD_MON_LIQ')])
+                  aadd(laSAVE_AUX,laRES_LIQUID[1])
+                  aadd(laSAVE_AUX,iif(len(laRES_GRP) > 0,laRES_GRP[1],laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'COD_CTO_RVA')]))
+                  aadd(laSAVE_AUX,laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'FEC_EST_PAGO')])
+                  aadd(laSAVE_AUX,iif(laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'NUM_CHEQUE')] > 0,'Cheque','Dinheiro'))
+                  aadd(laSAVE_AUX,incluir_cip_pfpj(alltrim(laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'NOM_BENEF_VCR')]),'FAV'))
+                  aadd(laSAVE_AUX,laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'DES_ACTIVIDAD')])
+                  aadd(laSAVE_AUX,iif(len(laRES_SINISTRO) > 0,laRES_SINISTRO[1],0))
+               
+                  aadd(laSAVE,laSAVE_AUX)
+                  if db_insert(laSAVE,'mvt_despesa') == -1
+                     db_rollback()
+                     error_sys(db_error())
+                  endif
+              
+                  lnNR_DESPESA := db_insert_id()
+               
+                  //---------- Insere Movto de Despesa Pgto
+                  laSAVE     := {}
+                  laSAVE     := {{'NR_PASTA','NR_DESPESA','NR_CONTROLE','DT_PAGAMENTO','VL_PAGO',;
+                                  'DT_CADASTRO','LOGIN_CADASTRO','FL_PAGAMENTO'}}
+                  laSAVE_AUX := {}            
+                  aadd(laSAVE_AUX,lcNR_PASTA)
+                  aadd(laSAVE_AUX,lnNR_DESPESA)
+                  aadd(laSAVE_AUX,0)
+                  aadd(laSAVE_AUX,laRES_TRONWEB[jj,db_fetchncol(laRES_TRONWEB,'FEC_PAGTO_VCR')])
+                  aadd(laSAVE_AUX,laRES_LIQUID)
+                  aadd(laSAVE_AUX,date())
+                  aadd(laSAVE_AUX,'inso')
+                  aadd(laSAVE_AUX,'A')
+               
+                  aadd(laSAVE,laSAVE_AUX)
+                  if db_insert(laSAVE,'mvt_despesa_pagamento') == -1
+                     db_rollback()
+                     error_sys(db_error())
+                  endif
+               endif
+            next jj
+         endif      
+      next ss
+      lnREG_INI := lnLIMITE + 1
+      lnLIMITE  += 3000 
+   enddo
+
+wout('Os Pendentes...')
+
+   //---------- Inserindo Sinistros Pendentes
+   //---------- Selecionando os Sinistros não encontrados nas pastas do ISJ.
+   if db_select({'a7009165_vcr.NUM_SINI',;
+                 'a7009165_vcr.NUM_EXP',;
+                 'a7009165_vcr.TIP_EXP',;
+                 'a7009165_vcr.MCA_SISTEMAS_VCR',;
+                 'pasta.NR_SINISTRO',;
+                 'pasta.NR_PASTA'},;
+                 'a7009165_vcr',;
+                 {{2,'pasta','pasta.NR_SINISTRO=TO_CHAR(a7009165_vcr.NUM_SINI)'}},;
+                 {'pasta.NR_SINISTRO is null'},{'NUM_SINI'}) == -1
+      db_rollback() 
+      error_sys(db_error())
+   endif
+   laRES_AUX := db_fetchall()
+   if len(laRES_AUX) > 1
+      for ii := 2 to len(laRES_AUX)
+         lcWHERE_SEG := 'NR_SINISTRO = '+alltrim(str(laRES_AUX[ii,db_fetchncol(laRES_AUX,'NUM_SINI')]))
+         lcWHERE_SEG += ' and NR_EXPEDIENTE ='+alltrim(str(laRES_AUX[ii,db_fetchncol(laRES_AUX,'NUM_EXP')]))
+         lcWHERE_SEG += ' and NR_PASTA_JUI ='+alltrim(str(laRES_AUX[ii,db_fetchncol(laRES_AUX,'NR_PASTA')]))
+         laSAVE := {{'NR_SINISTRO','NR_EXPEDIENTE','TP_EXPEDIENTE','NR_PASTA_JUI','PRG_ORIGEM'}}
+         if db_select({'NR_PASTA_JUI'},'sinistros_pendentes',,{lcWHERE_SEG}) == -1
+            db_rollback() 
+            error_sys(db_error())
+         endif
+         laRES_TRONWEB := db_fetchrow()
+         
+         if len(laRES_TRONWEB) == 0                    
+            //---------- Enviar para Sinistros Pendentes
+            aadd(laSAVE,{laRES_AUX[ii,db_fetchncol(laRES_AUX,'NUM_SINI')],;
+                         laRES_AUX[ii,db_fetchncol(laRES_AUX,'NUM_EXP')],;
+                         laRES_AUX[ii,db_fetchncol(laRES_AUX,'TIP_EXP')],;
+                         laRES_AUX[ii,db_fetchncol(laRES_AUX,'NR_PASTA')],;
+                         laRES_AUX[ii,db_fetchncol(laRES_AUX,'MCA_SISTEMAS_VCR')]})
+         endif                  
+         if len(laSAVE) > 1 
+            //---------- Inserindo os sinistros não encontrados na tabela de pendentes.
+            if db_insert(laSAVE,'sinistros_pendentes') == -1
+               db_rollback() 
+               error_sys(db_error())
+            endif
+         endif  
+      next ii
+   endif   
+return(nil)
+         
+
+/*
+* Function..: incluir_cip_pfpj(fcVAL, fcTIPO, fnHAND1)
+* Objetivo..: Solicita o numero do cip da tabela pfpj
+* Parâmetros: fcVAL   valor do pfpj.PFPJ
+              fcTIPO
+* Retorno...: CIP de fcVAL recebido
+*/
+Static Function incluir_cip_pfpj(fcVAL, fcTIPO)
+
+   local lcVAL    := '' ,;
+         lcTABLE  := 'pfpj' ,;                                                    // tabela a serem consultada
+         lcINSERT := 'insert into ' + lcTABLE + ' (PFPJ, PFPJ_TIPO) VALUES (' ,;
+         lcUPDATE := 'update ' + lcTABLE + ' set CIP = ' as string
+
+   local lnRET      := 0 ,;
+         lnCONTROLE := 0 as int
+         
+   local laFIELDS   := {'CIP','NR_CONTROLE'} ,;                            // colunas a serem geradas no select
+         laWHERE    := {'PFPJ like '+DLAP+'%'+alltrim(fcVAL)+'%'+DLAP} ,;  // clausula where para solicitacao de dados ao SNT
+         laRES_PFPJ := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laDATA     := {} as array
+
+   if db_select(laFIELDS,lcTABLE,,laWHERE) == -1
+      wout('Problemas em db_select. ProcLine: '+alltrim(str(procline()))+' ProcName: '+ProcName())
+      wout('Erro Select -> '+db_error())
+   endif
+   laDATA := db_fetchrow()
+   if len(laDATA) > 0
+      lcVAL := laDATA[1]
+      if db_select({'PFPJ_TIPOS'},'pfpj',,{'CIP = '+DLAP+lcVAL+DLAP}) == -1
+         db_rollback()
+         error_sys(db_error())
+      endif
+      laRES_PFPJ := db_fetchrow()
+      if at(fcTIPO,laRES_PFPJ[1]) <= 0
+         laRES_PFPJ[1] +=','+fcTIPO
+         laSAVE_PFPJ := {{'PFPJ_TIPOS'},{laRES_PFPJ[1]}}
+         if db_update(laSAVE_PFPJ,'pfpj',{'CIP = '+DLAP+lcVAL+DLAP}) == -1
+            db_rollback()
+            error_sys(db_error())
+         endif
+      endif         
+   else
+      lcINSERT += DLAP+ alltrim(fcVAL)+DLAP+','+DLAP+fcTIPO+DLAP+')'
+      if db_select({'max(NR_CONTROLE)'},'pfpj') == -1
+         db_rollback()
+         error_sys(db_error())
+      endif
+      laRES_PFPJ := db_fetchrow()
+      lcVAL      := strzero(laRES_PFPJ[1] + 1,6,0)
+      laSAVE     :={{'NR_CONTROLE','CIP','PFPJ','PFPJ_CHAR','NM_FANTASIA','PFPJ_TIPO','PFPJ_TIPOS','LOGIN_CADASTRO','DT_CADASTRO','PFPJ_NATUREZA','LOGIN_APROVACAO','FL_APROVADO'}}
+      aadd(laSAVE_AUX,val(lcVAL))
+      aadd(laSAVE_AUX,lcVAL)
+      aadd(laSAVE_AUX,alltrim(fcVAL))
+      aadd(laSAVE_AUX,lower(alltrim(fcVAL)))
+      aadd(laSAVE_AUX,alltrim(fcVAL))
+      aadd(laSAVE_AUX,fcTIPO)
+      aadd(laSAVE_AUX,fcTIPO)
+      aadd(laSAVE_AUX,'inso')
+      aadd(laSAVE_AUX,dtos(date()))
+      aadd(laSAVE_AUX,'Juridica')
+      aadd(laSAVE_AUX,'inso')
+      aadd(laSAVE_AUX,'S')
+      
+      aadd(laSAVE,laSAVE_AUX)
+      if db_insert(laSAVE,lcTABLE) == -1
+         wout('Erro Insert -> '+db_error())
+         wout('Ultimo Comando -> '+wset('_LASTSQL'))
+         lcVAL := ''
+      else
+         lcINSERT += DLAP+ alltrim(fcVAL)+DLAP+','+DLAP+fcTIPO+DLAP+')'
+         if db_select({'max(NR_CONTROLE)'},'pfpj') == -1
+            db_rollback()
+            error_sys(db_error())
+         endif
+         laRES_PFPJ := db_fetchrow()
+         lcVAL      := strzero(laRES_PFPJ[1] + 1,6,0)
+         laSAVE     :={{'NR_CONTROLE','CIP','PFPJ','PFPJ_CHAR','NM_FANTASIA','PFPJ_TIPO','PFPJ_TIPOS','LOGIN_CADASTRO','DT_CADASTRO','PFPJ_NATUREZA','LOGIN_APROVACAO','FL_APROVADO'}}
+         aadd(laSAVE_AUX,val(lcVAL))
+         aadd(laSAVE_AUX,lcVAL)
+         aadd(laSAVE_AUX,alltrim(fcVAL))
+         aadd(laSAVE_AUX,lower(alltrim(fcVAL)))
+         aadd(laSAVE_AUX,alltrim(fcVAL))
+         aadd(laSAVE_AUX,fcTIPO)
+         aadd(laSAVE_AUX,fcTIPO)
+         aadd(laSAVE_AUX,'inso')
+         aadd(laSAVE_AUX,dtos(date()))
+         aadd(laSAVE_AUX,'Juridica')
+         aadd(laSAVE_AUX,'inso')
+         aadd(laSAVE_AUX,'S')
+      
+         aadd(laSAVE,laSAVE_AUX)
+         if db_insert(laSAVE,lcTABLE) == -1
+            wout('Erro Insert -> '+db_error())
+            wout('Ultimo Comando -> '+wset('_LASTSQL'))
+            lcVAL := ''
+         endif
+      endif
+   endif    
+return (lcVAL)
+
+/*
+* Function..: incluir_objeto(fcVAL)
+* Objetivo..: Solicita um objeto
+* Parâmetros: 
+*             fcVAL      - Descrição do Objeto
+*             fcTP_PASTA - Tipo de Pasta
+*             fcVISIVEL  - Visibilidade do Objeto - W/R/I
+* 
+* Retorno...: Objeto no fcVAL
+*/
+Static Function incluir_objeto(fcVAL,fcTP_PASTA,fcVISIVEL)
+   local lcVAL := '' as string
+   
+   local laRES_OBJETO := {} ,;
+         laSAVE       := {} as array
+
+   if db_select({'OBJETO'},'pasta_objeto',,{'OBJETO ='+DLAP+fcVAL+DLAP+' and TP_PASTA ='+DLAP+fcTP_PASTA+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRES_OBJETO := db_fetchrow()
+   if len(laRES_OBJETO) > 0
+      lcVAL := laRES_OBJETO[1]
+   else
+      laSAVE := {{'OBJETO','TP_PASTA','FL_VISIVEL'},{fcVAL,fcTP_PASTA,fcVISIVEL}}
+      db_begin()
+      if db_insert(laSAVE,'pasta_objeto') == -1
+         error_sys(db_error())
+      endif
+      db_commit()
+      lcVAL := fcVAL
+   endif
+return(lcVAL)        

@@ -1,0 +1,1085 @@
+/*
+
+Project      : isj_391 (Aba solicitada por Tokio Marine)
+Program      : psab.receb_ressarc.html
+Function     : psab_receb_ressarc_html
+Created on   : 4/12/2008 12:01:01 - Sonia Perdigão
+Descripition : Recebimento de Ressarcimento
+
+               Valdimari Martins - Ajustes e Correções - 13/04/2009
+                                   Inclusão do Campo Expediente... 
+*/
+
+ local   lcACTION       := upper(WGet('ACTION','C')),;
+         lcNR_SEGURO    := alltrim(WGET('NR_CONTROLE_SEGURO','C')) ,;
+         lcCTRL_REC     := alltrim(WGET('NR_CONTROLE_REC','C')) ,;
+         lcCTRL_PARC    := alltrim(WGET('NR_CONTROLE_PARC','C')) ,;
+         lcNR_SINISTRO  := alltrim(WGET('NR_SINISTRO','C')) ,;
+         lcNR_PASTA     := alltrim(WGet('NR_PASTA','C')) ,;
+         lcTP_PASTA     := alltrim(WGet('TP_PASTA','C')) ,;
+         lcTABLE        := 'pasta' ,;
+         lcVAR          := '' ,;
+         lcWHERE_LOG    := '' ,;
+         lcWHERE        := '' ,;
+         lcWHERE1       := '' ,;
+         lcWHERE2       := '' ,;
+         lcRECEBE       := '' ,;
+         lcRESSARC      := '' as string
+         
+   local laFIELDS      := {} ,;
+         laFIELDSP     := {} ,;    
+         laFIELDSX     := {} ,;
+         laJOINS       := {} ,;
+         laSAVE        := {} ,;
+         laSAVEP       := {} ,;
+         laSAVE_ALTER  := {} ,;
+         laSAVE_AUX    := {} ,;
+         laRESSARC     := {} ,; 
+         laWHERE       := {} ,;
+         laPUT         := {} ,;
+         laRES         := {} ,;
+         laRES1        := {} ,;
+         laRES_REC     := {} ,;
+         laRES_CONFIG  := {} ,;
+         laRESULT      := {} ,;
+         laPARC_ATUAL  := {} ,;
+         laLINHA_ATUAL := {} ,;
+         laORDER_BY    := {'NR_PARC_REC'} as array
+
+   local lnPARC_REC := 0 ,;
+         lnPARC_PG  := 0 ,;
+         ii         := 0 ,;
+         lnTOT      := 0 ,;
+         xx 	      := 0 ,;
+         lnPOS      := 0 as int
+         
+  local lnVTR       := 0.00 ,;  //Total VL_RISCO
+        lnVTC       := 0.00 ,; //Total VL_CORRECAO
+        lnVTJ       := 0.00 ,; //Total VL_JURO
+        lnVTA       := 0.00 ,; //Total VL_ATUALIZADO
+        lnVTP       := 0.00 ,;
+        lnVA        := 0.00 ,;
+        lnVTRC      := 0.00 ,;
+        lnVRC       := 0.00 ,;
+        lnVC        := 0.00 ,;
+        lnVL_TT_REC := 0.00 ,;       
+        lnVAL_PARC  := 0.00 ,;
+        lnSLD_PARC  := 0.00 ,;
+        lnVJ        := 0.00 ,;
+        lnVCSUC     := 0.00 ,;
+        lnVJSUC     := 0.00 as numeric
+
+   local llAUX          := .t. ,;
+         llCARREGA_GRID := .t. ,;
+         llVA           := .f. ,;
+         llERROR        := .f. as logical
+
+   local ldDTSUC, ldDT_VENCTO, ldDT_PAGTO as date
+
+   init_reqfield(WSet('_USER_INTERFACE'))
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   lcRECEBE      := 'receb_ressarcimento'
+   lcRESSARC     := 'mvt_parc_ressarc'
+   laRECEBE      := structtable(WSet("DB_ACTIVE"),lcRECEBE,1,'A')
+   laRESSARC     := structtable(WSet("DB_ACTIVE"),lcRESSARC,1,'A')
+   //pegando lcLAYOUT_PASTA
+  
+   if db_select({'LAYOUT_PASTA'},'pasta_config',,{'TP_PASTA='+DLAP+LCTP_PASTA+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESLAY := db_fetchrow()
+   if len(laRESLAY) > 0
+      lcLAYOUT_PASTA := lower(laRESLAY[1])
+   endif
+
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   pasta_abas(lcTP_PASTA)
+
+   WPut('DT_CADASTRO',date())
+   WPut('LOGIN_CADASTRO',gcLOGIN)
+   WPut('LOGIN_CADASTRO.readonly',.t.)
+   WPut('LOGIN_CADASTRO.class','winputreadonly')
+
+   //---------- Carregando Configuração do Ressarcimento
+   if db_select({'RECEBIMENTO_PARCIAL',;
+                 'LIMITE_MAX_DESCONTO',;
+                 'PORCENTAGEM_JUROS_AM',;
+                 'PORCENTAGEM_MULTA'},;
+                 'config_ressarcimento') == -1
+      error_sys(db_error())
+   endif               
+   laRES_CONFIG := db_fetchrow()
+   if len(laRES_CONFIG) < 1
+      walert('Configuração para Ressarcimento não foi realizada.')
+      return(nil)
+   endif   
+
+   //------------ CARREGA SEGURO
+   if db_select({'pasta_seguro.NR_PASTA',;
+                 'pasta_seguro.NR_CONTROLE',;
+                 'pasta_seguro.NR_SINISTRO',;
+                 'pasta_seguro.NR_EXPEDIENTE',;
+                 'pasta_seguro.TP_EXPEDIENTE',;
+                 'pasta_seguro.FL_SINISTRO',;
+                 'sinistro_status.FL_SINISTRO'},;
+                 'pasta_seguro',;
+                 {{2,'sinistro_status','sinistro_status.FL_SINISTRO=pasta_seguro.FL_SINISTRO'}},;
+                 {'pasta_seguro.NR_PASTA='+lcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+   laRES1 := db_fetchall()
+   if len(laRES1) > 0
+      WPut('lstSEG_SINISTRO',laRES1)
+   endif
+   
+   lcTABLE     := 'receb_ressarcimento'
+   laFIELDS    := structtable(WSet("DB_ACTIVE"),'receb_ressarcimento',1,'A')
+   laFIELDSP   := {'NR_PASTA','NR_SINISTRO','NR_CONTROLE_SEGURO','NR_CONTROLE_REC','LOGIN_CADASTRO','VL_TT_REC','NR_PARC_TT_REC','VENCTO_1_PARC_REC'} 
+   laRESSARC   := structtable(WSet("DB_ACTIVE"),'mvt_parc_ressarc',1,'A')
+   larecto     := loadcbox_build('recebimento','TP_RECEB',.t.)
+   lcWHERE     := 'NR_PASTA='+lcNR_PASTA
+   laFOREIGN   := {{'TP_RECEB','TP_RECEB','recebimento','DESC_RECEB'}}
+   aadd(laJOINS,{2,'recebimento','recebimento.TP_RECEB=mvt_parc_ressarc.TP_RECEB'})
+   // Glauber 06/01/2011
+   AbasPerfil(lcTP_PASTA,laFIELDS)
+
+   WPut('ifINF_RESSARC',.f.)
+   WPut('ifPARCELAS',.f.)
+   
+   //---------- Seleciona Recebimento do Sinistro
+
+   lcWHERE2    := 'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE_SEGURO='+iif(lcNR_SEGURO='','0',lcNR_SEGURO)
+   if db_select({'VL_TT_REC','NR_PARC_TT_REC','VENCTO_1_PARC_REC','NR_CONTROLE_REC'},'receb_ressarcimento',,{lcWHERE2}) == -1
+      error_sys(db_error())
+   endif
+   laRES_REC := db_fetchrow()
+   if len(laRES_REC) > 0
+      lcCTRL_REC := alltrim(str(laRES_REC[4]))
+      WPUT('NR_SINISTRO',lcNR_SINISTRO)
+      WPUT('NR_CONTROLE_SEGURO',lcNR_SEGURO)
+      WPUT('NR_CONTROLE_REC',lcCTRL_REC)
+      WPUT('VL_TT_REC',laRES_REC[1])
+      WPUT('NR_PARC_TT_REC',laRES_REC[2])
+      WPUT('VENCTO_1_PARC_REC',laRES_REC[3])
+   endif
+
+   laFIELDSX := {'mvt_parc_ressarc.NR_PASTA',;           // 1
+                 'mvt_parc_ressarc.NR_CONTROLE_REC',;    // 2
+                 'mvt_parc_ressarc.NR_CONTROLE_PARC',;   // 3
+                 'mvt_parc_ressarc.NR_PARC_REC',;        // 4  
+                 'mvt_parc_ressarc.DT_VENCTO_REC',;      // 5
+                 'mvt_parc_ressarc.VL_PARC_REC',;        // 6
+                 'mvt_parc_ressarc.DT_PAGTO_REC',;       // 7 
+                 'mvt_parc_ressarc.VL_RECEBIDO_REC',;    // 8
+                 'mvt_parc_ressarc.VL_JUROS_REC',;       // 9
+                 'mvt_parc_ressarc.VL_MULTA_REC',;       //10
+                 'mvt_parc_ressarc.DESC_CONC_REC',;      //11
+                 'mvt_parc_ressarc.TP_RECEB',;           //12
+                 'recebimento.DESC_RECEB',;              //13 
+                 'mvt_parc_ressarc.CD_BANCO',;           //14
+                 'mvt_parc_ressarc.NR_CHEQUE',;          //15
+                 'mvt_parc_ressarc.BANCO_AGENCIA',;      //16
+                 'mvt_parc_ressarc.BANCO_CONTA',;        //17
+                 'mvt_parc_ressarc.SACADO_REC',;         //18 
+                 'mvt_parc_ressarc.DOCUMENTO_SACADO'}    //19
+                 
+   //---------- Seleciona as Parcelas Recebimento Atuais.
+   lcWHERE2    := 'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE_REC='+iif(lcCTRL_REC='','0',lcCTRL_REC)
+   if db_select ({'DT_VENCTO_REC',;
+                  'VL_PARC_REC',;
+                  'DT_PAGTO_REC',;
+                  'VL_RECEBIDO_REC',;
+                  'VL_JUROS_REC',;
+                  'VL_MULTA_REC',;
+                  'DESC_CONC_REC',;
+                  'TP_RECEB',;
+                  'CD_BANCO',;
+                  'NR_CHEQUE',;
+                  'BANCO_AGENCIA',;
+                  'BANCO_CONTA',;
+                  'SACADO_REC',;
+                  'DOCUMENTO_SACADO'},;
+                  'mvt_parc_ressarc',,;
+                  {lcWHERE2},laORDER_BY) == -1
+      error_sys(db_error())
+   endif
+   laPARC_ATUAL := db_fetchall()               
+   //---------- Seleciona Parcelas do Recebimento
+   lcWHERE5    := 'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE_REC='+iif(lcCTRL_REC='' .OR. lcCTRL_REC='0','0',lcCTRL_REC)
+   if db_select(laFIELDSX,'mvt_parc_ressarc',laJOINS,{lcWHERE5},laORDER_BY) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   if db_select({'NM_MENU'},'wmenu',,{'NM_MENU like '+DLAP+'%Expediente%'+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRES_MENU := db_fetchrow()
+         
+   if len(laRES_MENU) > 0
+      WPut('ifEXPEDIENTE',.t.)
+   else   
+      WPut('ifEXPEDIENTE',.f.)
+   endif
+
+   if lcACTION == 'ALTER' .and. gbWAC_READ
+
+      WPut('ifINF_RESSARC',.t.)
+            
+      if len(laRES_REC) > 0
+
+         laAUX1   := {'VL_TT_REC','NR_PARC_TT_REC','VENCTO_1_PARC_REC'}
+         lcWHERE1 := 'NR_CONTROLE_SEGURO ='+lcNR_SEGURO
+         
+         if len(laRESULT) > 1
+            WPut('ifPARCELAS',.t.)
+
+            db2Put(laRESULT)
+
+            /* Selecionando Relacionamentos */
+            for ii := 1 to len(laFOREIGN)
+               lnPOS := ascan(laRESULT[1],laFOREIGN[ii,1])
+               if lnPOS > 0
+                  if valtype(laRESULT[2,lnPOS]) == 'N'
+                     if laRESULT[2,lnPOS] == 0
+                        llAUX := .f.
+                     else
+                        lcAUX := laFOREIGN[ii,2]+'='+str(laRESULT[2,lnPOS])
+                        llAUX := .t.
+                     endif
+                  else
+                     if empty(alltrim(laRESULT[2,lnPOS]))
+                        llAUX := .f.
+                     else
+                        lcAUX := laFOREIGN[ii,2]+'='+DLAP+laRESULT[2,lnPOS]+DLAP
+                        llAUX := .t.
+                     endif
+                  endif
+
+                  if llAUX
+                     if db_select({laFOREIGN[ii,4]},laFOREIGN[ii,3],,{lcAUX}) == -1
+                        error_sys(db_error())
+                     endif
+                     db2Put(db_fetchall())
+                  endif
+               endif
+            next ii
+         endif
+      else
+         walert('Sinistro sem Recebimentos nem Parcelas')
+         wPut('ifPARCELAS',.f.)
+         lcCTRL_REC  := '0'
+         lcNR_SEGURO := wGet('NR_CONTROLE_SEGURO','C')        
+         wPut('NR_SINISTRO',lcNR_SINISTRO)
+         wPut('NR_CONTROLE_SEGURO',lcNR_SEGURO)
+         wPut('NR_CONTROLE_REC',lcCTRL_REC)
+      endif   
+
+   elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+
+      lnPARC_REC    := WGET('NR_PARC_TT_REC','N')
+      lnVL_TT_REC   := WGET('VL_TT_REC','N')
+      lnSLD_PARC    := lnVL_TT_REC
+      ldVENCTO_PARC := WGET('VENCTO_1_PARC_REC','D')
+
+      if verif_reqfield(WSet('_USER_INTERFACE'))
+         wPut('ifINF_RESSARC',.t.)
+         wPut('ifPARCELAS',.f.)
+         if lnVL_TT_REC <= 0
+            walert('Valor Total a Receber não pode ser igual a Zero.')
+            get2put()
+            llERROR := .t. 
+         elseif lnPARC_REC <= 0
+            walert('Total de Parcelas deve ser informado.')
+            get2put()
+            llERROR := .t. 
+         elseif empty(ldVENCTO_PARC)
+            walert('A data do primeiro vencimento deve ser informada.')
+            get2put()
+            llERROR := .t. 
+         else
+            WPut('ifINF_RESSARC',.t.)
+
+            //---------- Alterando Recebimento do Sinistro 
+            aadd(laSAVEP,laFIELDSP)
+            aadd(laSAVEP,{lcNR_PASTA,lcNR_SINISTRO,lcNR_SEGURO,lcCTRL_REC,gcLOGIN,lnVL_TT_REC,lnPARC_REC,ldVENCTO_PARC})    
+// equiparacao com Tokio Ressarcimento 5/7/2011 11:41:11
+//            lcWHERE_LOG := 'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE_SEGURO='+lcNR_SEGURO+' and NR_CONTROLE_REC='+lcCTRL_REC
+//            if lcCTRL_REC <> '' .AND. lcCTRL_REC <> '0'
+//               psab_logs(laSAVEP,'receb_ressarcimento',lcWHERE_LOG,lcNR_PASTA,'Ressarcimento - Recebimento')
+//            endif
+            lcWHERE2    := 'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE_SEGURO='+iif(lcNR_SEGURO='','0',lcNR_SEGURO)
+
+            if len(laRES_REC) > 0
+               if lcWHERE2 <> ''
+                  if db_replace(laSAVEP,'receb_ressarcimento',{lcWHERE2}) == -1
+                     error_sys(db_error())
+                  endif
+               else
+                  if db_replace(laSAVEP,'receb_ressarcimento',) == -1
+                     error_sys(db_error())
+                  endif
+               endif
+/* equiparacao com Tokio Ressarcimento 5/7/2011 11:41:11
+            endif
+            else
+               if db_insert(laSAVEP,'receb_ressarcimento') == -1
+                  error_sys(db_error())
+               endif
+               wPut('NR_CONTROLE_REC',db_insert_id())
+            endif
+
+            if len(laRES_REC) > 0 
+               if db_replace(laSAVEP,'receb_ressarcimento',{lcWHERE2}) == -1
+                  error_sys(db_error())
+               endif
+*/
+           else
+               if db_insert(laSAVEP,'receb_ressarcimento') == -1
+                  error_sys(db_error())
+               endif
+               wPut('NR_CONTROLE_REC',db_insert_id())
+            endif
+                        
+            if lcCTRL_REC == '' .OR. lcCTRL_REC == '0'
+               if db_query('select max(NR_CONTROLE_REC) from receb_ressarcimento')  == -1
+                  db_rollback()
+                  error_sys(db_error())
+               endif   
+               laULT_CTRL        := db_fetchrow()
+               lcCTRL_REC := str(laULT_CTRL[1])
+            endif
+            //-------- Abrindo Grid das Parcelas
+            
+            wPut('ifPARCELAS',.t.)
+            wPut('VL_TT_REC',lnVL_TT_REC)
+            wPut('NR_PARC_TT_REC',lnPARC_REC)
+            wPut('VENCTO_1_PARC_REC',ldVENCTO_PARC) 
+/* equiparacao com Tokio Ressarcimento 5/7/2011 11:41:11 */
+//            wPut('NR_CONTROLE_SEGURO',lcNR_SEGURO)
+            wPut('NR_CONTROLE',lcNR_SEGURO)
+            wPut('NR_SINISTRO',lcNR_SINISTRO)
+            wPut('NR_CONTROLE_REC',lcCTRL_REC)
+/* equiparacao com Tokio Ressarcimento 5/7/2011 11:41:11 */
+//            lcWHERE_LOG := 'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE_REC='+lcCTRL_REC
+
+            if len(laRESULT) <= 1
+               lnVAL_PARC    := lnVL_TT_REC / lnPARC_REC
+               aadd(laSAVE,{'NR_CONTROLE_PARC','NR_PASTA','NR_CONTROLE_REC','NR_PARC_REC','LOGIN_CADASTRO','VL_PARC_REC','DT_VENCTO_REC'})
+               for ii:=1 to lnPARC_REC
+                  if ii == lnPARC_REC .and. lnSLD_PARC <> lnVAL_PARC
+                     lnVAL_PARC := lnSLD_PARC              
+                  endif   
+                  aadd(laSAVE,{0,val(lcNR_PASTA),lcCTRL_REC,ii,gcLOGIN,lnVAL_PARC,ldVENCTO_PARC})
+                     ldVENCTO_PARC := AddMonth (ldVENCTO_PARC, 1)
+                     ldVENCTO_PARC := ctod(ldVENCTO_PARC)
+//                  ldVENCTO_PARC += 30
+                  lnSLD_PARC    := lnSLD_PARC - round(lnVAL_PARC,2)
+               next ii
+               if len(laSAVE) > 1
+                  psab_logs(laSAVE,'mvt_parc_ressarc',lcWHERE_LOG,lcNR_PASTA,'Ressarcimento - Parcelas')
+                  if db_insert(laSAVE,'mvt_parc_ressarc') == -1
+                     error_sys(db_error())
+                  endif
+               endif
+            else
+               //---------- Testa se a Alteração foi no Recebimento ou na Grid de Parcelas. 
+
+               if lnVL_TT_REC <> laRES_REC[1] .or. lnPARC_REC <> laRES_REC[2] .or. ldVENCTO_PARC <> laRES_REC[3]  
+                  lnVAL_PARC := lnVL_TT_REC / lnPARC_REC
+                  laSAVE     := {}
+                  laWHERE    := {}
+                  aadd(laSAVE,{'LOGIN_CADASTRO','VL_PARC_REC','DT_VENCTO_REC'})
+                  lnPARC_EXISTE := len(laRESULT)-1  
+
+                  //---------- Obtendo o Saldo em aberto 
+                  for ii:= 1 to lnPARC_EXISTE
+                     if !empty(laRESULT[ii+1,7])
+                        lnSLD_PARC := lnSLD_PARC - laRESULT[ii+1,6]
+                        lnPARC_PG  += 1
+                     endif   
+                  next ii
+                  lnVAL_PARC := lnSLD_PARC / (lnPARC_REC - lnPARC_PG) 
+                
+                  //---------- Alterando Parcelas já existentes em aberto  
+                  for ii:= 1 to lnPARC_EXISTE
+                     if ii == lnPARC_REC .and. lnSLD_PARC <> lnVAL_PARC
+                        lnVAL_PARC := lnSLD_PARC              
+                     endif   
+                     ldVENCTO_PARC := laRESULT[ii+1,5]
+                     if empty(laRESULT[ii+1,7])
+                        aadd(laSAVE,{gcLOGIN,lnVAL_PARC,ldVENCTO_PARC})
+                        lnSLD_PARC := lnSLD_PARC - round(lnVAL_PARC,2)
+                        lcWHERE3   := 'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE_REC ='+lcCTRL_REC+' and NR_CONTROLE_PARC='+str(laRESULT[ii+1,3])+' and DT_PAGTO_REC IS NULL'
+                        aadd(laWHERE,lcWHERE3)
+                     endif   
+                  next ii
+                  if len(laSAVE) > 1
+                     psab_logs(laSAVE,'mvt_parc_ressarc',lcWHERE_LOG,lcNR_PASTA,'Ressarcimento - Parcelas')
+                     if db_update(laSAVE,'mvt_parc_ressarc',laWHERE) == -1
+                        error_sys(db_error())
+                     endif
+                  endif   
+
+                  //---------- Incluindo novas Parcelas ...
+                  if lnPARC_EXISTE < lnPARC_REC
+                     lnVAL_PARC    := lnSLD_PARC / (lnPARC_REC - lnPARC_EXISTE) 
+// alterado o vencimento das parcelas para dia fixo
+//                     ldVENCTO_PARC += 30
+                     ldVENCTO_PARC := AddMonth (ldVENCTO_PARC, 1)
+                     ldVENCTO_PARC := ctod(ldVENCTO_PARC)
+                     laSAVE        := {}
+                     aadd(laSAVE,{'NR_CONTROLE_PARC','NR_PASTA','NR_CONTROLE_REC','NR_PARC_REC','LOGIN_CADASTRO','VL_PARC_REC','DT_VENCTO_REC'})
+                     for ii:= lnPARC_EXISTE to lnPARC_REC
+                        if ii == lnPARC_REC .and. lnSLD_PARC <> lnVAL_PARC
+                           lnVAL_PARC := lnSLD_PARC              
+                        endif   
+                        aadd(laSAVE,{0,val(lcNR_PASTA),lcCTRL_REC,ii+1,gcLOGIN,lnVAL_PARC,ldVENCTO_PARC})
+//                        ldVENCTO_PARC += 30
+                     ldVENCTO_PARC := AddMonth (ldVENCTO_PARC, 1)
+                     ldVENCTO_PARC := ctod(ldVENCTO_PARC)
+                        lnSLD_PARC    := lnSLD_PARC - round(lnVAL_PARC,2)
+                        if lnSLD_PARC == 0
+                           exit
+                        endif   
+                     next ii
+                     if len(laSAVE) > 1
+                        psab_logs(laSAVE,'mvt_parc_ressarc',lcWHERE_LOG,lcNR_PASTA,'Ressarcimento - Parcelas')
+                        if db_insert(laSAVE,'mvt_parc_ressarc') == -1
+                           error_sys(db_error())
+                        endif
+                     endif
+                  endif
+                  //---------- Excluindo parcelas maiores que o total de parcelas 
+                  lcWHERE_PARC := 'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE_REC='+lcCTRL_REC+' and DT_PAGTO_REC IS NULL and NR_PARC_REC > '+str(lnPARC_REC)
+                  if db_delete('mvt_parc_ressarc',lcWHERE_PARC) == -1
+                     error_sys(db_error())
+                  endif
+                  wPut('ifINF_RESSARC',.f.)
+                  wPut('ifPARCELAS',.f.)
+
+               else
+                  //---------- Salvando Grid de Parcelas
+                  lnCONT   := 1
+                  lcNR_ROW := '2'
+                  lnVTR    := 0.00
+                  lnVTP    := 0.00
+                  lnVTQ    := 0
+                  laSAVE   := {{'DT_VENCTO_REC',;
+                                'VL_PARC_REC',;
+                                'DT_PAGTO_REC',;
+                                'VL_RECEBIDO_REC',;
+                                'VL_JUROS_REC',;
+                                'VL_MULTA_REC',;
+                                'DESC_CONC_REC',;
+                                'TP_RECEB',;
+                                'CD_BANCO',;
+                                'NR_CHEQUE',;
+                                'BANCO_AGENCIA',;
+                                'BANCO_CONTA',;
+                                'SACADO_REC',;
+                                'DOCUMENTO_SACADO'}}
+                   
+                  laLINHA_ATUAL := {{'DT_VENCTO_REC',;
+                                     'VL_PARC_REC',;
+                                     'DT_PAGTO_REC',;
+                                     'VL_RECEBIDO_REC',;
+                                     'VL_JUROS_REC',;
+                                     'VL_MULTA_REC',;
+                                     'DESC_CONC_REC',;
+                                     'TP_RECEB',;
+                                     'DESC_RECEB',;
+                                     'CD_BANCO',;
+                                     'NR_CHEQUE',;
+                                     'BANCO_AGENCIA',;
+                                     'BANCO_CONTA',;
+                                     'SACADO_REC',;
+                                     'DOCUMENTO_SACADO'}}
+                   
+                   do while (lnCONT) <= lnPARC_REC
+                      llVA          := .f.
+                      ldDT_VENCTO   := WGet('VAR_DT_VENCTO_REC_'+lcNR_ROW,'D')
+                      laSAVE_AUX    := {}
+                      aadd(laLINHA_ATUAL,{ldDT_VENCTO,;
+                                          WGet('VAR_VL_PARC_REC_'+lcNR_ROW,'N'),;
+                                          WGet('VAR_DT_PAGTO_REC_'+lcNR_ROW,'D'),;
+                                          WGet('VAR_VL_RECEBIDO_REC_'+lcNR_ROW,'N'),;
+                                          WGet('VAR_VL_JUROS_REC_'+lcNR_ROW,'N'),;
+                                          WGet('VAR_VL_MULTA_REC_'+lcNR_ROW,'N'),;
+                                          WGet('VAR_DESC_CONC_REC_'+lcNR_ROW,'N'),;
+                                          WGet('VAR_TP_RECEB_'+lcNR_ROW,'N'),;
+                                          WGet('VAR_TP_RECEB_'+lcNR_ROW+'_DESC','C'),;
+                                          WGet('VAR_CD_BANCO_'+lcNR_ROW,'N'),;
+                                          WGet('VAR_NR_CHEQUE_'+lcNR_ROW,'N'),;
+                                          WGet('VAR_BANCO_AGENCIA_'+lcNR_ROW,'C'),;
+                                          WGet('VAR_BANCO_CONTA_'+lcNR_ROW,'C'),;
+                                          WGet('VAR_SACADO_REC_'+lcNR_ROW,'C'),;
+                                          WGet('VAR_DOCUMENTO_SACADO_'+lcNR_ROW,'C')})
+                                          
+                      //----------- Consistências da Grid de Parcelas
+                      if empty(ldDT_VENCTO)
+                         if lnCONT > 1
+                            walert('A Data de Vencimento da Parcela '+strzero(lnCONT,2)+' deve ser informada.')
+                            get2put()
+                            llERROR := .t. 
+                         endif
+                      endif
+                      if !empty(Wget('VAR_DT_PAGTO_REC_'+lcNR_ROW,'C'))
+                         if WGet('VAR_DESC_CONC_REC_'+lcNR_ROW,'N') > 0.00
+                            lnPORC_DESC := round(WGet('VAR_DESC_CONC_REC_'+lcNR_ROW,'N')/WGet('VAR_VL_PARC_REC_'+lcNR_ROW,'N')*100,2)
+                            if lnPORC_DESC > laRES_CONFIG[2]
+                               walert('Desconto Concedido é maior que o máximo permitido,\n na parcela '+strzero(lnCONT,2)+'.')
+                               llERROR := .t. 
+                            endif                                                          
+                         endif
+/* equiparacao Tokio */
+                         if WGet('VAR_VL_RECEBIDO_REC_'+lcNR_ROW,'N') == 0.00
+
+                            wresultado := ((val(WGet('VAR_VL_PARC_REC_'+lcNR_ROW,'N'))-val(WGet('VAR_DESC_CONC_REC_'+lcNR_ROW,'N'))+;
+                                 val(WGet('VAR_VL_JUROS_REC_'+lcNR_ROW,'N'))+val(WGet('VAR_VL_MULTA_REC_'+lcNR_ROW,'N'))) - val(WGet('VAR_VL_RECEBIDO_REC_'+lcNR_ROW,'N')))
+  //                       debug2(wresultado)
+                            if ((val(WGet('VAR_VL_PARC_REC_'+lcNR_ROW,'N'))-val(WGet('VAR_DESC_CONC_REC_'+lcNR_ROW,'N'))+;
+                                 val(WGet('VAR_VL_JUROS_REC_'+lcNR_ROW,'N'))+val(WGet('VAR_VL_MULTA_REC_'+lcNR_ROW,'N'))) - val(WGet('VAR_VL_RECEBIDO_REC_'+lcNR_ROW,'N')))<> 0.00
+                                 walert('Inconsistência de valores,\n na parcela '+strzero(lnCONT,2)+'.')
+                                 llERROR := .t. 
+                            endif
+                         endif
+                         if val(WGet('VAR_VL_RECEBIDO_REC_'+lcNR_ROW,'N')) == 0.00
+                            lnVA := (WGet('VAR_VL_PARC_REC_'+lcNR_ROW,'N')-WGet('VAR_DESC_CONC_REC_'+lcNR_ROW,'N')+;
+                                     WGet('VAR_VL_JUROS_REC_'+lcNR_ROW,'N')+WGet('VAR_VL_MULTA_REC_'+lcNR_ROW,'N'))
+                            llVA := .t.
+                         endif                              
+                         if Wget('VAR_TP_RECEB_'+lcNR_ROW,'N') <= 0
+                            walert('O tipo de Recebimento deve ser informado na parcela '+strzero(lnCONT,2)+'.')
+                            llERROR := .t. 
+                         else
+                            if db_select({'TP_RECEB'},'recebimento',,{'TP_RECEB='+str(Wget('VAR_TP_RECEB_'+lcNR_ROW,'N'))}) == -1
+                               error_sys(db_error())
+                            endif
+                            laRES_TIPO:=db_fetchrow()
+                            if len(laRES_TIPO) == 0    
+                               walert('O tipo de Recebimento não foi localizado na parcela '+strzero(lnCONT,2)+'.')
+                               llERROR := .t.
+                            endif
+                         endif       
+/* equiparacao Tokio */
+                        // 19/01/2010 - Alterado pelo Glauber para suprimir uma falha detectada de última hora.
+                         if empty(alltrim(Wget('VAR_TP_RECEB_'+lcNR_ROW+'_DESC','C')))
+                            walert('O Tipo de Recebimento deve ser informado na parcela '+strzero(lnCONT,2)+'. Favor utilizar a search de tipo de recebimento.')
+                            llERROR := .t.                          
+                         endif
+                         if lower(alltrim(Wget('VAR_TP_RECEB_'+lcNR_ROW+'_DESC','C'))) == 'cheque'
+                            if empty(WGet('VAR_CD_BANCO_'+lcNR_ROW)) .or. WGet('VAR_CD_BANCO_'+lcNR_ROW,'N') == 0
+                               walert('O Código do Banco deve ser informado na parcela '+strzero(lnCONT,2)+'.')
+                               llERROR := .t. 
+                            elseif empty(WGet('VAR_NR_CHEQUE_'+lcNR_ROW,'C')) .or. WGet('VAR_NR_CHEQUE_'+lcNR_ROW,'N') == 0
+                               walert('O número do cheque deve ser informado na parcela '+strzero(lnCONT,2)+'.')
+                               llERROR := .t. 
+                            elseif empty(WGet('VAR_BANCO_AGENCIA_'+lcNR_ROW,'C')) .or. WGet('VAR_BANCO_AGENCIA_'+lcNR_ROW,'N') == 0
+                               walert('A agencia deve ser informada na parcela '+strzero(lnCONT,2)+'.')
+                               llERROR := .t. 
+                            elseif empty(WGet('VAR_BANCO_CONTA_'+lcNR_ROW,'C')) .or. WGet('VAR_BANCO_CONTA_'+lcNR_ROW,'N') == 0
+                               walert('A conta corrente deve ser informada na parcela '+strzero(lnCONT,2)+'.')
+                               llERROR := .t. 
+                            elseif empty(WGet('VAR_SACADO_REC_'+lcNR_ROW,'C')) 
+                               walert('O nome do sacado deve ser informado na parcela '+strzero(lnCONT,2)+'.')
+                               llERROR := .t. 
+                            elseif empty(WGet('VAR_DOCUMENTO_SACADO_'+lcNR_ROW,'C'))
+                               walert('O Documento do sacado deve ser informado na parcela '+strzero(lnCONT,2)+'.')
+                               llERROR := .t. 
+                            endif   
+                         endif
+                      else
+                         if WGet('VAR_VL_RECEBIDO_REC_'+lcNR_ROW,'N') > 0 .or. WGet('VAR_TP_RECEB_'+lcNR_ROW,'N') > 0
+                            walert('A Data de Pagamento da Parcela '+strzero(lnCONT,2)+' deve ser informada.')
+                            llERROR := .t.
+                         endif    
+                      endif
+                      //--------------- Criar o array de gravação se não for encontrado
+                      //--------------- erro de Consistências
+                      if !llERROR
+                         aadd(laSAVE_AUX,WGET('VAR_DT_VENCTO_REC_'+lcNR_ROW,'D'))
+                         aadd(laSAVE_AUX,WGet('VAR_VL_PARC_REC_'+lcNR_ROW,'N'))
+                         aadd(laSAVE_AUX,WGet('VAR_DT_PAGTO_REC_'+lcNR_ROW,'D'))
+                         aadd(laSAVE_AUX,iif(llVA,lnVA,WGet('VAR_VL_RECEBIDO_REC_'+lcNR_ROW,'N')))
+                         aadd(laSAVE_AUX,WGet('VAR_VL_JUROS_REC_'+lcNR_ROW,'N'))
+                         aadd(laSAVE_AUX,WGet('VAR_VL_MULTA_REC_'+lcNR_ROW,'N'))
+                         aadd(laSAVE_AUX,WGet('VAR_DESC_CONC_REC_'+lcNR_ROW,'N'))
+                         aadd(laSAVE_AUX,WGet('VAR_TP_RECEB_'+lcNR_ROW,'N'))
+                         aadd(laSAVE_AUX,WGet('VAR_CD_BANCO_'+lcNR_ROW,'N'))
+                         aadd(laSAVE_AUX,WGet('VAR_NR_CHEQUE_'+lcNR_ROW,'N'))
+                         aadd(laSAVE_AUX,WGet('VAR_BANCO_AGENCIA_'+lcNR_ROW,'C'))
+                         aadd(laSAVE_AUX,WGet('VAR_BANCO_CONTA_'+lcNR_ROW,'C'))
+                         aadd(laSAVE_AUX,WGet('VAR_SACADO_REC_'+lcNR_ROW,'C'))
+                         aadd(laSAVE_AUX,WGet('VAR_DOCUMENTO_SACADO_'+lcNR_ROW,'N'))
+
+                         aadd(laSAVE,laSAVE_AUX)
+              
+                         //----------- soma valor das parcelas
+                         lnVTP += WGet('VAR_VL_PARC_REC_'+lcNR_ROW,'N')
+                         lnVTR += (WGet('VAR_VL_RECEBIDO_REC_'+lcNR_ROW,'N')+WGet('VAR_VL_JUROS_REC_'+lcNR_ROW,'N')+;
+                         WGet('VAR_VL_MULTA_REC_'+lcNR_ROW,'N')-WGet('VAR_DESC_CONC_REC_'+lcNR_ROW,'N'))
+                         lcCTRL_PARC := wget('VAR_NR_CONTROLE_PARC_'+lcNR_ROW,'C')
+                         lcWHERE     := 'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE_PARC='+lcCTRL_PARC
+                         aadd(laWHERE,lcWHERE)
+
+                         //------------- Efetuar Log de Alterações das Parcelas
+                         efetua_parc_log(laPARC_ATUAL,laSAVE_AUX,lcNR_PASTA,lcWHERE,val(lcNR_ROW)) 
+                      endif
+                      lnCONT   += 1
+                      lcNR_ROW := alltrim(str(int(val(lcNR_ROW)+1)))
+                   enddo
+                   if !llERROR
+                      if lnVTP > 0
+                         if round(lnVTP,2) != round((WGet('VL_TT_REC','N')),2)
+                            walert('A Soma do '+;
+                            lblfscreen('VL_PARC_REC')+' deve ser igual ao '+;
+                            lblfscreen('VL_TT_REC')+' do Ressarcimento.')
+                            llERROR := .t. 
+                         else 
+                            if len(laSAVE) > 1
+                               if db_update(laSAVE,'mvt_parc_ressarc',laWHERE) == -1
+                                  error_sys(db_error())
+                               endif
+                            endif
+                         endif
+                      endif
+                   endif
+                   if llERROR
+                      llCARREGA_GRID := .f.
+                   endif  
+               endif   //---- Campos do Recebimento Alterados   
+            endif      //---- Existe Parcelas 
+         endif         //---- Consistências do Recebimento 
+      endif            //---- Campos Obrigatórios
+      
+   elseif lcACTION == 'CANCELA_PGTO' .and. gbWAC_WRITE
+      lcWHERE           := 'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE_PARC='+lcCTRL_PARC+' and DT_PAGTO_REC is not null'
+      //---------- Seleciona a Parcela de Recebimento já Paga.
+      if db_select ({'DT_VENCTO_REC',;
+                     'VL_PARC_REC',;
+                     'DT_PAGTO_REC',;
+                     'VL_RECEBIDO_REC',;
+                     'VL_JUROS_REC',;
+                     'VL_MULTA_REC',;
+                     'DESC_CONC_REC',;
+                     'TP_RECEB',;
+                     'CD_BANCO',;
+                     'NR_CHEQUE',;
+                     'BANCO_AGENCIA',;
+                     'BANCO_CONTA',;
+                     'SACADO_REC',;
+                     'DOCUMENTO_SACADO'},;
+                     'mvt_parc_ressarc',,;
+                     {lcWHERE},laORDER_BY) == -1
+         error_sys(db_error())
+      endif
+      laRES_PGTO := db_fetchall()               
+      
+      if len(laRES_PGTO) > 1
+         if empty(laRES_PGTO[2,3])
+            walert('O Pagamento não pode ser cancelado, \n a Data de Pagamento não foi informada.')
+         else
+            laSAVE   := {{'DT_VENCTO_REC',;
+                          'VL_PARC_REC',;
+                          'DT_PAGTO_REC',;
+                          'VL_RECEBIDO_REC',;
+                          'VL_JUROS_REC',;
+                          'VL_MULTA_REC',;
+                          'DESC_CONC_REC',;
+                          'TP_RECEB',;
+                          'CD_BANCO',;
+                          'NR_CHEQUE',;
+                          'BANCO_AGENCIA',;
+                          'BANCO_CONTA',;
+                          'SACADO_REC',;
+                          'DOCUMENTO_SACADO'}}
+                   
+            aadd(laSAVE_AUX,laRES_PGTO[2,1])
+            aadd(laSAVE_AUX,laRES_PGTO[2,2])
+            aadd(laSAVE_AUX,ctod('  /  /    '))
+            aadd(laSAVE_AUX,0)
+            aadd(laSAVE_AUX,0)
+            aadd(laSAVE_AUX,0)
+            aadd(laSAVE_AUX,0)
+            aadd(laSAVE_AUX,0)
+            aadd(laSAVE_AUX,0)
+            aadd(laSAVE_AUX,0)
+            aadd(laSAVE_AUX,'')
+            aadd(laSAVE_AUX,'')
+            aadd(laSAVE_AUX,'')
+            aadd(laSAVE_AUX,0)
+
+            aadd(laSAVE,laSAVE_AUX)
+            aadd(laWHERE,lcWHERE)
+
+            if len(laSAVE) > 1
+/*  somente para tokio */
+               //------------- Efetuar Log de Alterações das Parcelas
+//               efetua_parc_log(laRES_PGTO,laSAVE_AUX,lcNR_PASTA,lcWHERE,2) 
+//               if (laRES_PGTO[2,15] <> '') .or. (laRES_PGTO[2,16] <> '')
+//                  walert('A Parcela não pode ser cancelada. \n Lançamento já enviado para interfaces (GEM / ACSEL)')
+/////               elseif (((laRES_PGTO[2,7]/ laRES_PGTO[2,4])*100)> laRES_CONFIG[2])
+/////                 walert('Desconto Concedido é maior que o máximo permitido,\n na parcela '+strzero(lnCONT,2)+'.')
+//               else                
+//
+                  if db_update(laSAVE,'mvt_parc_ressarc',laWHERE) == -1
+                     error_sys(db_error())
+                  endif
+////               endif   
+            endif
+         endif      
+      else
+         walert('A Parcela não pode ser cancelada. ')
+      endif
+      wPut('ifINF_RESSARC',.t.)
+      wPut('ifPARCELAS',.t.)
+
+   elseif lcACTION == 'DELETA' .and. gbWAC_DELETE
+
+      lcWHERE := 'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE_REC='+lcCTRL_REC+' and DT_PAGTO_REC is not null'
+      //---------- Seleciona a Parcela de Recebimento já Paga.
+      if db_select({'NR_CONTROLE_PARC','DT_PAGTO_REC','NR_PASTA'},'mvt_parc_ressarc',,{lcWHERE},laORDER_BY) == -1
+
+            error_sys(db_error())
+         endif
+      laRES_PGTO := db_fetchall()
+      if len(laRES_PGTO) > 1
+         walert('Os Recebimentos não podem ser excluídos, \n Existe(m) '+strzero(len(laRES_PGTO)-1,3)+' Parcela(s) já Paga(s).')               
+         wPut('ifINF_RESSARC',.t.)
+         wPut('ifPARCELAS',.t.)
+      else
+         //------------- Exclui Registros mvt_parc_ressarc
+         lcWHERE5    := 'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE_REC='+iif(lcCTRL_REC='' .OR. lcCTRL_REC='0','0',lcCTRL_REC)
+
+         if db_delete('mvt_parc_ressarc',lcWHERE5) == -1
+            error_sys(db_error())
+         endif
+
+         //------------- Exclui Registros receb_ressarcimento
+         lcWHERE2    := 'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE_SEGURO='+iif(lcNR_SEGURO='','0',lcNR_SEGURO)
+
+         if db_delete('receb_ressarcimento',lcWHERE2) == -1
+            error_sys(db_error())
+         endif
+         psab_logdel(lcNR_PASTA,lcNR_SEGURO,,'Ressarcimento')
+/* equiparacao Tokio
+         //------------- Exclui Registros receb_ressarcimento
+         lcWHERE2    := 'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE_SEGURO='+iif(lcNR_SEGURO='','0',lcNR_SEGURO)
+*/
+
+      endif
+   endif
+   if len(laRES_REC) > 0
+      lcCTRL_REC := alltrim(str(laRES_REC[4]))
+      WPUT('NR_SINISTRO',lcNR_SINISTRO)
+      WPUT('NR_CONTROLE_SEGURO',lcNR_SEGURO)
+      WPUT('NR_CONTROLE_REC',lcCTRL_REC)
+      WPUT('VL_TT_REC',laRES_REC[1])
+      WPUT('NR_PARC_TT_REC',laRES_REC[2])
+      WPUT('VENCTO_1_PARC_REC',laRES_REC[3])
+   endif
+   //---------- Carrega grid Parcelas
+   lcWHERE5    := 'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE_REC='+iif(lcCTRL_REC='' .OR. lcCTRL_REC='0','0',lcCTRL_REC)
+   if db_select(laFIELDSX,'mvt_parc_ressarc',laJOINS,{lcWHERE5},laORDER_BY) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+
+   if len(laRES) > 1
+      wPut('ifPARCELAS',.t.)
+      aadd(laRES[1],'VAR_NR_PASTA')
+      aadd(laRES[1],'VAR_NR_CONTROLE_PARC')
+      aadd(laRES[1],'VAR_NR_CONTROLE_REC')
+      aadd(laRES[1],'VAR_NR_PARC_REC')
+      aadd(laRES[1],'VAR_DT_VENCTO_REC')
+      aadd(laRES[1],'VAR_VL_PARC_REC')
+      aadd(laRES[1],'VAR_DT_PAGTO_REC')
+      aadd(laRES[1],'VAR_VL_RECEBIDO_REC')
+      aadd(laRES[1],'VAR_VL_JUROS_REC')
+      aadd(laRES[1],'VAR_VL_MULTA_REC')
+      aadd(laRES[1],'VAR_DESC_CONC_REC')
+      aadd(laRES[1],'VAR_TP_RECEB')
+      aadd(laRES[1],'VAR_TP_RECEB_DESC')
+      aadd(laRES[1],'VAR_CD_BANCO')
+      aadd(laRES[1],'VAR_NR_CHEQUE')
+      aadd(laRES[1],'VAR_BANCO_AGENCIA')
+      aadd(laRES[1],'VAR_BANCO_CONTA')
+      aadd(laRES[1],'VAR_SACADO_REC')
+      aadd(laRES[1],'VAR_DOCUMENTO_SACADO')
+
+      lnVTRC := 0.00 //Total VL_PARC_REC
+      lnVTR  := 0.00 //Total VL_RECEBIDO_REC
+      lnVTC  := 0.00 //Total DESC_CONC_REC
+      lnVTJ  := 0.00 //Total VL_JUROS_REC
+      lnVTM  := 0.00 //Total VL_MULTA_REC
+      lnVTA  := 0.00 //Total TOTAL_CALCULADO
+      lnVA   := 0.00
+
+      for ii := 2 to len(laRES)
+         lcNR_ROW := alltrim(str(ii))
+         aadd(laRES[ii],'VAR_NR_PASTA_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_NR_CONTROLE_PARC_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_NR_CONTROLE_REC_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_NR_PARC_REC_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_DT_VENCTO_REC_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_VL_PARC_REC_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_DT_PAGTO_REC_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_VL_RECEBIDO_REC_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_VL_JUROS_REC_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_VL_MULTA_REC_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_DESC_CONC_REC_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_TP_RECEB_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_TP_RECEB_'+lcNR_ROW+'_DESC')
+         aadd(laRES[ii],'VAR_CD_BANCO_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_NR_CHEQUE_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_BANCO_AGENCIA_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_BANCO_CONTA_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_SACADO_REC_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_DOCUMENTO_SACADO_'+lcNR_ROW)
+
+         WPut('VAR_NR_PASTA_'+lcNR_ROW,             laRES[ii,db_fetchncol(laRES,'NR_PASTA')])
+         WPut('VAR_NR_CONTROLE_PARC_'+lcNR_ROW,     laRES[ii,db_fetchncol(laRES,'NR_CONTROLE_PARC')])
+         WPut('VAR_NR_CONTROLE_REC_'+lcNR_ROW,      laRES[ii,db_fetchncol(laRES,'NR_CONTROLE_REC')])
+         WPut('VAR_NR_PARC_REC_'+lcNR_ROW,          wpictrans('NR_PARC_REC',laRES[ii,db_fetchncol(laRES,'NR_PARC_REC')]))
+         if !llCARREGA_GRID
+            if len(laLINHA_ATUAL) >= ii
+               wPut('VAR_DT_VENCTO_REC_'+lcNR_ROW,    laLINHA_ATUAL[ii,1])
+               wPut('VAR_VL_PARC_REC_'+lcNR_ROW,      wpictrans('VL_PARC_REC',laLINHA_ATUAL[ii,2]))
+               wPut('VAR_DT_PAGTO_REC_'+lcNR_ROW,     laLINHA_ATUAL[ii,3])
+               wPut('VAR_VL_RECEBIDO_REC_'+lcNR_ROW,  wpictrans('VL_RECEBIDO_REC',laLINHA_ATUAL[ii,4]))
+               wPut('VAR_VL_JUROS_REC_'+lcNR_ROW,     wpictrans('VL_JUROS_REC',laLINHA_ATUAL[ii,5]))
+               wPut('VAR_VL_MULTA_REC_'+lcNR_ROW,     wpictrans('VL_MULTA_REC',laLINHA_ATUAL[ii,6]))
+               wPut('VAR_DESC_CONC_REC_'+lcNR_ROW,    wpictrans('DESC_CONC_REC',laLINHA_ATUAL[ii,7]))
+               wPut('VAR_TP_RECEB_'+lcNR_ROW,         wpictrans('TP_REBEC',laLINHA_ATUAL[ii,8]))
+               wPut('VAR_TP_RECEB_'+lcNR_ROW+'_DESC', laLINHA_ATUAL[ii,9])
+               wPut('VAR_CD_BANCO_'+lcNR_ROW,         wpictrans('CD_BANCO',laLINHA_ATUAL[ii,10]))
+               wPut('VAR_NR_CHEQUE_'+lcNR_ROW,        wpictrans('NR_CHEQUE',laLINHA_ATUAL[ii,11]))
+               wPut('VAR_BANCO_AGENCIA_'+lcNR_ROW,    laLINHA_ATUAL[ii,12])
+               wPut('VAR_BANCO_CONTA_'+lcNR_ROW,      laLINHA_ATUAL[ii,13])
+               wPut('VAR_SACADO_REC_'+lcNR_ROW,       laLINHA_ATUAL[ii,14])
+               wPut('VAR_DOCUMENTO_SACADO_'+lcNR_ROW, laLINHA_ATUAL[ii,15])
+               
+               lnVA   := laLINHA_ATUAL[ii,4]+laLINHA_ATUAL[ii,5]+laLINHA_ATUAL[ii,6]-laLINHA_ATUAL[ii,7]
+               lnVTR  += laLINHA_ATUAL[ii,4]
+               lnVTRC += laLINHA_ATUAL[ii,2]
+               lnVTC  += laLINHA_ATUAL[ii,7]
+               lnVTJ  += laLINHA_ATUAL[ii,5]
+               lnVTM  += laLINHA_ATUAL[ii,6]
+               lnVTA  += lnVA
+
+               //---------- Se a Parcela está Paga, Bloquear Alterações. 
+               if !empty(laLINHA_ATUAL[ii,3]) .and. !empty(laLINHA_ATUAL[ii,4]) .and. !empty(laLINHA_ATUAL[ii,9]) 
+                  WPut('VAR_DT_VENCTO_REC_'+lcNR_ROW+'.class','winputreadonly')
+                  WPut('VAR_VL_PARC_REC_'+lcNR_ROW+'.class','winputreadonly_right')
+                  wPut('VAR_DT_PAGTO_REC_'+lcNR_ROW+'.class','winputreadonly')
+                  WPut('VAR_VL_JUROS_REC_'+lcNR_ROW+'.class','winputreadonly_right')
+                  WPut('VAR_VL_MULTA_REC_'+lcNR_ROW+'.class','winputreadonly_right')
+                  WPut('VAR_DESC_CONC_REC_'+lcNR_ROW+'.class','winputreadonly_right')
+                  WPut('VAR_VL_RECEBIDO_REC_'+lcNR_ROW+'.class','winputreadonly_right')
+                  WPut('VAR_TP_RECEB_'+lcNR_ROW+'.class','winputreadonly')
+                  WPut('VAR_CD_BANCO_'+lcNR_ROW+'.class','winputreadonly_right')
+                  WPut('VAR_NR_CHEQUE_'+lcNR_ROW+'.class','winputreadonly_right')
+                  WPut('VAR_BANCO_AGENCIA_'+lcNR_ROW+'.class','winputreadonly')
+                  WPut('VAR_BANCO_CONTA_'+lcNR_ROW+'.class','winputreadonly')
+                  WPut('VAR_SACADO_REC_'+lcNR_ROW+'.class','winputreadonly')
+                  WPut('VAR_DOCUMENTO_SACADO_'+lcNR_ROW+'.class','winputreadonly_right')
+
+                  WPut('VAR_DT_VENCTO_REC_'+lcNR_ROW+'.readonly',.t.)
+                  WPut('VAR_VL_PARC_REC_'+lcNR_ROW+'.readonly',.t.)
+                  wPut('VAR_DT_PAGTO_REC_'+lcNR_ROW+'.readonly',.t.)
+                  WPut('VAR_VL_JUROS_REC_'+lcNR_ROW+'.readonly',.t.)
+                  WPut('VAR_VL_MULTA_REC_'+lcNR_ROW+'.readonly',.t.)
+                  WPut('VAR_DESC_CONC_REC_'+lcNR_ROW+'.readonly',.t.)
+                  WPut('VAR_VL_RECEBIDO_REC_'+lcNR_ROW+'.readonly',.t.)
+                  WPut('VAR_TP_RECEB_'+lcNR_ROW+'.readonly',.t.)
+                  WPut('VAR_CD_BANCO_'+lcNR_ROW+'.readonly',.t.)
+                  WPut('VAR_NR_CHEQUE_'+lcNR_ROW+'.readonly',.t.)
+                  WPut('VAR_BANCO_AGENCIA_'+lcNR_ROW+'.readonly',.t.)
+                  WPut('VAR_BANCO_CONTA_'+lcNR_ROW+'.readonly',.t.)
+                  WPut('VAR_SACADO_REC_'+lcNR_ROW+'.readonly',.t.)
+                  WPut('VAR_DOCUMENTO_SACADO_'+lcNR_ROW+'.readonly',.t.)
+               endif
+            endif
+         else      
+            WPut('VAR_DT_VENCTO_REC_'+lcNR_ROW,            laRES[ii,db_fetchncol(laRES,'DT_VENCTO_REC')])
+            WPut('VAR_VL_PARC_REC_'+lcNR_ROW,              wpictrans('VL_PARC_REC',laRES[ii,db_fetchncol(laRES,'VL_PARC_REC')]))
+            WPut('VAR_DT_PAGTO_REC_'+lcNR_ROW,             laRES[ii,db_fetchncol(laRES,'DT_PAGTO_REC')])
+            WPut('VAR_VL_JUROS_REC_'+lcNR_ROW,             wpictrans('VL_JUROS_REC',laRES[ii,db_fetchncol(laRES,'VL_JUROS_REC')]))
+            WPut('VAR_VL_MULTA_REC_'+lcNR_ROW,             wpictrans('VL_MULTA_REC',laRES[ii,db_fetchncol(laRES,'VL_MULTA_REC')]))
+            WPut('VAR_DESC_CONC_REC_'+lcNR_ROW,            wpictrans('DESC_CONC_REC',laRES[ii,db_fetchncol(laRES,'DESC_CONC_REC')]))
+            WPut('VAR_VL_RECEBIDO_REC_'+lcNR_ROW,          wpictrans('VL_RECEBIDO_REC',laRES[ii,db_fetchncol(laRES,'VL_RECEBIDO_REC')]))
+            WPut('VAR_TP_RECEB_'+lcNR_ROW,                 wpictrans('TP_REBEC',laRES[ii,db_fetchncol(laRES,'TP_RECEB')]))
+            WPut('VAR_TP_RECEB_'+lcNR_ROW+'_DESC',         laRES[ii,db_fetchncol(laRES,'DESC_RECEB')])
+            WPut('VAR_CD_BANCO_'+lcNR_ROW,                 wpictrans('CD_BANCO',laRES[ii,db_fetchncol(laRES,'CD_BANCO')]))
+            WPut('VAR_NR_CHEQUE_'+lcNR_ROW,                wpictrans('NR_CHEQUE',laRES[ii,db_fetchncol(laRES,'NR_CHEQUE')]))
+            WPut('VAR_BANCO_AGENCIA_'+lcNR_ROW,            laRES[ii,db_fetchncol(laRES,'BANCO_AGENCIA')])
+            WPut('VAR_BANCO_CONTA_'+lcNR_ROW,              laRES[ii,db_fetchncol(laRES,'BANCO_CONTA')])
+            WPut('VAR_SACADO_REC_'+lcNR_ROW,               laRES[ii,db_fetchncol(laRES,'SACADO_REC')])
+            WPut('VAR_DOCUMENTO_SACADO_'+lcNR_ROW,         laRES[ii,db_fetchncol(laRES,'DOCUMENTO_SACADO')])
+               
+            lnVA := laRES[ii,db_fetchncol(laRES,'VL_RECEBIDO_REC')]-;
+                    laRES[ii,db_fetchncol(laRES,'DESC_CONC_REC')]+;
+                    laRES[ii,db_fetchncol(laRES,'VL_MULTA_REC')]+;
+                    laRES[ii,db_fetchncol(laRES,'VL_JUROS_REC')]
+
+            lnVTR  += laRES[ii,db_fetchncol(laRES,'VL_RECEBIDO_REC')]
+            lnVTRC += laRES[ii,db_fetchncol(laRES,'VL_PARC_REC')]
+            lnVTC  += laRES[ii,db_fetchncol(laRES,'DESC_CONC_REC')]
+            lnVTJ  += laRES[ii,db_fetchncol(laRES,'VL_JUROS_REC')]
+            lnVTM  += laRES[ii,db_fetchncol(laRES,'VL_MULTA_REC')]
+            lnVTA  += lnVA
+ 
+            //---------- Se a Parcela está Paga, Bloquear Alterações. 
+            if !empty(laRES[ii,db_fetchncol(laRES,'DT_PAGTO_REC')])
+               WPut('VAR_DT_VENCTO_REC_'+lcNR_ROW+'.class','winputreadonly')
+               WPut('VAR_VL_PARC_REC_'+lcNR_ROW+'.class','winputreadonly_right')
+               wPut('VAR_DT_PAGTO_REC_'+lcNR_ROW+'.class','winputreadonly')
+               WPut('VAR_VL_JUROS_REC_'+lcNR_ROW+'.class','winputreadonly_right')
+               WPut('VAR_VL_MULTA_REC_'+lcNR_ROW+'.class','winputreadonly_right')
+               WPut('VAR_DESC_CONC_REC_'+lcNR_ROW+'.class','winputreadonly_right')
+               WPut('VAR_VL_RECEBIDO_REC_'+lcNR_ROW+'.class','winputreadonly_right')
+               WPut('VAR_TP_RECEB_'+lcNR_ROW+'.class','winputreadonly')
+               WPut('VAR_CD_BANCO_'+lcNR_ROW+'.class','winputreadonly_right')
+               WPut('VAR_NR_CHEQUE_'+lcNR_ROW+'.class','winputreadonly_right')
+               WPut('VAR_BANCO_AGENCIA_'+lcNR_ROW+'.class','winputreadonly')
+               WPut('VAR_BANCO_CONTA_'+lcNR_ROW+'.class','winputreadonly')
+               WPut('VAR_SACADO_REC_'+lcNR_ROW+'.class','winputreadonly')
+               WPut('VAR_DOCUMENTO_SACADO_'+lcNR_ROW+'.class','winputreadonly_right')
+
+               WPut('VAR_DT_VENCTO_REC_'+lcNR_ROW+'.readonly',.t.)
+               WPut('VAR_VL_PARC_REC_'+lcNR_ROW+'.readonly',.t.)
+               wPut('VAR_DT_PAGTO_REC_'+lcNR_ROW+'.readonly',.t.)
+               WPut('VAR_VL_JUROS_REC_'+lcNR_ROW+'.readonly',.t.)
+               WPut('VAR_VL_MULTA_REC_'+lcNR_ROW+'.readonly',.t.)
+               WPut('VAR_DESC_CONC_REC_'+lcNR_ROW+'.readonly',.t.)
+               WPut('VAR_VL_RECEBIDO_REC_'+lcNR_ROW+'.readonly',.t.)
+               WPut('VAR_TP_RECEB_'+lcNR_ROW+'.readonly',.t.)
+               WPut('VAR_CD_BANCO_'+lcNR_ROW+'.readonly',.t.)
+               WPut('VAR_NR_CHEQUE_'+lcNR_ROW+'.readonly',.t.)
+               WPut('VAR_BANCO_AGENCIA_'+lcNR_ROW+'.readonly',.t.)
+               WPut('VAR_BANCO_CONTA_'+lcNR_ROW+'.readonly',.t.)
+               WPut('VAR_SACADO_REC_'+lcNR_ROW+'.readonly',.t.)
+               WPut('VAR_DOCUMENTO_SACADO_'+lcNR_ROW+'.readonly',.t.)
+/* equiparacao Tokio - 5/7/2011 11:47:45 */
+            else             
+               WPut('VAR_VL_RECEBIDO_REC_'+lcNR_ROW+'.readonly',.f.)
+               WPut('VAR_VL_RECEBIDO_REC_'+lcNR_ROW+'.class','winput_right')
+            endif
+         endif
+      next ii
+      WPut('VL_TT_RECEBIDO',    wpictrans('VL_RECEBIDO_REC',lnVTR))
+      WPut('VL_TT_PARC',        wpictrans('VL_PARC_REC',lnVTRC))
+      WPut('VL_TT_DESC',        wpictrans('DESC_CONC_REC',lnVTC))
+      WPut('VL_TT_JUROS',       wpictrans('VL_JUROS_REC',lnVTJ))
+      WPut('VL_TT_MULTA',       wpictrans('VL_MULTA_REC',lnVTM))
+      WPut('VL_TT_ATUALIZADO',  wpictrans('VL_RECEBIDO_REC',lnVTA))
+      WPut('lstPARCELAS',laRES)
+   endif   
+   WPut('NR_CONTROLE_SEGURO',lcNR_SEGURO)
+/* equiparacao Tokio - 5/7/2011 11:47:45 */
+   if llERROR
+      wPut('ifINF_RESSARC',.f.)
+      wPut('ifPARCELAS',.f.)   
+   endif
+
+return(nil)
+
+
+* Function  : efetua_log_parc(faATUAL,faSAVE_AUX,fcNR_PASTA,fcWHERE,fnNR_ROW)
+* Objetivo  : Efetua o log de Alterações das Parcelas de Ressarcimento
+* Parâmetros:
+*             faATUAL    : Array com o valor atual das Parcelas
+*             faSAVE_AUX : Array com o novo valor do Ressarcimento
+*             fcNR_PASTA : Numero da Pasta
+*             fcWHERE    : Condição de Alteração.
+*             fnNR_ROW   : Número da Linha do Pedido
+*             
+* Autor     : Valdimari Martins - 27/04/2009              
+
+function efetua_parc_log(faATUAL,faSAVE_AUX,fcNR_PASTA,fcWHERE,fnNR_ROW)
+   
+   local laSAVELOG     := {},;
+         laSAVELOG_AUX := {},;
+         laCAMPO       := {} as array
+  
+   //------------- Testar quais campos foram alterados para alimentar o log de alterações 
+   if fnNR_ROW <= len(faATUAL) 
+      if faSAVE_AUX[1] <> faATUAL[fnNR_ROW,1]  //DT_VENCTO_REC
+         aadd(laCAMPO,faATUAL[1,1])
+         aadd(laSAVELOG_AUX,faSAVE_AUX[1])
+      endif 
+      if faSAVE_AUX[2] <> faATUAL[fnNR_ROW,2]  //VL_PARC_REC
+         aadd(laCAMPO,faATUAL[1,2])
+         aadd(laSAVELOG_AUX,round(faSAVE_AUX[2],2))
+      endif 
+      if faSAVE_AUX[3] <> faATUAL[fnNR_ROW,3]  //DT_PAGTO_REC
+         aadd(laCAMPO,faATUAL[1,3])
+         aadd(laSAVELOG_AUX,faSAVE_AUX[3])
+      endif 
+      if faSAVE_AUX[4] <> faATUAL[fnNR_ROW,4]  //VL_RECEBIDO_REC
+         aadd(laCAMPO,faATUAL[1,4])
+         aadd(laSAVELOG_AUX,round(faSAVE_AUX[4],2))
+      endif 
+      if faSAVE_AUX[5] <> faATUAL[fnNR_ROW,5]  //VL_JUROS_REC
+         aadd(laCAMPO,faATUAL[1,5])
+         aadd(laSAVELOG_AUX,round(faSAVE_AUX[5],2))
+      endif   
+      if faSAVE_AUX[6] <> faATUAL[fnNR_ROW,6]  //VL_MULTA_REC
+         aadd(laCAMPO,faATUAL[1,6])
+         aadd(laSAVELOG_AUX,round(faSAVE_AUX[6],2))
+      endif   
+      if faSAVE_AUX[7] <> faATUAL[fnNR_ROW,7]  //DESC_CONC_REC
+         aadd(laCAMPO,faATUAL[1,7])
+         aadd(laSAVELOG_AUX,round(faSAVE_AUX[7],2))
+      endif   
+      if faSAVE_AUX[8] <> faATUAL[fnNR_ROW,8]  //TP_RECEB
+         aadd(laCAMPO,faATUAL[1,8])
+         aadd(laSAVELOG_AUX,faSAVE_AUX[8])
+      endif   
+      if faSAVE_AUX[9] <> faATUAL[fnNR_ROW,9]  //CD_BANCO
+         aadd(laCAMPO,faATUAL[1,9])
+         aadd(laSAVELOG_AUX,faSAVE_AUX[9])
+      endif   
+      if faSAVE_AUX[10] <> faATUAL[fnNR_ROW,10]  //NR_CHEQUE
+         aadd(laCAMPO,faATUAL[1,10])
+         aadd(laSAVELOG_AUX,faSAVE_AUX[10])
+      endif   
+      if faSAVE_AUX[11] <> faATUAL[fnNR_ROW,11]  //BANCO_AGENCIA
+         aadd(laCAMPO,faATUAL[1,11])
+         aadd(laSAVELOG_AUX,faSAVE_AUX[11])
+      endif   
+      if faSAVE_AUX[12] <> faATUAL[fnNR_ROW,12]  //BANCO_CONTA
+         aadd(laCAMPO,faATUAL[1,12])
+         aadd(laSAVELOG_AUX,faSAVE_AUX[12])
+      endif   
+      if faSAVE_AUX[13] <> faATUAL[fnNR_ROW,13]  //SACADO_REC
+         aadd(laCAMPO,faATUAL[1,13])
+         aadd(laSAVELOG_AUX,faSAVE_AUX[13])
+      endif   
+      if faSAVE_AUX[14] <> faATUAL[fnNR_ROW,14]  //DOCUMENTO_SACADO
+         aadd(laCAMPO,faATUAL[1,14])
+         aadd(laSAVELOG_AUX,faSAVE_AUX[14])
+      endif
+   endif
+   if len(laCAMPO) > 0
+      aadd(laSAVELOG,laCAMPO)
+      aadd(laSAVELOG,laSAVELOG_AUX)
+      //---------- Alimentar o log de Alterações
+      if len(laSAVELOG) > 1
+         psab_logs(laSAVELOG,'mvt_parc_ressarc',fcWHERE,fcNR_PASTA,'Ressarcimento - Parcelas')
+      endif  
+   endif
+return(nil)
+
+
+
+
+
+

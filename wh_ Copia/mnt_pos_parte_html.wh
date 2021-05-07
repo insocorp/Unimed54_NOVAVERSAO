@@ -1,0 +1,65 @@
+/*
+Project      : gr5
+Program      : mnt.pos.parte.html
+Function     : mnt_pos_parte_html
+Created on   : 17-Jan-2003   11:50:15
+Descripition : Cadastro de Posição Parte
+*/
+local laPARAM        := {} ,;
+      laINPUT_OBJ    := {} ,;
+      laSELECT       := {} as array
+laPARAM := {{'POSICAO_PARTE',''     ,'*'},;
+            {'TP_PASTA'     ,''     ,'*'},;
+            {'FL_ATIVO','',},;
+            {'ACTION'       ,'ALTER',   }}
+
+laSELECT := {'TP_PASTA','POSICAO_PARTE','FL_ATIVO'}
+laINPUT_OBJ := {{'TP_PASTA',1, ,'Y',"loadcboxorder_build('pasta_config','TP_PASTA',.T.,{'TP_PASTA'})"},;
+                {               , , ,   ,   },;
+                {'POSICAO_PARTE',0, ,'Y',   },;
+                {,,,,},;
+                {'FL_ATIVO',1,,'Y','{"S","I","D"}' }}
+                
+
+if upper(alltrim(WGet('ACTIONBP'))) == 'ALTER'
+   mkgedico('posicao_parte',WGet('TP_PASTA','C'),WGet('POSICAO_PARTE','C'))
+endif
+
+xbp2('posicao_parte',;                                                   //Tabela alvo
+     ,;                                                                  //Joins
+     ,;                                                                  //Where
+     {'TP_PASTA','POSICAO_PARTE'},;                                      //Order by
+     ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+     ,;                                                                  //Group by
+     ,;                                                                  //Limit
+     ,;                                                                  //Banco de Dados
+     2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+     'gr5',;                                                            //Modulo do programa chamador
+     WSet('_USER_INTERFACE'),;                                           //Programa chamador
+     laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+     ,;                                                                  //Parâmetros para os botões das linhas do grid
+     'mnt.pos_parte.html',;                                              //Programa que os links/botoes do grid deverao chamar
+     'gr5',;                                                            //Módulo do programa chamado pelos links/botoes do grid
+     ,;                                                                  //Retorno java (nil) - usado apenas para Search
+     ,;                                                                  //Campos usados na pesquisa rápida
+     ,;                                                                  //Campos Ocultos
+     laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+     laSELECT ,;                                                         //Campos exibidos no grid
+     laSELECT)                                                           //Campos usados no select
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

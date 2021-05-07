@@ -1,0 +1,202 @@
+/*
+
+Project      : isj_51
+Program      : mnt.cfg.ass.html
+Function     : mnt_cfg_ass_html
+Created on   : 04/08/2016 13:40:30
+Descripition :
+
+*/
+
+local lcACTION      := '',;
+      lcNR_CONTROLE := '' as string
+
+local laOPT         := {},;
+      laRESULT      := {},;
+      laSAVE        := {},;
+      laSAVE_AUX    := {},;
+      laLINHA_ATUAL := {},;
+      laOBRIGA      := {} as array
+
+local ii            := 0  as int
+
+lcACTION := upper(Wget('ACTION'))
+
+*Exibe os botÃµes permitidos
+*gbWAC_READ   = PODE LER
+*gbWAC_CREATE = PODE CRIAR NOVO
+*gbWAC_DELETE = PODE APAGAR
+*gbWAC_WRITE  = PODE GRAVAR
+
+if gbWAC_CREATE
+   WPut('ifNOVO',.t.)
+endif
+if gbWAC_DELETE
+   WPut('ifEXCLU',.t.)
+endif
+if gbWAC_WRITE
+   WPut('ifMANU',.t.)
+   WPut('ifSALVAR',.t.)
+endif
+
+laOBRIGA:={'TP_PASTA','TP_AND_INICIAL','TP_AND_FINAL','TP_ANDAPROV','TP_ANDAREJ'}
+init_reqfield(WSet('_USER_INTERFACE'),laOBRIGA)
+
+
+WPut('TITLE','Configuração Assinatura Digital')
+
+if lcACTION == 'SAVE' .and. gbWAC_WRITE
+
+   laRESULT := str2array(WGet('PART1','C'),'|')
+
+   laSAVE := {'TP_PASTA','TP_AND_INICIAL','TP_AND_FINAL','TP_ANDAPROV','TP_ANDAREJ','DESC_REGRA','ANDAPROV','ANDAREJ','REGRAS','CIPS_ASS','ASSINANTES','DT_CADASTRO','LOGIN_CADASTRO'}
+
+   aadd(laLINHA_ATUAL,laSAVE)
+
+   laSAVE  := {laRESULT[1],;
+               laRESULT[2],;
+               laRESULT[3],;
+               laRESULT[4],;
+               laRESULT[5],;
+               laRESULT[6],;
+               laRESULT[7],;
+               laRESULT[8],;
+               laRESULT[9],;
+               WGet('PART2','C'),;
+               WGet('PART3','C'),;
+               date(),;
+               gcLOGIN}
+
+   aadd(laLINHA_ATUAL,laSAVE)
+
+   lcNR_CONTROLE:=WGet('NR_CONTROLE','C')
+
+   if db_replace(laLINHA_ATUAL,'cfg_ass_digital',{'NR_CONTROLE='+lcNR_CONTROLE}) = -1
+      error_sys(db_error())
+   endif
+
+endif
+
+
+if lcACTION == 'EXCLU' .and. gbWAC_DELETE
+
+   if db_delete('cfg_ass_digital','NR_CONTROLE='+Wget('NR_CONTROLE','C')) == -1
+      error_sys(db_error())
+   endif
+
+endif
+
+
+laOPT := loadcboxorder_build('pasta_config','TP_PASTA',.T.,{'TP_PASTA'})
+WPut('TP_PASTA.optionvalue',laOPT)
+WPut('TP_PASTA.option',laOPT)
+
+carregagrid()
+
+return(nil)
+
+*****************************************************
+static function carregagrid()
+*****************************************************
+local laRES1       := {} as array
+local laRES2       := {} as array
+local laRES3       := {} as array
+local xx           := 0 as int
+local ii           := 0 as int
+local lcNR_ROW     := '' as string
+
+if db_select({'NR_CONTROLE',;
+              'TP_PASTA',;
+              'CIPS_ASS',;
+              'ASSINANTES',;
+              'DESC_REGRA',;
+              'TP_AND_INICIAL',;
+              'TP_AND_FINAL',;
+              'TP_ANDAPROV',;
+              'ANDAPROV',;
+              'TP_ANDAREJ',;
+              'ANDAREJ',;
+              'REGRAS'},;
+              'cfg_ass_digital',,,{'TP_PASTA','NR_CONTROLE'}) == -1
+
+   error_sys(db_error())
+endif
+
+laRES1 := db_fetchall()
+
+if len(laRES1)>1
+
+   aadd(laRES1[1],'VAR_REGRAS')
+   aadd(laRES1[1],'VAR_CIPS')
+   aadd(laRES1[1],'VAR_ASS')
+
+   for xx=2 to len(laRES1)
+       lcNR_ROW := alltrim(str(xx-1))
+
+       aadd(laRES1[xx],'VAR_REGRAS'+lcNR_ROW)
+
+
+       WPut('VAR_REGRAS'+lcNR_ROW,  laRES1[xx,db_fetchncol(laRES1,'REGRAS')])
+
+       if laRES1[xx,3] != ''
+
+          lcLINHA  = '<table border="1" cellspacing="1" cellpadding="0" align="center">'
+          lcLINHA += '   <tr class="wgridheader">'
+          lcLINHA += "      <td>CIPS</td>"
+          lcLINHA += "      <td>Prioridade</td>"
+          lcLINHA += "      <td>Substituto</td>"
+          lcLINHA += "   </tr>"
+
+          laRES2 := str2array(laRES1[xx,3],'|')
+
+          for ii=1 to len(laRES2)
+              laRES3 := str2array(laRES2[ii],',')
+              lcLINHA += "<tr class='wgridrow'>"
+              lcLINHA += "<td>"+laRES3[1]+"</td>"
+              lcLINHA += '<td align="center">'+laRES3[2]+'</td>'
+              lcLINHA += "<td>"+laRES3[3]+"</td>"
+              lcLINHA += "</tr>"
+          next ii
+
+          lcLINHA += "</table>"
+
+
+          aadd(laRES1[xx],lcLINHA)
+       else
+          aadd(laRES1[xx],'')
+       endif
+
+       if laRES1[xx,4] != ''
+
+          lcLINHA  = '<table border="1" cellspacing="1" cellpadding="0" align="center">'
+          lcLINHA += '   <tr class="wgridheader">'
+          lcLINHA += "      <td>Assinantes</td>"
+          lcLINHA += "      <td>Prioridade</td>"
+          lcLINHA += "      <td>Substituto</td>"
+          lcLINHA += "   </tr>"
+
+          laRES2 := str2array(laRES1[xx,4],'|')
+
+          for ii=1 to len(laRES2)
+              laRES3 := str2array(laRES2[ii],',')
+              lcLINHA += "<tr class='wgridrow'>"
+              lcLINHA += "<td>"+laRES3[1]+"</td>"
+              lcLINHA += '<td align="center">'+laRES3[2]+'</td>'
+              lcLINHA += "<td>"+laRES3[3]+"</td>"
+              lcLINHA += "</tr>"
+          next ii
+
+          lcLINHA += "</table>"
+
+          aadd(laRES1[xx],lcLINHA)
+       else
+          aadd(laRES1[xx],'')
+       endif
+
+   next xx
+
+endif
+
+WPut('lstCFGASS',laRES1)
+
+return(nil)

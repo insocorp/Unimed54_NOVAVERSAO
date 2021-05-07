@@ -1,0 +1,91 @@
+/*
+
+Project      : isj_43
+Program      : mnt.sla.html
+Function     : mnt_sla_html
+Created on   : 06/01/2015 14:28:22
+Descripition :
+
+*/
+
+local lcACTION      := '' 
+      
+ 
+   local lcTABLE       := 'sla_sintetico' ,;
+         lcPROGRAM     := 'mnt_sla_html',;
+         lcNR_ROW      := '1',;
+         lcWHERE       := '' ,;
+         lcWHEREDETAL  := '' ,;
+         lcAUX         := '' ,;
+         lcAUX2        := '' ,;
+         lcVAR         := '' ,;
+         lcFLSUC       := '' as string
+
+   local laFIELDS       := {} ,;
+         laFIELDS_AUX   := {} ,;
+         laFIELDSDETAL  := {} ,;
+         laRESULT       := {} ,;
+         laFOREIGN      := {} as array
+
+   local ii            := 0 as int
+
+
+
+
+     
+local llERRO:=.f. as logical           
+
+WPut('TITLE','Consulta de SLAs')
+      
+lcACTION      := upper(Wget('ACTION'))
+
+         carregasla()
+if lcACTION == 'EXECUT' .and. gbWAC_CREATE 
+
+   
+endif
+
+return
+
+*****************************************************
+static function carregasla()
+*****************************************************
+local laRES1       := {} ,;
+      laTESTI      := {} ,;
+      laLINHA_ATUAL:= {} as array
+
+
+local ii     := 0 as int
+
+
+local lcNR_ROW     := '' as string
+local lcNR_CONTROLE:= '' as string
+       
+if db_select({'distinct (sla_sintetico.TP_PASTA)',;
+              'sla_sintetico.ID_PLATAFORMA',;
+              'plataforma.DESC_PLATAFORMA',;
+              'sla_sintetico.ID_CONTRATO',;
+              'contrato_label.TP_CONTRATO_LABEL',;
+              'sla_sintetico.ID_MARGEM',;
+              'margem.MARGEM',;
+              'sla_sintetico.PRAZO_CALC',;
+              'sla_sintetico.HORAS_PREVISTAS'},;
+              'sla_sintetico',;
+              {{2,'plataforma','plataforma.ID_PLATAFORMA=sla_sintetico.ID_PLATAFORMA'},;
+               {2,'contrato_label','contrato_label.ID_CONTRATO=sla_sintetico.ID_CONTRATO'},;
+               {2,'margem','margem.ID_MARGEM=sla_sintetico.ID_MARGEM and margem.TP_PASTA = sla_sintetico.TP_PASTA'}},;
+              {'sla_sintetico.TP_PASTA is not null'},;
+              {'sla_sintetico.TP_PASTA'}) == -1
+              
+   error_sys(db_error())
+endif
+
+laRES1 := db_fetchall()
+
+   WPut('lstSLA',laRES1)
+   
+
+return
+
+
+

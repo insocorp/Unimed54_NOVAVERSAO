@@ -1,0 +1,163 @@
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+*
+* Glauber - 04/2018
+*
+* Classe...........: TopNewRet
+*
+* Objetivo.........: Classe de retorno da Inclusão do novo sinistro.
+*
+* Atributos........:
+*
+*
+*
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD Inicializar()
+*    METHOD toString()
+*
+* Classes Ligadas..:
+*
+*    RetornoTop
+*
+*/
+
+
+CLASS RetTopNew
+
+    // Atributos publico
+
+
+    EXPORT Retorno
+    EXPORT SinistroNumero
+    EXPORT IdIntegracao
+    EXPORT TpIntegracao
+    EXPORT Ramo
+    EXPORT Mensagem
+
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()      CLASS RetTopNew
+    PROTOTYPE METHOD Destroy()   CLASS RetTopNew
+    PROTOTYPE METHOD toString()  CLASS RetTopNew
+
+
+
+
+
+
+/*
+*
+* Glauber - 04/2018
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS RetTopNew
+
+    self:Retorno         := RetornoTopNew()
+    self:SinistroNumero  := ''
+    self:IdIntegracao    := 0
+    self:TpIntegracao    := 0
+    self:Ramo            := ''
+    self:Mensagem        := ''
+
+
+
+return(self)
+
+
+/*
+*
+* Glauber - 04/2018
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS RetTopNew
+
+    self:Retorno         := nil
+    self:SinistroNumero  := nil
+    self:IdIntegracao    := nil
+    self:TpIntegracao    := nil
+    self:Ramo            := nil
+    self:Mensagem        := nil
+
+
+return(nil)
+
+
+
+/*
+*
+* Glauber - 04/2018
+*
+* Metodo....: toString()
+* Objetivo..: Retorna uma String com o formato do objeto.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             string
+*
+*/
+
+METHOD toString() CLASS RetTopNew
+
+
+return "RetTopNew [[Retorno:" + transform(self:Retorno:toString()) +"]"
+/*
++;
+       ",SinistroNumero=" + transform(self:SinistroNumero) +;
+       ",IdIntegracao=" + transform(self:IdIntegracao) +;
+       ",TpIntegracao=" + transform(self:TpIntegracao) +;
+       ",Ramo=" + transform(self:Ramo) +;
+       ",StatusSinistro=" + transform(self:StatusSinistro) +;
+       ",FlSinistro=" + transform(self:FlSinistro) +;
+       ",PagtoPendentes=" + transform(self:PagtoPendentes) +;
+       ",PagtoAgendados=" + transform(self:PagtoAgendados) +;
+       ",TpSinistro=" + transform(self:TpSinistro) +;
+       ",Uf=" + transform(self:Uf) +;
+       ",CnpjCpf=" + transform(self:CnpjCpf) +;
+       ",NomeSegurado=" + transform(self:NomeSegurado) +;
+       ",DataSinistro=" + transform(self:DataSinistro) +;
+       ",DataBaixa=" + transform(self:DataBaixa) +;
+       ",NrApolice=" + transform(self:NrApolice) +;
+       ",StatusApolice=" +  transform(self:StatusApolice) +;
+       ",NrProposta=" + transform(self:NrProposta) +;
+       ",DataContratacao=" +transform(self:DataContratacao) +;
+       ",DataPagtoPremio=" + transform(self:DataPagtoPremio) +;
+       ",CdCorretor=" + transform(self:CdCorretor) +;
+       ",CdEstipulante="+transform(self:CdEstipulante) +;
+       ",FlCosseguro="+transform(self:FlCosseguro) +;
+       ",PcCosseguro="+ transform(self:PcCosseguro) +;
+       ",CnpjCongenere="+transform(self:CnpjCongenere) +;
+       ",NrCobertura=" +transform(self:NrCobertura) +;
+       ",VlLmi="+transform(self:VlLmi) +;
+       ",VlSinistrado="+transform(self:VlSinistrado)  + "]"
+*/

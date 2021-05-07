@@ -1,0 +1,289 @@
+/*
+
+Project      : gr5
+Program      : ajuste_monetario.html
+Function     : ajuste_monetario_html
+Created on   : 14-Apr-2007   14:08:12
+Descripition : Cosesp - Ajuste Monetário, conversão de valores.
+
+*/
+
+local laFIELDS := {},;
+      laSAVE   := {},;
+      laSAVE_AUX := {},;
+      laTABELA   := {},;
+      laWHERE    := {},;
+      laLOG      := {},;
+      laJOIN     := {},;
+      laMARKUP   := {},;
+      laMARKUP_JUROS := {},;
+      laRESULT   := {} as array
+
+local lcWHERE     := '',;
+      lcWHERESAVE := '' as string
+
+local lnXX       := 0,;
+      lnVL_CAUSA := 0,;
+      lnVL_ACAO  := 0,;
+      lnVL_RISCO := 0  as numeric
+
+      laFIELDS := {'VL_CAUSA','VL_ACAO','VL_RISCO','DT_CITACAO','NR_PASTA'}
+      lcWHERE  := 'FL_PASTA = ' + DLAP + 'Ativa'+ DLAP+ ' and dt_citacao < '+DLAP+'19940701'+DLAP+ ' and dt_citacao is not null'
+
+      // Tabela Regressiva de Conversão                                1
+                                             //               1234567890
+      aadd(laTABELA,{ctod('01/02/1967'),ctod('28/02/1986'),2750000000000})
+      aadd(laTABELA,{ctod('01/03/1986'),ctod('31/01/1989'),2750000000})
+      aadd(laTABELA,{ctod('01/02/1989'),ctod('31/07/1993'),2750000})
+      aadd(laTABELA,{ctod('01/08/1993'),ctod('30/06/1994'),2750})
+
+      // Seta o login ativo como 'Ajuste Monetário'
+
+      WSet('LOGIN','Ajuste Monetário')
+
+      // Ajuste na tabela pasta
+
+      if db_select(laFIELDS,'pasta',,{lcWHERE},,,,,) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db_begin()
+         for lnXX := 2 to len(laRESULT)
+             if dtoc(laRESULT[lnXX, ascan(laRESULT[1],'DT_CITACAO')]) <> '  /  /    '
+                if (laRESULT[lnXX, ascan(laRESULT[1],'DT_CITACAO')] >= laTABELA[01,01] .and. laRESULT[lnXX, ascan(laRESULT[1],'DT_CITACAO')] <= laTABELA[01,02] )
+                   lnVL_CAUSA := laRESULT[lnXX, ascan(laRESULT[1],'VL_CAUSA')]
+                   lnVL_ACAO  := laRESULT[lnXX, ascan(laRESULT[1],'VL_ACAO')]
+                   lnVL_RISCO := laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]
+                   lcWHERESAVE := 'NR_PASTA = '+ str(laRESULT[lnXX, ascan(laRESULT[1],'NR_PASTA')])
+                   laRESULT[lnXX, ascan(laRESULT[1],'VL_CAUSA')]  := (laRESULT[lnXX, ascan(laRESULT[1],'VL_CAUSA')] / laTABELA[01,03])
+                   laRESULT[lnXX, ascan(laRESULT[1],'VL_ACAO')]   := (laRESULT[lnXX, ascan(laRESULT[1],'VL_ACAO')]  / laTABELA[01,03])
+                   laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]  := (laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')] / laTABELA[01,03])
+                   // Processa o log de Alterações
+
+                   psab_logs({{'VL_CAUSA','VL_ACAO','VL_RISCO'},;
+                              {laRESULT[lnXX, ascan(laRESULT[1],'VL_CAUSA')],;
+                               laRESULT[lnXX, ascan(laRESULT[1],'VL_ACAO')],;
+                               laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]}},'pasta',lcWHERESAVE,str(laRESULT[lnXX, ascan(laRESULT[1],'NR_PASTA')]),'Ajuste Monetário')
+                   // Grava as alterações na tabela
+
+                   if db_replace({{'VL_CAUSA','VL_ACAO','VL_RISCO'},;
+                              {laRESULT[lnXX, ascan(laRESULT[1],'VL_CAUSA')],;
+                               laRESULT[lnXX, ascan(laRESULT[1],'VL_ACAO')],;
+                               laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]}},'pasta',{lcWHERESAVE}) == -1
+                      db_rollback()
+                      error_sys(db_error())
+                   endif
+                elseif (laRESULT[lnXX, ascan(laRESULT[1],'DT_CITACAO')] >= laTABELA[02,01] .and. laRESULT[lnXX, ascan(laRESULT[1],'DT_CITACAO')] <= laTABELA[02,02] )
+                   lnVL_CAUSA := laRESULT[lnXX, ascan(laRESULT[1],'VL_CAUSA')]
+                   lnVL_ACAO  := laRESULT[lnXX, ascan(laRESULT[1],'VL_ACAO')]
+                   lnVL_RISCO := laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]
+                   lcWHERESAVE := 'NR_PASTA = '+ str(laRESULT[lnXX, ascan(laRESULT[1],'NR_PASTA')])
+                   laRESULT[lnXX, ascan(laRESULT[1],'VL_CAUSA')] := (laRESULT[lnXX, ascan(laRESULT[1],'VL_CAUSA')] / laTABELA[02,03])
+                   laRESULT[lnXX, ascan(laRESULT[1],'VL_ACAO')]  := (laRESULT[lnXX, ascan(laRESULT[1],'VL_ACAO')] / laTABELA[02,03])
+                   laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')] := (laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')] / laTABELA[02,03])
+                   // Processa o log de Alterações
+
+                   psab_logs({{'VL_CAUSA','VL_ACAO','VL_RISCO'},;
+                              {laRESULT[lnXX, ascan(laRESULT[1],'VL_CAUSA')],;
+                               laRESULT[lnXX, ascan(laRESULT[1],'VL_ACAO')],;
+                               laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]}},'pasta',lcWHERESAVE,str(laRESULT[lnXX, ascan(laRESULT[1],'NR_PASTA')]),'Ajuste Monetário')
+                   // Grava as alterações na tabela
+
+                   if db_replace({{'VL_CAUSA','VL_ACAO','VL_RISCO'},;
+                              {laRESULT[lnXX, ascan(laRESULT[1],'VL_CAUSA')],;
+                               laRESULT[lnXX, ascan(laRESULT[1],'VL_ACAO')],;
+                               laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]}},'pasta',{lcWHERESAVE}) == -1
+                      db_rollback()
+                      error_sys(db_error())
+                   endif
+                elseif (laRESULT[lnXX, ascan(laRESULT[1],'DT_CITACAO')] >= laTABELA[03,01] .and. laRESULT[lnXX, ascan(laRESULT[1],'DT_CITACAO')] <= laTABELA[03,02] )
+                   lnVL_CAUSA := laRESULT[lnXX, ascan(laRESULT[1],'VL_CAUSA')]
+                   lnVL_ACAO  := laRESULT[lnXX, ascan(laRESULT[1],'VL_ACAO')]
+                   lnVL_RISCO := laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]
+                   lcWHERESAVE := 'NR_PASTA = '+ str(laRESULT[lnXX, ascan(laRESULT[1],'NR_PASTA')])
+                   laRESULT[lnXX, ascan(laRESULT[1],'VL_CAUSA')] := (laRESULT[lnXX, ascan(laRESULT[1],'VL_CAUSA')] / laTABELA[03,03])
+                   laRESULT[lnXX, ascan(laRESULT[1],'VL_ACAO')]  := (laRESULT[lnXX, ascan(laRESULT[1],'VL_ACAO')] / laTABELA[03,03])
+                   laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')] := (laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')] / laTABELA[03,03])
+                   // Processa o log de Alterações
+
+                   psab_logs({{'VL_CAUSA','VL_ACAO','VL_RISCO'},;
+                              {laRESULT[lnXX, ascan(laRESULT[1],'VL_CAUSA')],;
+                               laRESULT[lnXX, ascan(laRESULT[1],'VL_ACAO')],;
+                               laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]}},'pasta',lcWHERESAVE,str(laRESULT[lnXX, ascan(laRESULT[1],'NR_PASTA')]),'Ajuste Monetário')
+
+                   // Grava as alterações na tabela
+                   if db_replace({{'VL_CAUSA','VL_ACAO','VL_RISCO'},;
+                              {laRESULT[lnXX, ascan(laRESULT[1],'VL_CAUSA')],;
+                               laRESULT[lnXX, ascan(laRESULT[1],'VL_ACAO')],;
+                               laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]}},'pasta',{lcWHERESAVE}) == -1
+                      db_rollback()
+                      error_sys(db_error())
+                   endif
+                elseif (laRESULT[lnXX, ascan(laRESULT[1],'DT_CITACAO')] >= laTABELA[04,01] .and. laRESULT[lnXX, ascan(laRESULT[1],'DT_CITACAO')] <= laTABELA[04,02] )
+                   lnVL_CAUSA := laRESULT[lnXX, ascan(laRESULT[1],'VL_CAUSA')]
+                   lnVL_ACAO  := laRESULT[lnXX, ascan(laRESULT[1],'VL_ACAO')]
+                   lnVL_RISCO := laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]
+                   lcWHERESAVE := 'NR_PASTA = '+ str(laRESULT[lnXX, ascan(laRESULT[1],'NR_PASTA')])
+                   laRESULT[lnXX, ascan(laRESULT[1],'VL_CAUSA')] := (laRESULT[lnXX, ascan(laRESULT[1],'VL_CAUSA')] / laTABELA[04,03])
+                   laRESULT[lnXX, ascan(laRESULT[1],'VL_ACAO')]  := (laRESULT[lnXX, ascan(laRESULT[1],'VL_ACAO')]  / laTABELA[04,03])
+                   laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')] := (laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')] / laTABELA[04,03])
+                   // Processa o log de Alterações
+
+                   psab_logs({{'VL_CAUSA','VL_ACAO','VL_RISCO'},;
+                              {laRESULT[lnXX, ascan(laRESULT[1],'VL_CAUSA')],;
+                               laRESULT[lnXX, ascan(laRESULT[1],'VL_ACAO')],;
+                               laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]}},'pasta',lcWHERESAVE,str(laRESULT[lnXX, ascan(laRESULT[1],'NR_PASTA')]),'Ajuste Monetário')
+
+                   // Grava as alterações na tabela
+                   if db_replace({{'VL_CAUSA','VL_ACAO','VL_RISCO'},;
+                              {laRESULT[lnXX, ascan(laRESULT[1],'VL_CAUSA')],;
+                               laRESULT[lnXX, ascan(laRESULT[1],'VL_ACAO')],;
+                               laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]}},'pasta',{lcWHERESAVE}) == -1
+                      db_rollback()
+                      error_sys(db_error())
+                   endif
+
+                endif
+             endif
+         next lnXX
+         db_commit()
+      endif
+
+
+      // Ajuste do campo VL_RISCO na tabela pasta_pedidos
+
+      laFIELDS := {'pasta_pedidos.NR_PASTA',;
+                   'pasta_pedidos.NR_CONTROLE',;
+                   'pasta_pedidos.VL_RISCO',;
+                   'pasta.DT_CITACAO'}
+      laJOIN   := {{2,'pasta','pasta_pedidos.NR_PASTA = pasta.NR_PASTA'}}
+
+      lcWHERE  :=  'pasta_pedidos.nr_pasta in (select pasta.nr_pasta from pasta where '
+      lcWHERE  += ' pasta.FL_PASTA = ' + DLAP + 'Ativa'+ DLAP+ ' and pasta.dt_citacao < '+DLAP+'19940701'+DLAP+'and dt_citacao is not null and '
+      lcWHERE  += ' pasta.CD_INDICE > 0 and pasta_pedidos.DT_RISCO is not null)'
+
+      if db_select(laFIELDS,'pasta_pedidos',laJOIN,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db_begin()
+         for lnXX := 2 to len(laRESULT)
+             if dtoc(laRESULT[lnXX, ascan(laRESULT[1],'DT_CITACAO')]) <> '  /  /    '
+                if (laRESULT[lnXX, ascan(laRESULT[1],'DT_CITACAO')] >= laTABELA[01,01] .and. laRESULT[lnXX, ascan(laRESULT[1],'DT_CITACAO')] <= laTABELA[01,02] )
+                   lnVL_RISCO  := laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]
+                   lcWHERESAVE := 'NR_PASTA = '+ str(laRESULT[lnXX, ascan(laRESULT[1],'NR_PASTA')]) + ' AND NR_CONTROLE = ' + str(laRESULT[lnXX, ascan(laRESULT[1],'NR_CONTROLE')])
+                   laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]  := (laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')] / laTABELA[01,03])
+                   // Processa o log de Alterações
+
+                   psab_logs({{'VL_RISCO'},{laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]}},'pasta_pedidos',lcWHERESAVE,str(laRESULT[lnXX, ascan(laRESULT[1],'NR_PASTA')]),'Ajuste Monetário')
+                   // Grava as alterações na tabela
+                   if db_replace({{'VL_RISCO'},{laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]}},'pasta_pedidos',{lcWHERESAVE}) == -1
+                      db_rollback()
+                      error_sys(db_error())
+                   endif
+                elseif (laRESULT[lnXX, ascan(laRESULT[1],'DT_CITACAO')] >= laTABELA[02,01] .and. laRESULT[lnXX, ascan(laRESULT[1],'DT_CITACAO')] <= laTABELA[02,02] )
+                   lnVL_RISCO  := laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]
+                   lcWHERESAVE := 'NR_PASTA = '+ str(laRESULT[lnXX, ascan(laRESULT[1],'NR_PASTA')]) + ' AND NR_CONTROLE = ' + str(laRESULT[lnXX, ascan(laRESULT[1],'NR_CONTROLE')])
+                   laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]  := (laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')] / laTABELA[02,03])
+                   // Processa o log de Alterações
+
+                   psab_logs({{'VL_RISCO'},{laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]}},'pasta_pedidos',lcWHERESAVE,str(laRESULT[lnXX, ascan(laRESULT[1],'NR_PASTA')]),'Ajuste Monetário')
+                   // Grava as alterações na tabela
+                   if db_replace({{'VL_RISCO'},{laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]}},'pasta_pedidos',{lcWHERESAVE}) == -1
+                      db_rollback()
+                      error_sys(db_error())
+                   endif
+                elseif (laRESULT[lnXX, ascan(laRESULT[1],'DT_CITACAO')] >= laTABELA[03,01] .and. laRESULT[lnXX, ascan(laRESULT[1],'DT_CITACAO')] <= laTABELA[03,02] )
+                   lnVL_RISCO  := laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]
+                   lcWHERESAVE := 'NR_PASTA = '+ str(laRESULT[lnXX, ascan(laRESULT[1],'NR_PASTA')]) + ' AND NR_CONTROLE = ' + str(laRESULT[lnXX, ascan(laRESULT[1],'NR_CONTROLE')])
+                   laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]  := (laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')] / laTABELA[03,03])
+                   // Processa o log de Alterações
+
+                   psab_logs({{'VL_RISCO'},{laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]}},'pasta_pedidos',lcWHERESAVE,str(laRESULT[lnXX, ascan(laRESULT[1],'NR_PASTA')]),'Ajuste Monetário')
+                   // Grava as alterações na tabela
+                   if db_replace({{'VL_RISCO'},{laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]}},'pasta_pedidos',{lcWHERESAVE}) == -1
+                      db_rollback()
+                      error_sys(db_error())
+                   endif
+                elseif (laRESULT[lnXX, ascan(laRESULT[1],'DT_CITACAO')] >= laTABELA[04,01] .and. laRESULT[lnXX, ascan(laRESULT[1],'DT_CITACAO')] <= laTABELA[04,02] )
+                   lnVL_RISCO  := laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]
+                   lcWHERESAVE := 'NR_PASTA = '+ str(laRESULT[lnXX, ascan(laRESULT[1],'NR_PASTA')]) + ' AND NR_CONTROLE = ' + str(laRESULT[lnXX, ascan(laRESULT[1],'NR_CONTROLE')])
+                   laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]  := (laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')] / laTABELA[04,03])
+                   // Processa o log de Alterações
+
+                   psab_logs({{'VL_RISCO'},{laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]}},'pasta_pedidos',lcWHERESAVE,str(laRESULT[lnXX, ascan(laRESULT[1],'NR_PASTA')]),'Ajuste Monetário')
+                   // Grava as alterações na tabela
+                   if db_replace({{'VL_RISCO'},{laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')]}},'pasta_pedidos',{lcWHERESAVE}) == -1
+                      db_rollback()
+                      error_sys(db_error())
+                   endif
+
+                endif
+             endif
+         next lnXX
+         db_commit()
+      endif
+
+
+      // Ajuste dos campos VL_RISCO_CALC, VL_CORRECAO, VL_JUROS na tabela pasta_pedidos
+
+      laFIELDS := {'pasta_pedidos.NR_PASTA',;
+                   'pasta_pedidos.NR_CONTROLE',;
+                   'pasta_pedidos.VL_RISCO',;
+                   'pasta_pedidos.VL_RISCO_CALC',;
+                   'pasta_pedidos.VL_CORRECAO',;
+                   'pasta_pedidos.VL_JUROS',;
+                   'pasta_pedidos.DT_RISCO',;
+                   'pasta_pedidos.PC_RISCO',;
+                   'pasta.DT_CITACAO',;
+                   'pasta.CD_INDICE'}
+      laJOIN   := {{2,'pasta','pasta_pedidos.NR_PASTA = pasta.NR_PASTA'}}
+
+      //lcWHERE  :=  'pasta_pedidos.nr_pasta in (select nr_pasta from pasta where '
+      //lcWHERE  += ' pasta.FL_PASTA = ' + DLAP + 'Ativa'+ DLAP+ ' and pasta.dt_citacao < '+DLAP+'19940701'+DLAP+')'
+      lcWHERE  :=  'pasta_pedidos.nr_pasta in (select pasta.nr_pasta from pasta where '
+      lcWHERE  += ' pasta.FL_PASTA = ' + DLAP + 'Ativa'+ DLAP+ ' and pasta.dt_citacao < '+DLAP+'19940701'+DLAP+'and dt_citacao is not null and '
+      lcWHERE  += ' pasta.CD_INDICE > 0 and pasta_pedidos.DT_RISCO is not null)'
+
+
+      if db_select(laFIELDS,'pasta_pedidos',laJOIN,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db_begin()
+         for lnXX := 2 to len(laRESULT)
+             laMARKUP       := getmarkup(laRESULT[lnXX,ascan(laRESULT[1],'CD_INDICE')],;
+                                         date2ym(date()),;
+                                         date2ym(laRESULT[lnXX,ascan(laRESULT[1],'DT_RISCO')]))
+
+             laMARKUP_JUROS := getmarkup_juros(laRESULT[lnXX,ascan(laRESULT[1],'CD_INDICE')],;
+                                         date2ym(date()),;
+                                         date2ym(laRESULT[lnXX,ascan(laRESULT[1],'DT_RISCO')]))
+             laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO_CALC')] :=  (laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO')] * (laRESULT[lnXX, ascan(laRESULT[1],'PC_RISCO')] / 100))
+             laRESULT[lnXX, ascan(laRESULT[1],'VL_CORRECAO')]   :=  (laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO_CALC')] * (laMARKUP[1] -1))
+             laRESULT[lnXX, ascan(laRESULT[1],'VL_JUROS')]      := ((laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO_CALC')] * laMARKUP[1] ) * (laMARKUP_JUROS[1] -1))
+             // Processa o log de Alterações
+
+             psab_logs({{'VL_RISCO_CALC','VL_CORRECAO','VL_JUROS'},;
+                         {laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO_CALC')],;
+                          laRESULT[lnXX, ascan(laRESULT[1],'VL_CORRECAO')],;
+                          laRESULT[lnXX, ascan(laRESULT[1],'VL_JUROS')]}},'pasta_pedidos',lcWHERESAVE,str(laRESULT[lnXX, ascan(laRESULT[1],'NR_PASTA')]),'Ajuste Monetário')
+             lcWHERESAVE := 'NR_PASTA = '+ str(laRESULT[lnXX, ascan(laRESULT[1],'NR_PASTA')]) + ' AND NR_CONTROLE = ' + str(laRESULT[lnXX, ascan(laRESULT[1],'NR_CONTROLE')])
+             // Grava as alterações na tabela
+             if db_replace({{'VL_RISCO_CALC','VL_CORRECAO','VL_JUROS'},;
+                            {laRESULT[lnXX, ascan(laRESULT[1],'VL_RISCO_CALC')],;
+                             laRESULT[lnXX, ascan(laRESULT[1],'VL_CORRECAO')],;
+                             laRESULT[lnXX, ascan(laRESULT[1],'VL_JUROS')]}},'pasta_pedidos',{lcWHERESAVE}) == -1
+                db_rollback()
+                error_sys(db_error())
+             endif
+         next lnXX
+         db_commit()
+      endif
+
+return

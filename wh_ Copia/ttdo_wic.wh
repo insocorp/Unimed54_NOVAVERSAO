@@ -1,0 +1,24 @@
+/*
+
+Project      : gr5
+Program      : ttdo.wic
+Function     : ttdo_wic
+Created on   : 23-Apr-2002   18:29:44
+Descripition :  
+
+*/
+
+l1 := {}
+l2 := {}
+
+aadd(l1,{'fd11','fd12','fd13','fd14','LST2'})
+for ii := 1 to 4
+   l2 := {}
+   aadd(l2,{'fd21','fd22','fd23','fd24'})
+   for ii2:= 1 to 4
+      aadd(l2,{ii2*10*ii,ii2*20*ii,ii2*30*ii,ii2*40*ii})
+   next ii2
+   aadd(l1,{ii*1,ii*2,ii*3,ii*4,l2})
+next ii
+
+WPut('LST1',l1)

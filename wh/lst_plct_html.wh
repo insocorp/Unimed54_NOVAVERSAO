@@ -1,0 +1,119 @@
+/*
+Project      : gr5
+Program      : lst.plct.html
+Function     : lst_plct_html
+Created on   : 06-Nov-2002   16:40:17
+Descripition : Listagem de Planos de Contas
+*/
+   local lcQUERY        := '' ,;
+         lcTABLE        := '' ,;
+         lcFILTER_FIELD := '' ,;
+         lcFILTER_VALUE := '' ,;
+         lcORDER_FIELD  := '' as string
+   local ii           := 0 ,;
+         lnNR_ROWINI  := 0 ,;
+         lnNR_ROWFIN  := 0 ,;
+         lnNR_ROWPREV := 0 ,;
+         lnNR_ROWNEXT := 0 as int
+   local laRES      := {} ,;
+         laFIELDLST := {} ,;
+         laLABELLST := {} ,;
+         laWHERE    := {} ,;
+         laORDERBY  := {} ,;
+         laLIMIT    := {} as array
+   lcFILTER_FIELD := WGet('FILTER_FIELD','C')
+   lcFILTER_VALUE := WGet('FILTER_CONTENT','C')
+   lcORDER_FIELD  := WGet('ORDER_FIELD','C')
+   lnNR_ROWINI    := WGet('NR_ROWINI','N')
+   lnNR_ROWFIN    := WGet('NR_ROWFIN','N')
+   lnNR_ROWPREV   := WGet('NR_ROWPREV','N')
+   lnNR_ROWNEXT   := WGet('NR_ROWNEXT','N')
+   if lnNR_ROWPREV = 0
+      lnNR_ROWPREV := 50
+   endif
+   if lnNR_ROWNEXT = 0
+      lnNR_ROWNEXT := 50
+   endif
+   lcTABLE    := 'planocontas'
+   laFIELDLST := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+   laLABELLST := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'A')
+   if empty(lcORDER_FIELD)
+      lcORDER_FIELD := laLABELLST[ascan(laFIELDLST,'CD_PLCT')]
+   endif
+   if empty(lcORDER_FIELD)
+      lcORDER_FIELD := laLABELLST[1]
+   endif
+   /*
+   lcQUERY := 'select repeat(" ",PLCT_NIVEL*4) as scESTRUTURA, '+laFIELDLST[1]
+   for ii := 2 to len(laFIELDLST)
+      if laFIELDLST[ii]="PLCT_NATUREZA"
+         lcQUERY += ',if(PLCT_NATUREZA="D","Débito","Crédito") as PLCT_NATUREZA'
+      elseif laFIELDLST[ii]="PLCT_ESPECIE"
+         lcQUERY += ',if(PLCT_ESPECIE="A","Analíca","Sintética") as PLCT_ESPECIE'
+      else
+         lcQUERY += ','+laFIELDLST[ii]
+      endif
+   next ii
+   lcQUERY += ' from '+lcTABLE
+   wout(lcQUERY)
+   */
+   if WGet('FIND.X','B')
+      lnNR_ROWINI := 0
+      lnNR_ROWFIN := 0
+   endif
+   if ! empty(lcFILTER_VALUE)
+      //aadd(laWHERE,laFIELDLST[ascan(laLABELLST, lcFILTER_FIELD)]+' like '+DLMT+'%'+lcFILTER_VALUE+'%'+DLMT)
+      aadd(laWHERE,mkwherelst({{laFIELDLST[ascan(laLABELLST, lcFILTER_FIELD)],lcFILTER_VALUE}}))
+   endif
+   aadd(laORDERBY,laFIELDLST[ascan(laLABELLST, lcORDER_FIELD)])
+   if WGet('LSTPREV','B') .or. WGet('LSTPREV.X','B')
+      if lnNR_ROWINI-lnNR_ROWPREV > 0
+         aadd(laLIMIT,lnNR_ROWINI-lnNR_ROWPREV)
+         aadd(laLIMIT,lnNR_ROWPREV)
+         lnNR_ROWINI := lnNR_ROWINI-lnNR_ROWPREV
+      else
+         aadd(laLIMIT,lnNR_ROWPREV)
+         lnNR_ROWINI := 0
+      endif
+   elseif WGet('LSTNEXT','B') .or. WGet('LSTNEXT.X','B')
+      aadd(laLIMIT,lnNR_ROWFIN)
+      aadd(laLIMIT,lnNR_ROWNEXT)
+      lnNR_ROWINI := lnNR_ROWFIN
+   else
+      aadd(laLIMIT,lnNR_ROWNEXT)
+      lnNR_ROWINI := 0
+   endif
+   if db_select(laFIELDLST,lcTABLE,,laWHERE,laORDERBY,,,laLIMIT) = -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 0
+      aadd(laRES[1],'scESTRUTURA')
+      for ii := 2 to len(laRES)
+          lcNAT := laRES[ii,ascan(laFIELDLST,'PLCT_NATUREZA')]
+          lcESP := laRES[ii,ascan(laFIELDLST,'PLCT_ESPECIE')]
+          laRES[ii,ascan(laFIELDLST,'PLCT_NATUREZA')] := iif(lcNAT=='D','Débito','Crédito')
+          laRES[ii,ascan(laFIELDLST,'PLCT_ESPECIE')]  := iif(lcESP=='A','Analítica','Sintética')
+          aadd(laRES[ii],wnbsp(laRES[ii,ascan(laFIELDLST,'PLCT_NIVEL')]*4))
+      next ii
+   endif
+   wPut('lstPLCT',laRES)
+   lnNR_ROWFIN := lnNR_ROWINI+len(laRES)-1
+   if ! empty(lcFILTER_FIELD)
+      saveWEnv('lst.plct.html',{'FILTER_FIELD','FILTER_CONTENT','ORDER_FIELD'})
+      wPut('FILTER_FIELD_OPT',laLABELLST)
+      wPut('FILTER_FIELD',lcFILTER_FIELD)
+      wPut('FILTER_CONTENT',lcFILTER_VALUE)
+      wPut('ORDER_FIELD_OPT',laLABELLST)
+      wPut('ORDER_FIELD',lcORDER_FIELD)
+   else 
+      readWenv('lst.plct.html')
+   endIf
+   wPut('FILTER_FIELD_OPT',laLABELLST)
+   wPut('ORDER_FIELD_OPT',laLABELLST) 
+   wPut('NR_ROWINI',alltrim(str(lnNR_ROWINI)))
+   wPut('NR_ROWFIN',alltrim(str(lnNR_ROWFIN)))
+   wPut('NR_ROWPREV',alltrim(str(lnNR_ROWPREV)))
+   wPut('NR_ROWNEXT',alltrim(str(lnNR_ROWNEXT)))
+   wPut('TITLE','Relação de Planos de Contas')
+

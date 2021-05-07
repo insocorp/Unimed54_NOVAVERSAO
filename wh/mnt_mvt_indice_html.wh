@@ -1,0 +1,290 @@
+/*
+Project      : gr5
+Program      : mnt.mvt_indice.html
+Function     : mnt_mvt_indice_html
+Created on   : 25-Set-2009   18:57:42
+Descripition : Manutenção de Indices Diários
+*/
+
+   local lcACTION    := '',;
+         lcWHERE     := '',;
+         lcTABLE     := '',;
+         lcCD_INDICE := '',;
+         lcAM_REF    := '',;
+         lcCODE      := '',;
+         lcVALIDA    := '' as string
+
+   local laRESULT   := {} ,;
+         laAM_OLDER := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laFIELDS   := {} ,;
+         laVALIDA   := {} ,;
+         laPAGINAS  := {} ,;
+         laLIMIT    := {} ,;
+         laORDER_BY := {} as array
+
+   local ii         := 0 ,;
+         lnCOUNT    := 0 as int
+
+   local llERROR := .f. as logical
+
+   lcACTION        := upper(WGet('ACTION','C'))
+   lcCD_INDICE     := WGet('CD_INDICE','C')
+   lcAM_REF        := WGet('AM_REF')
+   lcTABLE         := 'mvt_indice'
+   lcWHERE         := 'CD_INDICE = '+lcCD_INDICE+' and AM_REF = '+DLAP+lcAM_REF+DLAP
+   laFIELDS        := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS        := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   laFIELDS_INDICE := structtable(WSet("DB_ACTIVE"),'indice_reajuste',1,'N')
+   laORDER_BY      := {'AM_REF'}
+
+   /* Campos obrigatórios
+   * Formato do array abaixo
+   * 1 - Campo para captura da informaãço no HTML - WGet()
+   * 2 - Parte do label a exibir em caso de erro, esta inf. á capturada do Wictrix
+   */
+   laVALIDA := {'AM_REF'}
+
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+   if empty(lcCD_INDICE)
+      wSet('_USER_INTERFACE','lst.mvt.indice.html')
+      lst_mvt_indice_html()
+      return
+   elseif empty(lcACTION)
+      lcACTION = 'NEW'
+   endif
+
+   if db_select(laFIELDS_INDICE,'indice_reajuste',,{'CD_INDICE='+lcCD_INDICE}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      db2put(laRESULT)
+   else
+      wSet('_USER_INTERFACE','lst.mvt.indice.html')
+      lst_mvt_indice_html()
+   endif
+   laRESULT := {}
+
+   wPut('TITLE','Variação de Índice')
+
+   if lcACTION = 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      db2put(db_fetchall())
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+      if ! verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+         llERROR := .t.
+      endif
+
+      if len(lcAM_REF) < 6
+         walert('Ano Mes incompleto. Formato correto: AAAAMM')
+         llERROR := .t.
+         get2put()
+
+      elseif val(right(lcAM_REF,2)) < 1 .or. val(right(lcAM_REF,2)) > 12
+         walert('Mes inválido')
+         llERROR := .t.
+         get2put()
+
+      elseif (val(left(lcAM_REF,4)) == year() .and. val(right(lcAM_REF,2)) > month())
+         walert('Mes não pode ser maior que o atual')
+         llERROR := .t.
+         get2put()
+
+      elseif val(left(lcAM_REF,4)) > year()
+         walert('Ano inválido')
+         llERROR := .t.
+         get2put()
+
+      endif
+      if ! llERROR
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+         if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+            error_sys(db_error())
+         endif
+         if db_select({'distinct am_ref'},'markup') == -1
+      		error_sys(db_error())
+	   	endif
+   	   laRECALC_DATAS := db_fetchall()
+         for jj := 2 to len(laRECALC_DATAS)
+            if laRECALC_DATAS[jj,1] >= lcAM_REF
+         		mkmarkup(val(lcCD_INDICE),laRECALC_DATAS[jj,1])
+            endif
+         next jj
+      endif
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+      if db_select({'distinct am_ref'},'markup') == -1
+        	error_sys(db_error())
+	   endif
+   	   laRECALC_DATAS := db_fetchall()
+      for jj := 2 to len(laRECALC_DATAS)
+         if laRECALC_DATAS[jj,1] >= lcAM_REF
+           	mkmarkup(val(lcCD_INDICE),laRECALC_DATAS[jj,1])
+         endif
+      next jj
+   endif
+
+   // Paginação das Variações
+
+   if db_select({'AM_REF','VL_INDICE'},lcTABLE,,{'CD_INDICE='+lcCD_INDICE},{'AM_REF'},'D') == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   lnCOUNT   := len(laRESULT)-1
+   laPAGINAS := paginacao2(lnCOUNT,'','','mnt.mvt.indice.html?CLICK='+Wget('CLICK','C')+'&'+'CD_INDICE='+alltrim(lcCD_INDICE))
+   laLIMIT   := param_fetch(laPAGINAS,'LIMIT')
+   if db_select({'AM_REF','VL_INDICE'},lcTABLE,,{'CD_INDICE='+lcCD_INDICE},{'AM_REF'},,,laLIMIT) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      //Resumo da pesquisa
+      lcCODE := alltrim(str(laLIMIT[1]+1))+'-'
+      if ((len(laRESULT)-1) < (laLIMIT[2]-laLIMIT[1]))
+         lcCODE += alltrim(str(len(laRESULT)-1))
+      elseif param_fetch(laPAGINAS,'GOTO_PAGE') == param_fetch(laPAGINAS,'NR_PAGES') //lnNR_PAGES
+         lcCODE += alltrim(str(lnCOUNT))
+      else
+         lcCODE += alltrim(str(laLIMIT[1]+param_fetch(laPAGINAS,'ROWS_PAGE')))
+      endif
+      lcCODE += ' de '+alltrim(str(lnCOUNT))
+      if lnCOUNT > 1
+         lcCODE := ' Resultados '+lcCODE+' registros'
+      else
+         lcCODE := ' Resultado '+lcCODE+' registro'
+      endif
+      wput('RESUME_RESULTSET',lcCODE)
+      aadd(laRESULT[1],'(row)')
+      for ii := 2 to len(laRESULT)
+          aadd(laRESULT[ii],'(row)'+wic_action('wicaction/mnt.mvt.indice.html'+;
+                                               '?CD_INDICE='+lcCD_INDICE+;
+                                               '&AM_REF='+laRESULT[ii, db_fetchncol(laRESULT,'AM_REF')]+;
+                                               '&ACTION=ALTER'))
+      next ii
+      WPut('GRID_INDICE',grid_create(laRESULT))
+   endif
+return
+
+
+/***
+*
+* Rotina para executar paginação
+*
+* fnCOUNT: Passa o numero total de registros no select
+*
+*/
+
+Static Function paginacao2(fnCOUNT,fcMSGTYPE,fcQUICK_SEARCH, fcURL)
+
+  local ii          := 0 ,;
+        lnGOTO_PAGE := WGet('GOTO_PAGE','N') ,;
+        lnNR_PAGES  := 0 ,;
+        lnROWS_PAGE := 0 ,;
+        lnMAX_PAGES := 0 ,;
+        lnPAGE_INI  := 0 ,;
+        lnPAGE_FIN  := 0 ,;
+        lnLIMIT1    := 0 ,;
+        lnLIMIT2    := 0 as int
+
+   local lcCODE     := '' as string
+
+   local laPAGES    := {} ,;
+         laLIMIT    := {} ,;
+         laRETURN   := {} as array
+   if fnCOUNT > 0
+      if lnGOTO_PAGE <= 0
+         lnGOTO_PAGE := 1
+      endif
+      lnMAX_PAGES := iif(val(WSet('MAX_PAGES'))==0,10,val(WSet('MAX_PAGES')))
+      lnROWS_PAGE := iif(val(WSet('ROWS_PAGE'))==0,10,val(WSet('ROWS_PAGE')))
+
+      if lnROWS_PAGE > fnCOUNT
+         lnROWS_PAGE := fnCOUNT
+      endif
+      lnNR_PAGES := fnCOUNT/lnROWS_PAGE
+
+      if (fnCOUNT % lnROWS_PAGE) > 0
+         lnNR_PAGES += 1
+      endif
+
+      lnMAX_PAGES := iif(lnNR_PAGES < lnMAX_PAGES,lnNR_PAGES,lnMAX_PAGES)
+      if lnGOTO_PAGE == 1
+         lnPAGE_INI := 1                              // Página inicial
+         lnPAGE_FIN := lnMAX_PAGES                    // Página final
+      else
+         if alltrim(WGet('MORE')) == 'Y'              // Visualizar as próximas 10 páginas, se possível
+            lnPAGE_INI := lnGOTO_PAGE
+            lnPAGE_FIN := lnMAX_PAGES+(lnGOTO_PAGE-1)
+            if lnPAGE_FIN > lnNR_PAGES
+               lnPAGE_FIN := lnNR_PAGES
+            endif
+         elseif alltrim(WGet('LESS')) == 'Y'          // Visualizar as 10 páginas anteriores, se possível
+            lnPAGE_INI := lnGOTO_PAGE-lnMAX_PAGES+1
+            lnPAGE_FIN := lnGOTO_PAGE
+         else
+            lnPAGE_INI := WGet('FIRST_PAGE','N')
+            lnPAGE_FIN := WGet('LAST_PAGE','N')
+         endif
+      endif
+
+      aadd(laPAGES,{'PROGRAM_CALL','NR_PAGE'})
+      for ii := lnPAGE_INI to lnPAGE_FIN
+          lcCODE := wic_action('wicaction/'+fcURL+'&GOTO_PAGE='+alltrim(str(ii)))
+          lcCODE += '&FIRST_PAGE='+alltrim(str(lnPAGE_INI))+'&LAST_PAGE='+alltrim(str(lnPAGE_FIN))
+          if ii == lnPAGE_INI
+             lcCODE += '&LESS=Y'
+          endif
+          if ii == lnPAGE_FIN .and. lnPAGE_FIN < lnNR_PAGES
+             lcCODE += '&MORE=Y'
+          endif
+
+          // Manter a pesquisa do usuário caso ela exista e demais parametros
+          if !empty(fcQUICK_SEARCH)
+             lcCODE += '&QUICK_SEARCH='+fcQUICK_SEARCH
+          endif
+
+          if !empty(fcMSGTYPE)
+             lcCODE += '&MSGTYPE='+fcMSGTYPE
+          endif
+
+          aadd(laPAGES,{lcCODE,alltrim(str(ii))})
+      next ii
+      WPut('ifRESULT',.T.)
+      WPut('PAGES',laPAGES)
+
+      lnLIMIT1 := iif(lnGOTO_PAGE == 1,0,((lnGOTO_PAGE*lnROWS_PAGE)-1)-(lnROWS_PAGE-1))
+      lnLIMIT2 := lnROWS_PAGE
+      laLIMIT  := {lnLIMIT1,lnLIMIT2}
+
+      aadd(laRETURN,{'NR_PAGES',lnNR_PAGES})
+      aadd(laRETURN,{'ROWS_PAGE',lnROWS_PAGE})
+      aadd(laRETURN,{'GOTO_PAGE',lnGOTO_PAGE})
+      aadd(laRETURN,{'LIMIT',laLIMIT})
+   else
+      aadd(laRETURN,{'NR_PAGES' ,0})
+      aadd(laRETURN,{'ROWS_PAGE',0})
+      aadd(laRETURN,{'GOTO_PAGE',0})
+      aadd(laRETURN,{'LIMIT',{}})
+   endif
+return(laRETURN)
+
+
+
+
+
+
+
+
+
+

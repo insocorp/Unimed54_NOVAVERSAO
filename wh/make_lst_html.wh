@@ -1,0 +1,512 @@
+/*
+
+Project      : TODOS OS PROJETOS
+Program      : make_lst.html
+Function     : make_lst_html
+Created on   : 23-Jul-2004   16:54:52
+Descripition : Criação Dinâmica de Listagens/Searchs
+
+*/
+
+/* ======================================= Parametros definidos no Wictrix (Programs) =======================================
+* pnMODE......: Modo de funcionamento. Caso não seja enviado, o padrão será 1 - Listagem
+*               1 - Listagem
+*               2 - Search
+* pcTARGET_SRC: Modulo do programa chamador
+* pcPROG_SRC..: Programa chamador
+* paONCLICK...: Parametros das linhas clicaveis do grid. O array DEVE seguir o formato abaixo:
+*    {{'PARAM1','VALUE_P1'},;
+*     {'PARAM2','VALUE_P2'},;
+*     {' ...  ','   ...  '},;
+*     {'PARAMn','VALUE_Pn'}}
+*
+*    Onde:
+*      Col 1 - Nome do parametro. Ex.: TP_PASTA
+*      Col 2 - Valor do parametro. Ex.: Cível.
+*
+*      OBS: Caso valor do parâmetro NÃO seja informado, a rotina irá pesquisar o result set retornado pelo banco
+*           a fim de encontrar o valor do mesmo, no caso dos lst, todas as linhas clicáveis devem possuir parâmetros
+*           para que possa ser chamado a sua respectiva manutanção
+*
+*           Caso o valor do parâmetro SEJA informado, todas as linhas clicáveis do grid possuirão tal valor informado.
+*
+*           Quando pnMODE for igual a 2 - Search, este parametro NÃO DEVERÁ ser informado
+*
+* paBUTTON.: Parâmetros para os botões das linhas do grid. O array DEVE seguir o fomato abaixo
+*    {{'LABEL_BUT1',ARRAY_PARAM_BUT1,COL_BUT1,'MODULE1','TARGET_PRG1'},;
+*     {'LABEL_BUT2',ARRAY_PARAM_BUT2,COL_BUT2,'MODULE2','TARGET_PRG2'},;
+*     {'LABEL_BUT3',ARRAY_PARAM_BUT3,COL_BUT3,'MODULE3','TARGET_PRG3'},;
+*     {'   ...    ',      ...       ,  ...   ,'  ...  ','    ...    '},;
+*     {'LABEL_BUTn',ARRAY_PARAM_BUTn,COL_BUTn,'MODULEn','TARGET_PRGn'}}
+*
+*     Onde
+*       Col 1 - Label do botao
+*       Col 2 - Array de parametros para o "click" do botao. Segue o mesmo forma do parametro para a linha clicável
+*               *** PARAMETRO ANTERIOR ***
+*       Col 3 - Coluna em que o botão deverá ser criado
+*       Col 4 - Módulo em que se encontra o programa a ser chamado pelo botao. Caso seja NIL, pcTARGET_MOD será assumido
+*       Col 5 - Programa a ser chamado pelo botao. Caso seja NIL, pcPROGRAM será assumido.
+*
+*     OBS: Quando pnMODE for igual a 2 - Search, a rotina AUTOMATICAMENTE, incluirá o botão [Selecionar] na
+*          primeira coluna do grid, mesmo que o parametro paBUTTON não seja informado
+*
+* pcPROGRAM...: Programa que os links/botoes do grid deverao chamar
+* pcTARGET_MOD: Módulo do programa chamado pelos links/botoes do grid
+* paFLD_JAVA..: Lista de campos que devem ser retornados ao opener (UI chamadora). Este parâmetro É OBRIGATÓRIO
+*               apenas quando o pnMODE for igual a 2 (Search). O array deve possuir o formato abaixo
+*    {'MNT_OPENER',{{'OPENER_FIELD1','RETURN_FIELD1'},;
+*                   {'OPENER_FIELD1','RETURN_FIELD2'},;
+*                   {'OPENER_FIELD1','RETURN_FIELD3'},;
+*                   {'     ...     ','     ...     '},;
+*                   {'OPENER_FIELDn','RETURN_FIELDn'}}}
+*    Onde:
+*       Col 1 - Nome do form que chamou o search
+*       Col 2 - Campos utilizados no javascript do search
+*       Onde:
+*           Col 1.1 - Campo do form chamador que receberá o valor selecionado no search
+*           Col 1.2 - Campo pesquisado no banco de dados
+*
+* paQUICK_SCH: Campos usados na pesquisa rápida. Deve seguir o formato abaixo:
+*              {field1,field2,...,fieldN}
+* paFLDS_GRID: Campos que serão exibidos no grid. Deve seguir o formato abaixo;
+*              {field1,field2,...,fieldN}
+* paFLDS_DB..: Campos participantes do result set. Deve seguir o formato abaixo
+*              {field1,field2,...,fieldn}
+* pcTABLE....: tabelas principais.
+* paJOIN.....: {{join_tipo,join_table,join_on},{join_tipoN,join_tableN,join_onN}}
+*                join_tipo : 0-Inner, 1-Outer Full, 2-Outer Left, 3-Outer Right
+*                join_table: table2
+*                join_on   : "table2.field=tableP.field"
+* paWHERE....: {"table1.field1='AAA'","table2.field2=123"...} será considerado [and]
+*               ou {"fieldx='dfg' or fieldy='xxx'}
+* paORDERBY..: {field1,field2,...,fieldn}
+* pcSORT.....: A ou D, ordem Ascendente ou Descendente, se nulo considera A
+* paGROUPBY..: {field1,field2,...,fieldn}
+* paLIMIT....: matriz com duas células, primeira com o número da linha inicial, segundo com a quantidade de linhas.
+*              Ex:  {500,20}. A segunda é opcional.
+* pcDBNAME...: (opcional) identificação dada ao Banco de Dados. Caso não informado considera o 'db_active'
+*/
+
+   local laVALUE_SCH := {} ,;
+         laRESULT    := {} ,;
+         laRES_TMP   := {} ,;
+         laTMP       := {} ,;
+         laDO_LST    := {} ,;
+         laLABELS    := {} ,;
+         laPAR_BTN   := {} ,;
+         laCOUNT     := {} ,;
+         laPAGES     := {} as array
+
+   local lcFILTER_FIELD := '' ,;
+         lcQUICK_SCH    := '' ,;
+         lcWHRE_QUICK   := '' ,;
+         lcTYPE         := '' ,;
+         lcFILTER_VALUE := '' ,;
+         lcORDER_FIELD  := '' ,;
+         lcONCLICK      := '' ,;
+         lcBUTTON       := '' ,;
+         lcPUT          := '' as string
+
+   local ii          := 0 ,;
+         iiC         := 0 ,;
+         iiB         := 0 ,;
+         lnPOS       := 0 ,;
+         lnMAX_PAGES := 0 ,;
+         lnNR_PAGES  := 0 ,;     //Qtd. de páginas existentes na pesquisa
+         lnDEF_PAGES := 0 ,;     //Qtd. de linhas por página (definido no .wprofile)
+         lnLIMIT1    := 0 ,;     //Limite inicial
+         lnLIMIT2    := 0 ,;     //Limite final
+         lnGOTO_PAGE := 0 as int //Página a ser exibida
+
+   local llADD_COL2 := .F. as logical
+
+   lcACTION       := upper(WGet('ACTION','C'))
+   lcPROG_SRC     := alltrim(WGet('PROG_SRC','C'))
+   lcFILTER_FIELD := WGet('FILTER_FIELD','C')
+   lcFILTER_VALUE := WGet('FILTER_CONTENT','C')
+   lcORDER_FIELD  := WGet('ORDER_FIELD','C')
+   lnGOTO_PAGE    := WGet('GOTO_PAGE','N')
+
+   //Altera o action do form make_lst.html, chamando o LST origem
+   if valtype(pcPROG_SRC) != 'U' .or. !empty(pcPROG_SRC)
+      WPut('FORM_ACTION',wic_action('wicaction_'+pcTARGET_SRC+'/'+pcPROG_SRC))
+      if pnMODE == 1
+         WPut('PROGRAM_NEW',wic_action('wicaction_'+pcTARGET_MOD+'/'+pcPROGRAM+'?ACTION=NEW'))
+      else
+         WPut('PROGRAM_NEW',wic_action('wicaction_'+pcTARGET_MOD+'/'+pcPROGRAM+'?ACTION=NEW&MODE='+alltrim(str(pnMODE))))
+      endif
+   endif
+   WSet('_USER_INTERFACE','make_lst.html')
+
+   // Validação de parametros -----------------------------------------------------------------------------------------------
+   if (valtype(paBUTTON) != 'U' .or. !empty(paBUTTON)) .and.  (valtype(pcPROGRAM) == 'U' .or. empty(pcPROGRAM))
+      putERROR('make_lst: Defined buttons, but the target program was not defined!')
+      return(.f.)
+   //elseif (valtype(paBUTTON) == 'U' .or. empty(paBUTTON)) .and.  (valtype(pcPROGRAM) != 'U' .or. !empty(pcPROGRAM))
+   //   putERROR('make_lst: Defined target program, but the buttons had not been defined')
+   //   return(.f.)
+   endif
+
+   if valtype(pcTABLE) == 'U' .or. empty(pcTABLE)
+      putERROR('make_lst: Table not defined!')
+      return(.f.)
+   endif
+
+   if pnMODE == 2 .and. (valtype(paFLD_JAVA) == 'U' .or. empty(paFLD_JAVA))
+      putERROR('make_lst: Javascript parameters not defined')
+      return(.f.)
+   endif
+
+   if valtype(paQUICK_SCH) != 'U' .or. !empty(paQUICK_SCH)
+      WPut('ifQUICK_SEARCH',.T.)
+   endif
+   lcQUICK_SCH := alltrim(WGet('QUICK_SEARCH','C'))
+   // Validação de parametros -----------------------------------------------------------------------------------------------
+
+   laTABLES := comma2array(pcTABLE)
+   if valtype(paFLDS_DB) == 'U' .or. empty(paFLDS_DB)
+      paFLDS_DB := structtable(WSet("DB_ACTIVE"),laTABLES,1,'A')
+   endif
+   for ii := 1 to len(paFLDS_DB)
+      aadd(laLABELS,lblfscreen(iif(at('.',paFLDS_DB[ii]) > 0,substr(paFLDS_DB[ii],at('.',paFLDS_DB[ii])+1),paFLDS_DB[ii])))
+   next ii
+
+   paWHERE   := iif(valtype(paWHERE) == 'U',{},paWHERE)
+   paORDERBY := iif((valtype(paORDERBY) == 'U'),{},paORDERBY)
+   pcSORT    := iif(valtype(pcSORT) == 'U','A',pcSORT)
+   pnMODE    := iif(valtype(pnMODE) == 'U',1,pnMODE)
+   if !empty(lnGOTO_PAGE) .or. lnGOTO_PAGE > 0
+      lcACTION := 'EXECMAKE'
+   else
+      lnGOTO_PAGE := 1
+   endif
+
+   if lcACTION == 'EXECMAKE'
+      if empty(lcORDER_FIELD)
+         lcORDER_FIELD := laLABELS[1]
+      endif
+
+      //Pesquisa Rápida
+      if !empty(lcQUICK_SCH)
+         laVALUE_SCH := str2array(lcQUICK_SCH,chr(32))
+         if len(laVALUE_SCH) > 0
+            for ii := 1 to len(paQUICK_SCH)
+                if ii >= 2
+                   lcWHRE_QUICK += ' or '
+                endif
+
+                lcTYPE := iif(at('.',paQUICK_SCH[ii]) > 0,;
+                              wmd_wfieldtype(substr(paQUICK_SCH[ii],at('.',paQUICK_SCH[ii])+1)),;
+                              wmd_wfieldtype(paQUICK_SCH[ii]))
+                if lcTYPE == 'C'
+                   lcWHRE_QUICK += '('
+                   for iiC := 1 to len(laVALUE_SCH)
+                       if iiC >= 2
+                          lcWHRE_QUICK += ' and '
+                       endif
+                       lcWHRE_QUICK += paQUICK_SCH[ii]+' like '+DLAP+'%'+laVALUE_SCH[iiC]+'%'+DLAP
+                   next iiC
+                   lcWHRE_QUICK += ')'
+                elseif lcTYPE == 'I' .or. lcTYPE == 'N'
+                   lcWHRE_QUICK += '('
+                   for iiC := 1 to len(laVALUE_SCH)
+                       if iiC >= 2
+                          lcWHRE_QUICK += ' and '
+                       endif
+                       lcWHRE_QUICK += paQUICK_SCH[ii]+' = '+laVALUE_SCH[iiC]
+                   next iiC
+                   lcWHRE_QUICK += ')'
+                endif
+            next ii
+         endif
+         aadd(paWHERE,lcWHRE_QUICK)
+      endif
+
+      if !empty(lcFILTER_VALUE)
+         aadd(paWHERE,paFLDS_DB[ascan(laLABELS,lcFILTER_FIELD)]+' like '+DLAP+'%'+lcFILTER_VALUE+'%'+DLAP)
+      endif
+      aadd(paORDERBY,paFLDS_DB[ascan(laLABELS,lcORDER_FIELD)])
+
+      //Remove de laTABLES (from) as tabelas que participam do Join
+      for ii := 1 to len(paJOIN)
+          lnPOS := ascan(laTABLES,paJOIN[ii,2])
+          if lnPOS > 0
+             adel(laTABLES,lnPOS)
+             asize(laTABLES,len(laTABLES)-1)
+          endif
+      next ii
+
+      //Contagem de registros e paginação
+      if db_select({'count(*)'},array2comma(laTABLES),paJOIN,paWHERE,,pcSORT,paGROUPBY,,pcDBNAME) == -1
+         error_sys('make_lst: ('+alltrim(str(procline()))+') - '+db_error())
+      endif
+      laCOUNT := db_fetchrow()
+      if laCOUNT[1] > 0 .and. valtype(paLIMIT) == 'U'
+         //lnDEF_PAGES := val(WSet('ROWS_PAGE'))
+         //lnDEF_PAGES := iif(lnDEF_PAGES==0,10,lnDEF_PAGES)
+
+         lnMAX_PAGES := iif(val(WSet('MAX_PAGES'))==0,10,val(WSet('MAX_PAGES')))
+         lnDEF_PAGES := iif(val(WSet('ROWS_PAGE'))==0,10,val(WSet('ROWS_PAGE')))
+         lnNR_PAGES  := laCOUNT[1]/lnDEF_PAGES
+         if (laCOUNT[1] % lnDEF_PAGES) > 0
+            lnNR_PAGES += 1
+         endif
+         lnNR_PAGES := iif(lnNR_PAGES > lnMAX_PAGES,lnMAX_PAGES,lnNR_PAGES)
+         aadd(laPAGES,{'PROGRAM_CALL','NR_PAGE'})
+         for ii := 1 to lnNR_PAGES
+             lcPUT := wic_action('wicaction_'+pcTARGET_SRC+'/'+pcPROG_SRC+'?GOTO_PAGE='+alltrim(str(ii)))
+
+             //Adiciona à paginação, os filtros digitados e os campos selecionados para busca e ordernação
+             if !empty(lcFILTER_FIELD) //Campo usado na pesquisa
+                lcPUT += '&FILTER_FIELD='+lcFILTER_FIELD
+             endif
+             if !empty(lcFILTER_VALUE) //Conteúdo a pesquisar em lcFILTER_FIELD
+                lcPUT += '&FILTER_CONTENT='+lcFILTER_VALUE
+             endif
+             if !empty(lcORDER_FIELD) //Campo usado na classificação
+                lcPUT += '&ORDER_FIELD='+lcORDER_FIELD
+             endif
+             if !empty(lcQUICK_SCH)   //Conteúdo a pesquisa usando quick search
+                lcPUT += '&QUICK_SEARCH='+lcQUICK_SCH
+             endif
+             aadd(laPAGES,{lcPUT,alltrim(str(ii))})
+         next ii
+         WPut('ifRESULT',.T.)
+         WPut('PAGES',laPAGES)
+         lnLIMIT1 := iif(lnGOTO_PAGE == 1,0,((lnGOTO_PAGE*lnDEF_PAGES)-1)-(lnDEF_PAGES-1))
+         lnLIMIT2 := lnDEF_PAGES
+         paLIMIT  := {lnLIMIT1,lnLIMIT2}
+      elseif laCOUNT[1] == 0 .and. valtype(paLIMIT) == 'U'
+         WPut('ifEMPTY_RESULTSET',.T.)
+      endif
+
+      if db_select(paFLDS_DB,array2comma(laTABLES),paJOIN,paWHERE,paORDERBY,pcSORT,paGROUPBY,paLIMIT,pcDBNAME) == -1
+         error_sys('make_lst: ('+alltrim(str(procline()))+') - '+db_error())
+      endif
+      laRESULT  := db_fetchall()
+      if len(laRESULT) > 0
+         lcPUT := alltrim(str(lnLIMIT1+1))+'-'
+         if ((len(laRESULT)-1) < (lnLIMIT2-lnLIMIT1))
+            lcPUT += alltrim(str(len(laRESULT)-1))
+         elseif lnGOTO_PAGE == lnNR_PAGES
+            lcPUT += alltrim(str(laCOUNT[1]))
+         else
+            lcPUT += alltrim(str(lnLIMIT1+lnDEF_PAGES))
+         endif
+         lcPUT += ' de '+alltrim(str(laCOUNT[1]))
+         if laCOUNT[1] > 1
+            lcPUT := ' Resultados '+lcPUT+' registros'
+         else
+            lcPUT := ' Resultado '+lcPUT+' registro'
+         endif
+         WPut('RESUME_RESULTSET',lcPUT)
+
+         laRES_TMP := aclone(laRESULT)
+
+         //Separa do result set, os campos que devem aparecer no grid. Esta separação é feita de acordo com paFLDS_GRID, ou seja
+         //os campos que deverão ser mostrados no grid
+         laTMP := {}
+         for iiC := 1 to len(paFLDS_GRID)
+             if ascan(paFLDS_DB,paFLDS_GRID[iiC]) > 0
+                for iiB := 1 to len(laRESULT)
+                    if llADD_COL2
+                       aadd(laTMP[iiB],laRESULT[iiB,ascan(paFLDS_DB,paFLDS_GRID[iiC])])
+                    else
+                       aadd(laTMP,{laRESULT[iiB,ascan(paFLDS_DB,paFLDS_GRID[iiC])]})
+                       if iiB == len(laRESULT)
+                          llADD_COL2 := .T.
+                       endif
+                    endif
+                next iiB
+             endif
+         next iiC
+         laRESULT := aclone(laTMP)
+
+         for ii := 2 to len(laRESULT) //Paramentros para botoes
+             //Se o array paBUTTON for enviado, cria os botoes para as respectivas colunas
+             if (valtype(paBUTTON) != 'U' .and. !empty(paBUTTON)) .or. (valtype(paFLD_JAVA) != 'U' .or. !empty(paFLD_JAVA))
+                if ii == 2
+                   asize(laRESULT[1],len(laRESULT[1])+len(paBUTTON)+iif(pnMODE==2,1,0))
+                endif
+                asize(laRESULT[ii],len(laRESULT[ii])+len(paBUTTON)+iif(pnMODE==2,1,0))
+
+                //Insercao do botao JS [Selecionar]
+                if pnMODE == 2 //Search mode
+                   if ii == 2
+                      ains(laRESULT[1],1)
+                      laRESULT[1,1] := '[Selecionar]'
+                   endif
+                   ains(laRESULT[ii],1)
+                   laRESULT[ii,1] := format_java(laRES_TMP,ii,paFLD_JAVA,1) //Adiciona JS para o botao [Selecionar]
+                endif
+
+                for iiB := 1 to len(paBUTTON)
+                    laPAR_BTN := paBUTTON[iiB,2] //Array de parametros para URL do botao
+                    lnCOL_BTN := paBUTTON[iiB,3] //Coluna em que o botao será criado
+
+                    /* Validacao do posicionamento dos botões
+                    * Caso o pnMODE seja 2, empurra os demais botoes uma posicao adiante pois
+                    * inicialmente foi inserido o botao JS [Selecionar]
+                    */
+                    if lnCOL_BTN == NIL .or. lnCOL_BTN == 0
+                       lnCOL_BTN := iif(pnMODE==2,2,1) 
+                    elseif pnMODE == 2
+                       lnCOL_BTN += 1
+                    endif
+
+                    //Insere o titulo da coluna do botao
+                    if ii == 2
+                       ains(laRESULT[1],lnCOL_BTN)
+                       laRESULT[1,lnCOL_BTN] := '['+paBUTTON[iiB,1]+']'
+                    endif
+
+                    //Label e URL do botao
+                    ains(laRESULT[ii],lnCOL_BTN)
+                    //lcBUTTON := '['+paBUTTON[iiB,1]+']'+wic_action('wicaction_'+pcTARGET_MOD+'/'+pcPROGRAM)+'?'
+                    if paBUTTON[iiB,4] == NIL .or. empty(paBUTTON[iiB,4])
+                       paBUTTON[iiB,4] := pcTARGET_MOD
+                    endif
+
+                    if paBUTTON[iiB,5] == NIL .or. empty(paBUTTON[iiB,5])
+                       paBUTTON[iiB,5] := pcPROGRAM
+                    endif
+
+                    lcBUTTON := '['+paBUTTON[iiB,1]+']'+wic_action('wicaction_'+paBUTTON[iiB,4]+'/'+paBUTTON[iiB,5])+'?'
+                    for iiC := 1 to len(laPAR_BTN)
+                        if iiC > 1
+                           lcBUTTON += '&'
+                        endif
+                        lcBUTTON += laPAR_BTN[iiC,1]+'='
+                        if empty(laPAR_BTN[iiC,2])
+                           lcBUTTON += ret_value(laRES_TMP,ii,laPAR_BTN[iiC,1])
+                        else
+                           lcBUTTON += laPAR_BTN[iiC,2]
+                        endif
+                    next iiC
+                    laRESULT[ii,lnCOL_BTN] := lcBUTTON
+                next iiB
+             endif
+         next ii
+
+         //Parametros para linha clicável
+         for ii := 2 to len(laRESULT)
+             if (valtype(paONCLICK) != 'U' .or. !empty(paONCLICK)) .or. (valtype(paFLD_JAVA) != 'U' .or. !empty(paFLD_JAVA))
+                if ii == 2
+                   aadd(laRESULT[1],'(row)')
+                endif
+             endif
+             if pnMODE == 1 //List Mode
+                if valtype(paONCLICK) != 'U' .or. !empty(paONCLICK) //Se paONCLICK for enviado, cria o evento onClick no HTML
+                   lcONCLICK := '(row)'+wic_action('wicaction_'+pcTARGET_MOD+'/'+pcPROGRAM)+'?'
+                   for iiC := 1 to len(paONCLICK)
+                       if iiC > 1
+                          lcONCLICK += '&'
+                       endif
+                       lcONCLICK += paONCLICK[iiC,1]+'='
+                       if empty(paONCLICK[iiC,2])
+                          lcONCLICK += ret_value(laRES_TMP,ii,paONCLICK[iiC,1]) //Converte dados para caracter
+                       else
+                          lcONCLICK += paONCLICK[iiC,2]
+                       endif
+                   next iiC
+                   aadd(laRESULT[ii],lcONCLICK)
+                endif
+             else //Search Mode
+                if valtype(paFLD_JAVA) != 'U' .or. !empty(paFLD_JAVA)
+                   aadd(laRESULT[ii],format_java(laRES_TMP,ii,paFLD_JAVA,2)) //Adiciona JS para a linha clicável
+                endif
+             endif
+         next ii
+      endif
+      WPut('LST_GRID',grid_create(laRESULT))
+   endif
+
+   if !empty(lcFILTER_FIELD)
+      saveWEnv(pcPROG_SRC,{'FILTER_FIELD','FILTER_CONTENT','ORDER_FIELD','QUICK_SEARCH'})
+      WPut('FILTER_FIELD_OPT',laLABELS)
+      WPut('FILTER_FIELD',lcFILTER_FIELD)
+      WPut('FILTER_CONTENT',lcFILTER_VALUE)
+      WPut('ORDER_FIELD_OPT',laLABELS)
+      WPut('ORDER_FIELD',lcORDER_FIELD)
+      WPut('QUICK_SEARCH',lcQUICK_SCH)
+   else
+      readWEnv(pcPROG_SRC)
+   endif
+   WPut('FILTER_FIELD_OPT',laLABELS)
+   WPut('ORDER_FIELD_OPT',laLABELS)
+return(.t.)
+
+
+/*
+* Function..: ret_value(faRESULT,fnINDEX,fcFIELD)
+* Objetivo..: Converter tipo de dados D,N,I para C
+* Parâmetros:
+*    faRESULT: Array alvo da pesquisa
+*    fnINDEX.: Linha a pesquisar no array
+*    fcFILED.: Campo a pesquisar no array
+* Retorno...: Informação convertida para o tipo C
+*             String vazia em caso de tipo de dados desconhecido
+*/
+static function ret_value(faRESULT,fnINDEX,fcFIELD)
+   local lcRET_VALUE := '' as string
+
+   //Untyped variables
+   local luVALUE
+
+   if ascan(faRESULT[1],fcFIELD) <= 0
+      lcRET_VALUE := ''
+      putERROR('ret_value: Field '+DLMT+fcFIELD+DLMT+' not found in result set')
+   else
+      luVALUE := faRESULT[fnINDEX,db_fetchncol(faRESULT,fcFIELD)]
+      if valtype(luVALUE) == 'N' .or. valtype(luVALUE) == 'I'
+         lcRET_VALUE += alltrim(str(luVALUE))
+      elseif valtype(luVALUE) == 'D'
+         lcRET_VALUE += dtoc(luVALUE)
+      elseif valtype(luVALUE) == 'C' .or. valtype(luVALUE) == 'M'
+         lcRET_VALUE += alltrim(luVALUE)
+      else
+         putERROR('ret_value: Unknown data type')
+      endif
+   endif
+return(lcRET_VALUE)
+
+
+/*
+* Function..: format_java(faRESULT,fnINDEX,faJAVA_PARAMS,fnOBJ_TYPE)
+* Objetivo..: Criar javascript para linhas clicáveis e botão selecionar
+* Parâmetros:
+*    faRESULT.....: Array alvo da pesquisa
+*    fnINDEX......: Linha a pesquisar no array
+*    faJAVA_PARAMS: Parametros para formacao do javascript
+*    fnOBJ_TYPE...: Tipo do objeto final
+*                   1 - Botao
+*                   2 - Linha clicavel
+* Retorno...: String contendo o Javascript
+*/
+static function format_java(faRESULT,fnINDEX,faJAVA_PARAMS,fnOBJ_TYPE)
+   local lcONCLICK := '' ,;
+         lcVALUE   := '' as string
+
+   local iiC := 0 as int
+
+   if fnOBJ_TYPE == 1
+      lcONCLICK := '[Selecionar]' //Botao
+   else
+      lcONCLICK := '(row)'        //Linha clicável
+   endif
+   lcONCLICK +='javascript:'
+   for iiC := 1 to len(faJAVA_PARAMS[2])
+       lcONCLICK += 'if(typeof(opener.document.'
+       lcONCLICK += faJAVA_PARAMS[1]+'.'+faJAVA_PARAMS[2][iiC,1]+')=='+chr(39)+'object'+chr(39)+')'
+       lcONCLICK += '{opener.document.'+faJAVA_PARAMS[1]+'.'+faJAVA_PARAMS[2][iiC,1]+'.value='
+       lcONCLICK += chr(39)+esc2db(ret_value(faRESULT,fnINDEX,faJAVA_PARAMS[2][iiC,2]))+chr(39)+';}'
+   next iiC
+   lcONCLICK += 'self.close()'
+return(lcONCLICK)
+
+
+
+
+
+
+

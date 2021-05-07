@@ -1,0 +1,12 @@
+/*
+
+Project      : gr5
+Program      : redirect.wic
+Function     : redirect_wic
+Created on   : 15-Nov-2004   15:29:41
+Descripition :
+
+*/
+
+   WPut('URL_REDIRECT',WGet('URL_REDIRECT','C'))
+   return

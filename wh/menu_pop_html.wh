@@ -1,0 +1,141 @@
+/*
+
+Project      : gr5
+Program      : menu.pop.html
+Function     : menu_pop_html
+Created on   : 18-Oct-2002   13:39:28
+Descripition : menu pop dinamico.
+
+*/
+   WSet('_WDEBUG','DISABLE')
+   local lcATION := '' as string
+    
+   WPut('CIRC','^')
+   
+   lcACTION := upper(wGet('ACTION','C'))
+   local laAUX := {} as array
+   local ii := 0 as int
+
+   if lcACTION == 'PORTAL_RELATORIOS'
+      wPut('TITLE','GR5 Lawyer - Menu - Relatórios Gerais')
+      wPut('LBL_MENU','Relatórios Gerais')
+      wPut('lstMAIN',structmenu('PORTAL_RELATORIOS'))
+   elseif lcACTION == 'PORTAL_CADASTROS'
+      wPut('TITLE','GR5 Lawyer - Menu - Cadastros Gerais')
+      wPut('LBL_MENU','Cadastros Gerais')
+      wPut('lstMAIN',structmenu('PORTAL_CADASTROS'))
+      
+   elseif lcACTION == 'MENU_OPERACIONAL'
+      wPut('TITLE','GR5 Lawyer - Menu - Área Operacional')
+      wPut('LBL_MENU','Área Operacional')
+      wPut('ifMNT',.T.)
+      wPut('ifFIN',.T.)
+      laAUX := structmenu('OPERACIONAL')
+      
+      for ii:= 2 to len(laAUX)
+         laAUX[ii,ascan(laAUX[1],'WLABEL')] := laAUX[ii,ascan(laAUX[1],'WLABEL')]
+      next ii
+      wPut('lstMAIN',laAUX)
+
+      laAUX := structmenu('OPERACIONAL_CADASTROS')
+      for ii:= 2 to len(laAUX)
+         laAUX[ii,ascan(laAUX[1],'WLABEL')] := laAUX[ii,ascan(laAUX[1],'WLABEL')]
+      next ii
+      wPut('lstMNT',laAUX)
+
+      laAUX := structmenu('OPERACIONAL_FINANCEIRO')
+      for ii:= 2 to len(laAUX)
+         laAUX[ii,ascan(laAUX[1],'WLABEL')] := laAUX[ii,ascan(laAUX[1],'WLABEL')]
+      next ii
+      wPut('lstFIN',laAUX)
+      
+      laAUX := structmenu('OPERACIONAL_SAP')
+      for ii:= 2 to len(laAUX)
+         laAUX[ii,ascan(laAUX[1],'WLABEL')] := laAUX[ii,ascan(laAUX[1],'WLABEL')]
+      next ii
+      wPut('lstSAP',laAUX)
+
+     laAUX := structmenu('OPERACIONAL_CONTRATOS')
+      for ii:= 2 to len(laAUX)
+         laAUX[ii,ascan(laAUX[1],'WLABEL')] := laAUX[ii,ascan(laAUX[1],'WLABEL')]
+      next ii
+      wPut('lstCONTRATOS',laAUX)
+      
+   elseif lcACTION == 'MENU_FINANCEIRO'
+      wPut('TITLE','GR5 Lawyer - Menu - Área Financeiro')
+      wPut('LBL_MENU','Área  Financeiro')
+      wPut('ifMNT',.T.)
+      wPut('ifRSL',.T.)
+
+      laAUX := structmenu('FINANCEIRO')
+      for ii:= 2 to len(laAUX)
+         laAUX[ii,ascan(laAUX[1],'WLABEL')] := laAUX[ii,ascan(laAUX[1],'WLABEL')]
+      next ii
+      wPut('lstMAIN',laAUX)
+
+      laAUX := structmenu('FINANCEIRO_CADASTROS')
+      for ii:= 2 to len(laAUX)
+         laAUX[ii,ascan(laAUX[1],'WLABEL')] := laAUX[ii,ascan(laAUX[1],'WLABEL')]
+      next ii
+      wPut('lstMNT',laAUX)
+
+      laAUX := structmenu('FINANCEIRO_RELATORIOS')
+      for ii:= 2 to len(laAUX)
+         laAUX[ii,ascan(laAUX[1],'WLABEL')] := laAUX[ii,ascan(laAUX[1],'WLABEL')]
+      next ii
+      wPut('lstRSL',laAUX)
+
+   elseif lcACTION == 'MENU_WORKFLOW'
+      wPut('TITLE','GR5 Lawyer - Menu - Área Workflow')
+      wPut('LBL_MENU','Área Workflow')
+      wPut('ifMNT',.T.)
+
+      laAUX := structmenu('WORKFLOW','ALL')
+      for ii:= 2 to len(laAUX)
+         laAUX[ii,ascan(laAUX[1],'WLABEL')] := laAUX[ii,ascan(laAUX[1],'WLABEL')]
+      next ii
+      wPut('lstMAIN',laAUX)
+
+      laAUX := structmenu('WORKFLOW_CADASTROS','ALL')
+      for ii:= 2 to len(laAUX)
+         laAUX[ii,ascan(laAUX[1],'WLABEL')] := laAUX[ii,ascan(laAUX[1],'WLABEL')]
+      next ii
+      wPut('lstMNT',laAUX)
+   elseif lcACTION == 'MENU_FERRAMENTAS'
+      wPut('TITLE','GR5 Lawyer - Menu - Ferramentas do Sistema')
+      wPut('LBL_MENU','Ferramentas do Sistema')
+      laAUX := structmenu('FERRAMENTAS','ALL')
+      for ii:= 2 to len(laAUX)
+         laAUX[ii,ascan(laAUX[1],'WLABEL')] := laAUX[ii,ascan(laAUX[1],'WLABEL')]
+      next ii
+      wPut('lstMAIN',laAUX)
+
+   elseif lcACTION == 'MENU_RELATORIOS'
+      wPut('TITLE','GR5 Lawyer - Menu - Relatórios do Sistema')
+      wPut('LBL_MENU','Relatórios')
+      laAUX := structmenu('RELATORIOS','ALL')
+      for ii:= 2 to len(laAUX)
+         laAUX[ii,ascan(laAUX[1],'WLABEL')] := laAUX[ii,ascan(laAUX[1],'WLABEL')]
+      next ii
+      wPut('lstMAIN',laAUX)
+   endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

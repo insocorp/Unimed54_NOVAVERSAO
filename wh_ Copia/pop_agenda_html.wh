@@ -1,0 +1,46 @@
+/*
+
+Project      : gr5
+Program      : pop.agenda.html
+Function     : pop_agenda_html
+Created on   : 02-Nov-2005   14:43:50
+Descripition : Popup para visualização de tarefa/compromisso na aba agenda.
+
+*/
+
+
+   local lcNR_CONTROLE := WGet('NR_CONTROLE','C'),;
+         lcWHERE       := '' as string
+
+   lcWHERE := 'NR_CONTROLE='+lcNR_CONTROLE
+
+   WPut('FL_PARTICULAR.option','Y')
+
+   if db_select({'TC_CATEGORIA',;
+                 'TITULO',;
+                 'LOGIN_AGENDADO',;
+                 'DT_AGENDADO',;
+                 'HR_AGENDADO',;
+                 'FL_PARTICULAR',;
+                 'DT_INICIO',;
+                 'HR_INICIO',;
+                 'DT_FIM',;
+                 'HR_FIM',;
+                 'DT_PRAZO',;
+                 'HR_PRAZO',;
+                 'NM_TC'},'tarefa_compromisso',,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+   db2put(db_fetchall())
+
+   if db_select({'LOGIN_PARTICIPANTE'},'tc_participante',,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+   WPut('lstPART',db_fetchall())
+
+   if db_select({'LOGIN_RESPONSAVEL'},'tc_responsavel',,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+   WPut('lstRESP',db_fetchall())
+   WSet('_PROJECT','workflow')
+return

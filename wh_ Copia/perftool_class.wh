@@ -1,0 +1,603 @@
+/*
+
+Project      : isj_60
+Program      : perftool.class
+Function     : perftool_class
+Created on   : 14-Jul-2017   09:21:06
+Descripition : Classe de exportação e clonagem de perfil de acesso.
+
+*/
+
+// Glauber
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+/*
+*
+* Glauber - 07/2017
+*
+* Classe...........: PATools
+*
+* Objetivo.........: Classe para exportação e clonagem de perfil de acesso.
+*
+* Atributos........:
+*
+*    EXPORT Wgid
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD getXmlExport()
+*    METHOD ImportPerfil(xml)
+*    METHOD ClonarPerfil()
+*    METHOD getPerfisExistente()
+*    METHOD getWgroupName(wgid)
+*
+*
+* Classes Ligadas..:
+*
+*    IsjLife
+*
+*/
+
+
+CLASS PATools
+
+    // Privado
+
+    HIDDEN COLSEP
+    HIDDEN ROWSEP
+    HIDDEN HEADER
+
+    // Publico
+
+    EXPORT Wgid
+    EXPORT PerfilOrigem
+    EXPORT NovoPerfil
+
+
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()                    CLASS PATools
+    PROTOTYPE METHOD Destroy()                 CLASS PATools
+    PROTOTYPE METHOD getXmlExport()            CLASS PATools
+    PROTOTYPE METHOD ImportPerfil(xml)         CLASS PATools
+    PROTOTYPE METHOD ClonarPerfil()            CLASS PATools
+    PROTOTYPE METHOD getPerfisExistente()      CLASS PATools
+    PROTOTYPE METHOD getWgroupName(wgid)       CLASS PATools
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS PATools
+
+    self:Wgid         := 0
+    self:COLSEP       := "[$]"
+    self:ROWSEP       := "[#]"
+    self:HEADER       := "<PERFIL_NAME>{0}</PERFIL_NAME>" + chr(13)
+    self:PerfilOrigem := ''
+    self:NovoPerfil   := ''
+
+
+
+return(self)
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS PATools
+
+    self:Wgid         := nil
+    self:COLSEP       := nil
+    self:ROWSEP       := nil
+    self:HEADER       := nil
+    self:PerfilOrigem := nil
+    self:NovoPerfil   := nil
+
+
+
+return(nil)
+
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: getXmlExport()
+* Objetivo..: Retorna o xml com os dados para ser exportado
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             String com xml
+*
+*/
+
+METHOD getXmlExport() CLASS PATools
+
+
+    local laTABLES :=  {} as Array
+    local lcBUFFER := "" as String
+    local lcTYPE := "" as String
+    local ii := 0,;
+          zz := 0,;
+          xx := 0 as int
+
+
+    if (self:Wgid == 0)
+       return ''
+    endif
+
+    lcBUFFER := StrTran(self:HEADER,"{0}",self:getWgroupName())
+
+    // Adicionar as tabelas que deverão ter o conteúdo exportado
+
+    aadd(laTABLES,{"acgroup",                      "WGID = "+Alltrim(self:Wgid)})
+    aadd(laTABLES,{"acgroup_filter",               "WGID = "+Alltrim(self:Wgid)})
+    aadd(laTABLES,{"acgroup_filter_replace",       "WGID = "+Alltrim(self:Wgid)})
+    aadd(laTABLES,{"acgroup_program",              "WGID = "+Alltrim(self:Wgid)})
+    aadd(laTABLES,{"acgroup_program_group",        "WGID = "+Alltrim(self:Wgid)})
+
+    // Processar tabela a tabela gerando as informações
+    for ii := 1 to len(laTABLES)
+        // Abre a tag com o nome da tabela
+        lcBUFFER += "<"+upper(laTABLES[ii,1]) + ">" + chr(13)
+
+        // Executa a query para obter o resultset de cada tabela
+        if db_select({"*"},laTABLES[ii,1],,{laTABLES[ii,2]}) == -1
+           error_sys(db_error())
+        endif
+
+        laRESULT := db_fetchall()
+
+        for zz := 1 to len(laRESULT)
+            for xx := 1 to len(laRESULT[zz])
+                if(xx > 1)
+                   lcBUFFER += self:COLSEP
+                endif
+                lcTYPE := Valtype(laRESULT[zz,xx])
+                // Tratamento do resultset
+                if (lcTYPE == "N") .or. (lcTYPE == "I") .or. (lcTYPE == "F")
+                    lcBUFFER += str(laRESULT[zz,xx])
+                elseif (lcTYPE == "D")
+                       lcBUFFER += dtoc(laRESULT[zz,xx])
+                else
+                     lcBUFFER += laRESULT[zz,xx]
+                endif
+            next xx
+            lcBUFFER += self:COLSEP + self:ROWSEP + chr(13)
+        next zz
+        // Fecha a tag com o nome da tabela
+        lcBUFFER += "</"+upper(laTABLES[ii,1]) + ">" + chr(13)
+    next ii
+
+
+return(lcBUFFER)
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: ImportPerfil()
+* Objetivo..: Importa o perfil.
+*
+* Parâmetros:
+*
+*    <xml>..: Xml com os dados do perfil.
+*
+* Retorno...:
+*             self
+*
+*/
+
+METHOD ImportPerfil(xml) CLASS PATools
+
+    local laTABLES   :=  {},;
+          laSAVE     :=  {},;
+          laSAVE_AUX := {},;
+          laWhere    := {} as Array
+    local lcBUFFER := "" as String
+
+    local lcTYPE   := "",;
+          lcPORTAL := "",;
+          lcPESQ   := "" as String
+    local ii := 0,;
+          zz := 0,;
+          xx := 0,;
+          linhas := 0 as int
+    LOCAL lnPOSINI := 0,;
+          lnPOSFIN := 0 as int
+
+
+    if empty(xml)
+       WAlert("O perfil não contém conteúdo a ser importado.")
+       return self
+    endif
+
+    lcPERFIL := substr(xml,1,at('</PERFIL_NAME>',xml) -1)
+    lcPERFIL := strtran(lcPERFIL,'</PERFIL_NAME>','')
+    lcPERFIL := strtran(lcPERFIL,'<PERFIL_NAME>','')
+    lcPERFIL := alltrim(lcPERFIL)
+
+    if empty(lcPERFIL)
+       WAlert("Nome do perfil não informado.")
+       return self
+    endif
+
+    if lower(lcPERFIL) == 'master' .OR. self:getWgroupId(lcPERFIL) != '-1'
+       WAlert("Perfil já existe, importação cancelada.")
+       return self
+    endif
+
+
+    self:Wgid := self:getWgroupId(lcPERFIL)
+
+    // Adicionar as tabelas que deverão ter o conteúdo importado
+
+    aadd(laTABLES,{"acgroup",                      "WGID = "+Alltrim(self:Wgid)})
+    aadd(laTABLES,{"acgroup_filter",               "WGID = "+Alltrim(self:Wgid)})
+    aadd(laTABLES,{"acgroup_filter_replace",       "WGID = "+Alltrim(self:Wgid)})
+    aadd(laTABLES,{"acgroup_program",              "WGID = "+Alltrim(self:Wgid)})
+    aadd(laTABLES,{"acgroup_program_group",        "WGID = "+Alltrim(self:Wgid)})
+
+    // Processar tabela a tabela gerando as informações
+
+
+    // Processar a carga dos registros
+
+    for ii := 1 to len(laTABLES)
+        // Obter o bloco do conteúdo de cada tabela
+        laTABLES[ii,1] := Upper(laTABLES[ii,1]) // converter para maisculo, senão o at() logo abaixo não localiza o conteudo no xml
+
+        // Selecionar apenas os dados de cada tabela de acordo com a tag
+
+        lnPOSINI := at("<" + laTABLES[ii,1] +">",xml)
+        lnPOSFIN := rat("</" + laTABLES[ii,1] +">",xml)
+
+        lcCONTEUDO := substr(xml,lnPOSINI,(lnPOSFIN - lnPOSINI))
+
+        // Remover o conteúdo da tag inicial
+
+        lcCONTEUDO := strtran(lcCONTEUDO,"<" + laTABLES[ii,1] +">","")
+        lcCONTEUDO := strtran(lcCONTEUDO,chr(13),"")
+
+        // Converter o conteúdo de string para array
+        laCONTEUDO := Str2Array(lcCONTEUDO,{self:COLSEP,self:ROWSEP})
+
+        // Glauber 27/01/2012 - Devido a uma falha no parser da função Str2Array a mesma esta sempre inserindo uma linha em branco ao final do array.
+        //                      Por isto estou fazendo o adel abaixo
+
+        adel(laCONTEUDO,len(laCONTEUDO)) // Exclui a última linha
+        asize(laCONTEUDO,len(laCONTEUDO)-1) // Refaz o array
+
+        if (len(AllTrim(laCONTEUDO[1,len(laCONTEUDO[1])])) < 3)
+           adel(laCONTEUDO[1],len(laCONTEUDO[1]))
+           asize(laCONTEUDO[1],len(laCONTEUDO[1])-1)
+           for linhas := 2 to len(laCONTEUDO)
+               adel(laCONTEUDO[linhas],len(laCONTEUDO[linhas]))
+               asize(laCONTEUDO[linhas],len(laCONTEUDO[linhas])-1)
+           next linhas
+
+        endif
+
+
+        if len(laCONTEUDO) > 1
+
+           lcWHERE   := "WGID = "+Alltrim(laCONTEUDO[2,db_fetchncol(laCONTEUDO,'WGID')])
+           self:Wgid := Alltrim(laCONTEUDO[2,db_fetchncol(laCONTEUDO,'WGID')])
+
+           for linhas := 2 to len(laCONTEUDO)
+
+               if (AllTrim(laTABLES[ii,1]) == 'ACGROUP_PROGRAM')
+                  lcWHERE := "WGID = "+Alltrim(laCONTEUDO[linhas,db_fetchncol(laCONTEUDO,'WGID')]) + " AND WPROGRAM='" + Alltrim(laCONTEUDO[linhas,db_fetchncol(laCONTEUDO,'WPROGRAM')])+ "'"
+               elseif (AllTrim(laTABLES[ii,1]) == 'ACGROUP_FILTER' .OR. laTABLES[ii,1] == 'ACGROUP_FILTER_REPLACE')
+                       lcWHERE := "WGID = "+Alltrim(laCONTEUDO[linhas,db_fetchncol(laCONTEUDO,'WGID')]) + " AND WTABLE='" + Alltrim(laCONTEUDO[linhas,db_fetchncol(laCONTEUDO,'WTABLE')])+ "'" + " AND WFIELD='" + Alltrim(laCONTEUDO[linhas,db_fetchncol(laCONTEUDO,'WFIELD')])+ "'"
+               elseif (AllTrim(laTABLES[ii,1]) == 'ACGROUP_PROGRAM_GROUP')
+                       lcWHERE := "WGID = "+Alltrim(laCONTEUDO[linhas,db_fetchncol(laCONTEUDO,'WGID')]) + " AND WPROGRAM_GROUP='" + Alltrim(laCONTEUDO[linhas,db_fetchncol(laCONTEUDO,'WPROGRAM_GROUP')])+ "'"
+               endif
+    
+    
+               if db_delete(laTABLES[ii,1],lcWHERE) == -1
+                   db_rollback()
+                   error_sys(db_error())
+               endif
+
+
+               laSAVE := {}
+               aadd(laSAVE,laCONTEUDO[1])
+               aadd(laSAVE,laCONTEUDO[linhas])
+
+               // Gravação dos dados nas tabelas
+               if db_replace(laSAVE,lower(laTABLES[ii,1]),{lcWHERE}) == -1
+                  error_sys(lower(procname())+' ::'+db_error())
+                  db_rollback()
+               endif
+
+           next linhas
+        endif
+
+    next ii
+
+    // Adicionar permissão na tabela acgroup_manage para o grupo que acabou de ser criado
+
+    if db_replace({{'WGID','WGID_ALLOW'},{WSET('WGID'),Alltrim(self:Wgid)}},'acgroup_manage',{"WGID = "+Alltrim(WSET('WGID')) + " AND WGID_ALLOW=" + Alltrim(self:Wgid)}) == -1
+       error_sys(db_error())
+    endif
+
+
+    WAlert("Perfil importado com sucesso.")
+
+return self
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: ClonarPerfil()
+* Objetivo..: Clona um portal existente.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             self
+*
+*/
+
+METHOD ClonarPerfil() CLASS PATools
+
+
+    local lcORIGEM := '',;
+          lcNOVO   := '' AS String
+
+    local laTABS   := {'acgroup_filter',;
+                       'acgroup_filter_replace',;
+                       'acgroup_program',;
+                       'acgroup_program_group'},;
+          laRES    := {} AS Array
+
+    local ii       := 0,;
+          lnNOVOID := 0,;
+          xx       := 0 AS Int
+
+
+    if (self:PerfilOrigem == nil .OR. self:NovoPerfil == nil) .OR. (empty(alltrim(self:PerfilOrigem)) .OR. empty(alltrim(self:NovoPerfil)))
+       return self
+    endif
+
+    // Recupera as informações do perfil origem, ajusta o nome do perfil e insere como perfil destino.
+
+    self:Wgid := self:getWgroupId(self:PerfilOrigem)
+
+    if db_select({'*'},'acgroup',,{'WGID=' + AllTrim(self:Wgid)}) == -1
+       error_sys(db_error())
+    endif
+    laRES := db_fetchall()
+
+    laRES[2,db_fetchncol(laRES,'WGROUP')] := self:NovoPerfil
+    ii := db_fetchncol(laRES,'WGID')
+    
+    if (ii > 0)
+       adel(laRES[1],ii)
+       asize(laRES[1], len(laRES[1]) -1)
+       adel(laRES[2],ii)
+       asize(laRES[2], len(laRES[2]) -1)
+    endif
+
+    if db_insert(laRES,'acgroup') == -1
+       error_sys(db_error())
+    endif
+
+    lnNOVOID := db_insert_id()
+
+    // Adicionar permissão na tabela acgroup_manage para o grupo que acabou de ser criado
+
+    if db_insert({{'WGID','WGID_ALLOW'},{WSET('WGID'),lnNOVOID}},'acgroup_manage') == -1
+       error_sys(db_error())
+    endif
+
+
+
+    for ii := 1 to len(laTABS)
+        if db_select({'*'},laTABS[ii],,{"WGID = "+Alltrim(self:Wgid)}) == -1
+           error_sys(db_error())
+        endif
+        laRES := db_fetchall()
+
+        if len(laRES) > 1
+           for xx := 2 to len(laRES)
+               laRES[xx,db_fetchncol(laRES,'WGID')] := Alltrim(lnNOVOID)
+           next xx
+
+           if db_insert(laRES,laTABS[ii]) == -1
+              error_sys(db_error())
+           endif
+
+        endif
+    next ii
+
+    // A ultima etapa é clonar as definições da tabela wfield_perfil
+
+    if db_select({'*'},'wfield_perfil',,{"WGID like '" + AllTrim(self:Wgid) + ",%'" + "  OR  WGID like '%," + AllTrim(self:Wgid) + ",%'"}) == -1
+       error_sys(db_error())
+    endif
+    laRES := db_fetchall()
+
+    for xx := 2 to len(laRES)
+        laRES[xx,db_fetchncol(laRES,'WGID')] := laRES[xx,db_fetchncol(laRES,'WGID')] + "," + Alltrim(lnNOVOID)
+
+        laSAVE := {laRES[1]}
+        aadd(laSAVE,laRES[xx])
+
+        if db_replace(laSAVE,'wfield_perfil', {"NR_CONTROLE=" + AllTrim(laRES[xx,db_fetchncol(laRES,'NR_CONTROLE')])}) == -1
+           error_sys(db_error())
+        endif
+
+    next xx
+
+
+
+return self
+
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: getPerfisExistente()
+* Objetivo..: Retornar um array JavaScript com os perfils existente
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Array JavaScript no formato ["Controladoria","Operacional"]
+*
+*/
+
+METHOD getPerfisExistente() CLASS PATools
+
+    local laRES := {} as Array
+    local lcRET := '' as String
+    local ii    := 0  as Int
+
+
+      if db_select({"wgroup"},"acgroup",,,{"wgroup"}) = -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      if len(laRES) > 1
+//         lcRET := '['
+         for ii := 2 to len(laRES)
+             //lcRET += '"' + str2html(laRES[ii,1]) + '"'
+             lcRET += str2html(laRES[ii,1])
+             if ii < len(laRES)
+                lcRET += ";"
+             endif
+         next ii
+//         lcRET += ']'
+      endif
+
+return(lcRET)
+
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: getWgroupName()
+* Objetivo..: Retornar o nome de um grupo de trabalho
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             String com o nome do grupo
+*
+*/
+
+METHOD getWgroupName(wgid) CLASS PATools
+
+    local laRES := {} as Array
+    local lcRET := '' as String
+
+    if (wgid == nil)
+       wgid := self:Wgid
+    endif
+
+
+    if db_select({"wgroup"},"acgroup",,{'WGID='+Alltrim(wgid)}) == -1
+         error_sys(db_error())
+    endif
+    laRES := db_fetchall()
+    lcRET := iif(len(laRES) > 1, laRES[2,1], '')
+
+return(lcRET)
+
+
+/*
+*
+* Glauber
+*
+* Metodo....: getWgroupId()
+* Objetivo..: Retornar o ID de um grupo de trabalho
+*
+* Parâmetros:
+*
+*  wgroup...: Nome do grupo
+*
+* Retorno...:
+*             ID do nome do grupo
+*
+*/
+
+METHOD getWgroupId(wgroup) CLASS PATools
+
+    local laRES := {} as Array
+    local lcRET := '' as String
+
+    if (wgroup == nil .OR. Empty(wgroup))
+       return -1
+    endif
+
+
+    if db_select({"WGID"},"acgroup",,{"WGROUP='"+Alltrim(wgroup)+ "'"}) == -1
+         error_sys(db_error())
+    endif
+    laRES := db_fetchall()
+    lcRET := iif(len(laRES) > 1, Alltrim(laRES[2,1]), '-1')
+
+return(lcRET)
+
+

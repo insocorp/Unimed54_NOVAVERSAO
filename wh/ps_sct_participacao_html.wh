@@ -1,0 +1,119 @@
+/*
+Project      : gr5
+Program      : ps.sct.participacao.html
+Function     : ps_sct_participacao_html
+Created on   : 12-Dec-2004   15:27:28
+Descripition :
+*/
+
+   local lcACTION              := '' ,;
+         lcTP_PASTA            := '' ,;
+         lcTABLE               := '' ,;
+         lcFIELDS              := '' ,;
+         lcNR_PASTA            := '' ,;
+         lcNR_CONTROLE         := '' ,;
+         lcCIP_SOCIO_ACIONISTA := '' as string
+   local laRESULT   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laWHERE    := {} ,;
+         laFIELDS   := {} ,;
+         laLABELS   := {} ,;
+         laVALIDA   := {} as array
+   local ii := 0 as int
+   local llERRO := .F. as logical
+
+   lcACTION      := upper(alltrim(WGet('ACTION','C')))
+   lcTP_PASTA    := WGet('TP_PASTA','C')
+   lcNR_PASTA    := WGet('NR_PASTA','C')
+   lcNR_CONTROLE := alltrim(WGet('NR_CONTROLE','C'))
+   if upper(lcNR_CONTROLE) = 'NEW' .or. empty(lcNR_CONTROLE)
+      lcNR_CONTROLE := '0'
+   endif
+   lcCIP_SOCIO_ACIONISTA := WGet('CIP_SOCIO_ACIONISTA','C')
+   lcTABLE    := 'pasta_sct_participacao'
+   laWHERE    := {'NR_PASTA='+lcNR_PASTA+;
+                  ' and CIP_SOCIO_ACIONISTA='+DLAP+lcCIP_SOCIO_ACIONISTA+DLAP+;
+                  ' and NR_CONTROLE='+lcNR_CONTROLE}
+   laFIELDS   := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS   := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   laVALIDA   := {'TP_PARTICIPACAO'}
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+   if empty(lcACTION)
+      lcACTION = 'NEW'
+   endif
+
+   carrega_cbox({{'tipoparticipacao','TP_PARTICIPACAO','Y'}})
+   WPut('NR_PASTA',lcNR_PASTA)
+   WPut('CIP_SOCIO_ACIONISTA',lcCIP_SOCIO_ACIONISTA)
+
+   if lcACTION == 'NEW' .and. gbWAC_CREATE
+      wPut('NR_CONTROLE','New')
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,laWHERE) = -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      db2put(laRESULT)
+   elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+      for ii := 1 to len(laVALIDA)
+          if empty(alltrim(WGet(laVALIDA[ii],'C')))
+             walert(laLABELS[ascan(laFIELDS,laVALIDA[ii])]+' é um campo obrigatório!')
+             get2Put()
+             llERRO := .T.
+             exit
+          endif
+      next ii
+      if ! llERRO
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+
+         psab_logs(laSAVE,lcTABLE,'NR_PASTA='+lcNR_PASTA+;
+                                  ' and CIP_SOCIO_ACIONISTA='+DLAP+lcCIP_SOCIO_ACIONISTA+DLAP+;
+                                  ' and NR_CONTROLE='+lcNR_CONTROLE,lcNR_PASTA,'Participação')
+
+         if db_replace(laSAVE,lcTABLE,laWHERE) = -1
+            error_sys(db_error())
+         endif
+      endif
+      WPut('NR_CONTROLE','New')
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      psab_logdel(lcNR_PASTA,'NR_CONTROLE',lcNR_CONTROLE,,'Participação')
+
+      if db_delete(lcTABLE,laWHERE[1]) = -1
+         error_sys(db_error())
+      endif
+      WPut('NR_CONTROLE','New')
+   endif
+
+   if db_select({'NR_CONTROLE',;
+                 'TP_PARTICIPACAO',;
+                 'QTD_QUOTAS_ACOES',;
+                 'DT_INICIO',;
+                 'DT_FIM'},lcTABLE,,{'NR_PASTA='+lcNR_PASTA+' and CIP_SOCIO_ACIONISTA='+DLAP+lcCIP_SOCIO_ACIONISTA+DLAP}) = -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 0
+      aadd(laRES[1],'(row)')
+      for ii := 2 to len(laRES)
+         aadd(laRES[ii],'(row)'+wic_action('wicaction/ps.sct.participacao.html'+;
+                                           '?ACTION=ALTER'+;
+                                           '&NR_PASTA='+lcNR_PASTA+;
+                                           '&CIP_SOCIO_ACIONISTA='+lcCIP_SOCIO_ACIONISTA+;
+                                           '&NR_CONTROLE='+str(laRES[ii,db_fetchncol(laRES,'NR_CONTROLE')])))
+      next ii
+      WPut('GRID_SCT_PARTICIPACAO',grid_create(laRES))
+   endif
+   pasta_abas(lcTP_PASTA)
+return
+
+
+
+
+

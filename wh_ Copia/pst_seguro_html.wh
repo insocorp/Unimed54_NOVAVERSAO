@@ -1,0 +1,142 @@
+/*
+
+Project      : gr5
+Program      : pst.seguro.html
+Function     : pst_seguro_html
+Created on   : 01-Mar-2004   14:33:11
+Descripition : Manutenção de Pasta - Sub-aba Seguro
+
+*/
+
+   local lcNR_PASTA := '' ,;
+         lcTP_PASTA := '' ,;
+         lcACTION   := '' ,;
+         lcWHERE    := '' as string
+   local laFIELDS   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laRESULT   := {} ,;
+         laPUT      := {} ,;
+         laAUX      := {} as array
+   local ii    := 0 ,;
+         lnPOS := 0 as int
+
+   lcNR_PASTA := WGet('NR_PASTA','C')
+   lcTP_PASTA := WGet('TP_PASTA','C')
+   lcACTION   := alltrim(upper(WGet('ACTION','C')))
+   lcWHERE    := 'NR_PASTA='+lcNR_PASTA
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+
+   make_psthead(lcNR_PASTA,wGet('TP_PASTA','C')) //Cabeçalho
+   pasta_abas(lcTP_PASTA)
+
+   layout_pasta(lcTP_PASTA,'pasta',.F.,'seguro')
+   init_reqfield(WSet('_USER_INTERFACE'))
+
+   /* Pegando Lista de Campos de wprogram -------------------------*/
+   laAUX    := wmd_program(WSet('_USER_INTERFACE'))
+   if len(laAUX) > 0
+      laPUT := str2array(laAUX[10],',')
+   endif
+   if len(laPUT) == 0
+      error_sys('mnt_pasta_html:Campos para pesquisa não definidos para este layout')
+   endif
+   for ii := 1 to len(laPUT)
+      if substr(laPUT[ii],1,at('.',laPUT[ii])-1) == 'pasta'
+         aadd(laFIELDS,substr(laPUT[ii],at('.',laPUT[ii])+1))
+      endif
+   next ii
+   // Glauber 06/01/2011
+   AbasPerfil(lcTP_PASTA,laFIELDS)
+
+   carrega_cbox({{'tipo_apolice','TP_APOLICE','Y'}})
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      if verif_reqfield(WSet('_USER_INTERFACE'))
+         aadd(laSAVE,laFIELDS)
+         for ii:= 1 to len(laFIELDS)
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+
+         psab_logs(laSAVE,'pasta',lcWHERE,lcNR_PASTA,'Seguro')
+
+         if db_update(laSAVE,'pasta',{lcWHERE}) = -1
+            error_sys(db_error())
+         endif
+
+         //CIP_SEGURADO
+         if WGet('CIP_SEGURADO','B')
+            if db_replace({{'NR_PASTA','CIP','WFIELD'},;
+                           {WGet('NR_PASTA'),;
+                            WGet('CIP_SEGURADO'),;
+                            'CIP_SEGURADO'}},'pasta_cip',{'NR_PASTA='+lcNR_PASTA+' and WFIELD='+DLAP+'CIP_SEGURADO'+DLAP}) == -1
+               error_sys(db_error())
+            endif
+         endif
+      endif
+   endif
+   if db_select(laFIELDS,'pasta',,{lcWHERE}) = -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      db2Put(laRESULT)
+
+      /*
+      lnPOS := db_fetchncol(laRESULT,'CIP_SEGURADO')
+      if lnPOS > 0
+         if ! empty(alltrim(laRESULT[2,lnPOS]))
+            if db_select({'PFPJ'},'pfpj',,{'CIP='+DLAP+laRESULT[2,lnPOS]+DLAP}) == -1
+               error_sys(db_error())
+            endif
+            laPUT := db_fetchrow()
+            if len(laPUT) > 0
+               WPut('CIP_SEGURADO_PFPJ',laPUT[1])
+            endif
+         endif
+      endif
+      */
+
+      lnPOS := db_fetchncol(laRESULT,'CD_RAMOSRSN')
+      if lnPOS > 0
+         if ! empty(alltrim(laRESULT[2,lnPOS]))
+            if db_select({'SEGURORAMO','SEGUROPRODUTO','SEGUROPROFIT'},'ramosrsn',,{'CD_RAMOSRSN='+DLAP+laRESULT[2,lnPOS]+DLAP}) == -1
+               error_sys(db_error())
+            endif
+            laPUT := db_fetchrow()
+            if len(laPUT) > 0
+               WPut('SEGURORAMO',laPUT[1])
+               WPut('SEGUROPRODUTO',laPUT[2])
+               WPut('SEGUROPROFIT',laPUT[3])
+            endif
+         endif
+      endif
+
+      if db_select({'pasta_cip.CIP','pfpj.PFPJ'},;
+                   'pasta_cip',;
+                   {{2,'pfpj','pfpj.CIP=pasta_cip.CIP'}},;
+                   {'NR_PASTA='+lcNR_PASTA+' and WFIELD='+DLAP+'CIP_SEGURADO'+DLAP}) == -1
+         error_sys(db_error())
+      endif
+      laPUT := db_fetchrow()
+      if len(laPUT) > 0
+         WPut('CIP_SEGURADO',laPUT[1])
+         WPut('CIP_SEGURADO_PFPJ',laPUT[2])
+      endif
+   endif
+return
+
+
+
+
+
+
+
+
+
+

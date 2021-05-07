@@ -1,0 +1,224 @@
+/*
+Project      : isj_60
+Program      : mnt.desp.honor.html
+Function     : mnt_desp_honor_html
+Created on   : Wed, 22 November 2017 13:37:08 GMT
+Descripition :
+*/
+private lcACTION      := '' 
+local   lcAUX         := '' as string
+local   lcWHERE       := '' as string
+local   lcDADOS       := '' as string
+local   laRESULT      := {} as array
+local   laTMP         := {} as array
+local   laTMP2        := {} as array
+local   laWHERE       := {} as array
+local   laWAUX        := {} as array
+local   laFIELDS_AUX  := {} as array
+local   laCONFPAS     := {} as array
+local   laDIFFROW     := {} as array
+local ii := 0 as int
+local zz := 0 as int
+lcACTION          := upper(Wget('ACTION'))
+WPut('TITLE','Dados para Despesa com Honorários')
+
+if lcACTION == 'SAVE' .and. gbWAC_CREATE
+
+   lcWHERE:= 'TP_PASTA = ' + DLAP + Wget('TPPASTA','C') + DLAP  
+
+   laSAVE      := {'TP_PASTA',;    
+                   'ANDA_P1',;         
+                   'ANDA_P2',;         
+                   'ANDA_P3',;         
+                   'ANDA_P4',;         
+                   'ANDA_P5',;         
+                   'CD_INDICE'}                   
+                   *'DT_ALTERACAO',;    
+                   *'HR_ALTERACAO',;    
+                   *'LOGIN_ALTERA'}     
+   
+   
+   lcDADOS := alltrim(WGet('GRAVAR1','C'))
+
+   if len(lcDADOS) > 0 
+   
+      laRESULT := str2array(lcDADOS,',') 
+      
+      laRESULT[7] :=  val(laRESULT[7]) 
+      
+      if db_select({'TP_PASTA'},'anda_parc',,{lcWHERE}) == -1
+            error_sys(db_error())
+      endif
+      laTMP := db_fetchall()
+      laCONFPAS:={}
+      aadd(laCONFPAS,laSAVE)
+      aadd(laCONFPAS,laRESULT)   
+      if len(laTMP) == 1  //só trouxe o cabeçalho nao existe cadastrado
+         laCONFPAS := inseredata(laCONFPAS)
+         if db_insert(laCONFPAS,'anda_parc') == -1
+            error_sys(db_error())
+         endif
+      else  
+         *** já esta cadastrado verifica se algum campo foi alterado
+         laDIFFROW := db_diffrow(laCONFPAS,'anda_parc',lcWHERE)
+         if len(laDIFFROW) > 0  //grava o login e a data de alteração
+            laCONFPAS := inseredata(laCONFPAS)
+            if db_update(laCONFPAS,'anda_parc',{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+         endif 
+      endif
+   endif   
+   *** fim da tela 1
+   
+   
+   laSAVE      := {'TP_PASTA',;    
+                   'TP_ANDAMENTO',;         
+                   'PERCENTUAL',;
+                   'DT_ALTERACAO',;
+                   'HR_ALTERACAO',;
+                   'LOGIN_ALTERA'}
+                   
+   lcDADOS := alltrim(WGet('GRAVAR2','C'))             
+
+   if len(lcDADOS)>0 
+   
+      laRESULT := str2array(lcDADOS,'|')
+   
+      laCONFPAS:={} 
+      laTMP:={}
+      aadd(laCONFPAS,laSAVE)
+      
+      for ii := 1 to len(laRESULT)          
+          laTMP := str2array(laRESULT[ii],',') 
+          
+          laTMP[3] :=  val(laTMP[3])
+                  
+          
+          aadd(laTMP,date())
+          aadd(laTMP,time())
+          aadd(laTMP,gcLOGIN)           
+          
+          aadd(laCONFPAS,laTMP)
+              
+      next ii
+      
+      if db_delete('hono_exito_pro',lcWHERE) == -1
+         error_sys(db_error())
+      endif 
+
+      if db_insert(laCONFPAS,'hono_exito_pro') == -1
+         error_sys(db_error())
+      endif
+   endif
+   *** fim da tela 2
+   
+   laSAVE      := {'TP_PASTA',;    
+                   'DE_R',;        
+                   'ATE_R',;       
+                   'PAGO_R',;      
+                   'MINIMO',;     
+                   'LIMITADOR_R',; 
+                   'PARCELAS',;    
+                   'DT_ALTERACAO',;
+                   'HR_ALTERACAO',;
+                   'LOGIN_ALTERA'}
+        
+   lcDADOS := alltrim(WGet('GRAVAR3','C'))
+
+   if len(lcDADOS)>0 
+   
+      laRESULT := str2array(lcDADOS,'|')
+   
+      laCONFPAS:={} 
+      laTMP:={}
+      aadd(laCONFPAS,laSAVE)
+      
+      for ii := 1 to len(laRESULT)          
+          laTMP := str2array(laRESULT[ii],',') 
+          
+          laTMP[2] :=  val(laTMP[2])
+          laTMP[3] :=  val(laTMP[3])
+          laTMP[4] :=  val(laTMP[4])
+          laTMP[5] :=  val(laTMP[5])
+          laTMP[6] :=  val(laTMP[6])
+          laTMP[7] :=  val(laTMP[7])
+                  
+          
+          aadd(laTMP,date())
+          aadd(laTMP,time())
+          aadd(laTMP,gcLOGIN)           
+          
+          aadd(laCONFPAS,laTMP)
+              
+      next ii
+      
+      if db_delete('val_em_risco',lcWHERE) == -1
+         error_sys(db_error())
+      endif 
+
+      if db_insert(laCONFPAS,'val_em_risco') == -1
+         error_sys(db_error())
+      endif
+   endif
+   *** fim da tela 3
+
+   laSAVE      := {'TP_PASTA',;    
+                   'DE_E',;        
+                   'ATE_E',;       
+                   'PAGO_E',;   
+                   'LIMITADOR_E',; 
+                   'DT_ALTERACAO',;
+                   'HR_ALTERACAO',;
+                   'LOGIN_ALTERA'}
+          
+   lcDADOS := alltrim(WGet('GRAVAR4','C'))     
+
+   if len(lcDADOS)>0 
+   
+      laRESULT := str2array(lcDADOS,'|')
+      
+      laCONFPAS:={} 
+      laTMP:={}
+      aadd(laCONFPAS,laSAVE)
+      
+      for ii := 1 to len(laRESULT)          
+          laTMP := str2array(laRESULT[ii],',') 
+          
+          laTMP[2] :=  val(laTMP[2])
+          laTMP[3] :=  val(laTMP[3])
+          laTMP[4] :=  val(laTMP[4])
+          laTMP[5] :=  val(laTMP[5])                   
+          
+          aadd(laTMP,date())
+          aadd(laTMP,time())
+          aadd(laTMP,gcLOGIN)           
+          
+          aadd(laCONFPAS,laTMP)
+              
+      next ii
+      
+      if db_delete('exito',lcWHERE) == -1
+         error_sys(db_error())
+      endif 
+
+      if db_insert(laCONFPAS,'exito') == -1
+         error_sys(db_error())
+      endif
+   endif
+   *** fim da tela 4
+  
+endif
+return nil
+*********************************************
+static function inseredata(laCONFPAS)
+*********************************************
+aadd(laCONFPAS[1],'DT_ALTERACAO')
+aadd(laCONFPAS[1],'HR_ALTERACAO')
+aadd(laCONFPAS[1],'LOGIN_ALTERA')
+aadd(laCONFPAS[2],date())
+aadd(laCONFPAS[2],time())
+aadd(laCONFPAS[2],gcLOGIN)
+return(laCONFPAS)
+
+

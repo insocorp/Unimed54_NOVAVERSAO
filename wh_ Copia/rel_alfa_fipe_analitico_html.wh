@@ -1,0 +1,927 @@
+/*
+
+Project      : gr5
+Program      : rel_alfa_fipe_analitico.html
+Function     : rel_alfa_fipe_analitic
+Created on   : 20-Mar-2012   10:35
+Descripition : Relatório Fipe analitico 
+Alteracao    : 
+Solicitante  : Celia
+Projeto      : 
+*/
+
+   local lcACTION  := '' ,;
+         lcTABLE0  := '' ,;
+         lcTABLE1  := '' ,;        
+         lcCAMPOF1 := '',;
+         lcCAMPOF2 := '',;
+         lcCAMPOF3 := '',;
+         lcCAMPOF4 := '',;
+         lcCONTE1  := '',;
+         lcCONTE2  := '',;
+         lcCONTE3  := '',;
+         lcCONTE4  := '',;
+         lcORDEM   := '',;
+         lcORDEM1  := '',;
+         lcORDEM2  := '',;
+         lcMENSAGEM:= '',;
+         lcFILTROAUX := '',; 
+         lcNRROW  := '' as string
+
+   local laFIELDS0            := {} ,;
+         laFIELDS1            := {} ,;
+         laFIELDS2            := {} ,;
+         laFIELDS3            := {} ,;
+         laFIELDSG            := {} ,;
+         laRES                := {} ,;         
+         laRES2               := {} ,;
+         laRES3               := {} ,;
+         laLABEL_FL_APROVACAO := {} ,;
+         laVALUE_FL_APROVACAO := {} ,;
+         laVAR                := {} ,;
+         laPUT                := {} ,;
+         laAUX                := {} ,;
+         laJOIN               := {} ,;
+         laWHERE              := {} ,;
+         laWHERE2             := {} ,;
+         laWHERE3             := {} ,;
+         laORDER              := {} ,;
+         laCAMPOSFILTRO       := {} ,;
+         laLABELFILTRO        := {} ,;
+         laALERTA             := {} ,;
+         laSAVE               := {} as array
+
+   local ii                   := 0 ,;
+         lnQUANTOS            := 0 ,;
+         lnTOTAL              := 0 as int
+
+   local lcCABECA             := '' as string
+   local lcCGRID              := '' as string
+   local lcDGRID              := '' as string
+   local lcTGRID              := '' as string
+   local lcRELATORIO          := '' as string
+   
+   local lcINICIO             := '' as string
+   local lcFIM                := '' as string
+   
+   
+   local lnT1                 := 0.00 as numeric
+   local lnT2                 := 0.00 as numeric
+   local lnT3                 := 0.00 as numeric
+   
+   private codcor     := 1
+   private laW1       := {}
+   private laW2       := {}
+   private laW3       := {}
+   
+   private paTELA0    := {}
+   private pcRELA0    := ''
+   
+   private paTELA1    := {}
+   private pcRELA1    := '' 
+   
+   private paTELA2    := {}
+   private pcRELA2    := '' 
+   
+   private paTELA3    := {}
+   private pcRELA3    := ''         
+
+
+   lcACTION     := WGet('ACTION','C')
+
+   
+   laFIELDS0    := {'NR_PASTA',;
+                    'EMPRESA',;
+                    'NR_PROCESSO',;  
+                    'NR_VARA',;
+                    'TP_VARA',;
+                    'UF',;
+                    'COMARCA',;
+                    'PARTE_CONTRARIA',;  
+                    'DT_CADASTRO',;  
+                    'DT_CITACAO',;                                                                                                
+                    'FL_PASTA',;
+                    'FASE_PROCESSUAL',;                    
+                    'VL_CAUSA',;
+                    'PC_RISCO',;
+                    'RISCOPERDA',;
+                    'DT_RISCO',;         
+                    'DT_ENCERRAMENTO',;
+                    'MOTIVO_ENCERRAMENTO',;           
+                    'VL_RESULTADO',;
+                    'ESCRITORIO',;
+                    'TP_PASTA'}
+
+    
+    //junta aos fields
+    for xx=1 to len(laFIELDS0)
+        aadd(laFIELDSG,laFIELDS0[xx])
+    next xx
+    
+    //inclui campos adicionais
+    laFIELDS2V   := {'C1','C2','C3','C4','C5','C6'}    
+    for xx=1 to len(laFIELDS2V)
+        aadd(laFIELDSG,laFIELDS2V[xx])
+    next xx  
+    
+    laFIELDS3V   := {'C7','C8','C9'}
+    for xx=1 to len(laFIELDS3V)
+        aadd(laFIELDSG,laFIELDS3V[xx])
+    next xx 
+    
+      
+    laFIELDSG[ASCAN(laFIELDSG,'VL_CAUSA')]:='X_VL_CAUSA' 
+    laFIELDSG[ASCAN(laFIELDSG,'VL_RESULTADO')]:='X_VL_RESULTADO' 
+
+
+    laCAMPOSFILTRO := {'NR_PASTA',;
+                       'EMPRESA',;
+                       'PEDIDO_PROCESSO'}   
+    
+     
+     /*-----------------------------------------------------------------------------------*/
+     // Carregando o combo de Tipo de Pasta
+     if db_select({'TP_PASTA'},'pasta_config',,{'TP_PASTA<>'+DLAP+'Padrao'+DLAP},{'TP_PASTA'}) == -1
+        error_sys(db_error())
+     endif
+     laXRES := db_fetchall()
+     if len(laXRES) > 1
+        laXPUT := {''}
+        for ii := 2 to len(laXRES)
+           aadd(laXPUT,laXRES[ii,1])
+        next ii
+
+        wPut('TP_PASTA_OPT',laXPUT)
+     endif
+
+     /* Combo Status da Pasta */
+     laXPUT := loadcbox_build('pasta_status','FL_PASTA',.T.)
+     for ii := 1 to len(laXPUT)
+        laXPUT[ii] := alltrim(laXPUT[ii])
+     next ii
+     wPut('FL_PASTA_OPT',laXPUT)
+          
+     wPut('TITLE','Relatório Fipe analitico')
+     wPut('ifGRID',.T.)
+     WPut('ifIMPRIMIR',.F.)
+
+
+     if lcACTION == 'IMPRIME'
+        
+      if WGET('RELMEMO')<>''
+         WPut('ifGRID',.F.)
+         WPut('ifIMPRIMIR',.T.)          
+         WPut('RELATORIO',WGET('RELMEMO')) 
+      endif  
+      
+     elseif lcACTION == 'EXECSEL'
+
+      WPut('ifGRID',.T.) 
+
+   
+      lcCONTE1  := wget('FILTER_CONTENT_1','C')
+      lcCONTE2  := wget('FILTER_CONTENT_2','C')
+      lcCONTE3  := wget('FILTER_CONTENT_3','C')  
+
+
+      WPut('FILTER_CONTENT_1',lcCONTE1)
+      WPut('FILTER_CONTENT_2',lcCONTE2)         
+      WPut('FILTER_CONTENT_3',lcCONTE3)
+           
+
+      ldINI1:= wget('DT_INI1','D')
+      ldFIM1:= wget('DT_FIM1','D')
+      
+      if ldFIM1<ldINI1
+         WPut('DT_INI1','')
+         WPut('DT_FIM1','')      
+      endif
+ 
+      ldINI2:= wget('DT_INI2','D')
+      ldFIM2:= wget('DT_FIM2','D')
+      
+      if ldFIM2<ldINI2
+         WPut('DT_INI2','')
+         WPut('DT_FIM2','')      
+      endif
+      
+      ldINI3:= wget('DT_INI3','D')
+      ldFIM3:= wget('DT_FIM3','D')
+      
+      if ldFIM3<ldINI3
+         WPut('DT_INI3','')
+         WPut('DT_FIM3','')      
+      endif           
+
+     GET2PUT()
+     
+     lcTABLE0     := 'vw_alfa_fipana_0'
+
+                     
+     //DEVE ACRESCENTAR O CAMPO QUE FOR PESQUISAR
+     //SE NAO TIVER CAMPO DE PESQUISA USAR SO NR_PASTA
+     laFIELDS0  := {} 
+
+     laWHERE0   := {}
+
+     laORDER0   := {}
+     
+     lcSELECAO  := '' //fields utilizados no select
+     
+     lcREPETIU  :='F' //se não repetiu campo no filtro
+     
+     if ! empty(wget('FILTER_CONTENT_1','C')) //NT_PASTA 
+        aadd(laWHERE0,mkwherelst({{laCAMPOSFILTRO[1],wget('FILTER_CONTENT_1','C')}}))        
+        lcSELECAO+=laCAMPOSFILTRO[1]
+     endif   
+     
+     if ! empty(wget('FILTER_CONTENT_2','C')) //EMPRESA
+        aadd(laWHERE0,mkwherelst({{laCAMPOSFILTRO[2],wget('FILTER_CONTENT_2','C')}}))
+        aadd(laW1,mkwherelst({{laCAMPOSFILTRO[2],wget('FILTER_CONTENT_2','C')}}))
+        
+        if empty(lcSELECAO)
+           lcSELECAO+=laCAMPOSFILTRO[2]
+          else      
+           lcSELECAO+=',' 
+           lcSELECAO+=laCAMPOSFILTRO[2]
+        endif
+        
+     endif 
+     
+     if ! empty(wget('FILTER_CONTENT_3','C'))  //PEDIDO_PROCESSO
+        aadd(laWHERE0,mkwherelst({{laCAMPOSFILTRO[3],wget('FILTER_CONTENT_3','C')}}))
+        aadd(laW2,mkwherelst({{laCAMPOSFILTRO[3],wget('FILTER_CONTENT_3','C')}}))
+
+        if empty(lcSELECAO)
+           lcSELECAO+=laCAMPOSFILTRO[3]
+          else     
+           lcSELECAO+=',' 
+           lcSELECAO+=laCAMPOSFILTRO[3]
+        endif
+                
+     endif 
+
+     if ! empty(wget('FL_PASTA','C'))
+        aadd(laWHERE0,'FL_PASTA='+DLAP+wget('FL_PASTA','C')+DLAP) 
+        aadd(laW1,'FL_PASTA='+DLAP+wget('FL_PASTA','C')+DLAP)
+               
+        if empty(lcSELECAO)
+           lcSELECAO+='FL_PASTA'
+          else     
+           lcSELECAO+=',' 
+           lcSELECAO+='FL_PASTA'   
+        endif       
+     endif
+     
+     if ! empty(wget('TP_PASTA','C'))
+        aadd(laWHERE0,'TP_PASTA='+DLAP+wget('TP_PASTA','C')+DLAP) 
+        aadd(laW1,'TP_PASTA='+DLAP+wget('TP_PASTA','C')+DLAP) 
+
+        if empty(lcSELECAO)
+           lcSELECAO+='TP_PASTA'
+          else     
+           lcSELECAO+=',' 
+           lcSELECAO+='TP_PASTA'   
+        endif       
+     endif 
+     
+      if ! empty(ldINI1) .and. ! empty(ldFIM1)
+         aadd(laWHERE0,'DT_CADASTRO BETWEEN '+DLAP+dtos(ldINI1)+DLAP+' and '+DLAP+dtos(ldFIM1)+DLAP)
+         aadd(laW1,'DT_CADASTRO BETWEEN '+DLAP+dtos(ldINI1)+DLAP+' and '+DLAP+dtos(ldFIM1)+DLAP)
+         
+         if empty(lcSELECAO)
+            lcSELECAO+='DT_CADASTRO'
+           else     
+            lcSELECAO+=',' 
+            lcSELECAO+='DT_CADASTRO'   
+         endif    
+        else  
+         WPut('DT_INI1','')
+         WPut('DT_FIM1','')
+      endif 
+      
+      if ! empty(ldINI2) .and. ! empty(ldFIM2)
+         aadd(laWHERE0,'DT_CITACAO BETWEEN '+DLAP+dtos(ldINI2)+DLAP+' and '+DLAP+dtos(ldFIM2)+DLAP)
+         aadd(laW1,'DT_CITACAO BETWEEN '+DLAP+dtos(ldINI2)+DLAP+' and '+DLAP+dtos(ldFIM2)+DLAP)
+         
+         if empty(lcSELECAO)
+            lcSELECAO+='DT_CITACAO'
+           else     
+            lcSELECAO+=',' 
+            lcSELECAO+='DT_CITACAO'   
+         endif    
+        else  
+         WPut('DT_INI2','')
+         WPut('DT_FIM2','')
+      endif   
+
+      if ! empty(ldINI3) .and. ! empty(ldFIM3)
+         aadd(laWHERE0,'DT_ALTERACAO BETWEEN '+DLAP+dtos(ldINI3)+DLAP+' and '+DLAP+dtos(ldFIM3)+DLAP)
+         aadd(laW3,'DT_ALTERACAO BETWEEN '+DLAP+dtos(ldINI3)+DLAP+' and '+DLAP+dtos(ldFIM3)+DLAP)   
+        else  
+         WPut('DT_INI3','')
+         WPut('DT_FIM3','')
+      endif        
+
+              
+
+     //inclui distinct e nr_pasta(nr_pasta sempre deve existir)  
+     if empty(lcSELECAO) //cria field do select
+        laFIELDS0    := {'DISTINCT NR_PASTA,NR_CONTROLE'}
+     else
+        if AT('NR_PASTA',lcSELECAO)==0
+           aadd(laFIELDS0,'DISTINCT '+'NR_PASTA,NR_CONTROLE,'+lcSELECAO)
+          else    
+           aadd(laFIELDS0,'DISTINCT '+lcSELECAO+',NR_CONTROLE')
+        endif      
+     endif 
+
+
+
+     if db_select(laFIELDS0,lcTABLE0,,laWHERE0,laORDER0) == -1
+        error_sys(db_error())
+     endif   
+     laRES := db_fetchall()
+     
+     
+     
+     //***************************************
+     //cria duas array uma com o numero da pasta e outra com o numero de controle dos pedidos daquela pasta
+     //sera utilizado para filtrar os detalhes do pedido quando fazer um filtro por data de alteração
+
+      
+     F1=0
+     F2=0
+     
+     laPASTAS   :={}
+     laCONTROLES:={}
+     laNRCONTROLE:={}
+
+     for ii := 2 to len(laRES)         
+         if F1<>laRES[ii,db_fetchncol(laRES,'NR_PASTA')]            
+            F1:=laRES[ii,db_fetchncol(laRES,'NR_PASTA')]
+            aadd(laPASTAS,F1)
+         endif
+         
+         if F2<>laRES[ii,db_fetchncol(laRES,'NR_CONTROLE')]            
+            F2:=laRES[ii,db_fetchncol(laRES,'NR_CONTROLE')]
+            aadd(laNRCONTROLE,F2)
+         endif 
+         
+         if ii<len(laRES)
+            if F1<>laRES[ii+1,db_fetchncol(laRES,'NR_PASTA')]
+               aadd(laCONTROLES,laNRCONTROLE)
+               laNRCONTROLE:={}               
+            endif 
+           else 
+            aadd(laCONTROLES,laNRCONTROLE)
+            laNRCONTROLE:={}        
+         endif  
+         
+     next ii
+     
+     //se nao tiver filtro por data de alteração nao filtra por numero de controle
+     //zera laCONTROLES
+     if empty(ldINI3) .or. empty(ldFIM3)
+        laCONTROLES:={} 
+     endif
+     //*******************************************
+
+
+     //coloca titulos na array 
+     aadd(paTELA0,laFIELDSG)
+
+     lcRELATORIO=''
+
+     
+     if len(laPASTAS)>0  
+
+        lcINICIO  = '<div class="folha">'          
+        lcINICIO += '<h1 colspan="2" align="center" class="titulo"><strong>Relatório Fipe analitico</strong><br /></h1>'
+        lcINICIO += '<table width="100%" border="1" cellpadding="0" cellspacing="0" id="dados" class="tabela">'        
+
+        lcFIM  = '</table>'     
+        lcFIM += '</div>' 
+        
+        //TITULOS DA GRID NO RELATORIO
+        lcCGRID  = '  <tr>'
+        lcCGRID += '    <td BGCOLOR=gray>Registro</td>'
+        lcCGRID += '    <td BGCOLOR=gray>'+ lblfscreen('EMPRESA') + '</td>'
+        lcCGRID += '    <td BGCOLOR=gray>'+ lblfscreen('NR_PROCESSO') + '</td>' 
+        lcCGRID += '    <td BGCOLOR=gray>'+ lblfscreen('NR_VARA') + '</td>'
+        lcCGRID += '    <td BGCOLOR=gray>Vara</td>'
+        lcCGRID += '    <td BGCOLOR=gray>Local</td>'
+        lcCGRID += '    <td BGCOLOR=gray>'+ lblfscreen('COMARCA') + '</td>' 
+        lcCGRID += '    <td BGCOLOR=gray>Parte Contrária</td>'  
+        lcCGRID += '    <td BGCOLOR=gray>'+ lblfscreen('DT_CADASTRO') + '</td>'
+        lcCGRID += '    <td BGCOLOR=gray>'+ lblfscreen('DT_CITACAO') + '</td>'  
+        lcCGRID += '    <td BGCOLOR=gray>'+ lblfscreen('FL_PASTA') + '</td>'
+        lcCGRID += '    <td BGCOLOR=gray>'+ lblfscreen('FASE_PROCESSUAL') + '</td>' 
+        lcCGRID += '    <td BGCOLOR=gray>'+ lblfscreen('VL_CAUSA') + '</td>'
+        lcCGRID += '    <td BGCOLOR=gray>'+ lblfscreen('PC_RISCO') + '</td>'              
+        lcCGRID += '    <td BGCOLOR=gray>'+ lblfscreen('RISCOPERDA') + '</td>'              
+        lcCGRID += '    <td BGCOLOR=gray>'+ lblfscreen('DT_RISCO') + '</td>'
+        lcCGRID += '    <td BGCOLOR=gray>'+ lblfscreen('DT_ENCERRAMENTO') + '</td>'
+        lcCGRID += '    <td BGCOLOR=gray>'+ lblfscreen('MOTIVO_ENCERRAMENTO') + '</td>'
+        lcCGRID += '    <td BGCOLOR=gray>Valor Encerramento</td>'
+        lcCGRID += '    <td BGCOLOR=gray>Prestador</td>'                                                                                   
+        lcCGRID += '    <td BGCOLOR=gray>'+ lblfscreen('TP_PASTA') + '</td>'
+
+        
+        lcCGRID += '    <td BGCOLOR=gray>'+ lblfscreen('PEDIDO_PROCESSO') + '</td>'
+        lcCGRID += '    <td BGCOLOR=gray>Previsão de Perda</td>'   
+        lcCGRID += '    <td BGCOLOR=gray>'+ lblfscreen('VL_CORRECAO') + '</td>'
+        lcCGRID += '    <td BGCOLOR=gray>'+ lblfscreen('VL_JUROS') + '</td>'
+        lcCGRID += '    <td BGCOLOR=gray>'+ lblfscreen('VL_RISCO') + '</td>'
+        lcCGRID += '    <td BGCOLOR=gray>'+ lblfscreen('VL_RISCO_CALC') + '</td>'
+        
+        lcCGRID += '    <td BGCOLOR=gray>Data Movimento</td>'
+        lcCGRID += '    <td BGCOLOR=gray>'+ lblfscreen('OCOR_PEDIDO') + '</td>'
+        lcCGRID += '    <td BGCOLOR=gray>'+ lblfscreen('COMENTARIOS_PED') + '</td>'              
+                                    
+        lcCGRID += '  </tr>'              
+
+        lcRELATORIO=lcINICIO+lcCGRID
+        
+        if len(laPASTAS)>0        
+           for ii := 1 to len(laPASTAS)           
+           
+               pcRELA0:=''
+
+               F1:=laPASTAS[ii]
+
+               //caso nao exista numero de controle para filtar envia uma array vazia               
+               if len(laCONTROLES)=0
+                  F2:=laCONTROLES
+                 else
+                  F2:=laCONTROLES[ii]
+               endif                  
+               
+               parte1(F1,F2)
+                
+               lcRELATORIO+=pcRELA0 
+
+           next ii
+        endif
+    
+        lcRELATORIO+=lcFIM 
+    
+     endif 
+
+     WPut('RELMEMO',lcRELATORIO)   
+     WPut('lstMEMORANDO',paTELA0)   
+   endif
+   
+return
+
+*************************************
+static function parte1(param1,param2)
+*************************************
+
+   laRES1:={}
+   laPUT1:={}
+   laFIELDS1:={}
+   laWHERE1:={}
+   laORDER1:={}
+   laGERAL1:={}
+
+   laFIELDS1    := {'NR_PASTA',;
+                    'TP_PASTA',;
+                    'FL_PASTA',;
+                    'NR_PROCESSO',;  
+                    'DT_CADASTRO',;
+                    'DT_CITACAO',;
+                    'VL_CAUSA',;
+                    'PC_RISCO',;
+                    'RISCOPERDA',;
+                    'DT_RISCO',;         
+                    'NR_VARA',;
+                    'TP_VARA',;
+                    'UF',;
+                    'COMARCA',;
+                    'FASE_PROCESSUAL',;
+                    'DT_ENCERRAMENTO',;
+                    'MOTIVO_ENCERRAMENTO',;           
+                    'VL_RESULTADO',;
+                    'ESCRITORIO',;
+                    'EMPRESA',;
+                    'PARTE_CONTRARIA'}
+
+   lcTABLE1     := 'vw_alfa_fipana_1'    
+                    
+   laWHERE1     := {'NR_PASTA='+str(param1)}     
+   for xx=1 to len(laW1)
+       aadd(laWHERE1,laW1[xx])
+   next xx   
+                  
+   laORDER1     := {'NR_PASTA'} 
+   
+if db_select(laFIELDS1,lcTABLE1,,laWHERE1,laORDER1) == -1
+   error_sys(db_error())
+endif 
+  
+laRES1 := db_fetchall()
+
+
+paTELA1:={}
+
+for ii1 := 2 to len(laRES1)
+
+    //DADOS DA GRID
+    lcC01:=STR(laRES1[ii1,db_fetchncol(laRES1,'NR_PASTA')])
+    lcC02:=laRES1[ii1,db_fetchncol(laRES1,'EMPRESA')]
+    lcC03:=laRES1[ii1,db_fetchncol(laRES1,'NR_PROCESSO')] 
+    lcC04:=STR(laRES1[ii1,db_fetchncol(laRES1,'NR_VARA')])
+    lcC05:=laRES1[ii1,db_fetchncol(laRES1,'TP_VARA')]
+    lcC06:=laRES1[ii1,db_fetchncol(laRES1,'UF')]
+    lcC07:=laRES1[ii1,db_fetchncol(laRES1,'COMARCA')]  
+    lcC08:=laRES1[ii1,db_fetchncol(laRES1,'PARTE_CONTRARIA')]
+    
+    lcC09:=laRES1[ii1,db_fetchncol(laRES1,'DT_CADASTRO')]
+    lcC09:=substr(dtos(lcC09),7,2)+'/'+ substr(dtos(lcC09),5,2) +'/'+substr(dtos(lcC09),1,4) 
+    
+    lcC10:=laRES1[ii1,db_fetchncol(laRES1,'DT_CITACAO')]
+    lcC10:=substr(dtos(lcC10),7,2)+'/'+ substr(dtos(lcC10),5,2) +'/'+substr(dtos(lcC10),1,4)
+    
+    lcC11:=laRES1[ii1,db_fetchncol(laRES1,'FL_PASTA')]  
+    lcC12:=laRES1[ii1,db_fetchncol(laRES1,'FASE_PROCESSUAL')]     
+    lcC13:=STR(laRES1[ii1,db_fetchncol(laRES1,'VL_CAUSA')])
+    lcC14:=STR(laRES1[ii1,db_fetchncol(laRES1,'PC_RISCO')])
+    lcC15:=laRES1[ii1,db_fetchncol(laRES1,'RISCOPERDA')]
+    
+    lcC16:=laRES1[ii1,db_fetchncol(laRES1,'DT_RISCO')]
+    lcC16:=substr(dtos(lcC16),7,2)+'/'+ substr(dtos(lcC16),5,2) +'/'+substr(dtos(lcC16),1,4)  
+    
+    lcC17:=laRES1[ii1,db_fetchncol(laRES1,'DT_ENCERRAMENTO')]
+    lcC17:=substr(dtos(lcC17),7,2)+'/'+ substr(dtos(lcC17),5,2) +'/'+substr(dtos(lcC17),1,4)
+    
+    lcC18:=laRES1[ii1,db_fetchncol(laRES1,'MOTIVO_ENCERRAMENTO')]
+    lcC19:=STR(laRES1[ii1,db_fetchncol(laRES1,'VL_RESULTADO')])
+    lcC20:=laRES1[ii1,db_fetchncol(laRES1,'ESCRITORIO')]           
+    lcC21:=laRES1[ii1,db_fetchncol(laRES1,'TP_PASTA')]
+
+    
+    lcC22:=''
+    lcC23:=''
+    lcC24:=''
+    lcC25:=''
+    lcC26:=''
+    lcC27:=''  
+    
+    lcC28:=''
+    lcC29:=''
+    lcC30:=''          
+
+    //joga para tela
+    
+                             
+    paTELA1:=   {lcC01,;
+                 lcC02,;
+                 lcC03,;
+                 lcC04,;
+                 lcC05,;
+                 lcC06,;
+                 lcC07,;
+                 lcC08,;
+                 lcC09,;
+                 lcC10,;
+                 lcC11,;
+                 lcC12,;
+                 lcC13,;
+                 lcC14,;
+                 lcC15,;
+                 lcC16,;
+                 lcC17,;
+                 lcC18,;
+                 lcC19,;
+                 lcC20,;
+                 lcC21,;
+                 lcC22,;                                              
+                 lcC23,;
+                 lcC24,;
+                 lcC25,;  
+                 lcC26,;
+                 lcC27,;
+                 lcC28,;  
+                 lcC29,;                                                                                  
+                 lcC30} 
+
+    aadd(paTELA0,paTELA1)    
+
+    pcRELA0+=dgrid(paTELA1)
+    
+    parte2(param1,param2)
+
+next ii1
+
+return(NIL)
+
+*************************************
+static function parte2(param1,param2)
+*************************************
+
+   laRES2:={}
+   laPUT2:={}
+   laGERAL2:={}
+
+    
+   laFIELDS2    := {'NR_CONTROLE',;
+                    'PEDIDO_PROCESSO',;    
+                    'PC_RISCO',; 
+                    'VL_CORRECAO',;
+                    'VL_JUROS',;
+                    'VL_RISCO',;
+                    'VL_RISCO_CALC'}
+
+   lcTABLE2     := 'vw_alfa_fipana_2'    
+                    
+   laWHERE2      :={'NR_PASTA='+str(param1)}
+   
+   //cria filtro com os numeros de controle caso eles sejam passados no parametro
+   if len(param2)>0 
+      lcCONTROLE:=''
+      for xx=1 to len(param2)
+          if len(lcCONTROLE)=0   
+             lcCONTROLE+=str(param2[xx])
+            else
+             lcCONTROLE+=','+str(param2[xx])
+          endif   
+      next xx   
+      aadd(laWHERE2,'NR_CONTROLE in ('+lcCONTROLE+')')   
+   endif   
+
+   
+   for xx=1 to len(laW2)
+       aadd(laWHERE2,laW2[xx])
+   next xx      
+
+  
+   laORDER2     := {'PEDIDO_PROCESSO',;
+                    'NR_CONTROLE'}      
+                    
+
+                    
+if db_select(laFIELDS2,lcTABLE2,,laWHERE2,laORDER2) == -1
+   error_sys(db_error())
+endif 
+  
+laRES2 := db_fetchall()
+
+
+paTELA2:={}
+
+for ii2 := 2 to len(laRES2)  
+
+    //DADOS DA GRID
+
+    lcC01:=''
+    lcC02:=''
+    lcC03:=''
+    lcC04:=''
+    lcC05:=''
+    lcC06:=''
+    lcC07:=''
+    lcC08:=''
+    lcC09:=''
+    lcC10:=''
+    lcC11:=''
+    lcC12:=''
+    lcC13:=''
+    lcC14:=''
+    lcC15:=''
+    lcC16:=''
+    lcC17:=''
+    lcC18:=''
+    lcC19:=''
+    lcC20:=''
+    lcC21:=''
+
+    lcC22:=laRES2[ii2,db_fetchncol(laRES2,'PEDIDO_PROCESSO')]   
+    lcC23:=str(laRES2[ii2,db_fetchncol(laRES2,'PC_RISCO')])
+    lcC24:=str(laRES2[ii2,db_fetchncol(laRES2,'VL_CORRECAO')])
+    lcC25:=str(laRES2[ii2,db_fetchncol(laRES2,'VL_JUROS')])
+    lcC26:=str(laRES2[ii2,db_fetchncol(laRES2,'VL_RISCO')])
+    lcC27:=str(laRES2[ii2,db_fetchncol(laRES2,'VL_RISCO_CALC')]) 
+    
+    lcC28:=''
+    lcC29:=''
+    lcC30:=''     
+
+    //joga para tela                                     
+    paTELA2:=   {lcC01,;
+                 lcC02,;
+                 lcC03,;
+                 lcC04,;
+                 lcC05,;
+                 lcC06,;
+                 lcC07,;
+                 lcC08,;
+                 lcC09,;
+                 lcC10,;
+                 lcC11,;
+                 lcC12,;
+                 lcC13,;
+                 lcC14,;
+                 lcC15,;
+                 lcC16,;
+                 lcC17,;
+                 lcC18,;
+                 lcC19,;
+                 lcC20,;
+                 lcC21,;
+                 lcC22,;                                              
+                 lcC23,;
+                 lcC24,;
+                 lcC25,;  
+                 lcC26,;
+                 lcC27,;
+                 lcC28,;  
+                 lcC29,;                                                                                  
+                 lcC30}
+                 
+   
+    aadd(paTELA0,paTELA2)    
+
+    pcRELA0+=dgrid(paTELA2)
+    
+    F2:=laRES2[ii2,db_fetchncol(laRES2,'NR_CONTROLE')]
+
+    parte3(param1,F2)  
+
+next ii2
+
+return(NIL)
+
+*************************************
+static function parte3(param1,param2)
+*************************************
+
+   laRES3  :={}
+   laPUT3  :={}
+   laWHERE3:={}
+   laGERAL3:={}
+
+
+   
+   lcTABLE3     := 'vw_alfa_fipana_3'
+   
+   laFIELDS3    := {'DT_ALTERACAO',;
+                    'OCOR_PEDIDO',; 
+                    'COMENTARIOS_PED'} 
+                    
+  
+   aadd(laWHERE3,'NR_PASTA='+str(param1))
+   aadd(laWHERE3,'NR_CONTROLE='+str(param2))
+   
+   for xx=1 to len(laW3)
+       aadd(laWHERE3,laW3[xx])
+   next xx  
+
+
+   laORDER3     := {'DT_ALTERACAO',;
+                   'OCOR_PEDIDO'}  
+                                 
+                     
+if db_select(laFIELDS3,lcTABLE3,,laWHERE3,laORDER3) == -1
+   error_sys(db_error())
+endif 
+  
+laRES3 := db_fetchall()
+
+paTELA3:={}
+
+for ii3 := 2 to len(laRES3)
+
+
+    //DADOS DA GRID
+
+    lcC01:=''
+    lcC02:=''
+    lcC03:=''
+    lcC04:=''
+    lcC05:=''
+    lcC06:=''
+    lcC07:=''
+    lcC08:=''
+    lcC09:=''
+    lcC10:=''
+    lcC11:=''
+    lcC12:=''
+    lcC13:=''
+    lcC14:=''
+    lcC15:=''
+    lcC16:=''
+    lcC17:=''
+    lcC18:=''
+    lcC19:=''
+    lcC20:=''
+    lcC21:=''
+
+    lcC22:=''
+    lcC23:=''
+    lcC24:=''
+    lcC25:=''
+    lcC26:=''
+    lcC27:=''
+    
+    lcC28:=laRES3[ii3,db_fetchncol(laRES3,'DT_ALTERACAO')]
+    lcC28:=substr(dtos(lcC28),7,2)+'/'+ substr(dtos(lcC28),5,2) +'/'+substr(dtos(lcC28),1,4)
+    
+    lcC29:=laRES3[ii3,db_fetchncol(laRES3,'OCOR_PEDIDO')]
+    lcC30:=laRES3[ii3,db_fetchncol(laRES3,'COMENTARIOS_PED')]    
+
+    //joga para tela                                     
+    paTELA3:=   {lcC01,;
+                 lcC02,;
+                 lcC03,;
+                 lcC04,;
+                 lcC05,;
+                 lcC06,;
+                 lcC07,;
+                 lcC08,;
+                 lcC09,;
+                 lcC10,;
+                 lcC11,;
+                 lcC12,;
+                 lcC13,;
+                 lcC14,;
+                 lcC15,;
+                 lcC16,;
+                 lcC17,;
+                 lcC18,;
+                 lcC19,;
+                 lcC20,;
+                 lcC21,;
+                 lcC22,;                                              
+                 lcC23,;
+                 lcC24,;
+                 lcC25,;  
+                 lcC26,;
+                 lcC27,;
+                 lcC28,;  
+                 lcC29,;                                                                                  
+                 lcC30}
+
+    aadd(paTELA0,paTELA3)    
+
+    pcRELA0+=dgrid(paTELA3)
+  
+
+next ii3
+
+return(NIL)
+
+****************************
+static function dgrid(dados)
+****************************
+
+cor :='white'
+    
+    //DADOS DA GRID NO RELATORIO      
+    DDGRID = '  <tr>'
+    DDGRID += '    <td align="center" BGCOLOR=' + cor + '>' + dados[1] +'</td>'
+    DDGRID += '    <td BGCOLOR='                + cor + '>' + dados[2]+'</td>'  
+    DDGRID += '    <td align="center" BGCOLOR=' + cor + '>' + dados[3]+'</td>'
+    DDGRID += '    <td align="center" BGCOLOR=' + cor + '>' + dados[4]+'</td>' 
+    DDGRID += '    <td BGCOLOR='                + cor + '>' + dados[5]+'</td>' 
+    DDGRID += '    <td BGCOLOR='                + cor + '>' + dados[6]+'</td>' 
+    DDGRID += '    <td BGCOLOR='                + cor + '>' + dados[7]+'</td>' 
+    DDGRID += '    <td BGCOLOR='                + cor + '>' + dados[8]+'</td>' 
+    DDGRID += '    <td align="center" BGCOLOR=' + cor + '>' + dados[9]+'</td>' //D           
+    DDGRID += '    <td align="center"BGCOLOR='  + cor + '>' + dados[10]+'</td>' //D   
+    DDGRID += '    <td align="center" BGCOLOR=' + cor + '>' + dados[11]+'</td>'  
+    DDGRID += '    <td BGCOLOR='                + cor + '>' + dados[12]+'</td>' 
+    DDGRID += '    <td align="right" BGCOLOR='  + cor + '>' + dados[13]+'</td>'
+    DDGRID += '    <td align="right" BGCOLOR='  + cor + '>' + dados[14]+'</td>' 
+    DDGRID += '    <td BGCOLOR='                + cor + '>' + dados[15]+'</td>' 
+    DDGRID += '    <td align="center" BGCOLOR=' + cor + '>' + dados[16]+'</td>' //D 
+    DDGRID += '    <td align="center"BGCOLOR='  + cor + '>' + dados[17]+'</td>' //D
+    DDGRID += '    <td BGCOLOR='                + cor + '>' + dados[18]+'</td>' 
+    DDGRID += '    <td align="right" BGCOLOR='  + cor + '>' + dados[19]+'</td>' 
+    DDGRID += '    <td BGCOLOR='                + cor + '>' + dados[20]+'</td>'                              
+    DDGRID += '    <td BGCOLOR='                + cor + '>' + dados[21]+'</td>'
+
+
+
+    DDGRID += '    <td BGCOLOR='                + cor + '>' + dados[22]+'</td>'
+    DDGRID += '    <td align="right" BGCOLOR='  + cor + '>' + dados[23]+'</td>'
+    DDGRID += '    <td align="right" BGCOLOR='  + cor + '>' + dados[24]+'</td>'
+    DDGRID += '    <td align="right" BGCOLOR='  + cor + '>' + dados[25]+'</td>'
+    DDGRID += '    <td align="right" BGCOLOR='  + cor + '>' + dados[26]+'</td>'
+    DDGRID += '    <td align="right" BGCOLOR='  + cor + '>' + dados[27]+'</td>' 
+
+    DDGRID += '    <td align="center" BGCOLOR=' + cor + '>' + dados[28]+'</td>'
+    DDGRID += '    <td BGCOLOR='                + cor + '>' + dados[29]+'</td>'
+    DDGRID += '    <td BGCOLOR='                + cor + '>' + dados[30]+'</td>'                                                          
+    DDGRID += '  </tr>'
+
+return(DDGRID)
+
+
+
+
+
+
+
+
+

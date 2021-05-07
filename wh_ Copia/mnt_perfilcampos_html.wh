@@ -1,0 +1,374 @@
+/*
+
+Project      : isj_395b
+Program      : mnt.perfilcampos.html
+Function     : mnt_perfilcampos_html
+Created on   : 03-Jan-2011   10:11:45
+Descripition :
+
+*/
+
+   local lcACTION  := '',;
+         lcWHERE   := '' as String
+   local laFIELDS  := {},;
+         laSAVE    := {},;
+         laSAVE_AUX:= {},;
+         laRES     := {},;
+         laPUT     := {} as Array
+   local lnCAMPOS  := 0,;
+         ii        := 0 as int
+   local llErro    := .f.
+
+   lcACTION := Upper(Wget('ACTION','C'))
+   laFIELDS := {'NR_CONTROLE',;
+                'PASTAS',;
+                'WGID',;
+                'GROUPS',;
+                'WFIELD',;
+                'WHIDDEN',;
+                'LABEL_SCREEN',;
+                'WLABEL_VIEW',;
+                'WLABEL_COLOR',;
+                'WFIELD_VIEW',;
+                'WFIELD_RO',;
+                'WFIELD_COLOR',;
+                'WFIELD_BGCOLOR'}
+   laVALIDA := {'PASTAS','GROUPS','WFIELD'}
+
+   // Carga dos checkbox
+
+   WPut('WLABEL_VIEW.option','S')
+   WPut('WFIELD_VIEW.option','S')
+   WPut('WFIELD_RO.option','S')
+
+   WPut('WLABEL_VIEW','')
+   WPut('WFIELD_VIEW','')
+   WPut('WFIELD_RO','')
+
+   // Carregando o combo visivel
+   WPut('WHIDDEN_OPT',{'','S','N'})
+
+   if lcACTION == 'NEW'
+
+      WPut('WLABEL_VIEW','S')
+      WPut('WFIELD_VIEW','S')
+      WPut('WFIELD_RO','S')
+
+   elseif lcACTION == 'ALTER'
+      if WGet('NR_CONTROLE','N') > 0
+          lcWHERE := 'NR_CONTROLE='+ WGet('NR_CONTROLE','C')
+      endif
+
+      if db_select(laFIELDS,'wfield_perfil',,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      db2put(laRES)
+      lcWHERE := ''
+   elseif lcACTION == 'DELETE'
+          if WGet('NR_CONTROLE','N') > 0
+              lcWHERE := 'NR_CONTROLE='+ WGet('NR_CONTROLE','C')
+          endif
+          if db_delete('wfield_perfil',lcWHERE) == -1
+             error_sys(db_error())
+          endif
+          lcWHERE := ''
+          // Glauber 30/05/2012 - conforme detectado pela Sonia / Célia é necessário remover o arquivo "wfield.mf" toda vez que ocorre uma alteração
+          ferase("wfield.mf")          
+   elseif lcACTION == 'SEARCH'
+
+          if ! empty(WGET('PASTAS','C'))
+             laRES := Str2Array(WGET('PASTAS','C'),',')
+             lcWHERE += 'wfield_perfil.PASTAS IN('
+             for ii := 1 to len(laRES)
+                 if ii < len(laRES)
+                    lcWHERE += DLAP + laRES[ii] + DLAP + ','
+                 else
+                    lcWHERE += DLAP + laRES[ii] + DLAP
+                 endif
+             next ii
+             lcWHERE += ')'
+          endif
+
+          if ! empty(WGET('GROUPS','C'))
+             lcWHERE += iif(! Empty(lcWHERE),' AND ','')
+             laRES   := Str2Array(WGET('GROUPS','C'),',')
+             lcWHERE += 'wfield_perfil.GROUPS IN('
+             for ii := 1 to len(laRES)
+                 if ii < len(laRES)
+                    lcWHERE += DLAP + laRES[ii] + DLAP + ','
+                 else
+                    lcWHERE += DLAP + laRES[ii] + DLAP
+                 endif
+             next ii
+             lcWHERE += ')'
+          endif
+
+          if ! empty(WGET('WFIELD','C'))
+             lcWHERE += iif(! Empty(lcWHERE),' AND ','')
+             lcWHERE += 'wfield_perfil.WFIELD = ' + DLAP + WGET('WFIELD','C') + DLAP
+          endif
+
+
+   elseif lcACTION == 'SAVE'
+
+          for lnCAMPOS := 1 to len(laVALIDA)
+              if empty(WGet(laVALIDA[lnCAMPOS],'C'))
+                 WAlert('O campo ' + lblfscreen(laVALIDA[lnCAMPOS]) + ' � de preenchimento obrigat�rio.')
+                 get2put()
+                 llErro := .t.
+                 exit
+              endif
+          next lnCAMPOS
+          if ! llErro
+             aadd(laSAVE,laFIELDS)
+             laSAVE_AUX := {}
+             for lnCAMPOS := 1 to len(laFIELDS)
+                 aadd(laSAVE_AUX,WGet(laFIELDS[lnCAMPOS]))
+             next lnCAMPOS
+             aadd(laSAVE,laSAVE_AUX)
+             lcWHERE := 'NR_CONTROLE='+ Alltrim(WGet('NR_CONTROLE','C'))
+
+             if db_replace(laSAVE,'wfield_perfil',{lcWHERE}) = -1
+                error_sys(db_error())
+             endif
+             lcWHERE := ''
+             // Glauber 30/05/2012 - conforme detectado pela Sonia / Célia é necessário remover o arquivo "wfield.mf" toda vez que ocorre uma alteração
+             ferase("wfield.mf")             
+          endif
+   elseif lcACTION == 'SEARCH'
+   endif
+
+   // Montagem da grid
+   Monta_Grade(lcWHERE)
+return
+
+/*
+* Glauber - 03/01/20101
+*
+* Function  : Monta_Grade(pc_filtro)
+* Objetivo  : Monta a tela de entrada de dados com a grid paginada.
+*             
+* Parâmetros:
+*             pcfiltro : String com a expressão where a ser utiizada.
+*
+* Retorno:    Nada.
+*             
+*/   
+
+Static Function Monta_Grade(pc_filtro)
+local laFIELDS := {},;
+      laRESULT := {} as array
+local lcTABLE  := '',;
+      lcWHERE  := '' as string
+local ii       := 0 as numeric
+
+   lcTABLE  := 'wfield_perfil'
+   laFIELDS := { 'wfield_perfil.NR_CONTROLE',;
+                 'wfield_perfil.PASTAS',;
+                 'wfield_perfil.GROUPS',;
+                 'wfield_perfil.WFIELD',;
+                 'wfield_perfil.WHIDDEN',;
+                 'wfield_perfil.LABEL_SCREEN',;
+                 'wfield_perfil.WLABEL_VIEW',;
+                 'wfield_perfil.WLABEL_COLOR',;
+                 'wfield_perfil.WFIELD_VIEW',;
+                 'wfield_perfil.WFIELD_RO',;
+                 'wfield_perfil.WFIELD_COLOR',;
+                 'wfield_perfil.WFIELD_BGCOLOR'}
+
+   if ! empty(pc_filtro)
+      lcWHERE := pc_filtro // ' NM_TRCT LIKE '+DLAP+'%' + alltrim(pc_filtro)+'%'+DLAP
+   else
+      lcWHERE := ''
+   endif
+   if empty(pc_filtro)
+      if db_select(laFIELDS,lcTABLE) == -1
+         error_sys(db_error())
+      endif
+   else
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+   endif
+   laRESULT  := db_fetchall()
+   lnCOUNT   := len(laRESULT)-1
+   if lnCOUNT > 0
+	   laPAGINAS := paginacao(lnCOUNT,'','')
+	   laLIMIT   := param_fetch(laPAGINAS,'LIMIT')
+	   if empty(pc_filtro)
+	      if db_select(laFIELDS,lcTABLE,,,{'PASTAS'},,,laLIMIT) == -1
+	         error_sys(db_error())
+	      endif
+	   else
+	      if db_select(laFIELDS,lcTABLE,,{lcWHERE},{'PASTAS'},,,laLIMIT) == -1
+	         error_sys(db_error())
+	      endif
+	   endif
+	   laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         //Resumo da pesquisa
+         lcCODE := alltrim(str(laLIMIT[1]+1))+'-'
+         if ((len(laRESULT)-1) < (laLIMIT[2]-laLIMIT[1]))
+            lcCODE += alltrim(str(len(laRESULT)-1))
+         elseif param_fetch(laPAGINAS,'GOTO_PAGE') == param_fetch(laPAGINAS,'NR_PAGES') //lnNR_PAGES
+            lcCODE += alltrim(str(lnCOUNT))
+         else
+            lcCODE += alltrim(str(laLIMIT[1]+param_fetch(laPAGINAS,'ROWS_PAGE')))
+         endif
+         lcCODE += ' de '+alltrim(str(lnCOUNT))
+         if lnCOUNT > 1
+            lcCODE := ' Resultados '+lcCODE+' registros'
+         else
+            lcCODE := ' Resultado '+lcCODE+' registro'
+         endif
+         wput('RESUME_RESULTSET',lcCODE)
+         aadd(laRESULT[1],'(row)')
+         for ii := 2 to len(laRESULT)
+/*
+            aadd(laRESULT[ii],'(row)'+wic_action('wicaction/mnt.perfilcampos.html?'+;
+                                                 'NR_CONTROLE='+ALLTRIM(laRESULT[ii, db_fetchncol(laRESULT,'NR_CONTROLE')])+;
+                                                 '&PASTAS='+laRESULT[ii, db_fetchncol(laRESULT,'PASTAS')]+;
+                                                 '&GROUPS='+str(laRESULT[ii, db_fetchncol(laRESULT,'GROUPS')])+;
+                                                 '&WFIELD='+laRESULT[ii, db_fetchncol(laRESULT,'WFIELD')]+;
+                                                 '&WLABEL_VIEW='+laRESULT[ii, db_fetchncol(laRESULT,'WLABEL_VIEW')]+;
+                                                 '&WLABEL_COLOR='+laRESULT[ii, db_fetchncol(laRESULT,'WLABEL_COLOR')]+;
+                                                 '&WFIELD_VIEW='+laRESULT[ii, db_fetchncol(laRESULT,'WFIELD_VIEW')]+;
+                                                 '&WFIELD_RO='+laRESULT[ii, db_fetchncol(laRESULT,'WFIELD_RO')]+;
+                                                 '&WFIELD_COLOR='+laRESULT[ii, db_fetchncol(laRESULT,'WFIELD_COLOR')]+;
+                                                 '&WFIELD_BGCOLOR='+laRESULT[ii, db_fetchncol(laRESULT,'WFIELD_BGCOLOR')]+;
+                                                 '&ACTION=ALTER'))
+*/
+            aadd(laRESULT[ii],'(row)'+wic_action('wicaction/mnt.perfilcampos.html?'+;
+                                                 'NR_CONTROLE='+ALLTRIM(laRESULT[ii, db_fetchncol(laRESULT,'NR_CONTROLE')])+;
+                                                 '&ACTION=ALTER'))
+
+//              laRESULT[ii, db_fetchncol(laRESULT,'GROUPS')] := STRTRAN(laRESULT[ii, db_fetchncol(laRESULT,'GROUPS')],',','<br>')
+         next ii
+
+         wPut('lstPERFILCAMPOS',grid_create(laRESULT))
+      else
+         wPut('lstPERFILCAMPOS','<center>Nenhum registro foi encontrado</center>')
+      endif
+   endif
+return
+
+
+
+
+
+
+Static function paginacao(fnCOUNT,fcMSGTYPE,fcQUICK_SEARCH)
+  local ii          := 0 ,;
+        lnGOTO_PAGE := WGet('GOTO_PAGE','N') ,;
+        lnNR_PAGES  := 0 ,;
+        lnROWS_PAGE := 0 ,;
+        lnMAX_PAGES := 0 ,;
+        lnPAGE_INI  := 0 ,;
+        lnPAGE_FIN  := 0 ,;
+        lnLIMIT1    := 0 ,;
+        lnLIMIT2    := 0 as int
+
+   local lcCODE     := '' as string
+
+   local laPAGES    := {} ,;
+         laLIMIT    := {} ,;
+         laRETURN   := {} as array
+
+   if lnCOUNT > 0
+      if lnGOTO_PAGE <= 0
+         lnGOTO_PAGE := 1
+      endif
+      lnMAX_PAGES := iif(val(WSet('MAX_PAGES'))==0,10,val(WSet('MAX_PAGES')))
+      lnROWS_PAGE := iif(val(WSet('ROWS_PAGE'))==0,10,val(WSet('ROWS_PAGE')))
+
+      if lnROWS_PAGE > fnCOUNT
+         lnROWS_PAGE := fnCOUNT
+      endif
+      lnNR_PAGES := fnCOUNT/lnROWS_PAGE
+
+      if (fnCOUNT % lnROWS_PAGE) > 0
+         lnNR_PAGES += 1
+      endif
+
+      lnMAX_PAGES := iif(lnNR_PAGES < lnMAX_PAGES,lnNR_PAGES,lnMAX_PAGES)
+      if lnGOTO_PAGE == 1
+         lnPAGE_INI := 1                              // Página inicial
+         lnPAGE_FIN := lnMAX_PAGES                    // Página final
+      else
+         if alltrim(WGet('MORE')) == 'Y'              // Visualizar as próximas 10 páginas, se possível
+            lnPAGE_INI := lnGOTO_PAGE
+            lnPAGE_FIN := lnMAX_PAGES+(lnGOTO_PAGE-1)
+            if lnPAGE_FIN > lnNR_PAGES
+               lnPAGE_FIN := lnNR_PAGES
+            endif
+         elseif alltrim(WGet('LESS')) == 'Y'          // Visualizar as 10 páginas anteriores, se possível
+            lnPAGE_INI := lnGOTO_PAGE-lnMAX_PAGES+1
+            lnPAGE_FIN := lnGOTO_PAGE
+         else
+            lnPAGE_INI := WGet('FIRST_PAGE','N')
+            lnPAGE_FIN := WGet('LAST_PAGE','N')
+         endif
+      endif
+
+      aadd(laPAGES,{'PROGRAM_CALL','NR_PAGE'})
+      for ii := lnPAGE_INI to lnPAGE_FIN
+          lcCODE := wic_action('wicaction/mnt.perfilcampos.html?GOTO_PAGE='+alltrim(str(ii)))
+          lcCODE += '&FIRST_PAGE='+alltrim(str(lnPAGE_INI))+'&LAST_PAGE='+alltrim(str(lnPAGE_FIN))
+          if ii == lnPAGE_INI
+             lcCODE += '&LESS=Y'
+          endif
+          if ii == lnPAGE_FIN .and. lnPAGE_FIN < lnNR_PAGES
+             lcCODE += '&MORE=Y'
+          endif
+
+          // Manter a pesquisa do usuário caso ela exista e demais parametros
+          if !empty(fcQUICK_SEARCH)
+             lcCODE += '&QUICK_SEARCH='+fcQUICK_SEARCH
+          endif
+
+          if !empty(fcMSGTYPE)
+             lcCODE += '&MSGTYPE='+fcMSGTYPE
+          endif
+
+          aadd(laPAGES,{lcCODE,alltrim(str(ii))})
+      next ii
+      WPut('ifRESULT',.T.)
+      WPut('PAGES',laPAGES)
+
+      lnLIMIT1 := iif(lnGOTO_PAGE == 1,0,((lnGOTO_PAGE*lnROWS_PAGE)-1)-(lnROWS_PAGE-1))
+      lnLIMIT2 := lnROWS_PAGE
+      laLIMIT  := {lnLIMIT1,lnLIMIT2}
+
+      aadd(laRETURN,{'NR_PAGES',lnNR_PAGES})
+      aadd(laRETURN,{'ROWS_PAGE',lnROWS_PAGE})
+      aadd(laRETURN,{'GOTO_PAGE',lnGOTO_PAGE})
+      aadd(laRETURN,{'LIMIT',laLIMIT})
+   else
+      aadd(laRETURN,{'NR_PAGES' ,0})
+      aadd(laRETURN,{'ROWS_PAGE',0})
+      aadd(laRETURN,{'GOTO_PAGE',0})
+      aadd(laRETURN,{'LIMIT',{}})
+   endif
+return(laRETURN)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

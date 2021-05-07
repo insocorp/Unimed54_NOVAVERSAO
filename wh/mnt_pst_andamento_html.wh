@@ -1,0 +1,1672 @@
+/*
+
+Project      : gr5
+Program      : mnt.pst.andamento.html
+Function     : mnt_pst_andamento_html
+Created on   : 28-Oct-2001   23:55:34
+Descripition :
+*/
+
+   private paAUTO        := {} ,;
+           paAUTO_LABELS := {} ,;
+           paATO         := {} ,;
+           paATO_LABELS  := {} 
+
+   local lcProgram      := 'mnt_pst_andamento_html',;
+         lcACTION       := '',;
+         lcTABLE        := '',;
+         lcWHERE        := '',;
+         lcNR_PASTA     := '',;
+         lcNR_ATO       := '',;
+         lcNR_ANDAMENTO := '',;
+         lcNR_AUTOPROC  := '',;
+         lcRELAC        := '',;
+         lcAND_ANTERIOR := '',;
+         lcTSTPREF      := '',;
+         lcWORKGROUP    := '',;
+         lcINCGED       := '',;
+         lcCONTAND      := '',;
+         fcTP_OCOR      := '',;
+         lcFACE_PROCESSUAL := '',;
+         lcFASE_PASTA      := '',;
+         lcAND_VINCULADO:= '' as string
+
+   local laRESULT     := {} ,;
+         laSAVE       := {} ,;
+         laSAVEFILHO  := {} ,;
+         laSAVE_AUX   := {} ,;
+         laFIELDS     := {} ,;
+         laTABLES     := {} ,;
+         laWHERE      := {} ,;
+         laFILHO      := {} ,;
+         laVALIDA     := {} ,;
+         laAUTO_PAI   := {} ,;
+         laAUTO_FILHO := {} ,;
+         laSAVEFASE  := {} ,;
+         laORDER_BY   := {} as array
+
+   local ii             := 0 ,;
+         jj             := 0 ,;
+         lcATO          := 0 ,;
+         lnNR_AUTOFILHO := 0 ,;
+         lnANDA_RELACAO := 0 ,;
+         lcanexo        := 0 ,;
+         lcaditivo      := 0 as int
+
+   local llERROR        := .F. as logical
+   local llFILTRA       := .F. as logical
+
+   local llAND_CANC, llAND_EXTERNO, llSEGUE , llRETURN := .F. as logical
+ 
+   local lcVINCULO := '' as string
+
+   laVALIDA:={'NR_AUTOPROC','TP_ANDAMENTO','ANDAMENTO','DT_ANDAMENTO'}
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+   //Exibe os botões permitidos
+   if gbWAC_CREATE
+      WPut('ifWAC_CREATE',.t.)
+   endif
+   if gbWAC_DELETE
+      WPut('ifWAC_DELETE',.t.)
+   endif
+   if gbWAC_WRITE
+      WPut('ifWAC_WRITE',.t.)
+   endif
+
+   lcACTION         := upper(WGet('ACTION','C'))
+   lcNR_PASTA       := WGet('NR_PASTA','C')
+   lcNR_ANDAMENTO   := WGet('NR_ANDAMENTO','C')
+   lcNR_AUTOPROC    := alltrim(WGet('NR_AUTOPROC','C'))
+   lcTP_PASTA       := WGet('TP_PASTA','C')
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+
+   if empty(alltrim(lcTP_PASTA))
+      if len(laRESULT) > 0
+         lcTP_PASTA := laRESULT[1]
+      else
+         PutError('Tipo de Pasta inválido.')
+      endif
+   endif
+
+   *** rufino 26/06/2014 verifica se esse cliente quer checar interdependencia, email alexandre 26/06/2014 10:41
+   ***WPut('INTERD',WSet('VER_INTERD'))
+
+
+   *** rufino 16/03/2015
+   if db_select({'VER_INTERD','CONTANDG','INCGEDAND','FL_ANDAMENTO_ANEXO','FL_ANDAMENTO_ADITIVO','FL_FAMILIA_CAUSA','FL_ATO_SOCIETARIO'},'pasta_config',,{'TP_PASTA='+DLAP+lcTP_PASTA+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   IF len(laresult) > 1
+      WPut('INTERD',laRESULT[2,1])
+      WPut('CONTAND',laRESULT[2,2])
+      WPut('INCGED',laRESULT[2,3])
+      WPut('ANEXO',laRESULT[2,4])
+      WPut('ADITIVO',laRESULT[2,5])
+      WPut('FAMILIA',laRESULT[2,6])
+      WPut('ATO',laRESULT[2,7])
+
+      lcCONTAND:=laRESULT[2,2]
+      lcINCGED:=laRESULT[2,3]
+
+      WPut('lcINCGED',lcINCGED)
+
+   endif
+
+   *** se controla por grupo
+   if lcCONTAND="S"
+      *** PROCURA GRUPO DE TRABALHO DE QUEM ESTA LOGADO
+      if db_select({'WORKGROUP','LOGINS_PART'},'groupanda',,{'FL_ATIVO<>'+DLAP+'N'+DLAP}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT   := db_fetchall()
+
+      for ii=2 to len(laRESULT)
+          *** 16/12/2013 Rufino = segundo a Célia não vai existir uma pessoa em mais de um grupo portando quando localiza a pessoa ja encontra o grupo.
+          if ascan(str2array(laRESULT[ii,2],','),WSet('LOGIN')) > 0
+             lcWORKGROUP:= laRESULT[ii,1]
+             exit
+          endif
+      next ii
+   endif
+
+   WPut('WORKGROUP',lcWORKGROUP)
+   
+   
+   llAND_CANC       := alltrim(upper(wSet('_USER_INTERFACE'))) == 'MNT.CANC.ANDAMENTO.HTML'
+
+   WPut('llAND_CANC',llAND_CANC)
+
+
+
+   if lcNR_ANDAMENTO = 'New'
+      lcNR_ANDAMENTO := '0'
+   endif
+   lcTABLE    := 'pasta_andamento'
+   laTABLES   := {'pasta'}
+   laFIELDS   := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+
+   lcWHERE    := 'NR_PASTA = '+lcNR_PASTA+' and NR_ANDAMENTO = '+lcNR_ANDAMENTO+' and FL_ANDAMENTO_EXTERNO <> '+DLAP+'S'+DLAP
+   laORDER_BY := {'DT_ANDAMENTO','NR_ANDAMENTO'}
+   lcTSTPREF  := strzero(year(date()),4)+;
+                 strzero(month(date()),2)+;
+                 strzero(day(date()),2)+;
+                 substr(time(),1,2)+'00'
+
+   if empty(lcNR_PASTA)
+      wSet('_USER_INTERFACE','lst.pst.andamento.html')
+      lst_pst_andamento_html()
+      return .f.
+   endif
+
+   // Autos -----------------------------------------------------------------------------------------
+   if db_select({'NR_AUTOPROC','AUTOPROC','NUMERO_DOC'},'pasta_auto',,;
+                {'NR_PASTA='+lcNR_PASTA},{'AUTOPROC'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   paAUTO        := {''}
+   paAUTO_LABELS := {''}
+   aadd(paAUTO,'0')
+   aadd(paAUTO_LABELS,'Processo Principal')
+   for ii := 2 to len(laRESULT)
+      aadd(paAUTO,alltrim(laRESULT[ii,1]))
+      aadd(paAUTO_LABELS,laRESULT[ii,2]+' : '+laRESULT[ii,3])
+   next ii
+   WPut('NR_AUTOPROC.option',paAUTO_LABELS)
+   WPut('NR_AUTOPROC.optionvalue',paAUTO)
+
+   WPut('NR_AUTOPROC2.option',paAUTO_LABELS)
+   WPut('NR_AUTOPROC2.optionvalue',paAUTO)
+
+   WPut('NR_AUTOPROC',lcNR_AUTOPROC)
+   WPut('HR_CADASTRO',time())
+
+   // Embargo -----------------------------------------------------------------------------------------
+   if db_select({'NR_AUTOPROC','AUTOPROC','NUMERO_DOC'},'pasta_embargo',,;
+                {'NR_PASTA='+lcNR_PASTA},{'AUTOPROC'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   for ii := 2 to len(laRESULT)
+      aadd(paAUTO,alltrim(laRESULT[ii,1]))
+      aadd(paAUTO_LABELS,laRESULT[ii,2]+' : '+laRESULT[ii,3])
+   next ii
+   WPut('NR_AUTOPROC.option',paAUTO_LABELS)
+   WPut('NR_AUTOPROC.optionvalue',paAUTO)
+   WPut('NR_AUTOPROC',lcNR_AUTOPROC)
+   WPut('HR_CADASTRO',time())
+
+   // Glauber 04/01/2011
+   // Renomear os campos de acordo com tipo de pasta e perfil do usuário
+
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+
+   if val(lcNR_AUTOPROC) > 0
+      if db_select({'FL_AUTO'},'pasta_auto',,{'NR_PASTA='+lcNR_PASTA+' and NR_AUTOPROC='+lcNR_AUTOPROC}) = -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if upper(laRESULT[1]) != 'ENCERRADO'
+            WPut('ifMNTFORM',.T.)
+         endif
+      else
+         if db_select({'FL_AUTO'},'pasta_embargo',,{'NR_PASTA='+lcNR_PASTA+' and NR_AUTOPROC='+lcNR_AUTOPROC}) = -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchrow()
+         if len(laRESULT) > 0
+            if upper(laRESULT[1]) != 'ENCERRADO'
+               WPut('ifMNTFORM',.T.)
+            endif
+         endif
+      endif
+   else
+      WPut('ifMNTFORM',.T.)
+   endif
+
+
+
+
+ // Autos -----------------------------------------------------------------------------------------
+
+   ***carrega_cbox({{'andamento_tipo','TP_ANDAMENTO','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+
+   ***rufino 04/09/2013 16:49
+   carrega_tpanda(lcTP_PASTA,lcWORKGROUP)
+
+   if !empty(lcNR_ANDAMENTO)
+      aadd(laWHERE,'(NR_PASTA='+lcNR_PASTA+' and NR_ANDAMENTO='+lcNR_ANDAMENTO+')')
+   else
+      aadd(laWHERE,'NR_PASTA='+lcNR_PASTA)
+   endif
+   if llAND_CANC
+      aadd(laWHERE,'FL_ANDAMENTO_CANCELADO='+DLAP+'S'+DLAP)
+   else
+      aadd(laWHERE,'(FL_ANDAMENTO_CANCELADO <> '+DLAP+'S'+DLAP+' or FL_ANDAMENTO_CANCELADO is null)')
+   endif
+
+
+
+
+
+   // Anexos ----------------------------------------------------------------------------------------
+   // Sonia Perdigao - 2/18/2011 4:43:37 PM 
+
+   if db_select({'NR_CONTRATO_ANEXO'},'pasta_contrato_anexo',,;
+                {'NR_PASTA='+lcNR_PASTA},{'NR_CONTRATO_ANEXO'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   paANEXO        := {''}
+   paANEXO_LABELS := {''}
+   lcNR_CONTRATO_ANEXO := ''
+   for ii := 2 to len(laRESULT)
+      aadd(paANEXO,alltrim(laRESULT[ii,1]))
+      aadd(paANEXO_LABELS,laRESULT[ii,1])
+   next ii
+   WPut('NR_CONTRATO_ANEXO.option',paANEXO_LABELS)
+   WPut('NR_CONTRATO_ANEXO.optionvalue',paANEXO)
+
+   WPut('NR_CONTRATO_ANEXO2.option',paANEXO_LABELS)
+   WPut('NR_CONTRATO_ANEXO2.optionvalue',paANEXO)
+
+   WPut('NR_CONTRATO_ANEXO',lcNR_CONTRATO_ANEXO)
+   
+
+   
+   // Aditivos ----------------------------------------------------------------------------------------
+   // Sonia Perdigao - 2/18/2011 4:43:37 PM 
+/*
+   if db_select({'TP_ADITIVO','NR_CONTRATO_ADITIVO'},'pasta_contrato_aditivo',,;
+                {'NR_PASTA='+lcNR_PASTA},{'NR_CONTRATO_ADITIVO'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   paADITIVO        := {''}
+   paADITIVO_LABELS := {''}
+   lcNR_CONTRATO_ADITIVO := ' '
+   aadd(paADITIVO,' ')
+//   aadd(paADITIVO_LABELS,'')
+
+   for ii := 2 to len(laRESULT)
+      aadd(paADITIVO,alltrim(laRESULT[ii,1]))
+      aadd(paADITIVO_LABELS,laRESULT[ii,1]+':'+laRESULT[ii,2])
+   next ii
+*/  
+   // Atos ----------------------------------------------------------------------------------------
+   // Rufino - 26/02/2013 17:54
+   if db_select({'NR_ATA'},'pasta_sct_ata',,;
+                {'NR_PASTA='+lcNR_PASTA},{'NR_ATA'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   paATO        := {''}
+   paATO_LABELS := {''}
+   lcNR_ATO := ''
+   for ii := 2 to len(laRESULT)
+      aadd(paATO,alltrim(laRESULT[ii,1]))
+      aadd(paATO_LABELS,laRESULT[ii,1])
+   next ii
+   WPut('NR_ATA.option',paATO_LABELS)
+   WPut('NR_ATA.optionvalue',paATO)
+
+   WPut('NR_ATA2.option',paATO_LABELS)
+   WPut('NR_ATA2.optionvalue',paATO)
+
+   WPut('NR_ATA',lcNR_ATO)
+
+   if db_select({'NR_CONTRATO_ADITIVO'},'pasta_contrato_aditivo',,;
+                {'NR_PASTA='+lcNR_PASTA},{'NR_CONTRATO_ADITIVO'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   paADITIVO        := {''}
+   paADITIVO_LABELS := {''}
+   lcNR_CONTRATO_ADITIVO := ''
+   for ii := 2 to len(laRESULT)
+      aadd(paADITIVO,alltrim(laRESULT[ii,1]))
+      aadd(paADITIVO_LABELS,laRESULT[ii,1])
+   next ii
+   WPut('NR_CONTRATO_ADITIVO.option',paADITIVO_LABELS)
+   WPut('NR_CONTRATO_ADITIVO.optionvalue',paADITIVO)
+
+   WPut('NR_CONTRATO_ADITIVO2.option',paADITIVO_LABELS)
+   WPut('NR_CONTRATO_ADITIVO2.optionvalue',paADITIVO)
+
+   WPut('NR_CONTRATO_ADITIVO',lcNR_CONTRATO_ADITIVO)
+
+// ---- final da customização cardif
+   
+   if !empty(lcNR_ANDAMENTO)
+      aadd(laWHERE,'(NR_PASTA='+lcNR_PASTA+' and NR_ANDAMENTO='+lcNR_ANDAMENTO+')')
+   else
+      aadd(laWHERE,'NR_PASTA='+lcNR_PASTA)
+   endif
+   
+   if llAND_CANC
+      aadd(laWHERE,'FL_ANDAMENTO_CANCELADO='+DLAP+'S'+DLAP)
+   else
+      aadd(laWHERE,'(FL_ANDAMENTO_CANCELADO <> '+DLAP+'S'+DLAP+' or FL_ANDAMENTO_CANCELADO is null)')
+   endif
+
+   if empty(lcNR_PASTA)
+      wSet('_USER_INTERFACE','lst.pst.andamento.html')
+      lst_pst_andamento_html()
+      return
+   endif
+******
+   make_psthead(lcNR_PASTA,lcTP_PASTA) //Cabeçalho
+
+   if empty(lcACTION)
+      lcACTION = 'NEW'
+   endif
+
+   WPut('NR_PASTA',WGet('NR_PASTA','C'))
+   WPut('TP_PASTA',lcTP_PASTA)
+   WPut('FL_PUBLICO.option','S')
+   WPut('FL_CRITICO.option','S')
+   WPut('FL_ANDAMENTO_CANCELADO.option','S')
+   WPut('ROWS_ANDAMENTO',4)
+
+   //------------  Verificando relacionamento  para Lits -----------------------
+   lcRELAC:=verifica_relacionamento(lcNR_PASTA,lcTP_PASTA)
+   //------------ Verificando se Aba pode ser alterada no Lits -----------------
+
+   if lcRELAC == 'F' .or. lcRELAC == 'P'
+      llRETURN:=Ver_ABA(lcTP_PASTA, lcProgram)
+   endif         
+   if lcRelac = 'F'  .and. llReturn .and. (lcACTION == 'NEW' .OR. lcACTION == '')
+      walert('Somente Para Consulta - Pasta Pertence a Litsconsorte')
+   endif
+
+   llFILTRA := .F.
+
+
+   if lcACTION == 'NEW' .and. gbWAC_CREATE
+      WPut('NR_ANDAMENTO','New')
+      WPut('FL_PUBLICO','N')
+      WPut('FL_CRITICO','N')
+      WPut('FL_ANDAMENTO_CANCELADO','N')
+      WPut('DT_ANDAMENTO',date())
+      WPut('DT_CADASTRO',date())
+      WPut('LOGIN_RESP',gcLOGIN)
+      WPut('TP_PASTA',lcTP_PASTA)
+
+      WPut('ATIVAGED','N')
+
+   elseif lcACTION == 'INTER' .and. gbWAC_READ
+
+     llSEGUE := ver_interd(wGet('WORKGROUP'),lcTP_PASTA,wGet('TP_ANDAMENTO'),lcNR_PASTA,wGet('NR_CONTRATO_ADITIVO'),wGet('NR_CONTRATO_ANEXO'))
+
+     WPut('ATIVAGED','N')
+
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+
+      // Criação do link com o GED
+      mkgedico(lcTABLE,lcNR_PASTA,lcNR_ANDAMENTO)
+
+      WPut('TP_PASTA',WGet('TP_PASTA','C'))
+      WPut('DT_ALTERACAO',date())
+      if db_select(laFIELDS,lcTABLE,,laWHERE) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+
+      if len(laRESULT) > 1
+         db2put(laRESULT)
+         WPut('NR_AUTOPROC',alltrim(GetWPut('NR_AUTOPROC')))
+         WPut('ROWS_ANDAMENTO', iif( mlcount(laRESULT[2,db_fetchncol(laRESULT,'ANDAMENTO')]) < 4 ,4, mlcount(laRESULT[2,db_fetchncol(laRESULT,'ANDAMENTO')]) + 2 ) )
+         WPut('NR_ATA',laRESULT[2,db_fetchncol(laRESULT,'NR_ATO')])
+
+         WPut('FL_PUBLICO',alltrim(GetWPut('FL_PUBLICO')))
+         WPut('FL_CRITICO',alltrim(GetWPut('FL_CRITICO')))
+      endif
+
+      //WPut('TITLE',lcTP_PASTA+' - Alteração do andamento')
+
+      //-------- Armazenar o conteudo do Andamento para Lits.
+      lcAND_ANTERIOR := WGet('ANDAMENTO','C')
+
+      if len(laRESULT[2,db_fetchncol(laRESULT,'VINCULO')])>0
+
+         WPut('ifVINCULO',.T.)
+
+         WPut('NR_ANDAMENTO_VINCULADO.option',laRESULT[2,db_fetchncol(laRESULT,'NR_ANDAMENTO_VINCULADO')])
+         WPut('NR_ANDAMENTO_VINCULADO.optionvalue',laRESULT[2,db_fetchncol(laRESULT,'NR_ANDAMENTO_VINCULADO')])
+
+         WPut('NR_ANDAMENTO_VINCULADO',laRESULT[2,db_fetchncol(laRESULT,'NR_ANDAMENTO_VINCULADO')])
+
+      endif
+
+      WPut('ATIVAGED','N')
+
+   elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+
+       WPut('ATIVAGED','N')
+
+       get2put()
+
+       if WGet('NR_ANDAMENTO_VINCULADO','N') == 0
+          if db_select({'TP_PASTA','TP_ANDAMENTO','TIPO','DEPENDENTE','VINCULADO'},'andamentos_interdependentes',,;
+                       {'TP_PASTA='+DLAP+lcTP_PASTA+DLAP,'TP_ANDAMENTO='+DLAP+wGet('TP_ANDAMENTO')+DLAP}) == -1
+             error_sys(db_error())
+          endif
+          laRESULT := db_fetchall()
+
+          if len(laRESULT) > 1
+             if laRESULT[2,4] == 'V'
+                walert('Preenchimento do Numero do Andamento Vinculado é Obrigatório')
+                pasta_abas(lcTP_PASTA)
+                ***vervinculodin()
+                return (.f.)
+             endif
+          endif
+       endif
+
+       if ! verif_reqfield(WSet('_USER_INTERFACE')) .and. llERROR=.F.
+         //layout_pasta(lcTP_PASTA,'andamento',.F.)
+         pasta_abas(lcTP_PASTA)
+         ***vervinculodin()
+         return (.f.)
+      endif
+
+      //
+      // Glauber 08/2012
+      //
+      // Executar a chamada para função que faz baixa automática de compromissos no portal do usuário conforme o tipo de andamento
+       ConcluirTAuto(Wget('NR_PASTA','N'), WGet('TP_ANDAMENTO','C'), '')
+
+      lcWHERE := ''
+      lcNRADITIVO := WGET('NR_CONTRATO_ADITIVO','C')
+      lcNR_CONTRATO_ANEXO := WGET('NR_CONTRATO_ANEXO','C')
+      lcAND_VINCULADO := WGET('NR_ANDAMENTO_VINCULADO','C')
+      lcNR_ATO := WGET('NR_ATA','C')
+
+      if !EMPTY(lcNRADITIVO)
+         lcVINCULO := 'Aditivo : '+lcNRADITIVO
+      elseif !EMPTY(lcNR_CONTRATO_ANEXO)
+         lcVINCULO := 'Anexo : '+lcNR_CONTRATO_ANEXO
+      elseif !EMPTY(lcNR_ATO)
+         lcVINCULO := 'Ato Societário : '+lcNR_ATO
+      elseif val(lcAND_VINCULADO) <> 0
+         lcVINCULO := 'Andamento: '+lcAND_VINCULADO
+      else
+         lcVINCULO := ''
+      endif
+
+      if len(alltrim(lcNRADITIVO))=0
+         lnPOS := ascan(laFIELDS,'NR_CONTRATO_ADITIVO')
+         if lnPOS > 0
+            adel(laFIELDS,lnPOS)
+            asize(laFIELDS, len(laFIELDS) -1)
+         endif
+      endif
+
+      if len(alltrim(lcNR_CONTRATO_ANEXO))=0
+         lnPOS := ascan(laFIELDS,'NR_CONTRATO_ANEXO')
+         if lnPOS > 0
+            adel(laFIELDS,lnPOS)
+            asize(laFIELDS, len(laFIELDS) -1)
+         endif
+      endif
+
+ // customização biosev 
+//01/02/2018 16:09:32
+         lcTP_ANDAMENTO       := WGet('TP_ANDAMENTO','C')
+  
+         if db_select({'FASE_PROCESSUAL'},'andamento_tipo',,{'TP_PASTA='+DLAP+lcTP_PASTA+DLAP+' AND TP_ANDAMENTO = '+DLAP+lcTP_ANDAMENTO+DLAP}) < 0
+            error_sys(db_error())
+        endif
+        laRESFASE := db_fetchrow()  // Numero do Documento do Auto Principal.
+        if len(laRESFASE) > 0
+           lcFASE_PROCESSUAL := laRESFASE[1]
+        else
+            lcFASE_PROCESSUAL := ''
+        endif
+        if !EMPTY(lcFASE_PROCESSUAL)
+           laWHERE_FASE := {}      
+           aadd(laWHERE_FASE,'NR_PASTA='+lcNR_PASTA)
+           if db_select({'FASE_PROCESSUAL'},'pasta',,laWHERE_FASE) == -1
+              error_sys(db_error())
+           endif
+          laRESFASE := db_fetchrow()   // Numero do Documento do Auto Principal.
+          if len(laRESFASE) > 0
+              lcFASE_PASTA := laRESFASE[1]
+           else
+              lcFASE_PASTA := ''
+           endif
+         
+           
+           if lcFASE_PROCESSUAL <> lcFASE_PASTA
+              laSAVEFASE := {'FASE_PROCESSUAL'}
+              aadd(laSAVEFASE,lcFASE_PROCESSUAL)
+      
+             if db_update({{'FASE_PROCESSUAL'},{ALLTRIM(lcFASE_PROCESSUAL)}},'pasta',{'NR_PASTA = '+lcNR_PASTA}) == -1
+                  error_sys(db_error())
+              endif
+
+               laLOG := {{'NR_PASTA',     'LOGIN',      'WFIELD', 'CONTEUDO_ANTERIOR','CONTEUDO_NOVO',    'DT_ALTERACAO','HR_ALTERACAO','LOCAL_ALTERACAO'},;
+                {val(lcNR_PASTA),WSet('LOGIN'),'FASE_PROCESSUAL',ALLTRIM(lcFASE_PASTA),alltrim(lcFASE_PROCESSUAL),date(),        time(),       'Aba Andamentos'}}
+
+              if db_insert(laLOG,'pasta_log_altera') == -1
+                 error_sys(db_error())
+              endif
+          
+           endif
+        endif
+      for ii := 1 to len(laWHERE)
+          if ii > 1
+             lcWHERE += ' and '
+          endif
+          lcWHERE += laWHERE[ii]
+      next ii
+      if alltrim(lcNR_ANDAMENTO) == '0'
+         aadd(laSAVE,laFIELDS)
+
+         for ii := 1 to len(laFIELDS)
+            if laFIELDS[ii]='LOGIN_RESP'
+               aadd(laSAVE_AUX,gcLOGIN)
+            elseif laFIELDS[ii]='DT_CADASTRO'
+               aadd(laSAVE_AUX,date())
+            elseif laFIELDS[ii]='NR_ATO'
+               aadd(laSAVE_AUX,lcNR_ATO)
+            elseif laFIELDS[ii]='ANDAMENTO'
+               lcAND := strtran(WGet(laFIELDS[ii]),chr(34),chr(96))
+               lcAND := strtran(lcAND,chr(39),chr(96))
+               aadd(laSAVE_AUX,lcAND)
+            elseif laFIELDS[ii]='VINCULO'
+               aadd(laSAVE_AUX,lcVINCULO)
+            elseif laFIELDS[ii]='HR_CADASTRO' // Glauber 10/12/2014 - Customização template contratos3
+               aadd(laSAVE_AUX,TIME())
+            elseif laFIELDS[ii]='FASE_PROCESSUAL' // Sonia - 04/02/2018 10:23:20 - Customização Biosev
+               aadd(laSAVE_AUX,lcFASE_PROCESSUAL)
+            else
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+            endif
+         next ii
+
+         aadd(laSAVE,laSAVE_AUX)
+
+         psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Andamentos') //Gravar log de alterações
+         db_commit()
+
+// fim da customização biosev
+         if lcRELAC = '' .or. lcRELAC = 'P' .or. (lcRELAC = 'F' .and. llRETURN = .f.)      // se .f. posso alterar atraves do filho
+            if db_replace(laSAVE,lcTABLE,laWHERE) = -1
+               walert(db_error())
+               error_sys(db_error())
+            endif
+
+            lnANDA_RELACAO:=db_insert_id()
+
+            if lcRELAC = 'P' .and. llRETURN
+               laFILHO:= Montar_filho(lcNR_PASTA,lcTP_PASTA)
+
+               if len(laFILHO) > 0
+                  //-------- Buscando auto processual principal
+                  if db_select({'NUMERO_DOC'},'pasta_auto',,{'NR_PASTA='+lcNR_PASTA+' AND NR_AUTOPROC = '+lcNR_AUTOPROC}) == -1
+                     error_sys(db_error())
+                  endif
+                  laAUTO_PAI := db_fetchrow()  // Numero do Documento do Auto Principal.
+                  lcNUM_DOC  := iif(len(laAUTO_PAI) > 0,laAUTO_PAI[1],'')
+
+                  aadd(laSAVEFILHO,laFIELDS)
+                  //---------incluindo andamentos filhos -----------------------
+                  for jj := 1 to len(laFILHO)            // gravando abas dos filhos
+                     //--------------- Se Autoproc for > 0 
+                     if val(lcNR_AUTOPROC) > 0
+                        //--------- Buscando o auto processual secundário 
+                        if db_select({'NR_AUTOPROC'},'pasta_auto',,{'NR_PASTA='+str(lafilho[jj])+' AND NR_AUTO_RELACAO = '+lcNR_AUTOPROC+' AND NUMERO_DOC ='+lcNUM_DOC}) == -1
+                           error_sys(db_error())
+                        endif
+                        laAUTO_FILHO := db_fetchall()  // Numero do Auto Secundário.
+                        if len(laAUTO_FILHO) > 0
+                           for xx := 2 to len(laAUTO_FILHO)
+                              lnNR_AUTOFILHO := laAUTO_FILHO[xx,1]
+                              laSAVE_AUX := {}
+                              for ii := 1 to len(laFIELDS)
+                                 if laFIELDS[ii]='NR_PASTA'
+                                    aadd(laSAVE_AUX,laFILHO[jj])
+                                 elseif laFIELDS[ii]='LOGIN_RESP'
+                                    aadd(laSAVE_AUX,gcLOGIN)
+                                 elseif laFIELDS[ii]='DT_CADASTRO'
+                                    aadd(laSAVE_AUX,date())
+                                 elseif laFIELDS[ii]='ANDAMENTO'
+                                    lcAND := strtran(WGet(laFIELDS[ii]),chr(34),chr(96))
+                                    lcAND := strtran(lcAND,chr(39),chr(96))
+                                    aadd(laSAVE_AUX,lcAND)
+                                 elseif laFIELDS[ii]='NR_AUTOPROC'
+                                    aadd(laSAVE_AUX,lnNR_AUTOFILHO)
+                                 elseif laFIELDS[ii]='NR_ANDAMENTO_RELACAO'
+                                    aadd(laSAVE_AUX,lnANDA_RELACAO)
+                                 else
+                                    aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+                                 endif
+                              next ii
+                              aadd(laSAVEFILHO,laSAVE_AUX)
+                           next xx
+                        else
+                           lnNR_AUTOFILHO := 0
+                        endif    
+                     else
+                        lnNR_AUTOFILHO := 0
+                     endif
+                     //--------------------- Se não teve andamentos com Auto localizado ou = 0
+                     if lnNR_AUTOFILHO == 0
+                        laSAVE_AUX:={}
+                        for ii := 1 to len(laFIELDS)
+                           if laFIELDS[ii]='NR_PASTA'
+                              aadd(laSAVE_AUX,laFILHO[jj])
+                           elseif laFIELDS[ii]='LOGIN_RESP'
+                              aadd(laSAVE_AUX,gcLOGIN)
+                           elseif laFIELDS[ii]='DT_CADASTRO'
+                              aadd(laSAVE_AUX,date())
+                           elseif laFIELDS[ii]='ANDAMENTO'
+                              lcAND := strtran(WGet(laFIELDS[ii]),chr(34),chr(96))
+                              lcAND := strtran(lcAND,chr(39),chr(96))
+                              aadd(laSAVE_AUX,lcAND)
+                           elseif laFIELDS[ii]='NR_AUTOPROC'
+                              aadd(laSAVE_AUX,0)
+                           elseif laFIELDS[ii]='NR_ANDAMENTO_RELACAO'
+                              aadd(laSAVE_AUX,lnANDA_RELACAO)
+                           else
+                              aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+                           endif
+                        next ii
+                        aadd(laSAVEFILHO,laSAVE_AUX)
+                     endif
+
+                     if db_insert(laSAVEFILHO,lcTABLE) = -1
+                        error_sys(db_error())
+                     endif
+                     db_commit()
+                     lasavefilho:={}
+                     aadd(laSAVEFILHO,laFIELDS)
+                     laSAVE_AUX:={}
+                  next jj
+               endif   
+            endif
+         endif   
+      else
+         if lcRelac = 'F' .and. llReturn 
+            walert('Somente Para Consulta - Andamento Pertence a Litsconsorte')
+         else
+            laSAVE := {}
+// Sonia 18/09/2014 17:11:20  - Solicitante Célia para Cardif Pasta [1207]
+            aadd(laSAVE,{'DT_ALTERACAO','FL_PUBLICO','FL_ANDAMENTO_CANCELADO','LOGIN','FL_CRITICO'})
+//            aadd(laSAVE,{'DT_ALTERACAO','FL_PUBLICO','FL_ANDAMENTO_CANCELADO','LOGIN_RESP','VINCULO','NR_ATO','HORAS_TRABALHADAS','FL_CRITICO'})
+// Sonia Perdigão
+// 26/4/2011 11:46:59
+            lcNR_CONTRATO_ADITIVO := WGET('NR_CONTRATO_ADITIVO','C')
+            lcNR_CONTRATO_ANEXO := WGET('NR_CONTRATO_ANEXO','C')
+            lcAND_VINCULADO := WGET('NR_ANDAMENTO_VINCULADO','C') 
+            if !EMPTY(lcNR_CONTRATO_ADITIVO) 
+               lcVINCULO := 'Aditivo : '+lcNR_CONTRATO_ADITIVO
+            elseif !EMPTY(lcNR_CONTRATO_ANEXO)  
+               lcVINCULO := 'Anexo : '+lcNR_CONTRATO_ANEXO
+            elseif !EMPTY(lcNR_ATO)
+               lcVINCULO := 'Ato Societário : '+lcNR_ATO
+            elseif !EMPTY(lcAND_VINCULADO)   
+               lcVINCULO := 'Andamento: '+lcAND_VINCULADO
+            endif   
+
+// Sonia 18/09/2014 17:11:20  - Solicitante Célia para Cardif Pasta [1207]
+
+            aadd(laSAVE,{date(),;
+                         WGet('FL_PUBLICO'),;
+                         WGet('FL_ANDAMENTO_CANCELADO'),;
+                         gcLOGIN,;
+                         WGet('FL_CRITICO')})
+
+
+            psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Andamentos') //Gravar log de alterações
+  
+            if db_update(laSAVE,lcTABLE,laWHERE) == -1
+               error_sys(db_error())
+            endif
+ 
+            if lcRELAC = '' .or. lcRELAC = 'P' .or. (lcRELAC = 'F' .and. llRETURN = .f.)      // se .f. posso alterar atraves do filho
+               if lcRELAC = 'P' .and. llRETURN 
+                  laFILHO := Montar_filho(lcNR_PASTA,lcTP_PASTA)
+                  if len(laFILHO) > 0
+                     //---------cancelando andamentos filhos -----------------------
+                     for jj := 1 to len(laFILHO)            // gravando abas dos filhos
+                        lcWHEREFILHO := 'NR_PASTA = '+str(laFILHO[jj])+' AND NR_ANDAMENTO_RELACAO = '+lcNR_ANDAMENTO
+                        if db_update(laSAVE,lcTABLE,{lcWHEREFILHO}) = -1
+                           error_sys(db_error())
+                        endif
+                     next jj
+                  endif
+               endif
+            endif
+         endif
+      endif
+      WPut('NR_ANDAMENTO','New')
+      WPut('ANDAMENTO','')
+      WPut('DT_ANDAMENTO',date())
+      WPut('DT_ALTERACAO',date())
+      WPut('DT_CADASTRO',date())
+
+      WPut('LOGIN_RESP',gcLOGIN)
+      WPut('FL_PUBLICO','N')
+      WPut('FL_ANDAMENTO_CANCELADO','N')
+      WPut('FL_CRITICO','N')
+
+      lcNR_AUTOPROC  := ''
+      lcTP_ANDAMENTO := ''
+
+//    WPut('NR_AUTOPROC',lcNR_AUTOPROC)
+
+      WPut('NR_AUTOPROC',-1)
+      WPut('TP_ANDAMENTO',lcTP_ANDAMENTO)
+
+      WPut('HORAS_TRABALHADAS','')
+      WPut('FASE_PROCESSUAL','')
+
+      /*
+      * Grava na tabela [pasta_andamento_last] o último andamento
+      * filtrado pela Data de Cadastrado [DT_CADASTRO]
+      */
+//            if db_select({'NR_PASTA','ANDAMENTO','DT_ANDAMENTO','TP_ANDAMENTO'},'pasta_andamento',,{'NR_PASTA='+lcNR_PASTA},{'NR_ANDAMENTO'},'D',,{1}) = -1
+//    GLAUBER 10/12/2014 - CUSTOMIZAÇÃO TEMPLATE CONTRATOS3
+      if db_select({'NR_PASTA','ANDAMENTO','DT_ANDAMENTO','TP_ANDAMENTO','HR_CADASTRO'},'pasta_andamento',,{'NR_PASTA='+lcNR_PASTA},{'NR_ANDAMENTO'},'D',,{1}) = -1
+         error_sys(db_error())
+      endif
+      laSAVE := db_fetchall()
+      if len(laSAVE) > 1
+          if db_replace(laSAVE,'pasta_andamento_last',{'NR_PASTA='+lcNR_PASTA}) = -1
+             error_sys(db_error())
+          endif
+      endif
+      //WPut('lstRECURSO',laCOMBO)
+
+      WPut('NR_CONTRATO_ANEXO','')
+      WPut('NR_CONTRATO_ADITIVO','')
+      WPut('NR_ATA','')
+      WPut('NR_ANDAMENTO_VINCULADO','')
+
+   elseif lcACTION == 'CANCEL'  .and. gbWAC_DELETE
+
+      llSEGUE := can_ver_interd(wGet('WORKGROUP'),lcTP_PASTA,wGet('TP_ANDAMENTO'),lcNR_PASTA,lcNR_ANDAMENTO)
+
+      if llSEGUE == .T.
+
+         if lcRelac = 'F' .and. llReturn
+            walert('Somente Para Consulta - Andamento Pertence a Litsconsorte')
+         else
+
+            if db_update({{'FL_ANDAMENTO_CANCELADO'},{'S'}},lcTABLE,laWHERE) = -1
+               error_sys(db_error())
+            endif
+
+            if lcRELAC = '' .or. lcRELAC = 'P' .or. (lcRELAC = 'F' .and. llRETURN = .f.)      // se .f. posso alterar atraves do filho
+               if lcRELAC = 'P' .and. llRETURN
+                  laFILHO := Montar_filho(lcNR_PASTA,lcTP_PASTA)
+                  if len(laFILHO) > 0
+                     //---------cancelando andamentos filhos -----------------------
+                     for jj := 1 to len(laFILHO)            // gravando abas dos filhos
+                        lcWHEREFILHO := 'NR_PASTA = '+str(laFILHO[jj])+' AND NR_ANDAMENTO_RELACAO = '+lcNR_ANDAMENTO
+                        if db_update({{'FL_ANDAMENTO_CANCELADO'},{'S'}},lcTABLE,{lcWHEREFILHO}) = -1
+                           error_sys(db_error())
+                        endif
+                     next jj
+                  endif
+               endif
+            endif
+
+
+            // Glauber 24/06/2010
+            // Item 51 documento de pendendicias gerais da Célia
+            // O sistema grava na pasta_andamento_last o último andamento inserido na pasta, se este andamento for cancelado, o sistema precisa fazer um update nesta
+            // tabela colocando o andamento da data de Andamento anterior ao que foi cancelado. Isto reflete nos relatórios que tratam do último andamento.
+            if db_select({'NR_PASTA','ANDAMENTO','DT_ANDAMENTO','TP_ANDAMENTO'},'pasta_andamento',,{'NR_PASTA='+lcNR_PASTA+ ' and FL_ANDAMENTO_CANCELADO='+DLAP+'N'+DLAP},{'NR_ANDAMENTO'},'D',,{1}) = -1
+               error_sys(db_error())
+            endif
+            laSAVE := db_fetchall()
+            if len(laSAVE) > 1
+               if db_replace(laSAVE,'pasta_andamento_last',{'NR_PASTA='+lcNR_PASTA}) = -1
+                  error_sys(db_error())
+               endif
+            endif
+         endif
+
+      endif
+
+      WPut('NR_ANDAMENTO','New')
+      WPut('ANDAMENTO','')
+      WPut('NR_ANDAMENTO_VINCULADO','')
+      WPut('TP_ANDAMENTO','')
+      WPut('DT_ANDAMENTO',date())
+      WPut('DT_ALTERACAO',date())
+      WPut('DT_CADASTRO',date())
+      WPut('LOGIN_RESP',gcLOGIN)
+      WPut('FL_PUBLICO','N')
+      WPut('FL_ANDAMENTO_CANCELADO','N')
+      WPut('HORAS_TRABALHADAS','')
+// sonia - 28/01/2015 09:45:52 - customização biosev fase 2      
+      WPut('DT_PRAZO',date()+1)
+    
+   elseif lcACTION == 'GED' .and. gbWAC_READ
+
+     wURL := mkgedruf('pasta_andamento',{WGet('NR_PASTA','C'),WGet('TP_PASTA','C'),WGet('NR_ANDAMENTO','C'),"",""})
+
+     WPut('ATIVAGED','S')
+     WPut('URLGED',wURL)
+
+   endif
+
+   WPut('TSTPREF',lcTSTPREF)
+
+   pasta_abas(lcTP_PASTA)
+
+return(nil)
+
+/*
+* Data......: 04/05/2015 10:58:27 - Rufino
+* Function..: mkgedruf(fcWTABLE, faValues)
+* Objetivo..: Verificar a existencia de configurções GED para uma determinada tabela e criar o link para o ícone do GED
+* Parâmetros:
+*   fcWTABLE: Nome da tabela
+*   faValues: Vetor com os valores para WFIELD1,WFIELD2..WFIELD5
+* Retorno...: Nenhum
+*/
+static function mkgedruf(fcWTABLE,faValues)
+   local lcPARAMS  := '' ,;
+         lcHTML    := '' ,;
+         lcCONTENT := '' as string
+
+   local laFIELDS := {} ,;
+         laRESULT := {} as array
+
+   local ii := 0 as int
+
+   if valtype(fcWTABLE) == 'U' .or. empty(fcWTABLE)
+      puterror('mkgedico: Tabela não definida')
+      return(nil)
+   endif
+
+   laFIELDS := {'WTABLE','CD_BUSINESS','WFIELD1','WFIELD2','WFIELD3','WFIELD4','WFIELD5'}
+   if db_select(laFIELDS,'gdrelacionamento',,{'WTABLE='+DLAP+fcWTABLE+DLAP}) == -1
+      puterror('mkgedico: ('+alltrim(str(procline()))+') '+db_error())
+      return(nil)
+   endif
+   laRESULT := db_fetchrow()
+
+   if len(laRESULT) > 0
+      if !empty(laRESULT[2]) .and. !empty(laRESULT[3])
+         lcPARAMS += 'WTABLE='+fcWTABLE
+         lcPARAMS += '&CD_BUSINESS='+alltrim(laRESULT[2])
+         for ii := 1 to 5
+             if !empty(laRESULT[ascan(laFIELDS,'WFIELD'+alltrim(str(ii)))])
+                //lcCONTENT := alltrim(getwput(laRESULT[ascan(laFIELDS,'WFIELD'+alltrim(str(ii)))],'C')) // Recupera dados da UI
+                lcCONTENT := faValues[ii]
+                if !empty(lcCONTENT)
+                   lcPARAMS += '&WFIELD'+alltrim(str(ii))+'='+alltrim(lcCONTENT)
+                else
+                   lcPARAMS += '&WFIELD'+alltrim(str(ii))+'=RELATIONEMPTY.'+laRESULT[ascan(laFIELDS,'WFIELD'+alltrim(str(ii)))]
+                endif
+             endif
+         next ii
+
+         lcPARAMS := wic_action('wicaction_workflow/ged.mgr.html')+'?'+lcPARAMS
+      endif
+    else
+      lcPARAMS := 'ERRO! Falta relacionamento no GED.'
+   endif
+
+return(lcPARAMS)
+
+***********************************************
+static function tpandalib(fctpanda,fcWORKGROUP)
+***********************************************
+
+local lcWHERE:=''
+local laRES:={}
+local lbLIB:=.F.
+
+lcWHERE    := 'WORKGROUP = ' + DLAP + fcWORKGROUP + DLAP + ' and TP_PASTA = ' + DLAP + WGet('TP_PASTA','C') + DLAP
+
+if db_select({'FILTRO'},'filtro_aux_andam',,{lcWHERE}) == -1
+   error_sys(db_error())
+endif
+laRES:= db_fetchrow()
+
+if len(laRES)>0
+
+   *** INCLUI APENAS SE NÃO ESTIVER RESTRIÇÃO
+   if ascan(str2array(laRES[1],','),fctpanda) == 0
+      lbLIB:=.T.
+    else
+      lbLIB:=.F.
+   endif
+
+endif
+return(lbLIB)
+
+
+******************************************************
+static function carrega_tpanda(fcTP_PASTA,fcWORKGROUP)
+******************************************************
+**** ALIMENTA TIPO DE ANDAMENTOS
+local lcWHERE:=''
+local laRES:={}
+local laLST_NOVA:={}
+local laVINCULADO:={}
+
+local paAUTO     :={} as array
+
+
+
+local  laOPT    := {} ,;
+       laOPTV   := {} ,;
+       laPUT    := {} ,;
+       laDEF    := {} ,;
+       laDEFV   := {} ,;
+       laATI    := {} ,;
+       laATIV   := {} ,;
+       laINA    := {} ,;
+       laINAV   := {} ,;
+       laPUTV   := {} ,;
+       laFIELD  := {} as array
+
+
+local  jj    := 1  ,;
+       liPOS := 0  as int
+
+
+laDEF := {}
+laDEFV:= {}
+
+laATI := {}
+laATIV:= {}
+
+laINA := {}
+laINAV:= {}
+
+laPUT := {}
+laPUTV:= {}
+
+laFIELD := structtable(WSet("DB_ACTIVE"),'andamento_tipo',1,'A')
+liPOS   := ascan(laFIELD,'FL_ATIVO')
+
+if liPOS<>0
+   laFIELD:={'TP_ANDAMENTO','FL_ATIVO'}
+  else
+   laFIELD:={'TP_ANDAMENTO'}
+ endif
+
+if db_select(laFIELD,'andamento_tipo',,{'TP_PASTA='+DLAP+fcTP_PASTA+DLAP},{'TP_ANDAMENTO'}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+
+for jj := 2 to len(laRES)
+
+    if fcWORKGROUP<>'' //Usuario tem grupo
+       if tpandalib(laRES[jj,1],fcWORKGROUP)==.F. //esse tipo de andamento não esta liberado para o grupo
+          loop
+       endif
+    endif
+
+    if liPOS<>0
+       if laRES[jj,2] == 'D'
+          aadd(laDEF,laRES[jj,1])
+          aadd(laDEFV,laRES[jj,1])
+
+        elseif laRES[jj,2] == 'I'
+          aadd(laINA,laRES[jj,1])
+          aadd(laINAV,laRES[jj,1])
+
+        else
+          aadd(laATI,laRES[jj,1])
+          aadd(laATIV,laRES[jj,1])
+       endif
+    else
+       aadd(laATI,laRES[jj,1])
+       aadd(laATIV,laRES[jj,1])
+    endif
+next jj
+
+if len(laDEF) == 0
+   aadd(laDEF,'') // Adiciona uma linha vazia no inicio do combo, caso seja solicitado
+   aadd(laDEFV,'')
+endif
+
+for jj=1 to len(laDEF)
+    aadd(laPUT,laDEF[jj])
+    aadd(laPUTV,laDEFV[jj])
+next jj
+
+for jj=1 to len(laATI)
+    aadd(laPUT,laATI[jj])
+    aadd(laPUTV,laATIV[jj])
+next jj
+
+for jj=1 to len(laINA)
+    aadd(laPUT,'INATIVO - '+laINA[jj])
+    aadd(laPUTV,laINAV[jj])
+next jj
+
+WPut('TP_ANDAMENTO.option',laPUT)
+WPut('TP_ANDAMENTO.optionvalue',laPUTV)
+
+WPut('TPANDA.option',laPUT)
+WPut('TPANDA.optionvalue',laPUTV)
+
+return(nil)
+
+
+
+
+
+
+
+*lcWHERE:='TP_PASTA='+DLAP+fcTP_PASTA+DLAP
+
+*if db_select({'TP_ANDAMENTO'},'andamento_tipo',,{lcWHERE},{'TP_ANDAMENTO'}) == -1
+*   error_sys(db_error())
+*endif
+*laRES := db_fetchall()
+*
+*paAUTO        := {''}
+*
+*for ii:=2 to len(laRES)
+*    if fcWORKGROUP='' //libera tudo usuario não tem grupo
+*       aadd(paAUTO,alltrim(laRES[ii,1]))
+*    else
+*       if tpandalib(laRES[ii,1],fcWORKGROUP)==.T.
+*          aadd(paAUTO,alltrim(laRES[ii,1]))
+*       endif
+*    endif
+*next ii
+*
+*WPut('TP_ANDAMENTO_OPT',paAUTO)
+*WPut('TPANDA_OPT',paAUTO)
+
+*return(nil)
+
+****************************************************************************************************
+static function ver_interd(fcWORKGROUP,fcTP_PASTA,fcTP_ANDAMENTO,fcNR_PASTA,fcNR_ADITIVO,fcNR_ANEXO)
+****************************************************************************************************
+local laRESULT    :={} as array
+local laRES       :={} as array
+local fcTP_OCOR   :='' as string
+local fcDEPENDENTE:='' as string
+local fcVINCULADO :='' as string
+local fcACHO      :='' as string
+local fcWHERE     :='' as string
+
+local faDEPENDENTE:={} as array
+
+local laVINCULADOS:={} as array
+
+local fnVINCULO   := 0 as int
+
+local ii          := 0 as int
+local xx          := 0 as int
+
+get2put()
+
+
+// verifica excludente
+
+
+   ***   Excludente – verificar se existe [pasta_andamento.TP_ANDAMENTO] em
+   ***   [andamentos_interdependetes.DEPENDENTE] a consulta deverá utilizar
+   ***   NÃO contendo.
+   *
+   ***   Se existir o andamento em pasta_andamento relativo a EXCLUDENTE
+   ***      Mensagem : Andamento com não é permitido.
+   ***      Não é possível inserir este tipo de andamento.
+
+   if db_select({'TP_PASTA','TP_ANDAMENTO','TIPO','DEPENDENTE','VINCULADO'},'andamentos_interdependentes',,;
+             {'TP_PASTA='+DLAP+fcTP_PASTA+DLAP+' AND DEPENDENTE LIKE '+DLAP+'%'+fcTP_ANDAMENTO+'%'+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   if len(laRESULT) > 1 // existe EXCLUDENTE segue
+      fcEXCLUDENTE   := laRESULT[2,2]
+      fctipo         := laRESULT[2,3]
+      if fctipo == 'E'
+
+         fcWHERE:= 'NR_PASTA='+WGet('NR_PASTA','C')+' and TP_ANDAMENTO='+DLAP+fcEXCLUDENTE+DLAP+' and FL_ANDAMENTO_CANCELADO <> '+DLAP+'S'+DLAP+' and FL_ANDAMENTO_EXTERNO <> '+DLAP+'S'+DLAP
+
+         if len(alltrim(fcNR_ADITIVO))>0
+            fcWHERE += ' and NR_CONTRATO_ADITIVO='+DLAP+alltrim(fcNR_ADITIVO)+DLAP
+         else
+            fcWHERE += " and (NR_CONTRATO_ADITIVO='' OR NR_CONTRATO_ADITIVO is null)"
+         endif
+
+         if len(alltrim(fcNR_ANEXO))>0
+            fcWHERE += ' and NR_CONTRATO_ANEXO='+DLAP+alltrim(fcNR_ANEXO)+DLAP
+         else
+            fcWHERE += " and (NR_CONTRATO_ANEXO='' OR NR_CONTRATO_ANEXO is null)"
+         endif
+
+         if db_select({'NR_PASTA','TP_ANDAMENTO','NR_ANDAMENTO','NR_ANDAMENTO_VINCULADO'},'pasta_andamento',,{fcWHERE}) == -1
+            error_sys(db_error())
+         endif
+         
+         laRES1 := db_fetchall()
+         
+         if len(laRES1) > 1 // existe EXCLUDENTE segue
+   
+            walert('Não é possível inserir tipo ' + fcTP_ANDAMENTO + '\nExcludente no tipo ' +  fcEXCLUDENTE )
+       
+            WPut('TP_ANDAMENTO','')
+            return(.F.)
+         endif
+      endif   
+   endif
+
+// verifica vinculo e dependente
+if db_select({'TP_PASTA','TP_ANDAMENTO','TIPO','DEPENDENTE','VINCULADO'},'andamentos_interdependentes',,;
+             {'TP_PASTA='+DLAP+fcTP_PASTA+DLAP,'TP_ANDAMENTO='+DLAP+fcTP_ANDAMENTO+DLAP}) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchall()
+
+if len(laRESULT) == 1  
+   ***walert('nao existe interdependencia segue')
+   ***vervinculodin()
+   return(.T.)
+endif
+
+fcTP_OCOR   := laRESULT[2,3]
+fcDEPENDENTE:= laRESULT[2,4]
+fcVINCULADO := laRESULT[2,5]
+
+if fcTP_OCOR=='V'
+
+   carrega_nviculo(laRESULT[2,5],laRESULT[2,2])
+
+   *** a) verificar se existe um [pasta_andamento.TP_ANDAMENTO] igual a
+   ***    [andamentos_interdependentes.VINCULADO] a consulta deverá utilizar igual
+
+   ***    Se o andamento não existir :
+   ***       Mensagem : Andamento com Vínculo para [TP_ANDAMENTO] inexistente.
+   ***       Não é possível inserir este tipo de andamento.
+
+   *** EXEMPLO:
+   *** ENCONTROU INTERDEPENDENCIA ABAIXO
+   ***
+   *** TP_ANDAMENTO=Agravo e VINCULADO=Andamentos Externos
+
+   *** VERIFICAR SE EXISTE UM TIPO DE ANDAMENTO IGUAL AO VINCULADO=Andamentos Externos
+
+   fcWHERE:= 'NR_PASTA='+fcNR_PASTA+' and TP_ANDAMENTO='+DLAP+fcTP_ANDAMENTO+DLAP+' and FL_ANDAMENTO_CANCELADO <> '+DLAP+'S'+DLAP+ ' and FL_ANDAMENTO_EXTERNO <> '+DLAP+'S'+DLAP+ ' and NR_ANDAMENTO_VINCULADO > 0'
+
+   if len(alltrim(fcNR_ADITIVO))>0
+      fcWHERE += ' and NR_CONTRATO_ADITIVO='+DLAP+alltrim(fcNR_ADITIVO)+DLAP
+     else
+      fcWHERE += " and (NR_CONTRATO_ADITIVO='' OR NR_CONTRATO_ADITIVO is null)"
+   endif
+
+   if len(alltrim(fcNR_ANEXO))>0
+      fcWHERE += ' and NR_CONTRATO_ANEXO='+DLAP+alltrim(fcNR_ANEXO)+DLAP
+     else
+      fcWHERE += " and (NR_CONTRATO_ANEXO='' OR NR_CONTRATO_ANEXO is null)"
+   endif
+
+
+   *** pego lançamentos ja vinculados para agravo
+   if db_select({'NR_PASTA','TP_ANDAMENTO','NR_ANDAMENTO','NR_ANDAMENTO_VINCULADO'},'pasta_andamento',,{fcWHERE}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   laVINCULADOS:={}
+   for ii=2 to len(laRESULT)
+       aadd(laVINCULADOS,laRESULT[ii,4]) // aqui estou pegando o numero do andamento vinculado
+   next ii
+   ******
+
+
+   fcWHERE:= 'NR_PASTA='+fcNR_PASTA+' and TP_ANDAMENTO='+DLAP+fcVINCULADO+DLAP+' and FL_ANDAMENTO_CANCELADO <> '+DLAP+'S'+DLAP+' and FL_ANDAMENTO_EXTERNO <> '+DLAP+'S'+DLAP
+
+   if len(alltrim(fcNR_ADITIVO))>0
+      fcWHERE += ' and NR_CONTRATO_ADITIVO='+DLAP+alltrim(fcNR_ADITIVO)+DLAP
+     else
+      fcWHERE += " and (NR_CONTRATO_ADITIVO='' OR NR_CONTRATO_ADITIVO is null)"
+   endif
+
+   if len(alltrim(fcNR_ANEXO))>0
+      fcWHERE += ' and NR_CONTRATO_ANEXO='+DLAP+alltrim(fcNR_ANEXO)+DLAP
+     else
+      fcWHERE += " and (NR_CONTRATO_ANEXO='' OR NR_CONTRATO_ANEXO is null)"
+   endif
+
+   if db_select({'NR_PASTA','TP_ANDAMENTO','NR_ANDAMENTO'},'pasta_andamento',,{fcWHERE}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   fnVINCULO:=0
+
+   if len(laRESULT)>1
+      for ii := 2 to len(laRESULT)
+
+          *** verifica se o numero do andamento e o mesmo que ja foi vinculado
+          if ascan(laVINCULADOS,laRESULT[ii,3]) == 0
+             *** se nao for o mesmo pega andamento externo esta sem vinculo
+             fnVINCULO:=laRESULT[ii,3]
+          endif
+
+      next ii
+
+      if fnVINCULO=0 //nao pode cadastrar
+         walert('Andamento com Vínculo para ' + fcTP_ANDAMENTO + ' inexistente. \nDepende de um vinculo do tipo ' + fcVINCULADO)
+         WPut('TP_ANDAMENTO','')
+         return(.F.)
+      endif
+
+    else
+
+      walert('Andamento com Vínculo para ' + fcTP_ANDAMENTO + ' inexistente. \nDepende de um vinculo do tipo ' + fcVINCULADO)
+      WPut('TP_ANDAMENTO','')
+      return(.F.)
+
+   endif
+
+   fcWHERE:= 'NR_PASTA='+fcNR_PASTA+' and TP_ANDAMENTO='+DLAP+fcTP_ANDAMENTO+DLAP+' and FL_ANDAMENTO_CANCELADO <> '+DLAP+'S'+DLAP+' and FL_ANDAMENTO_EXTERNO <> '+DLAP+'S'+DLAP+' and NR_ANDAMENTO_VINCULADO is null'
+
+   if len(alltrim(fcNR_ADITIVO))>0
+      fcWHERE += ' and NR_CONTRATO_ADITIVO='+DLAP+alltrim(fcNR_ADITIVO)+DLAP
+     else
+      fcWHERE += " and (NR_CONTRATO_ADITIVO='' OR NR_CONTRATO_ADITIVO is null)"
+   endif
+
+   if len(alltrim(fcNR_ANEXO))>0
+      fcWHERE += ' and NR_CONTRATO_ANEXO='+DLAP+alltrim(fcNR_ANEXO)+DLAP
+     else
+      fcWHERE += " and (NR_CONTRATO_ANEXO='' OR NR_CONTRATO_ANEXO is null)"
+   endif
+
+   *** VERIFICA SE JÁ NÃO EXISTE UM TIPO DE ANDAMENTO IGUAL A AGRAVO CADASTRADO
+   if db_select({'NR_PASTA','TP_ANDAMENTO','NR_ANDAMENTO_VINCULADO'},'pasta_andamento',,{fcWHERE}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+
+   if len(laRES)>1
+      for ii := 2 to len(laRES)
+
+          *** verifica se o numero do andamento e o mesmo que ja foi vinculado
+          if ascan(laVINCULADOS,laRES[ii,3]) == 0
+             *** se nao for o mesmo pega andamento externo esta sem vinculo
+             fnVINCULO:=laRES[ii,3]
+          endif
+
+      next ii
+
+      if fnVINCULO=0 //nao pode cadastrar
+         walert('Existe andamento ' + fcTP_ANDAMENTO + ' ainda não vinculado.')
+         WPut('TP_ANDAMENTO','')
+         return(.F.)
+      endif
+
+   endif
+
+
+elseif fcTP_OCOR=='D'
+
+   ***   Dependente – verificar se existe [pasta_andamento.TP_ANDAMENTO] em
+   ***   [andamentos_interdependetes.DEPENDENTE] a consulta deverá utilizar
+   ***   contendo.
+   *
+   ***   Se não existir nenhum andamento em pasta_andamento relativo a DEPENDENTE
+   ***      Mensagem : Andamento com Dependência.
+   ***      Não é possível inserir este tipo de andamento.
+
+
+   for xx=2 to len(laRESULT)
+
+      fcDEPENDENTE:= laRESULT[xx,4]
+
+      faDEPENDENTE:=str2array(fcDEPENDENTE,',')
+
+      for ii=1 to len(faDEPENDENTE)
+
+         fcWHERE:= 'NR_PASTA='+fcNR_PASTA+' and TP_ANDAMENTO='+DLAP+faDEPENDENTE[ii]+DLAP+' and FL_ANDAMENTO_CANCELADO <> '+DLAP+'S'+DLAP+' and FL_ANDAMENTO_EXTERNO <> '+DLAP+'S'+DLAP
+
+         if len(alltrim(fcNR_ADITIVO))>0
+            fcWHERE += ' and NR_CONTRATO_ADITIVO='+DLAP+alltrim(fcNR_ADITIVO)+DLAP
+          else
+            fcWHERE += " and (NR_CONTRATO_ADITIVO='' OR NR_CONTRATO_ADITIVO is null)"
+         endif
+
+         if len(alltrim(fcNR_ANEXO))>0
+            fcWHERE += ' and NR_CONTRATO_ANEXO='+DLAP+alltrim(fcNR_ANEXO)+DLAP
+           else
+            fcWHERE += " and (NR_CONTRATO_ANEXO='' OR NR_CONTRATO_ANEXO is null)"
+         endif
+
+         if db_select({'NR_PASTA','TP_ANDAMENTO'},'pasta_andamento',,;
+                      {fcWHERE}) == -1
+            error_sys(db_error())
+         endif
+         laRES := db_fetchall()
+
+         if len(laRES) == 1
+            fcACHO:="N"
+            *** se não achou algum da linha ja não procura o resto da linha
+            exit
+         else
+            fcACHO:="S"
+         endif
+
+      next ii
+
+      if fcACHO == "S"
+         *** se achou todos da linha não procura nas outras linhas
+         exit
+      endif
+
+      if (xx == len(laRESULT)) .and. fcACHO == "N"
+      *** se for a ultima linha e não achou algum
+
+         if len(alltrim(fcNR_ADITIVO))>0
+             walert('Não é possível inserir tipo ' + fcTP_ANDAMENTO + '\nDepende do tipo ' + faDEPENDENTE[ii] + '\nou está sem número do aditivo')
+         elseif len(alltrim(fcNR_ANEXO))>0
+             walert('Não é possível inserir tipo ' + fcTP_ANDAMENTO + '\nDepende do tipo ' + faDEPENDENTE[ii] + '\nou está sem número do anexo')
+         else
+             walert('Não é possível inserir tipo ' + fcTP_ANDAMENTO + '\nDepende do tipo ' + faDEPENDENTE[ii])
+         endif
+
+         WPut('TP_ANDAMENTO','')
+         return(.F.)
+      endif
+
+   next xx
+
+endif
+
+
+
+***vervinculodin()
+return (.T.)
+
+
+*******************************
+***MORTO
+static function vervinculodin()
+*******************************
+// Verifica vínculos dinâmicos
+***if db_select({'FL_ANDAMENTO_ANEXO','FL_ANDAMENTO_ADITIVO','FL_ANDAMENTO_VINCULO'},'pasta_config',,{'TP_PASTA='+DLAP+lcTP_PASTA+DLAP}) == -1
+
+if db_select({'FL_ANDAMENTO_ANEXO','FL_ANDAMENTO_ADITIVO','FL_ANDAMENTO_VINCULO','FL_ATO_SOCIETARIO'},'pasta_config',,{'TP_PASTA='+DLAP+lcTP_PASTA+DLAP}) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchall()
+
+IF len(laresult) > 1
+   if laRESULT[2,1] = 'S'
+       WPut('ifANEXO',.T.)
+    else
+       WPut('ifANEXO',.F.)
+   endif
+
+   if laRESULT[2,2] = 'S'
+       WPut('ifADITIVO',.T.)
+    else
+       WPut('ifADITIVO',.F.)
+   endif
+
+   /* alterado por solicitação de Celia em 26/4/2011 09:44:07
+   if laRESULT[2,3] = 'S'
+      WPut('ifVINCULO',.T.)
+   else
+      WPut('ifVINCULO',.F.)
+   endif
+   */
+
+   if laRESULT[2,4] = 'S'
+       WPut('ifATO',.T.)
+   else
+       WPut('ifATO',.F.)
+   endif
+ENDIF
+
+
+
+if db_select({'TP_PASTA','TP_ANDAMENTO','TIPO','DEPENDENTE','VINCULADO'},'andamentos_interdependentes',,;
+             {'TP_PASTA='+DLAP+lcTP_PASTA+DLAP,'TP_ANDAMENTO='+DLAP+wGet('TP_ANDAMENTO')+DLAP}) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchall()
+
+if len(laRESULT) == 1 // nao existe interdependencia segue
+   WPut('ifVINCULO',.F.)
+   return(.T.)
+endif
+
+fcTP_OCOR   := laRESULT[2,3]
+
+if fcTP_OCOR=='V'
+   WPut('ifVINCULO',.T.)
+   carrega_nviculo(laRESULT[2,5],laRESULT[2,2])
+  else
+   WPut('ifVINCULO',.F.)
+endif
+
+return(nil)
+
+
+***********************************************************
+static function carrega_nviculo(fcVINCULADO,fcTP_ANDAMENTO)
+***********************************************************
+
+local laRESULT      :={} as array
+local paAUTO        :={} as array
+local paAUTO_LABELS :={} as array
+
+local laVINCULADOS  :={} as array
+
+local lcAND_VINCULADO as string
+
+local lnNVINCULADO  :=0 as int
+
+local ii as int
+
+
+*** pego lançamentos ja vinculados
+if db_select({'NR_PASTA','TP_ANDAMENTO','NR_ANDAMENTO','NR_ANDAMENTO_VINCULADO'},'pasta_andamento',,;
+             {'NR_PASTA='+WGet('NR_PASTA','C'),'TP_ANDAMENTO='+DLAP+fcTP_ANDAMENTO+DLAP,'FL_ANDAMENTO_CANCELADO <> '+DLAP+'S'+DLAP,'FL_ANDAMENTO_EXTERNO <> '+DLAP+'S'+DLAP,'NR_ANDAMENTO_VINCULADO > 0'}) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchall()
+
+for ii=2 to len(laRESULT)
+    aadd(laVINCULADOS,laRESULT[ii,4])
+next ii
+
+if db_select({'NR_PASTA','TP_ANDAMENTO','NR_ANDAMENTO'},'pasta_andamento',,;
+             {'NR_PASTA='+WGet('NR_PASTA','C'),'TP_ANDAMENTO='+DLAP+fcVINCULADO+DLAP,'FL_ANDAMENTO_CANCELADO <> '+DLAP+'S'+DLAP,'FL_ANDAMENTO_EXTERNO <> '+DLAP+'S'+DLAP}) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchall()
+
+paAUTO        := {''}
+paAUTO_LABELS := {''}
+
+if len(laRESULT)>1
+   for ii := 2 to len(laRESULT)
+
+       *** verifica se o numero do andamento e o mesmo que ja foi vinculado
+       if ascan(laVINCULADOS,laRESULT[ii,3]) == 0
+          *** se nao for o mesmo pega
+          aadd(paAUTO,alltrim(laRESULT[ii,3]))
+          aadd(paAUTO_LABELS,alltrim(laRESULT[ii,3]))
+          lnNVINCULADO:=laRESULT[ii,3]
+       endif
+
+   next ii
+
+   WPut('NR_ANDAMENTO_VINCULADO.option',paAUTO_LABELS)
+   WPut('NR_ANDAMENTO_VINCULADO.optionvalue',paAUTO)
+
+   *** se tiver so um lançamento ja lança automaticamente
+   if len(paAUTO)==2
+      WPut('NR_ANDAMENTO_VINCULADO',lnNVINCULADO)
+   endif
+endif
+
+return(nil)
+
+
+***********************************************************************************************
+static function can_ver_interd(fcWORKGROUP,fcTP_PASTA,fcTP_ANDAMENTO,fcNR_PASTA,fcNR_ANDAMENTO)
+***********************************************************************************************
+local laRESULT      :={} as array
+local laRESULT2     :={} as array
+local fcTP_OCOR     :='' as string
+local fcDEPENDENTE  :='' as string
+local fcDEP2        :='' as string
+local fcVINCULADO   :='' as string
+
+local facDEPENDENTE :={} as array
+
+local laVINCULADOS :={} as array
+
+local fnVINCULO   := 0 as int
+
+local lnFILHOS    := 0 as int
+local lnPAIS      := 0 as int
+
+get2put()
+
+if db_select({'TP_PASTA','TP_ANDAMENTO','TIPO','DEPENDENTE','VINCULADO'},'andamentos_interdependentes',,;
+             {'TP_PASTA='+DLAP+fcTP_PASTA+DLAP,'TP_ANDAMENTO='+DLAP+fcTP_ANDAMENTO+DLAP}) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchall()
+
+if len(laRESULT)>1
+   *** SE ENCONTROU INDICA QUE ESTOU EXCLUIDO O PAI PODE EXCLUIR
+   return(.T.)
+endif
+
+
+
+
+*** NÃO ENCONTROU COMO PAI, PORTANDO ELE E FILHO DEVO DESCOBRIR SE ELE E UM LANÇAMENTO DEPENDENTE OU VINCULADO E SE O PAI EXISTE
+
+*** PROCURA COMO VINCULO
+if db_select({'TP_PASTA','TP_ANDAMENTO','TIPO','DEPENDENTE','VINCULADO'},'andamentos_interdependentes',,;
+             {'TP_PASTA='+DLAP+fcTP_PASTA+DLAP,'VINCULADO='+DLAP+fcTP_ANDAMENTO+DLAP}) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchall()
+
+
+if len(laRESULT)>1
+   *** ENCONTROU PORTANDO E UM VINCULO (V)
+
+   *** PEGO O NOME DO PAI
+   fcDEP2:=laRESULT[2,2]
+
+   *** pego numero do lançamento pai dos lançamentos ja vinculados
+   if db_select({'NR_PASTA','TP_ANDAMENTO','NR_ANDAMENTO','NR_ANDAMENTO_VINCULADO'},'pasta_andamento',,;
+                {'NR_PASTA='+WGet('NR_PASTA','C'),'TP_ANDAMENTO='+DLAP+fcDEP2+DLAP,'FL_ANDAMENTO_CANCELADO <> '+DLAP+'S'+DLAP,'FL_ANDAMENTO_EXTERNO <> '+DLAP+'S'+DLAP,'NR_ANDAMENTO_VINCULADO > 0'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   laVINCULADOS:={}
+
+   for ii=2 to len(laRESULT)
+       aadd(laVINCULADOS,str(laRESULT[ii,4],0)) // aqui estou pegando o numero do lançamento vinculado ao pai
+   next ii
+   ******
+
+   *** TENHO QUE DESCOBRIR SE O QUE ESTOU EXCLUINDO TEM PAI
+   *** VEJO SE O NUMERO DO ANDAMENTO CONSTA NA RELAÇÃO DE VINCULADOS
+   *** SE NÃO ENCONTRAR INDICA QUE E UM FILHO SEM PAI
+
+   if ascan(laVINCULADOS,fcNR_ANDAMENTO) <> 0
+      walert('Atenção existe um vínculo com '+ fcDEP2 +'.\nNão é possível cancelar este andamento.')
+      return(.F.)
+     else
+      return(.T.)
+   endif
+endif
+
+
+
+
+
+*** PROCURA COMO DEPENDENTE
+*** PEGA TODAS AS DEPENDENCIAS PARA O TIPO DE PASTA
+if db_select({'TP_PASTA','TP_ANDAMENTO','TIPO','DEPENDENTE','VINCULADO'},'andamentos_interdependentes',,;
+             {'TP_PASTA='+DLAP+fcTP_PASTA+DLAP,'TIPO='+DLAP+'D'+DLAP}) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchall()
+
+if len(laRESULT)>1
+   for ii=2 to len(laRESULT)
+       *** verifica se esse tipo de andamento e uma dependencia
+
+       if ascan(str2array(laRESULT[ii,4],','),fcTP_ANDAMENTO) > 0
+          *** PEGO O NOME DO PAI
+          fcTP_ANDAMENTO:=laRESULT[2,2]
+
+          *** VEJO SE O PAI AINDA EXISTE
+          if db_select({'NR_PASTA','TP_ANDAMENTO','NR_ANDAMENTO'},'pasta_andamento',,;
+                       {'NR_PASTA='+fcNR_PASTA,'TP_ANDAMENTO='+DLAP+fcTP_ANDAMENTO+DLAP,'FL_ANDAMENTO_CANCELADO <> '+DLAP+'S'+DLAP,'FL_ANDAMENTO_EXTERNO <> '+DLAP+'S'+DLAP}) == -1
+             error_sys(db_error())
+          endif
+          laRESULT := db_fetchall()
+
+          if len(laRESULT)>1
+             *** SE ENCONTROU INDICA QUE O PAI AINDA EXISTE NÃO PERMITE CANCELAR
+             walert('Atenção existe uma dependencia com '+ fcTP_ANDAMENTO +'.\nNão é possível cancelar este andamento.')
+             return(.F.)
+          endif
+       endif
+   next ii
+endif
+return(.T.)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

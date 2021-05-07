@@ -1,0 +1,69 @@
+/*
+
+Project      : gr5
+Program      : mnt_seq_interfaces_html
+Function     : mnt_seq_interfaces_html
+Created on   : 16-Mar-2005   14:38:30
+Descripition : PROCESSOS BATCH
+
+*/
+
+local laPARAM        := {},;
+      laINPUT_OBJ    := {},;
+      laSELECT       := {} as array
+
+laPARAM := {{'PROGRAM',''     ,'*'},;
+            {'ACTION'       ,'ALTER',   }}
+
+laINPUT_OBJ := {{'PROGRAM'         ,0, ,'Y',},;
+                {                  , , ,  ,},;
+                {'NR_SEQUENCIA'    ,0, ,'',},;
+                {                  , , ,  ,},;
+                {                  , , ,  ,},;
+                {'DT_INICIO'       ,0, ,'',},;
+                {'HR_INICIO'       ,0, ,'',},;
+                {                  , , ,  ,},;
+                {                  , , ,  ,},;
+                {'DT_TERMINO'      ,0, ,'',},;
+                {'HR_TERMINO'      ,0, ,'',},;
+                {                  , , ,  ,},;
+                {                  , , ,  ,},;
+                {'STATUS'          ,0, ,'',},;
+                {                  , , ,  ,},;
+                {                  , , ,  ,},;
+                {'DT_MOVIMENTACAO' ,0, ,'',},;
+                {'DT_REMESSA'      ,0, ,'',}}
+
+
+laSELECT := {'PROGRAM','NR_SEQUENCIA','DT_INICIO','HR_INICIO','DT_TERMINO','HR_TERMINO','STATUS','DT_MOVIMENTACAO','DT_REMESSA'}
+
+
+
+xbp('seq_interfaces',;                      //Tabela alvo
+    ,;                                      //Joins
+    ,;                                      //Where
+    {'PROGRAM'},;                           //Order by
+    ,;                                      //Sort [A]-Ascendente [D]-Descentende
+    ,;                                      //Group by
+    ,;                                      //Limit
+    ,;                                      //Banco de Dados
+    2,;                                     //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+    'gr5',;                                 //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;               //Programa chamador
+    laPARAM,;                               //Parametros das linhas clicaveis do grid
+    ,;                                      //Parâmetros para os botões das linhas do grid
+    'mnt.seq_interfaces.html',;             //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                 //Módulo do programa chamado pelos links/botoes do grid
+    ,;                                      //Retorno java (nil) - usado apenas para Search
+    ,;                                      //Campos usados na pesquisa rápida
+    ,;                                      //Campos Ocultos
+    laINPUT_OBJ,;                           //Campos da área de manutenção/entrada de dados
+    laSELECT ,;                             //Campos exibidos no grid
+    laSELECT)                               //Campos usados no select
+return
+
+
+
+
+
+

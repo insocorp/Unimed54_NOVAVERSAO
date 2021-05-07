@@ -1,0 +1,157 @@
+/*
+/*Alterado em 03/02/2009 - Eliana inclusao rotina para Lits
+*Chama funcoes : verifica_relacionamento
+*                ver_aba
+*                montar_filho
+
+Project      : gr5
+Program      : pst.execucao.html
+Function     : pst_execucao_html
+Created on   : 01-Mar-2004   14:30:33
+Descripition : Manutenção de Pastas - Sub-aba Execução
+Alteração    : 19/01/2009 - inclusao de relacionamento e verificação de abas
+*/
+
+   local lcNR_PASTA := '' ,;
+         lcTP_PASTA := '' ,;
+         lcRelac    := '' ,;
+         lcACTION   := '' ,;
+         lcProgram  := 'pst_execucao_html' ,;
+         lcWHERE    := '' as string
+   local laFIELDS   := {} ,;
+         laSAVE     := {} ,;
+         laFILHO    := {} ,;
+         laSAVE_AUX := {} ,;
+         laRESULT   := {} ,;
+         laAUX      := {} as array
+   local ii := 0 as int
+   local llReturn := .f. as logical
+   
+   lcNR_PASTA := WGet('NR_PASTA','C')
+   lcTP_PASTA := WGet('TP_PASTA','C')
+   lcACTION   := alltrim(upper(WGet('ACTION','C')))
+   lcWHERE    := 'NR_PASTA='+lcNR_PASTA
+   laFIELDS   := {'NR_PASTA',;
+                  'TP_PASTA',;
+                  'PC_RISCO',;
+                  'VL_AUTOR',;
+                  'VL_RE',;
+                  'VL_HOMOLOGADO',;
+                  'VL_PERITO',;
+                  'DT_ULTIMA_REVISAO',;
+                  'DT_ALTERACAO_PROVISAO',;
+                  'EXTRA',;
+                  'VL_ESTIMATIVA_RT',;
+                  'VL_RECLAMADA',;
+                  'VL_RECLAMANTE',;
+                  'VL_TT_PROVISAO',;
+                  'VL_PROVISAO',;
+                  'VL_PROVISAO2'}
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   // Glauber 06/01/2011
+   AbasPerfil(lcTP_PASTA,laFIELDS)
+
+    /*
+    laFIELDS   := {'NR_PASTA',;
+                  'TP_PASTA',;
+                  'VL_AUTOR',;
+                  'VL_RE',;
+                  'VL_HOMOLOGADO',;
+                  'VL_PERITO',;
+                  'DT_ULTIMA_REVISAO',;
+                  'DT_ALTERACAO_PROVISAO',;
+                  'EXTRA',;
+                  'VL_TT_PROVISAO',;
+                  'VL_PROVISAO',;
+                  'VL_PROVISAO2',;
+                  'PC_RISCO',;
+                  'VL_ESTIMATIVA_RT',;
+                  'VL_RECLAMADA',;
+                  'VL_RECLAMANTE'}
+                  */
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+
+   make_psthead(lcNR_PASTA,wGet('TP_PASTA','C')) //Cabeçalho
+
+   pasta_abas(lcTP_PASTA)
+   layout_pasta(lcTP_PASTA,'pasta',.F.,'execucao')
+   init_reqfield(WSet('_USER_INTERFACE'))
+
+//------------  Verificando relacionamento    -----------------------------------
+
+   lcRelac:=verifica_relacionamento(lcNR_PASTA,lcTp_pasta)
+
+//------------ Verificando se Aba pode ser alterada  ------------------------
+
+   if lcRelac = 'F' .or. lcRelac = 'P'
+      llReturn:=Ver_ABA(lcTP_PASTA, lcProgram)
+   endif         
+
+   if lcRelac = 'F' .and. llReturn  
+      walert('Somente Para Consulta - Pasta Pertence a Litsconsorte')
+
+   elseif lcRelac = '' .or. lcRelac = 'P' .or. (lcRelac = 'F' .and. llReturn = .f.)
+       if lcACTION == 'SAVE' .and. gbWAC_WRITE
+          if verif_reqfield(WSet('_USER_INTERFACE'))
+            for ii := 1 to len(laFIELDS)
+               if WGet(laFIELDS[ii],'B')
+                  aadd(laAUX,laFIELDS[ii])
+               endif
+            next ii
+            aadd(laSAVE,laAUX)
+            for ii:= 1 to len(laAUX)
+               aadd(laSAVE_AUX,WGet(laAUX[ii]))
+            next ii
+            aadd(laSAVE,laSAVE_AUX)
+
+            psab_logs(laSAVE,'pasta',lcWHERE,lcNR_PASTA,'Execução')
+            if db_update(laSAVE,'pasta',{lcWHERE}) = -1
+              error_sys(db_error())
+            endif
+            if lcRelac = 'P' .and. llReturn 
+               laFilho:=Montar_filho(lcNR_PASTA,lcTp_pasta)
+               if len(laFilho) > 0
+                  for ii := 1 to len(laFilho)                   // gravando abas dos filhos
+                      psab_logs(laSAVE,'pasta','NR_PASTA='+str(laFilho[ii]),laFilho[ii],'Execução')
+                      laSave[2,1]:=lafilho[ii]
+                      If db_update(laSAVE,'pasta',{'NR_PASTA='+str(laFilho[ii])}) = -1
+                         error_sys(db_error())
+                      endif
+                  next ii
+               endif
+            endif
+          endif
+       endif
+   endif 
+   if db_select(laFIELDS,'pasta',,{lcWHERE}) = -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      db2Put(laRESULT)
+      // Campo PC_RISCO
+      if laRESULT[2,db_fetchncol(laRESULT,'PC_RISCO')] > 0
+         if db_select({'RISCOPERDA'},'exito_riscoperda',,{'PC_RISCO='+str(laRESULT[2,db_fetchncol(laRESULT,'PC_RISCO')])}) = -1
+            error_sys(db_error())
+         endif
+         laPUT := db_fetchrow()
+         if len(laPUT) > 0
+            WPut('PC_RISCO_RISCOPERDA',laPUT[1])
+         endif
+      endif
+   endif
+return
+
+
+
+
+
+
+
+
+
+

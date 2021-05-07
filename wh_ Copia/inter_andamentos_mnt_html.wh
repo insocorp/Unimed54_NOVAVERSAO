@@ -1,0 +1,538 @@
+/*
+
+Project      : isj_398
+Program      : inter.andamentos.mnt.html
+Function     : inter_andamentos_mnt_html
+Created on   : 05/09/2012   10:33
+Descripition : 
+
+*/
+
+local lcWORKGROUP   := '' ,;
+      lcTABLE       := '' ,;
+      lcWHERE       := '' ,;
+      lcLST_NOVA    := '' ,;
+      lcWHERE2      := '' as string
+
+private lcTP_PASTA  := ''  
+private lcACTION  := '' 
+      
+local laRES       := {} ,;
+      laFIELDS    := {} ,;
+      laFIELDS_AUX:= {} ,;                                                
+      laSAVE      := {} ,; 
+      laJOIN      := {} ,;
+      laVALIDA    := {} ,; 
+      laVALIDA2   := {} ,;
+      laLST_ATUAL := {} ,;
+      laLST_NOVA  := {} ,;
+      laPUT       := {} ,;
+      laRESULTCON := {} as array 
+      
+lcTABLE       := 'andamentos_interdependentes'
+
+lcACTION      := upper(Wget('ACTION'))
+
+
+lcTP_PASTA    := Wget('TP_PASTA','C')
+
+
+
+if Wget('TIPO','C') == 'Vinculado'
+   laVALIDA     := {'TP_PASTA',;
+                    'TP_ANDAMENTO',;
+                    'TIPO',;
+                    'VINCULADO'}
+                    
+elseif Wget('TIPO','C') == 'Dependente'  
+   laVALIDA     := {'TP_PASTA',;
+                    'TP_ANDAMENTO',;
+                    'TIPO',;
+                    'DEPENDENTE'}
+                    
+elseif Wget('TIPO','C') == 'Excludente'  
+   laVALIDA     := {'TP_PASTA',;
+                    'TP_ANDAMENTO',;
+                    'TIPO',;
+                    'DEPENDENTE'}
+else 
+   laVALIDA     := {'TP_PASTA',;
+                    'TP_ANDAMENTO',;
+                    'TIPO'}                  
+endif                    
+
+carregatpasta()
+                              
+Wput('TIPO_OPT',{'','Vinculado','Dependente','Excludente'})
+
+
+laLST_ATUAL:={}
+
+Wput('ifNOVO',.T.)
+Wput('ifSAVE',.T.)
+Wput('ifLOCA',.F.)
+Wput('ifDELE',.F.)
+
+wPut('TITLE','Andamentos Interdependentes')
+
+if lcACTION == 'ALIANDA'
+   
+   get2put()
+
+   alianda(laLST_ATUAL)
+   
+   Wput('TIPO','')
+
+elseif lcACTION == 'LIGATIPO'
+
+   get2put()
+
+   alianda(laLST_ATUAL)
+   
+   ligatipo()
+
+elseif lcACTION == 'NEW' .and. gbWAC_CREATE
+
+   Wput('ifSAVE',.T.)
+
+   
+   
+elseif lcACTION = 'ALTER' .and. gbWAC_READ
+
+   laFIELDS     := {'TP_PASTA',;
+                    'TP_ANDAMENTO',;
+                    'TIPO',;
+                    'DEPENDENTE',;
+                    'VINCULADO'}                    
+                       
+   
+   lcWHERE    := 'TP_PASTA = ' + DLAP + WGet('TP_PASTA','C') + DLAP + ' and TP_ANDAMENTO = ' + DLAP + WGet('TP_ANDAMENTO','C') + DLAP
+   // + ' and TIPO = ' + DLAP + WGet('TIPO','C') + DLAP
+
+   if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+
+   Wput('TP_PASTA',laRES[2,1])
+   
+   lcTP_PASTA := laRES[2,1] 
+   //DEBUG2(LCTP_PASTA) 
+   
+   *db2put(laRES) //sobe os dados encontrados para tela
+
+   if alltrim(laRES[2,3])=='V'
+      alianda({})
+      Wput('TP_ANDAMENTO',laRES[2,2])
+      Wput('TIPO','Vinculado')
+      Wput('ifVINCULADO',.T.)
+      Wput('ifDEPENDENTE',.F.)
+      
+      Wput('VINCULADO',laRES[2,5])
+
+      laVALIDA     := {'TP_PASTA',;
+                       'TP_ANDAMENTO',;
+                       'TIPO',;
+                       'VINCULADO'}       
+
+   elseif alltrim(laRES[2,3])=='D'
+      alianda(str2array(laRES[2,4],','))
+      Wput('TP_ANDAMENTO',laRES[2,2])
+      Wput('TIPO','Dependente')
+      Wput('ifVINCULADO',.F.)
+      Wput('ifDEPENDENTE',.T.)
+
+      laVALIDA     := {'TP_PASTA',;
+                       'TP_ANDAMENTO',;
+                       'TIPO',;
+                       'DEPENDENTE'}  
+
+   elseif alltrim(laRES[2,3])=='E'
+      alianda(str2array(laRES[2,4],','))
+      Wput('TP_ANDAMENTO',laRES[2,2])
+      Wput('TIPO','Excludente')
+      Wput('ifVINCULADO',.F.)
+      Wput('ifDEPENDENTE',.T.)
+
+
+      laVALIDA     := {'TP_PASTA',;
+                       'TP_ANDAMENTO',;
+                       'TIPO',;
+                       'DEPENDENTE'}  
+                            
+   endif 
+
+   Wput('ifSAVE',.T.)
+   Wput('ifDELE',.T.)
+
+
+elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+
+      if WGet('TIPO','C')=='Vinculado' 
+         lcWHERE    := 'TP_PASTA = ' + DLAP + WGet('TP_PASTA','C') + DLAP + ' and TP_ANDAMENTO = ' + DLAP + WGet('TP_ANDAMENTO','C') + DLAP
+      else   
+         lcWHERE    := 'TP_PASTA = ' + DLAP + WGet('TP_PASTA','C') + DLAP + ' and TP_ANDAMENTO = ' + DLAP + WGet('TP_ANDAMENTO','C') + DLAP + ' and DEPENDENTE = ' + DLAP + WGet('DEPENDENTE','C') + DLAP
+      endif
+       if db_delete(lcTABLE,lcWHERE) == -1
+          error_sys(db_error())
+       endif
+
+elseif lcACTION == 'SEARCH'
+
+    get2put()
+
+    laVALIDA2     := {'TP_PASTA'}
+                          
+    *** verifica se campos obrigatorios estão com dados
+    if ! verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA2)
+       lcWHERE    := 'TP_PASTA <> ' + DLAP+DLAP
+     else
+       lcWHERE    := 'TP_PASTA = ' + DLAP + WGet('TP_PASTA','C') + DLAP
+    endif
+    
+    busca(lcWHERE)
+    
+
+
+elseif lcACTION == 'SAVE'
+
+    llERRO := .f. 
+  
+    *** verifica se campos obrigatorios estão com dados
+    if ! verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+       llERRO := .t.
+
+      if WGet('TIPO','C')=='Vinculado' 
+         alianda({})
+         Wput('ifVINCULADO',.T.)
+         Wput('ifDEPENDENTE',.F.)
+
+         
+         laVALIDA     := {'TP_PASTA',;
+                          'TP_ANDAMENTO',;
+                          'TIPO',;
+                          'VINCULADO'}       
+   
+      else
+//      elseif WGet('TIPO','C')=='Dependente' 
+         if len(alltrim(WGet('DEPENDENTE','C')))>0         
+            alianda(str2array(WGet('DEPENDENTE','C'),','))
+           else
+            alianda({})
+         endif   
+ 
+         Wput('ifVINCULADO',.F.)
+         Wput('ifDEPENDENTE',.T.)
+
+         
+         laVALIDA     := {'TP_PASTA',;
+                          'TP_ANDAMENTO',;
+                          'TIPO',;
+                          'DEPENDENTE'}            
+ /*
+      elseif WGet('TIPO','C')=='Excludente' 
+
+         if len(alltrim(WGet('DEPENDENTE','C')))>0         
+            alianda(str2array(WGet('DEPENDENTE','C'),','))
+           else
+            alianda({})
+         endif   
+ 
+         Wput('ifVINCULADO',.F.)
+         Wput('ifDEPENDENTE',.T.)
+
+         
+         laVALIDA     := {'TP_PASTA',;
+                          'TP_ANDAMENTO',;
+                          'TIPO',;
+                          'DEPENDENTE'}            
+ */
+      endif 
+      
+
+    endif
+    
+    if ! llERRO 
+    
+       laFIELDS     := laVALIDA
+        
+       laFIELDS_AUX := {}
+       for lnXX := 1 to len(laFIELDS)  
+           aadd(laFIELDS_AUX,wGet(laFIELDS[lnXX]))
+       next lnXX          
+       
+       aadd(laSAVE,laFIELDS)
+       aadd(laSAVE,laFIELDS_AUX) 
+
+       if  WGet('TIPO','C') =='Dependente' .or. WGet('TIPO','C')=='Excludente'
+     
+           lcWHERE    := 'TP_PASTA = ' + DLAP + WGet('TP_PASTA','C') + DLAP + ' and TP_ANDAMENTO = ' + DLAP + WGet('TP_ANDAMENTO','C') + DLAP + ' and DEPENDENTE = ' + DLAP + WGet('DEPENDENTE','C') + DLAP
+       else
+          lcWHERE    := 'TP_PASTA = ' + DLAP + WGet('TP_PASTA','C') + DLAP + ' and TP_ANDAMENTO = ' + DLAP + WGet('TP_ANDAMENTO','C') + DLAP 
+         
+       endif
+        
+       if db_delete(lcTABLE,lcWHERE) == -1
+          error_sys(db_error())
+       endif
+
+       psab_logs(laSAVE,lcTABLE,lcWHERE,lcWHERE,'Andamentos Interdependentes') 
+
+       if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+          error_sys(db_error())
+       endif       
+             
+       lcACTION:=''                         
+   endif
+   
+endif
+
+if lcACTION<>'SEARCH'
+
+   lcWHERE    := 'TP_PASTA <> ' + DLAP + DLAP
+   busca(lcWHERE)
+
+   ***
+endif
+
+*** marca em vermelho campos obrigatorios
+init_reqfield(WSet('_USER_INTERFACE'),laVALIDA) 
+
+return
+
+******************************
+static function busca(fcWHERE)
+******************************          
+local laFIELDS2 := {} as array
+
+            
+laFIELDS2     := {'TP_PASTA',;
+                  'TP_ANDAMENTO',;
+                  'TIPO',;
+                  'DEPENDENTE',;
+                  'VINCULADO'}
+                                     
+
+if db_select(laFIELDS2,'andamentos_interdependentes',,{fcWHERE}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+aadd(laRES[1],'(row)')
+
+for ii := 2 to len(laRES)
+    aadd(laRES[ii],'(row)'+wic_action('wicaction_gr5/inter.andamentos.mnt.html'+;
+                                      '?TP_PASTA='+laRES[ii,1]+;
+                                      '&TP_ANDAMENTO='+laRES[ii,2]+;
+                                      '&TIPO='+laRES[ii,3]+;
+                                      '&ACTION=ALTER'))                                    
+                                      
+                                      
+next ii
+
+WPut('GRID_ANDAM',grid_create(laRES))
+
+if lcACTION='SEARCH' .and. len(laRES)=1
+   walert('Lançamento não localizado.')
+endif    
+    
+
+return(nil)
+
+************************************
+static function alianda(faLST_ATUAL)
+************************************
+**** ALIMENTA TIPO DE ANDAMENTOS
+local lcWHERE:=''
+local laRES:={}
+local laRESULTCON:={}
+local laLST_NOVA:={}
+local laVINCULADO:={}
+
+lcWHERE:='TP_PASTA='+DLAP+Wget('TP_PASTA','C')+DLAP
+   
+if db_select({'TP_ANDAMENTO'},'andamento_tipo',,{lcWHERE},{'TP_ANDAMENTO'}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+laRESULTCON:={}
+aadd(laRESULTCON,'') 
+
+for ii:=2 to len(laRES) 
+
+    if tpandalib(laRES[ii,1])==.T.
+       aadd(laRESULTCON,laRES[ii,1])
+    endif
+                             
+next ii 
+Wput('TP_ANDAMENTO_OPT',laRESULTCON)
+
+
+
+
+laVINCULADO:={}
+aadd(laVINCULADO,'')
+
+for ii:=2 to len(laRES)
+    if ascan(faLST_ATUAL,laRES[ii,1]) == 0 // Só Adiciona o campo na Lista,
+                                           // caso ele não esteja na Lista
+                                           // de campos ja selecionados    
+       if laRES[ii,1] <> Wget('TP_ANDAMENTO','C')
+          if tpandalib(laRES[ii,1])==.T.      
+             aadd(laLST_NOVA,laRES[ii,1])
+             aadd(laVINCULADO,laRES[ii,1])
+          endif      
+       endif
+      else
+        aadd(laVINCULADO,laRES[ii,1])        
+    endif
+next ii
+
+if len(laVINCULADO)=1 //so tem o espaço em branco 
+   walert('Não há andamento disponivel.')
+   Wput('TP_PASTA','')
+
+  else 
+ 
+
+   wPut('VINCULADO_OPT',laVINCULADO)
+
+   wPut('DEP_OPT',faLST_ATUAL)
+   wPut('ALL_FIELDS_OPT',laLST_NOVA)
+
+
+
+   if len(alltrim(Wget('TP_PASTA','C')))>0
+      Wput('ifTPASTAOK',.T.)
+      Wput('ifLOCA',.T.)
+     else
+      Wput('ifTPASTAOK',.F.)
+   endif 
+endif
+return(nil)
+
+**************************
+static function ligatipo()
+**************************
+ 
+Wput('TP_ANDAMENTO',Wget('TP_ANDAMENTO','C')) 
+
+if UPPER(Wget('TIPO','C'))=='VINCULADO'
+   Wput('ifVINCULADO',.T.)
+   Wput('ifDEPENDENTE',.F.)
+ 
+endif
+   
+if UPPER(Wget('TIPO','C'))=='DEPENDENTE'
+   Wput('ifVINCULADO',.F.)
+   Wput('ifDEPENDENTE',.T.) 
+    
+endif  
+
+if UPPER(Wget('TIPO','C'))=='EXCLUDENTE'
+   Wput('ifVINCULADO',.F.)
+   Wput('ifDEPENDENTE',.T.) 
+   
+endif  
+
+return(nil)
+
+*******************************
+static function carregatpasta()
+*******************************
+
+local laRES :={}
+local laRES2:={}
+local laRESULTCON:={}
+local lcSELECT:=''
+local lcWHERE:=''
+
+
+*** PEGA APENAS TIPOS DE PASTA QUE TENHAM MAIS DE UM ANDAMENTO CADASTRADO
+*** PORQUE SE TIVER APENAS UM NÃO CONSEGUE VINCULAR  
+lcSELECT:='select distinct'
+lcSELECT:=lcSELECT + ' andamento_tipo.TP_PASTA'
+lcSELECT:=lcSELECT + ' from andamento_tipo'
+lcSELECT:=lcSELECT + ' left join'
+lcSELECT:=lcSELECT + '(select'
+lcSELECT:=lcSELECT + ' TP_PASTA,'
+lcSELECT:=lcSELECT + 'count(tp_pasta) as CONTA'
+lcSELECT:=lcSELECT + ' from andamento_tipo'
+lcSELECT:=lcSELECT + ' group by TP_PASTA) tpand on tpand.TP_PASTA=andamento_tipo.TP_PASTA'
+lcSELECT:=lcSELECT + ' where tpand.CONTA>1'
+lcSELECT:=lcSELECT + ' order by andamento_tipo.TP_PASTA'
+
+if db_query(lcSELECT) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+  
+laRESULTCON:={}
+aadd(laRESULTCON,'') 
+
+for ii:=2 to len(laRES)
+    aadd(laRESULTCON,laRES[ii,1])
+next ii 
+Wput('TP_PASTA_OPT',laRESULTCON)
+
+  
+
+return(nil)
+
+
+***********************************
+static function tpandalib(fctpanda)
+***********************************
+
+*** O FILTRO AUXILIAR DE ANDAMENTO SERVE PARA AMARRAR AO LOGIN PERMITINDO O LOGIN VER APENAS O QUE ESTIVER LIBERADO PARA O GRUPO
+*** A FUNÇÃO A BAIXO NÃO ESTA CORRETA POR ISSO NÃO SERA UTILIZADO ERRO NO PROJETO
+return(.T.)
+
+
+
+
+local lcWHERE:=''
+local laRES:={}
+local lbLIB:=.F.
+
+lcWHERE    := 'TP_PASTA = ' + DLAP + WGet('TP_PASTA','C') + DLAP
+
+if db_select({'FILTRO'},'filtro_aux_andam',,{lcWHERE}) == -1
+   error_sys(db_error())
+endif
+laRES:= db_fetchrow()
+
+if len(laRES)>0
+
+   *** INCLUI APENAS SE NÃO ESTIVER RESTRIÇÃO  
+   if ascan(str2array(laRES[1],','),fctpanda) == 0
+      lbLIB:=.T.
+    else
+      lbLIB:=.F.
+   endif
+
+
+
+
+endif
+return(lbLIB)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

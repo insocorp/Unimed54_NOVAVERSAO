@@ -1,0 +1,151 @@
+/*
+
+Project      : gr5
+Program      : autosch.wic
+Function     : autosch_wic
+Created on   : 21-Sep-2004   11:24:56
+Descripition : Pesquisa Automática
+
+*/
+
+   local lcTABLE            := WGet('TABLE','C') ,;
+         lcWHERE            := WGet('WHERE','C') ,;
+         lcMNTFORM          := WGet('MNTFORM','C') ,;
+         lcPFPJ_TABLE_FIELD := alltrim(WGet('PFPJ_TABLE_FIELD','C')) ,;
+         lcCIP_ESCRITORIO   := WGet('CIP_ESCRITORIO','C') ,;
+         lcWSCRIPT          := '' as string
+   local laFIELDS := str2array(WGet('FIELDS','C'),',') ,;
+         laRES    := {} ,;
+         laPUT    := {} ,;
+         laJOIN   := {} ,;
+         laOPENER := {} ,;
+         laSTRU   := {} ,;
+         laWHERE  := {} as array
+
+   local liPOS    := 0 as int
+
+   if empty(lcMNTFORM)
+      lcMNTFORM := 'mntform'
+   endif
+
+   lxwhere := lcwhere
+
+   aadd(laWHERE,lcWHERE)
+   lcWHERE := ''
+
+   *** rufino 04/07/2014 garrega apenas lançamentos ativos
+   laSTRU  := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+   liPOS   := ascan(laSTRU,'FL_ATIVO')
+   if liPOS>0
+      aadd(laWHERE,lcTABLE+'.FL_ATIVO='+DLAP+'S'+DLAP) //Traz somente lançamentos ativos
+   endif
+
+
+
+   /* Filtra Dados a partir do parametro lcPFPJ_TABLE_FIELD */
+   if ! empty(lcPFPJ_TABLE_FIELD)
+      aadd(laWHERE,'pfpj.FL_APROVADO='+DLAP+'S'+DLAP) //Traz somente pessoas ativas
+
+      /* Alterado por Sonia em 18/11/2015 16:22:11 */
+      if (Wset('FILIAL') == 'DISABLE' .AND. lcPFPJ_TABLE_FIELD == 'pasta.CIP_FILIAL')
+          cLoc := 'and'
+          nposINI := at(cloc,lxWHERE)
+          lxxwhere := substr(lxwhere,1,(nposini-1))
+          lawhere := {}
+          aadd(laWHERE,lxxwhere)
+         
+      endif                    
+
+      /* Se a pesquisa vier de CIP_ADVOGADO_EXTERNO, filtra pelo CIP_ESCRITORIO */
+      if 'CIP_ADVOGADO_EXTERNO' $ lcPFPJ_TABLE_FIELD
+         aadd(laWHERE,'pfpj.CIP_EMPRESA='+DLAP+lcCIP_ESCRITORIO+DLAP)
+      endif
+      /* Filtros definidos pelo usuário em Configurações de Campos */
+
+      if db_select({'PFPJ_TIPOS'},'pfpj_conftipocampo',,{'PFPJ_TABLE_FIELD='+DLAP+lcPFPJ_TABLE_FIELD+DLAP}) = -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchrow()
+
+      if len(laRES) > 0
+         laPFPJ_TIPOS := str2array(laRES[1],',')
+         if len(laPFPJ_TIPOS) > 0
+            for ii := 1 to len(laPFPJ_TIPOS)
+               if ii > 1
+                  lcWHERE += ' or '
+               endif
+               //lcWHERE += 'pfpj.PFPJ_TIPO='+DLAP+laPFPJ_TIPOS[ii]+DLAP
+               lcWHERE += 'pfpj.PFPJ_TIPOS like '+DLAP+'%'+laPFPJ_TIPOS[ii]+'%'+DLAP
+            next ii
+            aadd(laWHERE,lcWHERE)
+         endif
+      endif
+   endif
+
+   /* Montando laJOIN */
+   if ! empty(alltrim(WGet('JOIN','C')))
+      laPUT := str2array(WGet('JOIN','C'),'|')
+      if len(laPUT) > 0
+         for ii := 1 to len(laPUT)
+            aadd(laJOIN,str2array(laPUT[ii],','))
+         next ii
+         for ii := 1 to len(laJOIN)
+            laJOIN[ii,1] := val(laJOIN[ii,1])
+         next ii
+      endif
+   endif
+
+
+   if db_select(laFIELDS,lcTABLE,laJOIN,laWHERE) = -1
+      puterror('autosch_wic: Entrada inválida do usuário: '+db_error())
+      return (.f.)
+   endif
+   laRES := db_fetchall()
+
+   /* Montando laOPENER */
+   laPUT := str2array(WGet('OPENER'),'|')
+   for ii := 1 to len(laPUT)
+      aadd(laOPENER,str2array(laPUT[ii],','))
+   next ii
+
+   /* Montando HTML resultado */
+   lcWSCRIPT := '<html>'+CRLF
+   lcWSCRIPT := '<head>'+CRLF
+   lcWSCRIPT += '<script language="javascript">'+CRLF
+
+   if len(laRES) > 1
+      for ii := 1 to len(laOPENER)
+        lcWSCRIPT += 'if (typeof(parent.document.'+lcMNTFORM+'.'+laOPENER[ii,1]+') == "object") {'+CRLF
+        lcWSCRIPT += '   parent.document.'+lcMNTFORM+'.'+laOPENER[ii,1]+'.value="'+alltrim(laRES[2,db_fetchncol(laRES,laOPENER[ii,2])])+'";'+CRLF
+        lcWSCRIPT += '}'+CRLF
+      next ii
+   else
+      lcWSCRIPT += 'alert("Registro não encontrado");'+CRLF
+      if len(laOPENER) > 0
+         for ii := 1 to len(laOPENER)
+           lcWSCRIPT += 'if (typeof(parent.document.mntform.'+laOPENER[ii,1]+') == "object") {'+CRLF
+           lcWSCRIPT += '   parent.document.'+lcMNTFORM+'.'+laOPENER[ii,1]+'.value="";'+CRLF
+           lcWSCRIPT += '   parent.document.'+lcMNTFORM+'.'+laOPENER[ii,1]+'.focus();'+CRLF
+           lcWSCRIPT += '}'+CRLF
+         next ii
+      endif
+      lcWSCRIPT += 'parent.document.'+lcMNTFORM+'.'+laOPENER[1,1]+'.focus();'+CRLF
+      lcWSCRIPT += 'parent.document.'+lcMNTFORM+'.'+laOPENER[1,1]+'.select();'+CRLF
+   endif
+
+   lcWSCRIPT += '</script>'+CRLF
+   lcWSCRIPT += '</head>'+CRLF
+   lcWSCRIPT += '</html>'+CRLF
+
+   wOut(lcWSCRIPT)
+return
+
+
+
+
+
+
+
+
+
+

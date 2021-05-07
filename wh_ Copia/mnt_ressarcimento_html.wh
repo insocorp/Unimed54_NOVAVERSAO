@@ -1,0 +1,130 @@
+/*
+Project      : gr5
+Program      : mnt.ressarcimento.html
+Function     : mnt_ressarcimento_html
+Created on   : 29/10/2008 21:30:45
+Descripition : Manutenção e listagem de ressarcimentos
+*/
+
+   local lcCD_DESPESA   := '' ,;
+         lcACTION       := '' ,;
+         lcTABLE        := '' ,;
+         lcWHERE        := '' as string
+   local ii           := 0 ,;
+         liPOS_COD    := 0 as int
+   local laRES      := {} ,;
+         laFIELDS   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laCAMPOS   := {} ,;
+         laCAMPOS_SAV := {} as array
+
+   lcACTION     := upper(WGet('ACTION','C'))
+   lcCD_DESPESA := WGet('CD_DESPESA','C')
+   lcTABLE      := 'despesa'
+   lcWHERE      := 'CD_DESPESA='+DLAP+lcCD_DESPESA+DLAP
+   laFIELDS     := {'despesa.CD_DESPESA',;
+                    'despesa.NM_DESPESA',;
+                    'despesa.CD_GRP_DESPESA',;
+                    'grupo_despesa.NM_GRP_DESPESA',;
+                    'despesa.CD_MOEDA',;
+                    'moeda.NM_MOEDA',;
+                    'despesa.SET_VL_REVISAO',;
+                    'despesa.SET_VL_APROVACAO'}
+   laCAMPOS     := {'CD_DESPESA',;
+                    'NM_DESPESA',;
+                    'CD_MOEDA',;
+                    'SET_VL_APROVACAO',;
+                    'SET_VL_REVISAO',;
+                    'CD_GRP_DESPESA',;
+                    'NM_GRP_DESPESA',;
+                    'NM_MOEDA'}
+   laCAMPOS_SAV := {'CD_DESPESA',;
+                    'NM_DESPESA',;
+                    'CD_MOEDA',;
+                    'SET_VL_APROVACAO',;
+                    'SET_VL_REVISAO',;
+                    'CD_GRP_DESPESA'}
+   laVALIDA     := {'CD_DESPESA','NM_DESPESA'}
+   laJOIN       := {{2,'moeda','moeda.CD_MOEDA=despesa.CD_MOEDA'},;
+                    {2,'grupo_despesa','grupo_despesa.CD_GRP_DESPESA=despesa.CD_GRP_DESPESA'}}
+
+   WPut('TITLE','Manutenção e Listagem de Ressarcimentos')
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+   if lcACTION = 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS, lcTABLE, laJOIN,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      db2Put(db_fetchall())
+
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+     if verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+         aadd(laSAVE,laCAMPOS_SAV  )
+         for ii := 1 to len(laCAMPOS_SAV  )
+            aadd(laSAVE_AUX,WGet (laCAMPOS_SAV[ii]))
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+         if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+            error_sys(db_error())
+         endif
+     endif
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+   endif
+   // Rotina para executar paginação
+   if db_select({'distinct(despesa.CD_DESPESA)','despesa.CD_DESPESA'},'despesa',,) == -1
+      db_error()
+   endif
+   laRESULT  := db_fetchall()
+   lnCOUNT   := len(laRESULT)-1
+   if lnCOUNT > 0
+	   laPAGINAS := paginacao(lnCOUNT,'','','mnt.ressarcimento.html')
+	   laLIMIT   := param_fetch(laPAGINAS,'LIMIT')
+	   if empty(pc_filtro)
+	      if db_select(laFIELDS,lcTABLE,laJOIN,,{'despesa.CD_DESPESA'},,,laLIMIT) == -1
+	         error_sys(db_error())
+	      endif
+	   else
+	      if db_select(laFIELDS,lcTABLE,laJOIN,{lcWHERE},{'despesa.CD_DESPESA'},,,laLIMIT) == -1
+	         error_sys(db_error())
+	      endif
+	   endif
+	   laRESULT := db_fetchall()
+	   //Resumo da pesquisa
+	   lcCODE := alltrim(str(laLIMIT[1]+1))+'-'
+	   if ((len(laRESULT)-1) < (laLIMIT[2]-laLIMIT[1]))
+	      lcCODE += alltrim(str(len(laRESULT)-1))
+	   elseif param_fetch(laPAGINAS,'GOTO_PAGE') == param_fetch(laPAGINAS,'NR_PAGES') //lnNR_PAGES
+	      lcCODE += alltrim(str(lnCOUNT))
+	   else
+	      lcCODE += alltrim(str(laLIMIT[1]+param_fetch(laPAGINAS,'ROWS_PAGE')))
+	   endif
+	   lcCODE += ' de '+alltrim(str(lnCOUNT))
+	   if lnCOUNT > 1
+	      lcCODE := ' Resultados '+lcCODE+' registros'
+	   else
+	      lcCODE := ' Resultado '+lcCODE+' registro'
+	   endif
+	   wput('RESUME_RESULTSET',lcCODE)
+
+      if len(laRESULT) > 0
+         aadd(laRESULT[1],'(row)')
+         for ii := 2 to len(laRESULT)
+            aadd(laRESULT[ii],'(row)'+wic_action('wicaction/mnt.despesa.html?ACTION=ALTER'+;
+                                                 '&CD_DESPESA='+laRESULT[ii,ascan(laRESULT[1],'CD_DESPESA')]))
+            laRESULT[ii,db_fetchncol(laRESULT,'SET_VL_APROVACAO')] := wpictrans('SET_VL_APROVACAO',laRESULT[ii,db_fetchncol(laRESULT,'SET_VL_APROVACAO')])
+            laRESULT[ii,db_fetchncol(laRESULT,'SET_VL_REVISAO')] := wpictrans('SET_VL_REVISAO',laRESULT[ii,db_fetchncol(laRESULT,'SET_VL_REVISAO')])
+         next ii
+         WPut('GRID_DESPESA',grid_create(laRESULT))
+      endif
+   endif
+return
+
+
+
+
+
+

@@ -1,0 +1,209 @@
+/*
+
+Project      : gr5
+Program      : imp_dersaxrayes.html
+Function     : imp_dersaxrayes_html
+Created on   : 14-Mar-2006   15:49:22
+Descripition :
+
+*/
+
+//  <FILENAMEDERSAINPUT>/home/wictrix2/gr5/dersa_imp.txt</FILENAMEDERSAINPUT>
+//  <FILENAMEDERSALOG>/home/wictrix2/gr5/dersa_log.txt</FILENAMEDERSALOG>
+
+
+//wout('')
+
+     local lcFILEIN  := WSet("FILENAMEDERSAINPUT") ,; // definir path + nome para o arquivo de leitura no .wprofile
+           lcFILELOG := WSet("FILENAMEDERSALOG")   ,;
+           lcLOG     := '' as string
+
+     local ii        := 0 ,;
+           lnHAND    := 0 ,;
+           lnHAND1   := 0  as int
+
+     local laLOGCAB := {} as array
+
+     if Empty(lcFILEIN)
+        qout('Arquivo de Leitura não informado.')
+        return(nil)
+     endif
+
+     if Empty(lcFILELOG)
+        qout('Arquivo Log não informado.')
+        return(nil)
+     endif
+
+     //lcLOG :=
+     aadd(laLOGCAB, Space(20) + 'Ocorrencias do Processamento de Leitura Dersa X Rayes')
+     aadd(laLOGCAB, 'Data: ' + DtoC(DATE()) + ' - Hora: ' + TIME())
+
+     lnHAND1 := fcreate(lcFILELOG, 0)
+     if lnHAND1 > 0
+        for ii := 1 to len(laLOGCAB)
+            if !dispmess(laLOGCAB[ii], lnHAND1, 0, 0)
+               return (nil)
+            endif
+        next ii
+        if !process_leitura(lcFILEIN,lnHAND1)
+	        wout('Problemas com o arquivo de leitura. Para maiores detalhes consulte '+lcFILELOG)
+        endif
+        fclose(fnHAND1)
+     else
+        qout("Problemas na criacao do arquivo log: " + lcFILELOG)
+     endif
+
+return
+
+
+
+function process_leitura(lcFILEIN,fnHAND1)
+
+     local llFLG    := .f. as logical
+     local lcLINE   := ''  as string
+     local lnHAND   := 0   as int
+     local laREGTP1 := {} ,;
+           laREGTP2 := {} ,;
+           laREGTP3 := {} ,;
+           laREGTP4 := {} ,;
+           laREGTP5 := {} ,;
+           laREGTP6 := {} as array
+
+     // Define o layOut para cada tipo / linha do arquivo.
+
+     // 1 = Nome do Campo Destino Tabela
+     // 2 = Char / Numérico
+     // 3 = Tamanho do campo
+     // 4 = Pos Inicial
+     // 5 = Pos Final
+     // 6 = Possui casas decimais ?  (Y/N)
+     // 7 = Numero de casas decimais
+     // 8 = Conteúdo lido do arquivo TXT
+
+     // TIPO 01 - Dados do Processo
+     laREGTP1 := {{'Identificador Processo'         ,'N',   6 ,   1,   6, 'N', 0 , '' },;  //  Identificador Processo
+                  {'Tipo de Registro'               ,'N',   2 ,   7,   8, 'N', 0 , '' },;  //  Tipo de Registro 01
+                  {'Autor ou Reu'                   ,'C',   1 ,   9,   9, 'N', 0 , '' },;  //  Autor ou Reu A ou R
+                  {'Processo Referenciado'          ,'N',   6 ,  10,  15, 'N', 0 , '' },;  //  Se diferente de Zeros está referenciado a outro processo
+               	{'Número do Processo 1ª Instância','C',  25 ,  16,  40, 'N', 0 , '' },;  //  Número do Processo 1ª Instância
+               	{'Número do Processo 2ª Instância','C',  25 ,  41,  65, 'N', 0 , '' },;  //  Número do Processo 2ª Instância
+                	{'Número do Processo 3ª Instância','C',  25 ,  66,  90, 'N', 0 , '' },;  //  Número do Processo 3ª Instância
+                	{'Ano do Processo'                ,'N',   4 ,  91,  94, 'N', 0 , '' },;  //  Ano do Processo AAAA
+               	{'Data de Distribuição'           ,'D',  10 ,  95,	104, 'N', 0 , '' },;  //  Data de Distribuição DD/MM/AAAA
+                	{'Status do Processo'             ,'C',  20 , 105,	124, 'N', 0 , '' },;  //  Status do Processo
+               	{'Liminar (S/N) ?'                ,'C',   1 , 125,	125, 'N', 0 , '' },;  //  Liminar (S/N)
+               	{'Justiça'                        ,'C',  30 , 126,	155, 'N', 0 , '' },;  //  Justiça
+               	{'Tipo de Ação'                   ,'C',  50 , 156,	205, 'N', 0 , '' },;  //  Tipo de Ação
+                	{'Tipo de Ação Complemento'       ,'C', 100 , 206,	305, 'N', 0 , '' },;  //  Tipo de Ação Complemento
+               	{'Nome do Fórum'                  ,'C',  50 , 306,	355, 'N', 0 , '' },;  //  Nome do Fórum
+               	{'Vara'                           ,'N',	6 , 356,	361, 'N', 0 , '' },;  //  Vara
+               	{'Andar'                          ,'N',   6 , 362,	367, 'N', 0 , '' },;  //  Andar
+               	{'Seção'                          ,'N',	6 , 368,	373, 'N', 0 , '' },;  //  Seção
+               	{'Orgão'                          ,'C',  30 , 374,	403, 'N', 0 , '' },;  //  Orgão
+               	{'Valor da Causa'	                ,'N',  13 , 404,	416, 'Y', 2 , '' },;  //  Com separador de casas decimais (Ex. 10000.00 )
+                	{'Valor do Provisão'              ,'N',  13 , 417,	429, 'Y', 2 , '' },;  //  Com separador de casas decimais (Ex. 10000.00 )
+                	{'Valor do Pedido'	             ,'N',  13 , 430,	442, 'Y', 2 , '' },;  //  Com separador de casas decimais (Ex. 10000.00 )
+               	{'Valor do Resultado'             ,'N',  13 , 443,	455, 'Y', 2 , '' },;  //  Com separador de casas decimais (Ex. 10000.00 )
+               	{'Indice de Correção'             ,'C',  20 , 456,	475, 'N', 0 , '' },;  //  Indice de Correção
+               	{'Tipo de Rito'                   ,'C',  20 , 476,	495, 'N', 0 , '' },;  //  Tipo de Rito
+                	{'Observação'                     ,'C', 500 , 496,	995, 'N', 0 , '' } }  //  Observação
+
+     // TIPO 02 - Pessoas Vinculadas ao Processo
+     laREGTP2 := {{ 'Identificador Processo'        ,'N',   6 ,   1,   6, 'N', 0 , '' },;  // Identificador Processo
+                  { 'Tipo de Registro'              ,'N',   2 ,   7,   8, 'N', 0 , '' },;  // Tipo de Registro "02"
+                  { 'Tipo de Relação'               ,'C',  20 ,   9,	 28, 'N', 0 , '' },;  // Tipo de Relação
+                  { 'Fisica ou Jurídica'            ,'C',   1 ,  29,	 29, 'N', 0 , '' },;  // Fisica ou Jurídica  F ou J
+                  { 'Nome da Pessoa'                ,'C',  50 ,  30,	 79, 'N', 0 , '' } }  // Nome da Pessoa
+
+     // TIPO 03 - Andamentos
+     laREGTP3 := {{'Identificador Processo'         ,'N',   6 ,   1,   6, 'N', 0 , '' },;  // Identificador Processo
+                  {'Tipo de Registro'               ,'N',   2 ,	7,	  8, 'N', 0 , '' },;  // Tipo de Registro "03"
+                  {'Data do Andamento'              ,'D',  10 ,   9,	 18, 'N', 0 , '' },;  // Data do AndamentoDD/MM/AAAA
+                  {'Tipo de andamento'              ,'C',  50 ,  19,	 68, 'N', 0 , '' },;  // Tipo de andamento
+                  {'Descrição do andamento'         ,'C', 500 ,  69,	568, 'N', 0 , '' } }  // Descrição do andamento
+
+     // TIPO 04 - Prazos processuais
+     laREGTP4 := {{'Identificador Processo'         ,'N',   6 ,   1,   6, 'N', 0 , '' },;  // Identificador Processo
+						{'Tipo de Registro'               ,'N',   2 ,   7,	  8, 'N', 0 , '' },;  // Tipo de Registro "04"
+						{'Data do Prazo'                  ,'D',  10 ,   9,	 18, 'N', 0 , '' },;  // Data do Prazo DD/MM/AAAA
+                  {'Tipo de Prazo'                  ,'C',  50 ,  19,	 68, 'N', 0 , '' },;  // Tipo de Prazo
+                  {'Descrição do Prazo'             ,'C', 500 ,  69,	568, 'N', 0 , '' } }  // Descrição do Prazo
+
+     // TIPO 05 - Depósitos Judiciais
+     laREGTP5 := {{'Identificador Processo'         ,'N',   6 ,   1,	  6, 'N', 0 , '' },;  // Identificador Processo
+                  {'Tipo de Registro'               ,'N',   2 ,   7,	  8, 'N', 0 , '' },;  // Tipo de Registro "05"
+                  {'Data do Depósito'               ,'D',  10 ,   9,	 18, 'N', 0 , '' },;  // Data do Depósito DD/MM/AAAA
+                  {'Valor do Depósito'              ,'N',  13 ,  19,	 31, 'Y', 2 , '' },;  // Valor do Depósito separador de casas decimais (Ex. 10000.00 )
+                  {'Descrição'                      ,'C', 500 ,  32, 531, 'N', 0 , '' } }  // Descrição
+
+     // TIPO 06 - Penhora de Bens
+     laREGTP6 := {{'Identificador Processo'         ,'N',   6 ,   1,	  6, 'N', 0 , '' },;  // Identificador Processo
+                  {'Tipo de Registro'               ,'N',   2 ,   7,	  8, 'N', 0 , '' },;  // Tipo de Registro "06"
+                  {'Data do Penhora'                ,'D',  10 ,   9,	 18, 'N', 0 , '' },;  // Data do Penhora DD/MM/AAAA
+                  {'Tipo de Penhora'                ,'C',  30 ,  19,	 48, 'N', 0 , '' },;  // Tipo de Penhora
+                  {'Valor do Dívida'                ,'N',  13 ,  49,	 61, 'Y', 2 , '' },;  // Valor do Dívida  Com separador de casas decimais (Ex. 10000.00 )
+                  {'Valor do Penhora'               ,'N',  13 ,  62,	 74, 'Y', 2 , '' },;  // Valor do Penhora Com separador de casas decimais (Ex. 10000.00 )
+                  {'Fiel Depositário'               ,'C',  60 ,  75,	134, 'N', 0 , '' },;  // Fiel Depositário
+                  {'Bem Penhorado'                  ,'C', 500 , 135,	634, 'N', 0 , '' } }  // Bem Penhorado
+
+wout('')
+
+     if file(lcFILEIN)
+	     lnHAND := fopen(lcFILEIN, 0)
+	     if lnHAND > 0
+           while .t.
+               lcLINE := freadtxt (lnHAND)
+               if ferror() <> 0
+                  exit
+               endif
+
+               do case
+
+                  case substr(lcLINE,7,2) = "01"    // TIPO 01 - Dados do Processo
+
+
+                       for ii := 1 to len(laREGTP1)
+
+                           laREGTP1[ii,8] := substr(lcLINE,laREGTP1[ii,4],laREGTP1[ii,3])
+
+                       next ii
+
+
+                  case substr(lcLINE,7,2) = "02"    // TIPO 02 - Pessoas Vinculadas ao Processo
+
+                       for ii := 1 to len(laREGTP2)
+
+                           laREGTP2[ii,8] := substr(lcLINE,laREGTP2[ii,4],laREGTP2[ii,3])
+
+                       next ii
+
+
+
+                  case substr(lcLINE,7,2) = "03"    // TIPO 03 - Andamentos
+
+                  case substr(lcLINE,7,2) = "04"    // TIPO 04 - Prazos processuais
+
+                  case substr(lcLINE,7,2) = "05"    // TIPO 05 - Depósitos Judiciais
+
+                  case substr(lcLINE,7,2) = "06"    // TIPO 06 - Penhora de Bens
+
+               endcase
+
+           enddo
+
+
+           for zz := 1 to len(laREGTP2)
+               for aa := 1 to len(laREGTP2[zz])
+                   ? laREGTP2[zz,aa]
+               next aa
+           next zz
+
+	     else
+           dispmess('Problemas na leitura do arquivo de entrada.', fnHAND1, 0, 0)
+     	     llFLG := .f.
+	     endif
+     else
+        dispmess("Arquivo de Leitura (" + lcFILEIN + ") não foi encontrado.", fnHAND1, 0, 0)
+	     llFLG := .f.
+	  endif
+return(llFLG)

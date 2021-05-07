@@ -1,0 +1,165 @@
+/*
+
+Project      : gr5
+Program      : psab.notificacao.html
+Function     : psab_notificacao_html
+Created on   : 24-Oct-2006   15:14:00
+Descripition : Notificações
+
+*/
+   local lcACTION   := upper(WGet('ACTION','U')),;
+         lcNR_PASTA := WGet('NR_PASTA','C'),;
+         lcTP_PASTA := WGet('TP_PASTA','C'),;
+         lcProgram  := 'psab_notificacao_html' ,;
+         lcTABLE    := '',;
+         lcWHERE    := '' as string
+   local laFIELDS   := {},;
+         laRESULT   := {},;
+         laSAVE     := {},;
+         laJOIN     := {},;
+         laFIELD_SAVE := {},;
+         laSAVE_AUX := {} as array
+   local ii := 0 as int
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   get2Put({'NR_PASTA','TP_PASTA'})
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   pasta_abas(lcTP_PASTA)
+   init_reqfield(WSet('_USER_INTERFACE'))
+
+   lcTABLE      := 'pasta_notificacao'
+   laFIELD_SAVE := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+
+   laFIELDS := {}
+   aadd(laFIELDS,'pasta_notificacao.NR_PASTA')
+   aadd(laFIELDS,'pasta_notificacao.NR_CONTROLE')
+   aadd(laFIELDS,'pasta_notificacao.CIP_PESSOA_NOTIFICADA')
+   aadd(laFIELDS,'pasta_notificacao.GRAU_PARENTESCO')
+   aadd(laFIELDS,'pasta_notificacao.TP_NOTIFICACAO')
+   aadd(laFIELDS,'pasta_notificacao.FL_NOTIFICACAO')
+   aadd(laFIELDS,'pfpj.PFPJ as CIP_PESSOA_NOTIFICADA_PFPJ')
+   aadd(laFIELDS,'pfpj.ENDERECO as CIP_PESSOA_NOTIFICADA_ENDERECO')
+   aadd(laFIELDS,'pfpj.NR_ENDERECO as CIP_PESSOA_NOTIFICADA_NR_ENDERECO')
+   aadd(laFIELDS,'pfpj.EXTRA_ENDERECO as CIP_PESSOA_NOTIFICADA_COMPLEMENTO')
+   aadd(laFIELDS,'pfpj.BAIRRO as CIP_PESSOA_NOTIFICADA_BAIRRO')
+   aadd(laFIELDS,'pfpj.CIDADE as CIP_PESSOA_NOTIFICADA_CIDADE')
+   aadd(laFIELDS,'pfpj.UF as CIP_PESSOA_NOTIFICADA_UF')
+   aadd(laFIELDS,'pfpj.CEP as CIP_PESSOA_NOTIFICADA_CEP')
+   aadd(laFIELDS,'pfpj.PAIS as CIP_PESSOA_NOTIFICADA_PAIS')
+   aadd(laFIELDS,'pfpj.DDD as CIP_PESSOA_NOTIFICADA_DDD')
+   aadd(laFIELDS,'pfpj.TELEFONE as CIP_PESSOA_NOTIFICADA_TELEFONE')
+   aadd(laFIELDS,'pfpj.CNPJ_CPF as CIP_PESSOA_NOTIFICADA_CNPJ_CPF')
+   aadd(laFIELDS,'pfpj.IE as CIP_PESSOA_NOTIFICADA_IE')
+   aadd(laFIELDS,'grau_parentesco.GRAU_PARENTESCO')
+   aadd(laFIELDS,'tipo_notificacao.TP_NOTIFICACAO')
+   aadd(laFIELDS,'status_notificacao.FL_NOTIFICACAO')
+   aadd(laFIELDS,'pasta_notificacao.DT_ENVIO')
+   aadd(laFIELDS,'pasta_notificacao.DT_RECEBIMENTO')
+   aadd(laFIELDS,'pasta_notificacao.PRIORIDADE')
+   aadd(laFIELDS,'pasta_pfpj_cartorio.CIP as CIP_CARTORIO')
+   aadd(laFIELDS,'pasta_pfpj_cartorio.PFPJ as CIP_CARTORIO_PFPJ')
+
+   lcWHERE  := 'pasta_notificacao.NR_PASTA='+lcNR_PASTA+' and pasta_notificacao.NR_CONTROLE='+WGet('NR_CONTROLE','C')
+
+   laJOIN   := {{2,'pfpj','pasta_notificacao.CIP_PESSOA_NOTIFICADA = pfpj.CIP'},;
+                {2,'grau_parentesco','pasta_notificacao.GRAU_PARENTESCO  = grau_parentesco.GRAU_PARENTESCO'},;
+                {2,'tipo_notificacao','pasta_notificacao.TP_NOTIFICACAO = tipo_notificacao.TP_NOTIFICACAO'},;
+                {2,'pasta_pfpj_cartorio','pasta_pfpj_cartorio.NR_PASTA = pasta_notificacao.NR_PASTA'},;
+                {2,'status_notificacao','pasta_notificacao.FL_NOTIFICACAO = status_notificacao.FL_NOTIFICACAO'}}
+
+
+   WPut('DT_CADASTRO',date())
+   WPut('LOGIN',WSet('LOGIN'))
+
+   carrega_cbox({{'grau_parentesco','GRAU_PARENTESCO','Y'},;
+                 {'tipo_notificacao','TP_NOTIFICACAO','Y'},;
+                 {'status_notificacao','FL_NOTIFICACAO','Y'},;
+                 {'prioridade','PRIORIDADE','Y'}})
+
+   WPut('NR_CONTROLE','New')
+
+   // Glauber 06/01/2011
+   AbasPerfil(lcTP_PASTA,{'NR_PASTA',;
+    'NR_CONTROLE',;
+    'CIP_PESSOA_NOTIFICADA',;
+    'GRAU_PARENTESCO',;
+    'TP_NOTIFICACAO',;
+    'FL_NOTIFICACAO',;
+    'CIP_PESSOA_NOTIFICADA_PFPJ',;
+    'CIP_PESSOA_NOTIFICADA_ENDERECO',;
+    'CIP_PESSOA_NOTIFICADA_NR_ENDERECO',;
+    'CIP_PESSOA_NOTIFICADA_COMPLEMENTO',;
+    'CIP_PESSOA_NOTIFICADA_BAIRRO',;
+    'CIP_PESSOA_NOTIFICADA_CIDADE',;
+    'CIP_PESSOA_NOTIFICADA_UF',;
+    'CIP_PESSOA_NOTIFICADA_CEP',;
+    'CIP_PESSOA_NOTIFICADA_PAIS',;
+    'CIP_PESSOA_NOTIFICADA_DDD',;
+    'CIP_PESSOA_NOTIFICADA_TELEFONE',;
+    'CIP_PESSOA_NOTIFICADA_CNPJ_CPF',;
+    'CIP_PESSOA_NOTIFICADA_IE',;
+    'GRAU_PARENTESCO',;
+    'TP_NOTIFICACAO',;
+    'FL_NOTIFICACAO',;
+    'DT_ENVIO',;
+    'DT_RECEBIMENTO',;
+    'PRIORIDADE',;
+    'CIP_CARTORIO',;
+    'CIP_CARTORIO_PFPJ'})
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      if verif_reqfield(WSet('_USER_INTERFACE'))
+         aadd(laSAVE,laFIELD_SAVE)
+         for ii := 1 to len(laFIELD_SAVE)
+            aadd(laSAVE_AUX,WGet(laFIELD_SAVE[ii]))
+         next ii
+            aadd(laSAVE,laSAVE_AUX)
+            psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Notificação') //Gravar log de alterações da pasta
+            if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+      endif
+         
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,laJOIN,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      db2Put(db_fetchall())
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+           psab_logdel(lcNR_PASTA,'NR_CONTROLE',WGET('NR_CONTROLE','C'),,'Notificação')
+           if db_delete(lcTABLE,lcWHERE) == -1
+              error_sys(db_error())
+           endif
+   endif
+
+   if db_select({'pasta_notificacao.NR_CONTROLE','pasta_notificacao.CIP_PESSOA_NOTIFICADA','pfpj.PFPJ',+;
+                 'grau_parentesco.GRAU_PARENTESCO','tipo_notificacao.TP_NOTIFICACAO','status_notificacao.FL_NOTIFICACAO',+;
+                 'pasta_notificacao.DT_ENVIO','pasta_notificacao.DT_RECEBIMENTO'},lcTABLE,laJOIN,{'pasta_notificacao.NR_PASTA='+lcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      aadd(laRESULT[1],'(row)')
+      for ii := 2 to len(laRESULT)
+         aadd(laRESULT[ii],'(row)'+wic_action('wicaction/psab.notificacao.html'+;
+                                              '?ACTION=ALTER'+;
+                                              '&NR_PASTA='+lcNR_PASTA+;
+                                              '&TP_PASTA='+lcTP_PASTA+;
+                                              '&NR_CONTROLE='+ALLTRIM(STR(laRESULT[ii,1]))))
+      next ii
+      WPut('lstNOTIFICACAO',grid_create(laRESULT))
+   endif
+   pasta_abas(lcTP_PASTA)
+return
+
+
+
+
+
+
+
+
+
+
+
+
+

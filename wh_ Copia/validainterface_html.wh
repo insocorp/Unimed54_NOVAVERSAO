@@ -1,0 +1,50 @@
+/*
+
+Project      : gr5
+Program      : validainterface.html
+Function     : validainterface_html
+Created on   : 23-Nov-2004   16:41:04
+Descripition :
+
+*/
+
+   local lcNR_PASTA    := WGet('NR_PASTA','C'),;
+         lcNR_CONTROLE := WGet('NR_CONTROLE','C'),;
+         lcWSCRIPT     := '' as string
+   local lnPOS := 0 as int
+   local laFL_STINT := {} ,;
+   		laSAVE := {} as array
+
+   Get2Put({'NR_PASTA','NR_CONTROLE'})
+
+   if upper(WGet('ACTION','C')) == 'SAVE'
+      if db_select({'fl_statusinterface','nm_fl_statusinterface'},'statusinterface',,,{'fl_statusinterface'}) == -1
+      	error_sys(db_error())
+	   endif
+   	laFL_STINT := db_fetchall()
+      if WGet('FL_VALIDA') == 'Y'
+         laSAVE := {{'FL_STATUSINTERFACE'},;
+                    {'3'}}
+
+         lnPOS := ascan(laFL_STINT, { | x | x[1] == '3' })
+         lcWSCRIPT := 'opener.document.mntform.FL_STATUSINTERFACE.value="3";'+CRLF
+         lcWSCRIPT += 'opener.document.mntform.NM_FL_STATUSINTERFACE.value="'+laFL_STINT[lnPOS,2]+'";'+CRLF
+      else
+         laSAVE := {{'FL_STATUSINTERFACE','NR_SINISTRO'},;
+                    {'0',''}}
+
+         lnPOS := ascan(laFL_STINT, { | x | x[1] == '0' })
+         lcWSCRIPT := 'opener.document.mntform.FL_STATUSINTERFACE.value="0";'+CRLF
+         lcWSCRIPT += 'opener.document.mntform.NM_FL_STATUSINTERFACE.value="'+laFL_STINT[lnPOS,2]+'";'+CRLF
+         lcWSCRIPT += 'opener.document.mntform.NR_SINISTRO.readonly=false;'+CRLF
+         lcWSCRIPT += 'opener.document.mntform.NR_SINISTRO.className="winput";'+CRLF
+      endif
+      if db_update(laSAVE,'pasta_seguro',{'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE}) == -1
+         error_sys(db_error())
+      endif
+      WPut('WSCRIPT',lcWSCRIPT)
+      WSet('_USER_INTERFACE','close.wic')
+   endif
+
+
+

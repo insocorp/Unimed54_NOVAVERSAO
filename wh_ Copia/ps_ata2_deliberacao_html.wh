@@ -1,0 +1,245 @@
+/*
+
+Project      : gr5
+Program      : ps.ata2.deliberacao.html
+Function     : deliberação de atos societarios
+Created on   : 2009-08-27 17:20:51
+Descripition : Deliberações de atos societários
+
+*/
+   local lcACTION   := '' ,;
+         lcTABLE    := '' ,;
+         lcNR_PASTA := '' ,;
+         lcNR_ATA   := '' ,;
+         lcNR_ITEM  := '' as string
+   local laRES      := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laWHERE    := {} ,;
+         laFIELDS   := {} ,;
+         lcFIELDS   := {} ,;
+         laLABELS   := {} ,;
+         laVALIDA   := {} as array
+   local ii := 0 as int
+   local llERRO := .F. as logical
+
+
+   lcACTION   := upper(alltrim(WGet('ACTION','C')))
+   lcNR_PASTA := WGet('NR_PASTA','C')
+   lcNR_ATA   := WGet('NR_ATA','C')
+   lcNR_ITEM  := WGet('NR_ITEM','C')
+   lcFIELDS   := {'NR_PASTA','NR_ATA','ASSEMBLEIA_DELIBERACAO','OBSERVACAO'}
+   if empty(lcnr_ata)
+      return 
+   endif 
+
+   lcTABLE    := 'pasta_sct_ata2_deliberacao'
+
+// Alteração Sonia - 3/5/2011 16:42:06 - Correção solicitada por Celia 
+// Erro de pesquisa quando coloca-se letras no Nr da Ata 
+
+   if lcNR_ITEM <> 'New'
+//     laWHERE    := {'NR_PASTA='+lcNR_PASTA+' and NR_ATA='+WGET('NR_ATA','C')+' and NR_ITEM='+wGet('NR_ITEM','C')}
+     laWHERE    := {'NR_PASTA='+lcNR_PASTA+' and NR_ATA='+DLAP+WGET('NR_ATA','C')+DLAP+' and NR_ITEM='+wGet('NR_ITEM','C')}
+   else
+//     laWHERE    := {'NR_PASTA='+lcNR_PASTA+' and NR_ATA='+WGET('NR_ATA','C')}
+     laWHERE    := {'NR_PASTA='+lcNR_PASTA+' and NR_ATA='+DLAP+WGET('NR_ATA','C')+DLAP}
+   endif  
+
+
+   laFIELDS   := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS   := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   laVALIDA   := {'NR_ITEM','ASSEMBLEIA_DELIBERACAO'}
+
+   // Glauber 05/01/2011
+   AbasPerfil(WGet('TP_PASTA'), laFIELDS)
+
+
+
+   for ii := 1 to len(laVALIDA)
+     *WPut(laVALIDA[ii]+'.label.style.color','#FF0000')
+     *WPut(laVALIDA[ii]+'.label.style.font-weight','bold')
+     WPut(laVALIDA[ii]+'.style.border','2px solid red')
+   next ii
+  //Exibe os botÃµes permitidos
+   if gbWAC_CREATE
+      WPut('ifWAC_CREATE',.t.)
+   endif
+   if gbWAC_DELETE
+      WPut('ifWAC_DELETE',.t.)
+   endif
+   if gbWAC_WRITE
+      WPut('ifWAC_WRITE',.t.)
+   endif
+   if empty(lcACTION)
+      lcACTION := 'NEW'
+   endif
+
+   wPut('NR_PASTA',lcNR_PASTA)
+   wPut('NR_ATA',lcNR_ATA)
+//   wPut('ifNR_ITEMRW',.T.)
+// 1/4/2011 3:53:34 PM sonia - sequence na tabela
+   wPut('ifNR_ITEMRW',.F.)
+   wPut('ifNR_ITEMRO',.T.)
+   MontaCombos() // Função no final do arquivo
+   if lcACTION == 'NEW'
+      lcNR_ITEM := 'New'
+   endif
+  
+lcNR_ATA := WGET('NR_ATA','C') 
+/*
+   if lcNR_ITEM == 'New'
+     laWHERE    := {'NR_PASTA='+lcNR_PASTA+' and NR_ATA='+WGET('NR_ATA','C')+' and NR_ITEM='+wGet('NR_ITEM','C')}
+   else
+     laWHERE    := {'NR_PASTA='+lcNR_PASTA+' and NR_ATA='+WGET('NR_ATA','C')}
+   endif  
+*/
+
+// Glauber 09/02/2011
+
+// Sonia - 3/5/2011 16:51:37 - nr_ata para caracter
+   if lcNR_ITEM == 'New'
+//     laWHERE    := {'NR_PASTA='+lcNR_PASTA+' and NR_ATA='+WGET('NR_ATA','C')}
+     laWHERE    := {'NR_PASTA='+lcNR_PASTA+' and NR_ATA='+DLAP+WGET('NR_ATA','C')+DLAP}
+   else
+//     laWHERE    := {'NR_PASTA='+lcNR_PASTA+' and NR_ATA='+WGET('NR_ATA','C')+' and NR_ITEM='+iif(empty(wGet('NR_ITEM','C')),'0',wGet('NR_ITEM','C'))}
+     laWHERE    := {'NR_PASTA='+lcNR_PASTA+' and NR_ATA='+DLAP+WGET('NR_ATA','C')+DLAP+' and NR_ITEM='+iif(empty(wGet('NR_ITEM','C')),'0',wGet('NR_ITEM','C'))}
+   endif  
+
+
+   if lcACTION == 'NEW' .and. gbWAC_CREATE
+      wPut('TITLE','Inclusão de Deliberação')
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,laWHERE) = -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      db2put(laRES)
+      wPut('TITLE','Alteração da Deliberação '+getWPut('NR_ATA'))
+      wPut('ifNR_ITEMRO',.T.)
+      wPut('ifNR_ITEMRW',.F.)
+      
+   elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+      for ii := 1 to len(laVALIDA)
+          if empty(alltrim(WGet(laVALIDA[ii],'C')))
+             walert(laLABELS[ascan(laFIELDS,laVALIDA[ii])]+' é um campo obrigatório!')
+             get2Put()
+             llERRO := .T.
+             exit
+          endif
+      next ii
+// alterado de lafields para lcfields
+// sonia - 1/4/2011 4:12:53 PM      
+      if ! llERRO
+         aadd(laSAVE,lcFIELDS)
+         for ii := 1 to len(lcFIELDS)
+            aadd(laSAVE_AUX,WGet(lcFIELDS[ii]))
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+
+// ALTERADO nr_ata
+// Sonia - 3/5/2011 16:54:37
+//         psab_logs(laSAVE,lcTABLE,'NR_PASTA='+lcNR_PASTA+;
+//                                  ' and NR_ATA='+WGet('NR_ATA','C')+;
+//                                  ' and NR_ITEM='+WGet('NR_ITEM','C'),lcNR_PASTA,'Deliberações')
+
+         psab_logs(laSAVE,lcTABLE,'NR_PASTA='+lcNR_PASTA+;
+                                  ' and NR_ATA='+DLAP+WGet('NR_ATA','C')+DLAP+;
+                                  ' and NR_ITEM='+WGet('NR_ITEM','C'),lcNR_PASTA,'Deliberações')
+
+//        if db_replace(laSAVE,lcTABLE,{'NR_PASTA='+lcNR_PASTA+' and NR_ATA='+WGet('NR_ATA','C')+;
+//               ' and NR_ITEM='+wGet('NR_ITEM','C')}) = -1
+        if db_replace(laSAVE,lcTABLE,{'NR_PASTA='+lcNR_PASTA+' and NR_ATA='+DLAP+WGet('NR_ATA','C')+DLAP+;
+               ' and NR_ITEM='+wGet('NR_ITEM','C')}) = -1
+            error_sys(db_error())
+         endif
+         wPut('TITLE','Inclusão de nova Deliberação')
+      endif
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      psab_logdel(lcNR_PASTA,'NR_ITEM',WGet('NR_ITEM','C'),,'Deliberações')
+
+      if db_delete(lcTABLE,laWHERE[1]) = -1
+         error_sys(db_error())
+      endif
+      wPut('TITLE','Inclusão de nova Deliberação')
+   endif
+
+   /* Listagem */
+// Sonia - 3/5/2011 16:48:56    
+//   if db_select({'NR_ITEM','ASSEMBLEIA_DELIBERACAO'},lcTABLE,,{'NR_PASTA='+lcNR_PASTA+' and NR_ATA='+WGet('NR_ATA','C')}) = -1
+   if db_select({'NR_ITEM','ASSEMBLEIA_DELIBERACAO'},lcTABLE,,{'NR_PASTA='+lcNR_PASTA+' and NR_ATA='+DLAP+WGet('NR_ATA','C')+DLAP}) = -1
+      error_sys(db_error())
+   endif
+   laRES:= db_fetchall()
+   if len(laRES) > 0
+      aadd(laRES[1],'(row)')
+      for ii := 2 to len(laRES)
+         aadd(laRES[ii],'(row)'+wic_action('wicaction/ps.ata2.deliberacao.html'+;
+                                           '?ACTION=ALTER'+;
+                                           '&NR_PASTA='+lcNR_PASTA+;
+                                           '&NR_ATA='+WGet('NR_ATA','C')+;
+                                           '&NR_ITEM='+str(laRES[ii,db_fetchncol(laRES,'NR_ITEM')])))
+      next ii
+      WPut('GRID_DELIBERACAO',grid_create(laRES))
+   endif
+return
+
+
+/*
+* Data.Criação: 
+* Function....: MontaCombos()
+* Objetivo....: Carregar todos os combos na tela.
+* Parâmetros..:
+*    fcTP_PASTA..: Tipo de Pasta
+*    
+*
+* Retorno.....: Nenhum
+*/
+
+
+Static Function MontaCombos()
+
+   local laRESULT := {},;
+         laPUT    := {},;
+         laRES    := {} as array
+   local ii       := 0 as int      
+
+   carrega_cbox({{'assembleia_deliberacao','ASSEMBLEIA_DELIBERACAO','Y'}})
+
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

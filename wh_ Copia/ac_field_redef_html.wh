@@ -1,0 +1,87 @@
+/*
+
+Project      : gr5
+Program      : ac.field.redef.html
+Function     : ac_field_redef_html
+Created on   : 05-Oct-2004   16:47:13
+Descripition : 
+
+*/
+
+   local lcWGID   := '',;
+         lcWFIELD := '',;
+         lcWHERE  := '',;
+         lcTABLE  := '',;
+         lcVALIDA := '',;
+         lcACTION := '' as string
+
+   local laFIELDS   := {},;
+         laLABELS   := {},;
+         laRESULT   := {},;
+         laSAVE     := {},;
+         laSAVE_AUX := {},;
+         laVALIDA   := {} as array
+
+   local ii := 0 as int
+
+   lcACTION       := upper(alltrim(WGet('ACTION','C')))
+   lcWGID         := WGet('WGID','C')
+   if lcWGID = 'New'
+      lcWGID := '0'
+   endif
+   lcWFIELD       := WGet('WFIELD','C')
+   lcWHERE        := 'WGID= '+lcWGID+' and WFIELD='+DLAP+lcWFIELD+DLAP
+   lcTABLE        := 'acfieldredef'
+   laFIELDS       := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+   laLABELS       := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'A')
+   laVALIDA       := {{'WFIELD',laLABELS[ascan(laFIELDS,'WFIELD')]}}
+
+   WPut('WGID',lcWGID)
+   WPut('WFIELD',lcWFIELD)
+   WPut('TITLE','Redefinição de Campos')
+   WPut('WLABEL_VIEW_OPT','S')
+   WPut('WFIELD_VIEW_OPT','S')
+   WPut('WFIELD_RO_OPT','S')
+
+   if lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      db2Put(laRESULT)
+
+      if db_select({'LABEL_SCREEN'},'wfield',,{'WFIELD='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'WFIELD')]+DLAP}) == -1
+         error_sys(db_error())
+      endif
+      db2Put(db_fetchall())
+   elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+      // Validação dos campos --------------------------------------------------------------------------------
+      for ii := 1 to len(laVALIDA)
+          lcVALIDA := alltrim(WGet(laVALIDA[ii,1],'C'))
+          if len(lcVALIDA) = 0
+             wPut('ERROR_MENS',laVALIDA[ii,2]+' é um campo obrigatório!')
+             get2Put()
+             return(.f.)
+          endif
+      next ii
+      // Gravação --------------------------------------------------------------------------------------------
+      aadd(laSAVE,laFIELDS)
+      for ii := 1 to len(laFIELDS)
+         aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+      next
+      aadd(laSAVE,laSAVE_AUX)
+      if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+   endif
+
+   if db_select({'acfieldredef.WGID',;
+                 'acfieldredef.WFIELD',;
+                 'wfield.LABEL_SCREEN'},'acfieldredef',{{2,'wfield','wfield.WFIELD=acfieldredef.WFIELD'}},{'acfieldredef.WGID='+lcWGID}) = -1
+      error_sys(db_error())
+   endif
+   WPut('lstAC_FIELD_REDEF',db_fetchall())

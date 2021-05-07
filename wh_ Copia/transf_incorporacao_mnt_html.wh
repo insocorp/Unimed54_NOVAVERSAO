@@ -1,0 +1,281 @@
+/*
+
+Project      : isj_398
+Program      : transf.incorporacao.html
+Function     : transf_incorporacao_html
+Created on   : 06/07/2012   08:51
+Descripition :
+
+*/
+
+local lcACTION      := '' ,;
+      lcTABLE       := '' ,;
+      lcVELHO       := '' ,;
+      lcNOVO        := '' ,;
+      lcCIPS        := '' ,;
+      lcCIPSN       := '' ,;
+      lcWHERE       := '' ,;
+      lcWHERE1      := '' ,;
+      lcWHERE2      := '' as string
+
+
+local campo  :='' as string
+local campon :='' as string
+local lcCIPSC:='' as string
+
+local laRES        := {} ,;
+      laFIELDS     := {} ,;
+      laFIELDS_AUX := {} ,;
+      laFIELDSR    := {} ,;
+      laFIELDSR_AUX:= {} ,;
+      laSAVE       := {} ,;
+      laRESULTEMP  := {} ,;
+      laRESULTINC  := {} ,;
+      laRES2       := {} ,;
+      laRES3       := {} ,;
+      laRES4       := {} ,;
+      laVALIDA     := {} ,;
+      laREPLACE    := {} ,;
+      laDIF        := {} ,;
+      laCIPS       := {} ,;
+      laCIPSN      := {} ,;
+      laTPPASTA    := {} ,;
+      laJOIN       := {} as array
+
+local lnII     := 0 ,;
+      lnCOL    := 0 ,;
+      lnNRPASTA:= 0 ,;
+      lnXX     := 0 as int
+
+local llERRO:=.f. as logical
+local llJATROCO:=.f. as logical
+
+
+WPut('TITLE','Transferência de Incorporação')
+
+lcTABLE       := 'pasta_incorporacao'
+
+lcACTION      := upper(Wget('ACTION'))
+
+
+*** DADOS ABAIXO ENVIADOS PELA CELIA PARA SÔNIA QUE ME REENVIOU POR EMAIL EM 04/09/2012 AS 15:20
+*** CONFIRMEI COM A CELIA CIVEL NÃO TEM ACENTO NEM OLHEI OS OUTROS, E PARA ACATAR O EMAIL.
+
+laTPPASTA     :={'',;
+                 'Administrativo',;
+                 'Ambiental Administrativo-Geral',;
+                 'Ambiental Judicial',;
+                 'Civel',;
+                 'Contrato Locação',;
+                 'Criminal',;
+                 'Direito Econômico',;
+                 'Fiscalizações',;
+                 'Minerário',;
+                 'Previdenciário',;
+                 'Provisões Diversas',;
+                 'Trabalhista',;
+                 'Tributário Administrativo',;
+                 'Tributário Execuções Fiscais',;
+                 'Tributário Judicial'}
+
+
+wPut('TP_PASTA_OPT',laTPPASTA)
+
+
+
+*** campos obrigatorios
+*
+laVALIDA     := {'CIP_INCORPORADA',;
+                 'CIP_INCORPORADORA',;
+                 'ID_INCORPORACAO',;
+                 'TP_PASTA'}
+
+*** marca em vermelho campos obrigatorios
+init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+if lcACTION == 'EXECUT' .and. gbWAC_CREATE
+
+   llERRO := .f.
+
+    *** verifica se campos obrigatorios estão com dados
+    if ! verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+       llERRO := .t.
+    endif
+
+   if ! llERRO
+       lcCIP :=  wGet('CIP_INCORPORADORA','C')
+//       debug2(lcCIP)
+       if db_select({'pfpj_atividade'},'pfpj',,{'cip = '+ DLAP + lcCIP + DLAP }) == -1
+          error_sys(db_error())
+       endif
+
+       laRES3 := db_fetchrow()
+
+//       debug2(lares3)
+       if len(lares3) > 0
+          lcJURIDICO := laRES3[1]
+       else
+        walert('Empresa Incorporadora sem Jurídico')
+       endif
+
+       laFIELDS     := {'NR_PASTA',;
+                        'CIP_INCORPORADA',;
+                        'CIP_INCORPORADORA',;
+                        'ID_INCORPORACAO',;
+                        'DT_TRANSFERENCIA',;
+                        'HR_TRANSFERENCIA',;
+                        'HISTORICO_VC',;
+                        'LOGIN_CADASTRO'}
+
+       aadd(laSAVE,laFIELDS)
+
+       *** PEGA SOMENTE AS PASTAS QUE A EMPRESA ATUAL E IGUAL A EMPRESA QUE ESTA SENDO VENDIDA
+       lcWHERE1 := 'pasta.TP_PASTA = ' + DLAP + wGet('TP_PASTA','C') + DLAP + ' AND pasta.NR_PASTA in (SELECT pasta_cip.NR_PASTA FROM pasta_cip WHERE pasta_cip.WFIELD = ' + DLAP + 'CIP_EMPRESA' + DLAP + ' AND pasta_cip.CIP = ' + DLAP + wGet('CIP_INCORPORADA','C') + DLAP  + ')'
+       if db_select({'pasta.NR_PASTA','pasta.CIPS'},'pasta',laJOIN,{lcWHERE1},{'pasta.NR_PASTA'}) == -1
+          error_sys(db_error())
+       endif
+       laRESULTEMP := db_fetchall()
+
+       *** PEGAS DAS PASTAS ACIMA AS PASTAS QUE NÃO TENHAM CIP_INCORPORADA POIS A INCORPORADA SO E CRIADA A PRIMEIRA VEZ
+       lcWHERE2 := 'pasta.TP_PASTA = ' + DLAP + wGet('TP_PASTA','C') + DLAP + ' AND pasta.NR_PASTA in (SELECT pasta_cip.NR_PASTA FROM pasta_cip WHERE pasta_cip.WFIELD = ' + DLAP + 'CIP_EMPRESA' + DLAP + ' AND pasta_cip.CIP = ' + DLAP + wGet('CIP_INCORPORADA','C') + DLAP + ')'
+       lcWHERE2 += ' and pasta.NR_PASTA not in (select pasta.NR_PASTA from pasta where pasta.TP_PASTA = ' + DLAP + wGet('TP_PASTA','C') + DLAP + ' AND pasta.NR_PASTA in (SELECT pasta_cip.NR_PASTA FROM pasta_cip WHERE pasta_cip.WFIELD = ' + DLAP + 'CIP_INCORPORADA' + DLAP + '))'
+       if db_select({'pasta.NR_PASTA','pasta.CIPS'},'pasta',laJOIN,{lcWHERE2},{'pasta.NR_PASTA'}) == -1
+          error_sys(db_error())
+       endif
+       laRESULTINC := db_fetchall()
+
+       *** GRAVA TRANSFERENCIA EFETUADA NA PASTA_INCORPORACAO
+       lnNRPASTA:=0
+       lcCIPSC  :='ZYX'
+       for lnII=2 to len(laRESULTEMP)
+
+           if (lnNRPASTA<>laRESULTEMP[lnII,1] .OR. lcCIPSC<>laRESULTEMP[lnII,2])
+
+              lnNRPASTA:=laRESULTEMP[lnII,1]
+              lcCIPSC  :=laRESULTEMP[lnII,2]
+
+              laFIELDS_AUX := {}
+              for lnXX := 1 to len(laFIELDS)
+                  if laFIELDS[lnXX] == 'NR_PASTA'
+                     aadd(laFIELDS_AUX,laRESULTEMP[lnII,1])
+                  elseif laFIELDS[lnXX] == 'DT_TRANSFERENCIA'
+                     aadd(laFIELDS_AUX,date())
+                  elseif laFIELDS[lnXX] == 'HR_TRANSFERENCIA'
+                     aadd(laFIELDS_AUX,time())
+                  elseif laFIELDS[lnXX] == 'LOGIN_CADASTRO'
+                     aadd(laFIELDS_AUX,gcLOGIN)
+                  else
+                     aadd(laFIELDS_AUX,wGet(laFIELDS[lnXX]))
+                  endif
+              next lnXX
+              aadd(laSAVE,laFIELDS_AUX)
+           endif
+
+       next lnII
+       if db_insert(laSAVE,lcTABLE) = -1
+           error_sys(db_error())
+       endif
+
+       **********************
+
+        laFIELDS    := {'NR_PASTA',;
+                        'WFIELD',;
+                        'CIP'}
+
+
+        *** ATUALIZA PASTA CIP_INCORPORADORA
+        for lnII=2 to len(laRESULTEMP)
+
+
+            laREPLACE:={}
+            aadd(laREPLACE,laFIELDS)
+
+            *** TROCA O CIP DA EMPRESA ANTERIOR PELO NOVO CIP INCORPORADORA
+
+
+            lcVELHO:=wGet('CIP_INCORPORADA','C')
+            lcNOVO :=wGet('CIP_INCORPORADORA','C')
+
+            laFIELDS_AUX:={}
+            aadd(laFIELDS_AUX,laRESULTEMP[lnII,1]) //NR_PASTA
+            aadd(laFIELDS_AUX,'CIP_EMPRESA')
+            aadd(laFIELDS_AUX,lcNOVO) // CIP_INCORPORADORA
+            aadd(laREPLACE,laFIELDS_AUX)
+
+            lcCIPS  := laRESULTEMP[lnII,2] //CONTEUDO CIPS ANTERIOR
+
+            *** ALTERA O CIP EMPRESA NO CAMPO CIP
+            *** PODE SER QUE O CIP NOVO JA EXISTA, PODE EXISTIR MESMO, PODE SER OUTRO TIPO DE WFIELD PARA ESSA MESMA PASTA
+
+            laCIPS:=str2array(lcCIPS,'#')
+            laCIPSN:={}
+            llJATROCO:=.F.
+            for ii=1 to len(laCIPS)
+                if alltrim(laCIPS[ii])<>''
+                   if laCIPS[ii]==lcVELHO .and. llJATROCO==.F.
+                      aadd(laCIPSN,lcNOVO)
+                      llJATROCO:=.T.
+                     else
+                      aadd(laCIPSN,laCIPS[ii])
+                   endif
+                endif
+            next ii
+            lcCIPSN:='#' + array2str(laCIPSN,'#') + '#'
+
+            if db_update({{'CIPS'},{lcCIPSN}},'pasta',{'NR_PASTA = ' + alltrim(str(laSAVE[lnII,ascan(laSAVE[1],'NR_PASTA')]))}) == -1
+               error_sys(db_error())
+            endif
+
+            lcWHERE := 'NR_PASTA =' + alltrim(str(laRESULTEMP[lnII,1])) + ' and WFIELD = ' + DLAP + 'CIP_EMPRESA' + DLAP
+            psab_logs(laREPLACE,'pasta_cip',lcWHERE,alltrim(str(laSAVE[lnII,ascan(laSAVE[1],'NR_PASTA')])),'T.Incorp.- CIP_EMPRESA') //Gravar log
+
+            if db_update(laREPLACE,'pasta_cip',{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+
+            lcWHEREATIV := 'NR_PASTA =' + alltrim(str(laRESULTEMP[lnII,1]))
+            laATIVIDADE := {}
+            aadd(laATIVIDADE,'PFPJ_ATIVIDADE')
+            aadd(laATIVIDADE,lcJURIDICO)
+            if db_update({{'PFPJ_ATIVIDADE'},{lcjuridico}},'pasta',{lcWHEREATIV}) == -1
+                 error_sys(db_error())
+            endif
+
+        next lnII
+
+
+        *** ATUALIZA PASTA CIP_INCORPORADA
+        for lnII=2 to len(laRESULTINC)
+
+            laREPLACE:={}
+            aadd(laREPLACE,laFIELDS)
+
+            *** CRIA LINHA COM A CIP INCORPORADA
+
+            lcNOVO :=wGet('CIP_INCORPORADA','C')
+
+            laFIELDS_AUX:={}
+            aadd(laFIELDS_AUX,laRESULTINC[lnII,1]) //NR_PASTA
+            aadd(laFIELDS_AUX,'CIP_INCORPORADA')
+            aadd(laFIELDS_AUX,lcNOVO) // CIP_INCORPORADA
+            aadd(laREPLACE,laFIELDS_AUX)
+            psab_logs(laREPLACE,'pasta_cip',lcWHERE2,alltrim(str(laSAVE[lnII,ascan(laSAVE[1],'NR_PASTA')])),'T.Incorp.- CIP_INCORPORADORA') //Gravar log
+
+            if db_insert(laREPLACE,'pasta_cip') == -1
+               error_sys(db_error())
+            endif
+
+        next lnII
+
+
+        walert('Total de pastas alteradas: ' + str(len(laRESULTEMP)-1))
+   endif
+
+endif
+
+return
+
+
+
+
+

@@ -1,0 +1,215 @@
+/*
+
+Project      : gr5
+Program      : ps.lst.assembleia.html
+Function     : ps_lst_assembleia_html
+Created on   : 28-Jul-2004   18:06:21
+Descripition : Atos Societários
+
+*/
+
+   local lcTP_PASTA            := '' ,;
+         lcTABLE               := '' ,;
+         lcNR_PASTA            := '' ,;
+         lcDOCUMENTOS          := '' ,;
+         lcDT_ASSEMBLEIA       := '' ,;
+         lcASSEMBLEIA_ORDEMDIA := '' ,;
+         lcSOCIETARIO_ATO      := '' ,;
+         lcPODERES             := '' ,;
+         lcPUT                 := ''  as string
+
+   local laWHERE  := {} ,;
+         laFIELDS := {} ,;
+         laJOIN   := {} ,;
+         laCOUNT  := {} ,;
+         laLIMIT  := {} ,;
+         laPAGES  := {} ,;
+         laRES    := {} as array
+
+   local ii           := 0 ,;
+         lnGOTO_PAGE  := 0 ,;
+         lnLIMIT1     := 0 ,;
+         lnLIMIT2     := 0 ,;
+         lnMAX_PAGES  := 0 ,;
+         lnNR_PAGES   := 0 ,;
+         lnPAGE_FIN   := 0 ,;
+         lnPAGE_INI   := 0 ,;
+         lnROWS_PAGE  := 0 as int
+
+   lcTP_PASTA := WGet('TP_PASTA','C')
+   lcNR_PASTA := WGet('NR_PASTA','C')
+   lcTABLE    := 'pasta_sct_ata'
+   laWHERE    := {'pasta_sct_ata.NR_PASTA='+lcNR_PASTA}
+   laFIELDS   := {'pasta_sct_ata.NR_ATA',;
+                  'pasta_sct_ata.DT_ASSEMBLEIA',;
+                  'pasta_sct_ata.ASSEMBLEIA_TITULO'}
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   make_psthead(lcNR_PASTA,lcTP_PASTA) //Cabeçalho
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, {'NR_ATA','DT_ASSEMBLEIA','ASSEMBLEIA_TITULO'})
+
+   if empty(lcACTION)
+      lcACTION = 'NEW'
+   endif
+
+   WPut('TP_PASTA',lcTP_PASTA)
+
+   /* Listagem */
+   lcDOCUMENTOS          := wGet('DOCUMENTOS','C')
+   lcDT_ASSEMBLEIA       := WGet('DT_ASSEMBLEIA','C')
+   if empty(dtos(ctod(lcDT_ASSEMBLEIA)))
+      lcDT_ASSEMBLEIA := ''
+   endif
+   lcASSEMBLEIA_ORDEMDIA := wGet('ASSEMBLEIA_ORDEMDIA','C')
+   lcSOCIETARIO_ATO      := wGet('SOCIETARIO_ATO','C')
+   lcPODERES             := wGet('PODERES','C')
+
+
+   if ! empty(lcDOCUMENTOS)
+      aadd(laWHERE,'pasta_sct_ata.NR_ATA like '+DLAP+'%'+lcDOCUMENTOS+'%'+DLAP)
+   endif
+
+   if ! empty(lcDT_ASSEMBLEIA)
+      aadd(laWHERE,'pasta_sct_ata.DT_ASSEMBLEIA = '+DLAP+dtos(ctod(lcDT_ASSEMBLEIA))+DLAP)
+   endif
+
+   if ! empty(lcASSEMBLEIA_ORDEMDIA)
+      aadd(laWHERE,'pasta_sct_ata.SCT_ORDENS like '+DLAP+'%'+lcASSEMBLEIA_ORDEMDIA+'%'+DLAP)
+      aadd(laFIELDS,'pasta_sct_ata.SCT_ORDENS')
+   endif
+
+   if ! empty(lcSOCIETARIO_ATO)
+      aadd(laWHERE,'pasta_sct_ata.SOCIETARIO_ATO like '+DLAP+'%'+lcSOCIETARIO_ATO+'%'+DLAP)
+      aadd(laFIELDS,'pasta_sct_ata.SOCIETARIO_ATO')
+   endif
+
+   if ! empty(lcPODERES)
+      aadd(laWHERE,'pasta_poderes.PROCURACAO_PODER_CLASS like '+DLAP+'%'+lcPODERES+'%'+DLAP+' or '+;
+                   'pasta_poderes.PROC_PODERES_CONJUNTO like '+DLAP+'%'+lcPODERES+'%'+DLAP+' or '+;
+                   'pasta_poderes.PROC_PODERES_ISOLADO like '+DLAP+'%'+lcPODERES+'%'+DLAP)
+      aadd(laJOIN,{2,'pasta_poderes','pasta_poderes.NR_PASTA=pasta_sct_ata.NR_PASTA and '+;
+                                     'pasta_poderes.NR_ATA=pasta_sct_ata.NR_ATA'})
+      aadd(laFIELDS,'pasta_poderes.PROC_PODERES_CONJUNTO')
+      aadd(laFIELDS,'pasta_poderes.PROC_PODERES_ISOLADO')
+   endif
+
+   //Contagem de registros e paginação
+   lnGOTO_PAGE := WGet('GOTO_PAGE','N')
+   if lnGOTO_PAGE = 0
+      lnGOTO_PAGE := 1
+   endif
+
+   if db_select({'count(*)'},lcTABLE,laJOIN,laWHERE) = -1
+      error_sys(db_error())
+   endif
+   laCOUNT := db_fetchrow()
+   if laCOUNT[1] > 0 //.and. valtype(laLIMIT) == 'U'
+
+      lnMAX_PAGES := iif(val(WSet('MAX_PAGES'))==0,10,val(WSet('MAX_PAGES')))
+      lnROWS_PAGE := iif(val(WSet('ROWS_PAGE'))==0,10,val(WSet('ROWS_PAGE')))
+      if lnROWS_PAGE > laCOUNT[1]
+         lnROWS_PAGE := laCOUNT[1]
+      endif
+      lnNR_PAGES := laCOUNT[1]/lnROWS_PAGE
+
+      if (laCOUNT[1] % lnROWS_PAGE) > 0
+         lnNR_PAGES += 1
+      endif
+
+      lnMAX_PAGES := iif(lnNR_PAGES < lnMAX_PAGES,lnNR_PAGES,lnMAX_PAGES)
+      if lnGOTO_PAGE == 1
+         lnPAGE_INI := 1                              // Página inicial
+         lnPAGE_FIN := lnMAX_PAGES                    // Página final
+      else
+         if alltrim(WGet('MORE')) == 'Y'              // Visualizar as próximas 10 páginas, se possível
+            lnPAGE_INI := lnGOTO_PAGE
+            lnPAGE_FIN := lnMAX_PAGES+(lnGOTO_PAGE-1)
+            if lnPAGE_FIN > lnNR_PAGES
+               lnPAGE_FIN := lnNR_PAGES
+            endif
+         elseif alltrim(WGet('LESS')) == 'Y'          // Visualizar as 10 páginas anteriores, se possível
+            lnPAGE_INI := lnGOTO_PAGE-lnMAX_PAGES+1
+            lnPAGE_FIN := lnGOTO_PAGE
+         else
+            lnPAGE_INI := WGet('FIRST_PAGE','N')
+            lnPAGE_FIN := WGet('LAST_PAGE','N')
+         endif
+      endif
+
+      aadd(laPAGES,{'PROGRAM_CALL','NR_PAGE'})
+
+      for ii := lnPAGE_INI to lnPAGE_FIN
+          lcPUT := wic_action('wicaction/ps.lst.assembleia.html?ACTION=EXECSEL&NR_PASTA='+lcNR_PASTA+'&TP_PASTA='+lcTP_PASTA+'&GOTO_PAGE='+alltrim(str(ii)))
+          lcPUT += '&FIRST_PAGE='+alltrim(str(lnPAGE_INI))+'&LAST_PAGE='+alltrim(str(lnPAGE_FIN))
+          if ii == lnPAGE_INI
+             lcPUT += '&LESS=Y'
+          endif
+          if ii == lnPAGE_FIN .and. lnPAGE_FIN < lnNR_PAGES
+             lcPUT += '&MORE=Y'
+          endif
+
+          //Adiciona à paginação, os filtros digitados e os campos selecionados para busca e ordernação
+          if !empty(lcDOCUMENTOS) //Campo usado na pesquisa
+             lcPUT += '&DOCUMENTOS='+lcDOCUMENTOS
+          endif
+          if !empty(lcDT_ASSEMBLEIA) //Campo usado na pesquisa
+             lcPUT += '&DT_ASSEMBLEIA='+lcDT_ASSEMBLEIA
+          endif
+          if !empty(lcASSEMBLEIA_ORDEMDIA) //Conteúdo a pesquisar em lcFILTER_FIELD
+             lcPUT += '&ASSEMBLEIA_ORDEMDIA='+lcASSEMBLEIA_ORDEMDIA
+          endif
+          if !empty(lcSOCIETARIO_ATO) //Conteúdo a pesquisar em lcFILTER_FIELD
+             lcPUT += '&SOCIETARIO_ATO='+lcSOCIETARIO_ATO
+          endif
+          if !empty(lcPODERES) //Campo usado na classificação
+             lcPUT += '&PODERES='+lcPODERES
+          endif
+
+          aadd(laPAGES,{lcPUT,alltrim(str(ii))})
+      next ii
+      WPut('ifRESULT',.T.)
+      WPut('PAGES',laPAGES)
+
+      lnLIMIT1 := iif(lnGOTO_PAGE == 1,0,((lnGOTO_PAGE*lnROWS_PAGE)-1)-(lnROWS_PAGE-1))
+      lnLIMIT2 := lnROWS_PAGE
+      laLIMIT  := {lnLIMIT1,lnLIMIT2}
+
+   elseif laCOUNT[1] == 0// .and. valtype(laLIMIT) == 'U'
+      WPut('ifEMPTY_RESULTSET',.T.)
+   endif
+
+   if db_select(laFIELDS,lcTABLE,laJOIN,laWHERE,,,,laLIMIT) = -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 1
+      aadd(laRES[1],'(row)')
+      for ii := 2 to len(laRES)
+         aadd(laRES[ii],'(row)'+wic_action('wicaction_gr5/ps.mnt.assembleia.html'+;
+                                           '?NR_PASTA='+lcNR_PASTA+;
+                                           '&TP_PASTA='+lcTP_PASTA+;
+                                           '&NR_ATA='+laRES[ii, db_fetchncol(laRES,'NR_ATA')]+;
+                                           '&ACTION=ALTER'))
+      next ii
+      wPut('SCT_ATA_GRID',grid_create(laRES)) // Gera a Grid Dinâmica.
+   endif
+   pasta_abas(lcTP_PASTA)
+
+   wPut('DOCUMENTOS',lcDOCUMENTOS)
+   wPut('DT_ASSEMBLEIA',lcDT_ASSEMBLEIA)
+   wPut('ASSEMBLEIA_ORDEMDIA',lcASSEMBLEIA_ORDEMDIA)
+   wPut('SOCIETARIO_ATO',lcSOCIETARIO_ATO)
+   wPut('PODERES',lcPODERES)
+return
+
+
+
+
+
+
+
+

@@ -1,0 +1,113 @@
+/*
+
+Project      : gr5
+Program      : mnt.config.html
+Function     : mnt_config_html
+Created on   : 26-Aug-2004   15:15:52
+Descripition : Configurações Gerais
+
+*/
+
+   local lcCD_EMPRESA := '' ,;
+         lcWHERE      := '' ,;
+         lcTABLE      := '' ,;
+         lcACTION     := '' as string
+         //lcPATH       := '' ,;
+         //lcFILE_NAME  := '' as string
+
+   local laFIELDS   := {} ,;
+         laRESULT   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} as array
+
+   local ii      := 0 as int
+         //lnERROR := 0 as int
+
+   lcACTION     := upper(alltrim(WGet('ACTION','C')))
+   lcCD_EMPRESA := '1'
+   lcTABLE      := 'empresa_usuaria'
+   lcWHERE      := 'CD_EMPRESA='+DLAP+lcCD_EMPRESA+DLAP
+   laFIELDS     := {'EMAIL_CALENDAR',;
+                    'ENDERECO_WWW',;
+                    'WMSERVERTYPE',;
+                    'WMPOP3SERVER',;
+                    'WMSMTPSERVER',;
+                    'TEXT_LOGIN',;
+                    'PSW_QTDMIN',;
+                    'PSW_QTDMAX',;
+                    'PSW_QTDMINCHAR',;
+                    'PSW_QTDMINNUM',;
+                    'PSW_PICT',;
+                    'NR_LOGIN_ATTEMPT',;
+                    'CIP_CONFIG',;
+                    'WACTION_RECUPERA'}
+
+   if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchrow()
+
+   if len(laRESULT) > 0
+      for ii := 1 to len(laFIELDS)
+          wPut(laFIELDS[ii],laRESULT[ii])
+      next ii
+   endif
+   wPut('WMSERVERTYPE_OPT',{'POP3','IMAP'})
+   wPut('TITLE','Configurações Gerais')
+   WPut('CIP_CONFIG.option',{'Sincronizado com Numero de Controle','CNPJ/CPF','Preenchimento Manual'})
+   WPut('CIP_CONFIG.optionvalue',{'0','1','2'})
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      aadd(laSAVE, laFIELDS)
+      for ii := 1 to len(laFIELDS)
+         aadd(laSAVE_AUX, WGet(laFIELDS[ii]))
+      next ii
+      aadd(laSAVE,laSAVE_AUX)
+      if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+         error_sys(db_error())
+      endif
+
+      //Upload de logos
+      /*
+      lcPATH := alltrim(WSet('PATH_COMPONENTS')+WSet('PATH_LOGO')+lcFILE_NAME)
+      for ii := 1 to 3
+          lcIMG_NAME  := ''
+          lcFILE_NAME := ''
+          if ii == 1 .and. !empty(WGetFile('PATH_IMG_LOGIN','V'))      //Imagem para login
+             lcIMG_NAME  := 'PATH_IMG_LOGIN'
+             lcFILE_NAME := 'logo_login.gif'
+          elseif ii == 2 .and. !empty(WGetFile('PATH_IMG_PORTAL','V')) //Imagem para portal
+             lcIMG_NAME  := 'PATH_IMG_PORTAL'
+             lcFILE_NAME := 'logo_portal.gif'
+          elseif ii == 3 .and. !empty(WGetFile('PATH_IMG_REPORT','V')) //Imagem para relatórios
+             lcIMG_NAME  := 'PATH_IMG_REPORT'
+             lcFILE_NAME := 'logo_report_head.gif'
+          endif
+
+          if !empty(lcIMG_NAME)
+             if !empty(WGetFile(lcIMG_NAME,'V'))
+                 handle := fcreate(lcPATH+lcFILE_NAME)
+                 fwrite(handle,WGetFile(lcIMG_NAME,'V'))
+                 fclose(handle)
+                 lnERROR := ferror()
+                 if lnERROR > 0
+                    walert('Erro ao gravar imagens.\nMensagem retornada: '+str(lnERROR))
+                 endif
+             endif
+          endif
+      next ii
+      */
+      get2put()
+   endif
+return
+
+
+
+
+
+
+
+
+
+
+

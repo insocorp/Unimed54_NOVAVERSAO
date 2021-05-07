@@ -1,0 +1,456 @@
+/*
+
+Project      : gr5
+Program      : acsel_tokio
+Function     : acsel_tokio
+Created on   : 24/10/2008 16:53:00
+Descripition : Exportar e importar dados da pasta ressarcimento e pagamentos com Sinistro do  isj para o ACSEL - TOKIO Marine
+
+Conclusão do Projeto : Valdimari Martins - 26/08/2009
+   
+*/
+ 
+   WSet('_USER_INTERFACE','none.wic')
+
+   local lcPAR1  := upper(alltrim(pcPARAM)) as string    // pcPARAM  parametro enviado pelo daemon. E-Envio ou R-Recebimento
+
+   local lcTABLE   := '' ,;
+         lcFILEIN  := '' ,;
+         lcFILEOUT := '' ,;
+         lcWHERE   := '' ,;
+         lcID      := '' as string
+         
+   local laFIELDS := {} ,;
+         laRESULT := {} as array      
+
+   local lnHAND := 0 ,;
+         lnSEQ  := 0 as int
+
+   laFIELDS := structtable(WSet("DB_ACTIVE"),'seq_interfaces',1,'N')                      
+   lcWHERE  := 'PROGRAM = '+DLAP+'acsel_tokio_html'+DLAP                                      
+   if db_select(laFIELDS,'seq_interfaces',,{lcWHERE}) == -1                             
+      error_sys(db_error())                                                            
+   endif                                                                               
+   laRESULT  := db_fetchrow()                                                          
+   lnSEQ     := iif(len(laRESULT) > 0,laRES_INT[2] + 1,0)
+   lcFILEIN  := WSet("FILEACSELINPUT")                   // Path arquivo de recebimento de dados.
+   lcFILEIN  += 'gem_in'+dtos(date())+strzero(lnSEQ,3)   // Nome arquivo de recebimento de dados.
+   lcFILEOUT := WSet("FILEACSELOUTPUT")                  // Path arquivo de envio de dados.
+   lcFILEOUT += 'gem_out'+dtos(date())+strzero(lnSEQ,3)  // Nome arquivo de envio de dados.
+
+   if lcPAR1 == 'E'     //  Envio de dados.
+      lnHAND := fcreate(lcFILEOUT, 0)
+   else                 //  Recebimento de dados.
+      lnHAND := fopen(lcFILEIN, 0)
+   endif
+   if lnHAND >= 0
+      proc_detalhe(lcPAR1,lnHAND)
+      fclose(lnHAND)
+   else
+      if lcPAR1 == 'E'     //  Envio de dados.
+         wout('Problemas ao criar arquivo de envio : '+lcFILEOUT)
+      else
+         wout('Problemas na leitura do arquivo de recebimento: '+lcFILEIN)
+      endif
+   endif
+
+/*
+* Function..: proc_detalhe(fcTIPO,fcHAND)
+* Parâmetros: fcTIPO -> R - Recebimento ou E - Envio
+*             fcHAND -> handle do arquivo
+* Retorno...: .t. / .f.
+*/
+static function proc_detalhe(fcTIPO,fcHAND)
+   #define NEWLINE chr(13) + chr(10)
+
+   local ii       := 0 ,;
+         jj       := 0 ,;
+         zz       := 0 ,;
+         lnHAND1  := 0  as int
+
+   local lcLINE   := '' ,;
+         lcWHERE  := '' ,;
+         lcFILELOG:= '' ,;
+         lcLOG    := ''  as string
+
+   local laDETVAL  := {} ,;
+         laRES 	 := {} ,;
+         laFIELDS  := {} ,;
+         laSAVE    := {} ,;
+         laSAVEAUX := {} ,;
+         laRESULT  := {} ,;
+         laGROUP   := {} ,;
+         laJOIN    := {} as array
+   local	llFLAG    := .f. as logical
+
+   if fcTIPO = 'E'       // Envio de dados
+
+      // Buscando os dados a enviar
+      laFIELDS := {'mvt_parc_ressarc.NR_PASTA'       ,;
+                   'mvt_parc_ressarc.NR_CONTROLE_REC'     ,;
+                   'mvt_parc_ressarc.CIP_FAVORECIDO' ,;
+                   'mvt_parc_ressarc.CD_CONTROLE_REC'     ,;
+                   'mvt_parc_ressarc.CD_GRP_CONTROLE_REC' ,;
+                   'mvt_parc_ressarc.VL_TOTAL'       ,;
+                   'mvt_parc_ressarc.CD_CCUSTO'      ,;
+                   'mvt_parc_ressarc.FORMA_PAGAMENTO',;
+                   'mvt_parc_ressarc.DT_EMISSAO_DOCFISCAL',;
+                   'mvt_parc_ressarc.DT_PREVISAO_PAGTO',;
+                   'mvt_parc_ressarc.FL_PGINTERFACE' ,;
+                   'mvt_parc_ressarc.LOGIN'          }
+                   /*
+                   'pfpj.PFPJ_NATUREZA'         ,;
+                   'pfpj.PFPJ'                  ,;
+                   'pfpj.CNPJ_CPF'              ,;
+                   'pfpj.ENDERECO'              ,;
+                   'pfpj.NR_ENDERECO'           ,;
+                   'pfpj.EXTRA_ENDERECO'        ,;
+                   'pfpj.BAIRRO'                ,;
+                   'pfpj.UF'                    ,;
+                   'pfpj.CIDADE'                ,;
+                   'pfpj.CEP'                   ,;
+                   'pfpj.EMAIL'                 ,;
+                   'pfpj.CD_BANCO'              ,;
+                   'pfpj.BANCO_AGENCIA'         ,;
+                   'pfpj.BANCO_CONTA'           ,;
+                   'pfpj.DT_NASCIMENTO'         ,;
+                   'pasta_CIP.CIP'              ,;
+                   'pasta.CD_LEGADO'            ,;
+                   'pasta.NR_PROCESSO'          ,;
+                   'pasta_config.FL_CTPAG'      ,;
+                   'pasta_seguro.NR_BILHETE'     ,;
+                   'pasta_seguro.VL_PREMIO'      ,;
+                   'pasta_seguro.NR_SINISTRO'    ,;
+                   'pfpj.banco_conta   as DV_CONTA',;
+                   'pfpj.banco_agencia as DV_AGENCIA',;
+                   'count(mvt_parc_ressarc_pagamento.nr_pasta) as QTD_PAGTO'}
+*/
+       laGROUP := {'mvt_parc_ressarc.NR_PASTA' ,;
+                   'mvt_parc_ressarc.NR_CONTROLE_REC' ,;
+                   'mvt_parc_ressarc.CIP_FAVORECIDO' ,;
+                   'mvt_parc_ressarc.CD_CONTROLE_REC' ,;
+                   'mvt_parc_ressarc.CD_GRP_CONTROLE_REC' ,;
+                   'mvt_parc_ressarc.VL_TOTAL' ,;
+                   'mvt_parc_ressarc.CD_CCUSTO' ,;
+                   'mvt_parc_ressarc.FORMA_PAGAMENTO' ,;
+                   'mvt_parc_ressarc.DT_EMISSAO_DOCFISCAL' ,;
+                   'mvt_parc_ressarc.DT_PREVISAO_PAGTO' ,;
+                   'mvt_parc_ressarc.FL_PGINTERFACE' ,;
+                   'mvt_parc_ressarc.LOGIN' ,;
+                   'pfpj.PFPJ_NATUREZA' ,;
+                   'pfpj.PFPJ' ,;
+                   'pfpj.CNPJ_CPF'              ,;
+                   'pfpj.ENDERECO'              ,;
+                   'pfpj.NR_ENDERECO'           ,;
+                   'pfpj.EXTRA_ENDERECO'        ,;
+                   'pfpj.BAIRRO'                ,;
+                   'pfpj.UF'                    ,;
+                   'pfpj.CIDADE'                ,;
+                   'pfpj.CEP'                   ,;
+                   'pfpj.EMAIL'                 ,;
+                   'pfpj.CD_BANCO'              ,;
+                   'pfpj.BANCO_AGENCIA'         ,;
+                   'pfpj.BANCO_CONTA'           ,;
+                   'pfpj.DT_NASCIMENTO'         ,;
+                   'pasta_cip.CIP'              ,;
+                   'pasta.CD_LEGADO'            ,;
+                   'pasta.NR_PROCESSO'          ,;
+                   'pasta_config.FL_CTPAG'      ,;
+                   'pasta_seguro.NR_BILHETE'    ,;
+                   'pasta_seguro.VL_PREMIO'     ,;
+                   'pasta_seguro.NR_SINISTRO'    }
+
+      laJOIN := { { 2,'pasta_seguro'               ,"mvt_parc_ressarc.nr_sinistro = pasta_seguro.nr_sinistro and pasta_seguro.nr_sinistro <> '' and mvt_parc_ressarc.nr_pasta = pasta_seguro.nr_pasta"},;
+                  { 2,'pasta_cip'                  ,"mvt_parc_ressarc.nr_pasta = pasta_cip.nr_pasta and pasta_cip.wfield = 'CIP_FILIAL'"},;
+                  { 2,'pasta'                      ,'mvt_parc_ressarc.nr_pasta = pasta.nr_pasta'},;
+                  { 2,'pasta_config'               ,'pasta.tp_pasta = pasta_config.tp_pasta'},;
+                  { 2,'pfpj'                       ,'mvt_parc_ressarc.cip_favorecido = pfpj.cip'},;
+                  { 2,'mvt_parc_ressarc_pagamento' ,'mvt_parc_ressarc_pagamento.nr_pasta = mvt_parc_ressarc.nr_pasta and mvt_parc_ressarc_pagamento.nr_CONTROLE_REC = mvt_parc_ressarc.nr_CONTROLE_REC'}}
+
+      lcWHERE := '(mvt_parc_ressarc.STATUS_ACSEL is null or mvt_parc_ressarc.STATUS_ACSEL is null= '+DLAP+DLAP+') and '+;
+                 '(pasta.TP_PASTA = '+DLAP+'Ressarcimento'+DLAP+' or pasta.TP_PASTA = '+DLAP+'Cível com Sinistro'+DLAP+')'
+
+      if db_select(laFIELDS,'mvt_parc_ressarc') == -1   // CONTROLE_RECs pendentes de aprovacao não podem ser enviadas
+         db_error()
+      endif
+      laRESULT := db_fetchall()
+
+wout('achados: '+str(len(laRESULT)))
+inkey(0)
+
+      if len(laRESULT) > 1
+         laDETVAL := cria_array()
+         
+         wout('achei...')
+         inkey(0)
+         
+         if db_select({'nr_sequencia'},'seq_interfaces',,{"program = 'Acsel_html'"}) == -1
+            wout("Erro Select -> "+db_error())
+            return(.f.)
+    	 	 endif
+       	 laRES := db_fetchall()
+         lcLINE   := ''   // Cabecalho
+    		 lcLINE = '00'+ '0000000' + dtos(DATE()) + strzero(laRES[2,1],7) + replicate(" ",376) + NEWLINE
+
+         if FWrite(fcHAND,lcLINE) <= 0
+         	wout("Erro na gravação do arquivo.")
+            return(llFLAG)
+         endif
+         for ii := 2 to len(laRESULT)
+             if laRESULT[ii,db_fetchncol(laRESULT,'QTD_PAGTO')] = 0  .and. ; // envia somente as CONTROLE_RECs não pagas
+                laRESULT[ii,db_fetchncol(laRESULT,'FL_CTPAG')] = 'I' .and. ;
+                laRESULT[ii,db_fetchncol(laRESULT,'FL_PGINTERFACE')] <> 'Y'
+                llFLAG := .t.
+                lcLINE   := ''
+                for zz := 1 to len(laDETVAL)
+                   if laDETVAL[zz,8] == 'F'
+                   	if ( (empty(laDETVAL[zz,1])) .and. (laDETVAL[zz,10] == 'N'))
+                      	lcLINE += replicate('0', laDETVAL[zz,4])
+                      elseif( (empty(laDETVAL[zz,1])) .and. (laDETVAL[zz,10] == 'A'))
+                        	lcLINE += replicate(' ', laDETVAL[zz,4])
+	                   else
+                        	lcLINE += laDETVAL[zz,1]
+                      endif
+                   elseif laDETVAL[zz,8] == 'I'
+                      lcLINE += strzero((++jj),laDETVAL[zz,4])
+                   elseif laDETVAL[zz,8] == 'D'
+                      lcLINE += dtos(date())
+                   elseif laDETVAL[zz,8] == 'S'
+                      if laDETVAL[zz,7] == 'NR_CONTROLE_REC'  // Codigo de identificacao do pagamento  nr_pasta + nr_CONTROLE_REC
+                      	lcID := strzero(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])],6)+;
+                      		  strzero(laRESULT[ii,db_fetchncol(laRESULT, 'NR_PASTA')],6)
+                         lcLINE += lcID + replicate(' ', (laDETVAL[zz,4] - len(lcID) ))
+                      elseif laDETVAL[zz,2] == 'A'   //campos string
+                         if len(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]) > 0
+                  			 			  // verifica se o que vem do banco não está vazio...
+                            if len(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]) > laDETVAL[zz,4]
+                               if laDETVAL[zz,7] == "PFPJ_NATUREZA"
+                                  if substr(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )] , 1,laDETVAL[zz,4]) == 'F'
+                                     lcLINE += '1'
+                                  else
+                                     lcLINE += '2'
+                                  endif
+                               elseif laDETVAL[zz,7] == "DV_AGENCIA"
+                                  if at("-",laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]) > 0
+                                  	lcLINE += substr(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )],;
+                                     		           at("-",laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])])+1,1)
+                                  else
+                                     lcLINE += ' '
+                                  endif
+                               elseif laDETVAL[zz,7] == "DV_CONTA"
+                                  if at("-",laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]) > 0
+                                  	if(len(substr(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )],;
+                                     		           at("-",laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])])+1))>1)
+                                     	lcLINE +=substr(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )],;
+                                     		           at("-",laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])])+1,2)
+                                  	else
+                                     	lcLINE +=' '+ substr(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )],;
+                                     		             at("-",laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])])+1)
+                                     endif
+                                  else
+                                     lcLINE += '  '
+                                  endif
+                               elseif laDETVAL[zz,7] == "BANCO_CONTA"
+                                  lcLINE +=strzero(val(substr(strtran(strtran(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )],'.'),' '),1,;
+                     						at('-',strtran(strtran(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )],'.'),' '))-1)),laDETVAL[zz,4])
+                               else
+                            		lcLINE += substr(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )] , 1,laDETVAL[zz,4])
+                               endif
+                            else
+                               if laDETVAL[zz,7] == "BANCO_CONTA"
+                                  lcLINE += strzero(val(substr(strtran(strtran(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )],'.'),' '),1,;
+                     						at('-',strtran(strtran(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )],'.'),' '))-1)),laDETVAL[zz,4])
+                              	elseif laDETVAL[zz,10] == 'A'
+                              	  	lcLINE += laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])] + replicate(' ', (laDETVAL[zz,4] - len(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )])) )
+                              	elseif laDETVAL[zz,10] == 'N'
+                                 	lcLINE += strzero(val(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]),;
+                                 			(laDETVAL[zz,4] - len(alltrim(str(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )])))))
+                              	endif
+                            endif
+                         else    // Sim, o que vem do banco está vazio...
+                           	if laDETVAL[zz,10] == 'N'
+                               lcLINE += replicate('0', laDETVAL[zz,4])
+                           	else
+                              	lcLINE += replicate(' ', laDETVAL[zz,4])
+                           	endif
+                         endif
+                      elseif laDETVAL[zz,2] == 'N'      // campos numericos
+                        	if laDETVAL[zz,5] = 0          // não contem casas decimais
+                           	if laDETVAL[zz,10] == 'N'
+                               //?'Nr_pasta -> ',laRESULT[ii,db_fetchncol(laRESULT, 'NR_PASTA' )]
+                              	lcLINE += strzero(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )], laDETVAL[zz,4],laDETVAL[zz,5])
+                           	else
+                           		lcLINE += alltrim(str(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]))+;
+			       		        	replicate(' ', (laDETVAL[zz,4] - len(alltrim(str( laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])] ))) ))
+                           	endif
+                        	else
+                           	lcLINE += strzero(val(strtran( str(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])]) , '.','')), laDETVAL[zz,4])
+                        	endif
+                      elseif laDETVAL[zz,2] == 'D'
+                         if len(strtran(dtos(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]),' ')) > 0
+                        		lcLINE += dtos(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )])
+                         else
+                            lcLINE += "00000000"
+                         endif
+                      endif
+                   endif
+             	next zz
+             	lcLINE += NEWLINE
+	            if FWrite(fcHAND,lcLINE) <= 0
+   	       		wout("Erro na gravação do arquivo.")
+                  return(.f.)
+             	endif
+               // Alterando o flag de envio de solicitacao ao Acsel
+               lcWHERE := 'NR_PASTA   = '+alltrim(str(laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')]))+' and '+;
+                          'NR_CONTROLE_REC = '+alltrim(str(laRESULT[ii,db_fetchncol(laRESULT,'NR_CONTROLE_REC')]))
+               if db_update({{"FL_PGINTERFACE","DT_ENVIO_CTPAG"},{"Y",date()}},'mvt_parc_ressarc',{lcWHERE}) == -1
+                  wout("Erro Update -> "+db_error())
+                  return(.f.)
+               endif
+             endif
+         next ii
+         if llFLAG
+		      if db_update({{'nr_sequencia'},{laRES[2,1]+1}},'seq_interfaces',{"program ='acsel_html'"}) == -1
+               wout("Erro Update -> "+db_error())
+               return(.f.)
+         	endif
+		   endif
+         lcLINE := '99'+ strzero((++jj),7) + strzero((jj-1),7) + replicate(" ",384)
+         if FWrite(fcHAND,lcLINE) <= 0
+         	wout("Erro na gravação do arquivo.")
+            return(.f.)
+         endif
+      endif
+   elseif fcTIPO = 'R'   // Recebimento de dados
+      // Criando arquivo de Log
+      lcFILELOG := strtran(WSet("FILEACSELINPUT"),'.txt','')+'.log'
+      lnHAND1 := fcreate(lcFILELOG, 0)
+      if lnHAND1 < 0
+         wout('Problemas ao criar arquivo de LOG : '+lcFILELOG)
+         return(.f.)
+      endif
+      lcLOG := '      Log de Ocorrências ACSEL - Pagamento de Sinistro.    Em: '+dtoc(date())+' - '+time()+ NEWLINE
+      lcLOG += replicate('-',96)+ NEWLINE
+      db_begin()
+      while .t.
+          laSAVE   := {}
+          laSAVEAUX:= {}
+          lcWHERE  := ''
+          aadd(laSAVE,{'NR_PASTA', 'NR_CONTROLE_REC','DT_PAGAMENTO','VL_PAGO','DT_CADASTRO','LOGIN_CADASTRO','FL_PAGAMENTO'})
+          lcLINE := freadtxt (fcHAND)        // Le linha a linha do arquivo referenciado em fcHAND
+          if ferror() <> 0
+             exit
+          endif
+          if substr(lcLINE,1,2) = "01"
+             if substr(lcLINE,315,2) = "05"
+                aadd(laSAVEAUX, substr(lcLINE,323,6))
+                aadd(laSAVEAUX, substr(lcLINE,317,6))
+                aadd(laSAVEAUX, ctod(substr(lcLINE,40,2)+'/'+substr(lcLINE,38,2)+'/'+substr(lcLINE,34,4)))
+                aadd(laSAVEAUX, substr(lcLINE,53,13)+'.'+substr(lcLINE,66,2))
+                aadd(laSAVEAUX, date())
+                aadd(laSAVEAUX, 'acsel')
+                aadd(laSAVEAUX, 'A')
+                aadd(laSAVE,laSAVEAUX)
+                if db_insert(laSAVE,'mvt_parc_ressarc') = -1
+                   db_rollback()
+                   wout("Erro Insert -> "+db_error())
+                   return(.f.)
+                endif
+                lcLOG += 'PAGAMENTO EFETUADO                 Nr Pasta '+substr(lcLINE,323,6)+'  Nr CONTROLE_REC '+substr(lcLINE,317,6)+ NEWLINE
+             else
+                if substr(lcLINE,315,2) = "01"
+                   lcLOG += 'PAGAMENTO INCLUIDO                 Nr Pasta '+substr(lcLINE,323,6)+'  Nr CONTROLE_REC '+substr(lcLINE,317,6)+ NEWLINE
+                elseif substr(lcLINE,315,2) = "02"
+                   lcLOG += 'SINISTRO NAO ENCONTRADO            Nr Pasta '+substr(lcLINE,323,6)+'  Nr CONTROLE_REC '+substr(lcLINE,317,6)+ NEWLINE
+                elseif substr(lcLINE,315,2) = "03"
+                   lcLOG += 'VALOR DE PAGTO EXCEDENTE AO SALDO  Nr Pasta '+substr(lcLINE,323,6)+'  Nr CONTROLE_REC '+substr(lcLINE,317,6)+ NEWLINE
+                elseif substr(lcLINE,315,2) = "04"
+                   lcLOG += 'DADOS CADASTRAIS INCORRETOS        Nr Pasta '+substr(lcLINE,323,6)+'  Nr CONTROLE_REC '+substr(lcLINE,317,6)+ NEWLINE
+                elseif substr(lcLINE,315,2) = "06"
+                   lcLOG += 'PAGAMENTO CANCELADO                Nr Pasta '+substr(lcLINE,323,6)+'  Nr CONTROLE_REC '+substr(lcLINE,317,6)+ NEWLINE
+                endif
+
+                lcWHERE := 'NR_PASTA   = '+substr(lcLINE,323,6)+' and NR_CONTROLE_REC = '+substr(lcLINE,317,6)
+                if db_update({{"FL_PGINTERFACE","DT_ENVIO_CTPAG"},{"",nil}},'mvt_parc_ressarc',{lcWHERE}) == -1
+                   wout("Erro Update -> "+db_error())
+                   db_rollback()
+                   return(.f.)
+            	 endif
+             endif
+          endif
+      enddo
+      if FWrite(lnHAND1,lcLOG) <= 0
+       	 wout("Erro na gravação do arquivo de LOG.")
+         return(.f.)
+      endif
+      fclose(lnHAND1)
+      db_commit()
+   endif
+   fclose(lnHAND)
+return(llFLAG)
+
+
+/*
+* Function..: cria_array()
+* Retorno...: Array com estrutura do layout Acsel
+              1 - Conteudo do campo lido
+              2 - Tipo do Dado (N-Num, D-Date, C-Char) base GR5
+              3 - Posicao Inicial
+              4 - Número de caracteres
+              5 - Casas decimais
+              6 - Destino/Origem Tabela
+              7 - Destino/Origem Campo
+              8 - F-Fixo, S Dados, N - Não dados
+              9 - Flag para leitura no arquivo de retorno so lê o campo se true
+              10- Tipo do campo no layout N - numerico / A - Alfa numerico
+*/
+static function cria_array()
+
+   local laESTRU := {} as array
+                //1      2       3    4  5  6                 7                     8     9   10
+   aadd(laESTRU,{ "01" , "N",    1,   2, 0, ""             , ""                    ,"F" , .f. ,'N' } ) // 1
+   aadd(laESTRU,{ ""   , "N",    3,   7, 0, ""             , "SEQUENCIA"           ,"I" , .f. ,'N' } ) // 2
+   aadd(laESTRU,{ ""   , "A",   10,  11, 0, "pasta_seguro" , "NR_SINISTRO"         ,"S" , .f. ,'N' } ) // 3
+   aadd(laESTRU,{ ""   , "N",   21,   5, 0, ""             , ""                    ,"F" , .f. ,'N' } ) // 4
+   aadd(laESTRU,{ ""   , "D",   26,   8, 0, ""             , ""                    ,"D" , .f. ,'A' } ) // 5
+   aadd(laESTRU,{ ""   , "D",   34,   8, 0, "mvt_parc_ressarc"  , "DT_PREVISAO_PAGTO"   ,"S" , .f. ,'A' } ) // 6
+   aadd(laESTRU,{ ""   , "D",   42,   8, 0, "mvt_parc_ressarc"  , "DT_EMISSAO_DOCFISCAL","S" , .f. ,'A' } ) // 7
+   aadd(laESTRU,{ ""   , "N",   50,   3, 0, ""  			  , ""  	        			  ,"F" , .f. ,'N' } ) // 8
+   aadd(laESTRU,{ ""   , "N",   53,  15, 2, "mvt_parc_ressarc"  , "VL_TOTAL" 			  ,"S" , .f. ,'N' } ) // 9
+   aadd(laESTRU,{ ""   , "A",   68,  10, 0, "mvt_parc_ressarc"  , "CD_GRP_CONTROLE_REC"      ,"S" , .f. ,'A' } ) // 10
+   aadd(laESTRU,{ ""   , "A",   78,  20, 0, "mvt_parc_ressarc"  , "LOGIN"               ,"S" , .f. ,'A' } ) // 11
+   aadd(laESTRU,{ ""   , "A",   98,  20, 0, ""  			  , ""						  ,"F" , .f. ,'A' } ) // 12
+   aadd(laESTRU,{ ""   , "A",  118,  20, 0, "mvt_parc_ressarc"  , "FORMA_PAGAMENTO"     ,"S" , .f. ,'A' } ) // 13
+   aadd(laESTRU,{ ""   , "N",  138,   5, 0, ""             , ""                    ,"F" , .f. ,'N' } ) // 14
+   aadd(laESTRU,{ ""   , "A",  143,   6, 0, "mvt_parc_ressarc"  , "CD_CONTROLE_REC"          ,"S" , .f. ,'N' } ) // 15
+   aadd(laESTRU,{ ""   , "A",  149,  60, 0, "pfpj"         , "PFPJ"                ,"S" , .f. ,'A' } ) // 16
+   aadd(laESTRU,{ ""   , "A",  209,   1, 0, "pfpj"			  , "PFPJ_NATUREZA"       ,"S" , .f. ,'N' } ) // 17
+   aadd(laESTRU,{ ""   , "A",  210,  14, 0, "pfpj"         , "CNPJ_CPF"	           ,"S" , .f. ,'N' } ) // 18
+   aadd(laESTRU,{ ""   , "A",  224,   1, 0, ""             , ""     				     ,"F" , .f. ,'A' } ) // 19
+   aadd(laESTRU,{ ""   , "D",  225,   8, 0, "pfpj"         , "DT_NASCIMENTO"       ,"S" , .f. ,'D' } ) // 20
+   aadd(laESTRU,{ "1"  , "N",  233,   1, 0, ""             , ""                    ,"F" , .f. ,'N' } ) // 21
+   aadd(laESTRU,{ ""   , "A",  234,  60, 0, ""             , ""                    ,"F" , .f. ,'A' } ) // 22
+   aadd(laESTRU,{ ""   , "N",  294,   3, 0, "pfpj"			  , "CD_BANCO"	           ,"S" , .f. ,'N' } ) // 23
+   aadd(laESTRU,{ ""   , "A",  297,   4, 0, "pfpj"         , "BANCO_AGENCIA"       ,"S" , .f. ,'N' } ) // 24
+   aadd(laESTRU,{ ""   , "A",  301,   1, 0, "pfpj"         , "DV_AGENCIA"          ,"S" , .f. ,'A' } ) // 25
+   aadd(laESTRU,{ ""   , "A",  302,  11, 0, "pfpj"         , "BANCO_CONTA"         ,"S" , .f. ,'N' } ) // 26
+   aadd(laESTRU,{ ""   , "A",  313,   2, 0, "pfpj"         , "DV_CONTA"            ,"S" , .f. ,'A' } ) // 27
+   aadd(laESTRU,{ "00" , "N",  315,   2, 0, ""             , ""                    ,"F" , .f. ,'N' } ) // 28
+   aadd(laESTRU,{ ""   , "N",  317,  20, 0, "mvt_parc_ressarc"  , "NR_CONTROLE_REC"          ,"S" , .f. ,'A' } ) // 29
+   aadd(laESTRU,{ ""   , "N",  337,   6, 0, "mvt_parc_ressarc"  , "NR_PASTA"            ,"S" , .f. ,'N' } ) // 30
+   aadd(laESTRU,{ ""   , "A",  343,  58, 0, ""             , ""                    ,"F" , .f. ,'A' } ) // 31
+
+return(laESTRU)
+
+
+
+
+
+
+
+
+
+
+
+
+

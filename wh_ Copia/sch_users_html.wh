@@ -1,0 +1,85 @@
+/*
+
+Project      : gr5
+Program      : sch.users.html
+Function     : sch_users_html
+Created on   : 24-May-2002   13:34:05
+Descripition : Pesquisa de usuários
+
+*/
+
+   local lcACTION       := '' ,;
+         lcTABLE        := '' ,;
+         lcNM_CAMPO     := '' ,;
+         lcITEM         := '' ,;
+         lcWSCRIPT      := '' ,;
+         lcUSERS        := '' ,;
+         lcQUICK_SEARCH := '' as string
+   local laRES      := {} ,;
+         laWHERE    := {} ,;
+         laFIELDLST := {} ,;
+         laLABELLST := {} ,;
+         laJOIN     := {} ,;
+         laCHECKLST := {} as array
+   local ii := 0 as int
+
+   lcACTION       := upper(alltrim(WGet('ACTION','C')))
+   lcTABLE        := 'acuser'
+   lcNM_CAMPO     := alltrim(WGet('NM_CAMPO'))
+   lcQUICK_SEARCH := alltrim(WGet('QUICK_SEARCH','C'))
+   laFIELDLST     := structtable(WSet('DB_ACTIVE'),lcTABLE,1,'A')
+   laLABELLST     := structtable(WSet('DB_ACTIVE'),lcTABLE,11,'A')
+   laJOIN         := {{2,'pfpj','pfpj.CIP=acuser.CIP'}}
+
+   WPut('TITLE','Localizar usuários')
+   WPut('NM_CAMPO',lcNM_CAMPO)
+   WPut('QUICK_SEARCH',lcQUICK_SEARCH)
+
+   if lcACTION == 'EXECSEL'
+      if ! empty(lcQUICK_SEARCH)
+        aadd(laWHERE,'LOGIN like '+DLAP+'%'+lcQUICK_SEARCH+'%'+DLAP + ' OR PFPJ like '+DLAP+'%'+lcQUICK_SEARCH+'%'+DLAP)
+      endif
+      if db_select({'WUID','LOGIN','PFPJ'},lcTABLE,laJOIN,laWHERE) = -1
+//     if db_select(laFIELDLST,lcTABLE,laJOIN,laWHERE) = -1
+
+{'UID','LOGIN','PFPJ'}
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      if len(laRES) > 0
+         aadd(laRES[1],'VAR_USER')
+         aadd(laRES[1],'VAR_CTR')
+         for ii:= 2 to len(laRES)
+            lcITEM := '_'+alltrim(str(ii-1))
+            aadd(laRES[ii],'VAR_USER'+lcITEM)
+            aadd(laRES[ii],'VAR_CTR'+lcITEM)
+            WPut('VAR_USER'+lcITEM+'_OPT',laRES[ii,db_fetchncol(laRES,'LOGIN')])
+            WPut('VAR_CTR'+lcITEM,laRES[ii,db_fetchncol(laRES,'LOGIN')])
+         next ii
+         WPut('lstUSERS',laRES)
+      endif
+   elseif lcACTION == 'EXECSEND'
+      ii     := 1
+      lcITEM := '_'+alltrim(str(ii))
+      do while wGet('VAR_CTR'+lcITEM,'B')
+         if ! empty(alltrim(WGet('VAR_USER'+lcITEM,'C')))
+            aadd(laCHECKLST, alltrim(WGet('VAR_USER'+lcITEM,'C')))
+         endif
+         ii ++
+         lcITEM := '_'+alltrim(str(ii))
+      enddo
+
+      if len(laCHECKLST) > 0
+         lcUSERS   := array2str(laCHECKLST,',')
+         lcWSCRIPT := 'if (opener.document.mntform.'+lcNM_CAMPO+'.value.length==0)'+CRLF+;
+                      'opener.document.mntform.'+lcNM_CAMPO+'.value='+DLMT+lcUSERS+DLMT+CRLF+;
+                      'else'+CRLF+;
+                      'opener.document.mntform.'+lcNM_CAMPO+'.value+='+DLMT+','+lcUSERS+DLMT+';'+CRLF
+         WPut('WSCRIPT',lcWSCRIPT)
+         WSet('_USER_INTERFACE','close.wic')
+      else
+         walert('Nenhum registro foi selecionado')
+      endif
+   endif
+
+

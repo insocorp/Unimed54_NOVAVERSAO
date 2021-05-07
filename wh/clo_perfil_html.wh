@@ -1,0 +1,46 @@
+/*
+
+Project      : isj_60
+Program      : clo.perfil.html
+Function     : clo_perfil_html
+Created on   : 17-Jul-2017   09:50:19
+Descripition : 
+
+*/
+
+
+    local lcXml        := '',;
+          lcNomePerfil := '',;
+          lcACTION     := '',;
+          lcPerfis     := ''  AS String
+
+    local objPerfil  := PAToolsNew()
+    
+    lcACTION         := wGet('ACTION')
+    objPerfil:Wgid   :=  WGet('WGID','N')
+    lcNomePerfil     := objPerfil:getWgroupName(objPerfil:Wgid)
+    lcXml            := objPerfil:getXmlExport()
+    lcPerfis         := objPerfil:getPerfisExistente()
+
+    WPut('PERFIS_EXISTENTE',lcPerfis)
+    WPut('PERFIL_ORIGEM', lcNomePerfil)
+    WPut('WGID', WGET('WGID'))
+
+   if lcACTION == 'CLONE'
+      objPerfil:PerfilOrigem = WGET('NM_PERFIL_ORIGEM')
+      objPerfil:NovoPerfil   = WGET('NOME_NOVO_PERFIL')
+      objPerfil:ClonarPerfil()
+      WSet('_USER_INTERFACE','lst.acgroup.html')
+      lst_acgroup_html()
+   endif
+
+
+//    WSet('_WDEBUG','DISABLE')
+//    wouthttphead('application/octet-stream',{'Accept-Ranges: bytes','Content-Length:'+alltrim(str(len(lcXml))),'Content-Disposition: attachment; filename="'+lcNomePerfil+'.per"'})
+//    Wout(lcXml)
+
+
+return
+
+
+

@@ -1,0 +1,127 @@
+/*
+
+Project      : gr5
+Program      : psab.incorporacao.html
+Function     : psab_incorporacao_html
+Created on   : 06/07/2012 16:02:45
+Descripition : Contenciosos - Empresas Incorporadas
+
+*/
+
+   local lcACTION      := '' ,;
+         lcTP_PASTA    := '' ,;
+         lcTABLE       := '' ,;
+         lcFIELDS      := '' ,;
+         lcNR_PASTA    := '' ,;
+         lcNR_CONTROLE := '' as string
+         
+   local laRESULT   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laWHERE    := {} ,;
+         laFIELDS   := {} ,;
+         laLABELS   := {} ,;
+         laJOIN     := {} ,;
+         laVALIDA   := {} as array
+       
+   local ii     := 0  as int
+   
+          
+   local llERRO := .F. as logical
+
+  
+   lcTP_PASTA    := WGet('TP_PASTA','C')
+   lcNR_PASTA    := WGet('NR_PASTA','C')
+   lcNR_CONTROLE := alltrim(WGet('NR_CONTROLE','C'))
+   
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   
+   if upper(lcNR_CONTROLE) = 'NEW' .or. empty(lcNR_CONTROLE)
+      lcNR_CONTROLE := '0'
+   endif
+   
+   lcTABLE    := 'pasta_incorporacao'
+   laWHERE    := {'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE}
+   
+   laFIELDS   := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS   := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   lcACTION      := upper(alltrim(WGet('ACTION','C')))
+   
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   
+   make_psthead(lcNR_PASTA,lcTP_PASTA) //Cabeçalho
+   pasta_abas(lcTP_PASTA)
+
+
+   wPut('TP_PASTA',lcTP_PASTA)
+   
+   laJOIN := {{2,'incorporacao','incorporacao.ID_INCORPORACAO=pasta_incorporacao.ID_INCORPORACAO'},;  
+              {2,'pfpj incorporada','incorporada.CIP=pasta_incorporacao.CIP_INCORPORADA'},;
+              {2,'pfpj incorporadora','incorporadora.CIP=pasta_incorporacao.CIP_INCORPORADORA'}}               
+   
+
+   if db_select ({'pasta_incorporacao.NR_PASTA',;
+                 'CIP_INCORPORADORA',;
+                 'incorporadora.PFPJ',;
+                 'CIP_INCORPORADA',;
+                 'incorporada.PFPJ',;
+                 'pasta_incorporacao.ID_INCORPORACAO',;
+                 'incorporacao.INCORPORACAO',;
+                 'DT_TRANSFERENCIA',;
+                 'HR_TRANSFERENCIA',;
+                 'HISTORICO_VC',;
+                 'pasta_incorporacao.LOGIN_CADASTRO'},;
+                 lcTABLE,;
+                 laJOIN,;
+                 {'pasta_incorporacao.NR_PASTA='+lcNR_PASTA},;
+                 {'DT_TRANSFERENCIA'},;
+                 'D') = -1
+                 
+      error_sys(db_error())
+   endif
+   laRES1 := db_fetchall()
+   
+   if len(laRES1) > 0     
+      WPut('GRID_INCORPORACAO',grid_create(laRES1))
+   ENDIF    
+   pasta_abas(lcTP_PASTA)
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

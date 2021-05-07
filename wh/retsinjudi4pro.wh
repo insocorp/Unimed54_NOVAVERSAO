@@ -1,0 +1,407 @@
+
+
+//
+// Glauber - 10/2017
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Classe...........: I4proRetSinJud
+*
+* Objetivo.........: Classe que espelha o retorno da marcação de um sinistro como judicial.
+*
+* Atributos........:
+*
+*    EXPORT NrSinistro
+*    EXPORT DtAviso
+*    EXPORT DtOcorrencia
+*    EXPORT NmStatusSinistro
+*    EXPORT IdSinPasta
+*    EXPORT NrPasta
+*    EXPORT NrProcessoJudicial
+*    EXPORT IdTpMotivo
+*    EXPORT NmMotivoJudicial
+*    EXPORT DtJudicial
+*    EXPORT DtCitacao
+*    EXPORT IdPessoaAutor
+*    EXPORT NmAutor
+*    EXPORT NrCnpjCpfAutor
+*    EXPORT NmReclamante
+*    EXPORT NmStatusPasta
+*    EXPORT CdUf
+*    EXPORT NmPerda
+*    EXPORT VlEconomico
+*    EXPORT VlAcao
+*    EXPORT NmSegurado
+*    EXPORT SeguradoNrCnpjCpf
+*    EXPORT NmSinistrado
+*    EXPORT SinistradoNrCnpjCpf
+*    EXPORT CdApolice
+*    EXPORT NrEndosso
+*    EXPORT CdProposta
+*    EXPORT NrCertificado
+*    EXPORT DtEmissaoApolice
+*    EXPORT DtEmissaoEndosso
+*    EXPORT VigenciaDtInicio
+*    EXPORT DtFimVigencia
+*    EXPORT EndossoDtInicioVigencia
+*    EXPORT DtFimVigenciaEndosso
+*    EXPORT VlPremio
+*    EXPORT NmEstipulante
+*    EXPORT NmEnderecoEstipulante
+*    EXPORT NmCepCidadeUfEstipulante
+*    EXPORT NmSubEstipulante
+*    EXPORT NmEnderecoSubEstipulante
+*    EXPORT NmCepCidadeUfSubEstipulante
+*    EXPORT NmCorretor
+*    EXPORT NmCausa
+*    EXPORT NmMotivoCausa
+*    EXPORT DtDemissao
+*    EXPORT DtAfastamento
+*    EXPORT IdFollowup
+*    EXPORT DtFollowup
+*    EXPORT DsFollouwp
+*    EXPORT Retorno*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD toString()
+*
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS I4proRetSinJud
+
+    // Atributos publico
+
+    EXPORT NrSinistro
+    EXPORT DtAviso
+    EXPORT DtOcorrencia
+    EXPORT NmStatusSinistro
+    EXPORT IdSinPasta
+    EXPORT NrPasta
+    EXPORT NrProcessoJudicial
+    EXPORT IdTpMotivo
+    EXPORT NmMotivoJudicial
+    EXPORT DtJudicial
+    EXPORT DtCitacao
+    EXPORT IdPessoaAutor
+    EXPORT NmAutor
+    EXPORT NrCnpjCpfAutor
+    EXPORT NmReclamante
+    EXPORT NmStatusPasta
+    EXPORT CdUf
+    EXPORT NmPerda
+    EXPORT VlEconomico
+    EXPORT VlAcao
+    EXPORT NmSegurado
+    EXPORT SeguradoNrCnpjCpf
+    EXPORT NmSinistrado
+    EXPORT SinistradoNrCnpjCpf
+    EXPORT CdApolice
+    EXPORT NrEndosso
+    EXPORT CdProposta
+    EXPORT NrCertificado
+    EXPORT DtEmissaoApolice
+    EXPORT DtEmissaoEndosso
+    EXPORT VigenciaDtInicio
+    EXPORT DtFimVigencia
+    EXPORT EndossoDtInicioVigencia
+    EXPORT DtFimVigenciaEndosso
+    EXPORT VlPremio
+    EXPORT NmEstipulante
+    EXPORT NmEnderecoEstipulante
+    EXPORT NmCepCidadeUfEstipulante
+    EXPORT NmSubEstipulante
+    EXPORT NmEnderecoSubEstipulante
+    EXPORT NmCepCidadeUfSubEstipulante
+    EXPORT NmCorretor
+    EXPORT NmCausa
+    EXPORT NmMotivoCausa
+    EXPORT DtDemissao
+    EXPORT DtAfastamento
+    EXPORT IdFollowup
+    EXPORT DtFollowup
+    EXPORT DsFollouwp
+    EXPORT NmObs
+    EXPORT DvCosseguro
+    EXPORT CdTpCosseguro
+    EXPORT NmLider
+    EXPORT IdPessoaCongenere            
+    EXPORT NmCongenere
+    EXPORT PcCosseguro
+    EXPORT DvResseguro
+    EXPORT NmResseguradora
+    EXPORT PcResseguro
+    EXPORT VlIsResseguro
+    EXPORT DtEmissaoEndosso
+           
+    EXPORT Retorno
+
+
+
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()                          CLASS I4proRetSinJud
+    PROTOTYPE METHOD Destroy()                       CLASS I4proRetSinJud
+    PROTOTYPE METHOD toString()                      CLASS I4proRetSinJud
+
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS I4proRetSinJud
+
+   
+    self:NrSinistro := ''
+    self:DtAviso := ''
+    self:DtOcorrencia := ''
+    self:NmStatusSinistro := ''
+    self:IdSinPasta := ''
+    self:NrPasta := 0
+    self:NrProcessoJudicial := ''
+    self:IdTpMotivo := ''
+    self:NmMotivoJudicial := ''
+    self:DtJudicial := ''
+    self:DtCitacao := ''
+    self:IdPessoaAutor := ''
+    self:NmAutor := ''
+    self:NrCnpjCpfAutor := ''
+    self:NmReclamante := ''
+    self:NmStatusPasta := ''
+    self:CdUf := ''
+    self:NmPerda := ''
+    self:VlEconomico := 0.00
+    self:VlAcao := 0.00
+    self:NmSegurado := ''
+    self:SeguradoNrCnpjCpf := ''
+    self:NmSinistrado := ''
+    self:SinistradoNrCnpjCpf := ''
+    self:CdApolice := ''
+    self:NrEndosso := ''
+    self:CdProposta := ''
+    self:NrCertificado := ''
+    self:DtEmissaoApolice := ''
+    self:DtEmissaoEndosso := ''
+    self:VigenciaDtInicio := ''
+    self:DtFimVigencia := ''
+    self:EndossoDtInicioVigencia := ''
+    self:DtFimVigenciaEndosso := ''
+    self:VlPremio := 0.00
+    self:NmEstipulante := ''
+    self:NmEnderecoEstipulante := ''
+    self:NmCepCidadeUfEstipulante := ''
+    self:NmSubEstipulante := ''
+    self:NmEnderecoSubEstipulante := ''
+    self:NmCepCidadeUfSubEstipulante := ''
+    self:NmCorretor := '' 
+    self:NmCausa := ''
+    self:NmMotivoCausa := ''
+    self:DtDemissao := ''
+    self:DtAfastamento := ''
+    self:IdFollowup := ''
+    self:DtFollowup := ''
+    self:DsFollouwp := ''      
+    self:NmObs           := ''
+    self:DvCosseguro     := ''
+    self:CdTpCosseguro   := '' 
+    self:NmLider         := ''
+    self:IdPessoaCongenere:=''
+    self:NmCongenere     := ''
+    self:PcCosseguro     := ''
+    self:DvResseguro     := ''
+    self:NmResseguradora := ''  
+    self:PcResseguro     := ''
+    self:VlIsResseguro   := '' 
+    self:DtEmissaoEndosso:= ''
+    
+    self:Retorno := I4proRetornoNew()
+
+return(self)
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS I4proRetSinJud
+
+    self:NrSinistro := nil
+    self:DtAviso := nil
+    self:DtOcorrencia := nil
+    self:NmStatusSinistro := nil
+    self:IdSinPasta := nil
+    self:NrPasta := nil
+    self:NrProcessoJudicial := nil
+    self:IdTpMotivo := nil
+    self:NmMotivoJudicial := nil
+    self:DtJudicial := nil
+    self:DtCitacao := nil
+    self:IdPessoaAutor := nil
+    self:NmAutor := nil
+    self:NrCnpjCpfAutor := nil
+    self:NmReclamante := nil
+    self:NmStatusPasta := nil
+    self:CdUf := nil
+    self:NmPerda := nil
+    self:VlEconomico := nil
+    self:VlAcao := nil
+    self:NmSegurado := nil
+    self:SeguradoNrCnpjCpf := nil
+    self:NmSinistrado := nil
+    self:SinistradoNrCnpjCpf := nil
+    self:CdApolice := nil
+    self:NrEndosso := nil
+    self:CdProposta := nil
+    self:NrCertificado := nil
+    self:DtEmissaoApolice := nil
+    self:DtEmissaoEndosso := nil
+    self:VigenciaDtInicio := nil
+    self:DtFimVigencia := nil
+    self:EndossoDtInicioVigencia := nil
+    self:DtFimVigenciaEndosso := nil
+    self:VlPremio := nil
+    self:NmEstipulante := nil
+    self:NmEnderecoEstipulante := nil
+    self:NmCepCidadeUfEstipulante := nil
+    self:NmSubEstipulante := nil
+    self:NmEnderecoSubEstipulante := nil
+    self:NmCepCidadeUfSubEstipulante := nil
+    self:NmCorretor := nil
+    self:NmCausa := nil
+    self:NmMotivoCausa := nil
+    self:DtDemissao := nil
+    self:DtAfastamento := nil
+    self:IdFollowup := nil
+    self:DtFollowup := nil
+    self:DsFollouwp := nil     
+    self:NmObs           := nil    
+    self:DvCosseguro     := nil    
+    self:CdTpCosseguro   := nil   
+    self:NmLider         := nil 
+    self:IdPessoaCongenere:=nil  
+    self:NmCongenere     := nil    
+    self:PcCosseguro     := nil    
+    self:DvResseguro     := nil   
+    self:NmResseguradora := nil    
+    self:PcResseguro     := nil   
+    self:VlIsResseguro   := nil  
+    self:DtEmissaoEndosso:= nil  
+   
+    self:Retorno := I4proRetornoNew()
+
+return(nil)
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: toString()
+* Objetivo..: Retornar uma String com a representação do Objeto.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             String
+*
+*/
+
+METHOD toString() CLASS I4proRetSinJud
+
+return    'I4proRetSinJud [NrSinistro =' + Transform(self:NrSinistro) + ;
+    ', DtAviso =' + Transform(self:DtAviso) + ;
+    ', DtOcorrencia =' + Transform(self:DtOcorrencia) + ;
+    ', NmStatusSinistro =' + Transform(self:NmStatusSinistro) + ;
+    ', IdSinPasta =' + Transform(self:IdSinPasta) + ;
+    ', NrPasta ='+ Transform(self:NrPasta) + ;
+    ', NrProcessoJudicial =' + Transform(self:NrProcessoJudicial) + ;
+    ', IdTpMotivo =' + Transform(self:IdTpMotivo) + ;
+    ', NmMotivoJudicial =' + Transform(self:NmMotivoJudicial) + ;
+    ', DtJudicial =' + Transform(self:DtJudicial) + ;
+    ', DtCitacao =' + Transform(self:DtCitacao) + ;
+    ', IdPessoaAutor =' + Transform(self:IdPessoaAutor) + ;
+    ', NmAutor =' + Transform(self:NmAutor) + ;
+    ', NrCnpjCpfAutor =' + Transform(self:NrCnpjCpfAutor) + ;
+    ', NmReclamante =' + Transform(self:NmReclamante) + ;
+    ', NmStatusPasta =' + Transform(self:NmStatusPasta) + ;
+    ', CdUf =' + Transform(self:CdUf) + ;
+    ', NmPerda =' + Transform(self:NmPerda) + ;
+    ', VlEconomico = ' + Transform(self:VlEconomico) +;
+    ', VlAcao = ' + Transform(self:VlAcao) +;
+    ', NmSegurado =' + Transform(self:NmSegurado) + ;
+    ', SeguradoNrCnpjCpf =' + Transform(self:SeguradoNrCnpjCpf) + ;
+    ', NmSinistrado =' + Transform(self:NmSinistrado) + ;
+    ', SinistradoNrCnpjCpf =' + Transform(self:SinistradoNrCnpjCpf) + ;
+    ', CdApolice =' + Transform(self:CdApolice) + ;
+    ', NrEndosso =' + Transform(self:NrEndosso) + ;
+    ', CdProposta =' + Transform(self:CdProposta) + ;
+    ', NrCertificado =' + Transform(self:NrCertificado) + ;
+    ', DtEmissaoApolice =' + Transform(self:DtEmissaoApolice) + ;
+    ', DtEmissaoEndosso =' + Transform(self:DtEmissaoEndosso) + ;
+    ', VigenciaDtInicio =' + Transform(self:VigenciaDtInicio) + ;
+    ', DtFimVigencia =' + Transform(self:DtFimVigencia) + ;
+    ', EndossoDtInicioVigencia =' + Transform(self:EndossoDtInicioVigencia) + ;
+    ', DtFimVigenciaEndosso =' + Transform(self:DtFimVigenciaEndosso) + ;
+    ', VlPremio = ' + Transform(self:VlPremio) + ;
+    ', NmEstipulante =' + Transform(self:NmEstipulante) + ;
+    ', NmEnderecoEstipulante =' + Transform(self:NmEnderecoEstipulante) + ;
+    ', NmCepCidadeUfEstipulante =' + Transform(self:NmCepCidadeUfEstipulante) + ;
+    ', NmSubEstipulante =' + Transform(self:NmSubEstipulante) + ;
+    ', NmEnderecoSubEstipulante =' + Transform(self:NmEnderecoSubEstipulante) + ;
+    ', NmCepCidadeUfSubEstipulante =' + Transform(self:NmCepCidadeUfSubEstipulante) + ;
+    ', NmCorretor =' + Transform(self:NmCorretor) + ;
+    ', NmCausa =' + Transform(self:NmCausa) + ;
+    ', NmMotivoCausa =' + Transform(self:NmMotivoCausa) + ;
+    ', DtDemissao =' + Transform(self:DtDemissao) + ;
+    ', DtAfastamento =' + Transform(self:DtAfastamento) + ;
+    ', IdFollowup =' + Transform(self:IdFollowup) + ;
+    ', DtFollowup =' + Transform(self:DtFollowup) + ;
+    ', DsFollouwp =' + Transform(self:DsFollouwp) + ;
+    ', Retorno = ' + Transform(self:Retorno:toString()) +  ']'
+    
+    
+
+
+

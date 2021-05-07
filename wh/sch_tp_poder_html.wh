@@ -1,0 +1,71 @@
+/*
+
+Project      : gr5
+Program      : sch.tp_poder.html
+Function     : sch_tp_poder_html
+Created on   : 2010-06-29 15:37:17
+Descripition : Pesquisa de poderes
+
+*/
+
+   local lcNM_FLD  := '' ,;
+         lcNM_FLD2 := '' as string
+   local laFIELDS       := {},;
+         laJAVA         := {},;
+         laQUICK_SEARCH := {},;
+         laINPUT_HIDDEN := {} as array
+   
+   lcNM_FLD := WGet('NM_FIELD','C')
+ 
+
+   if empty(lcNM_FLD)
+      lcNM_FLD := 'TP_PODER'
+   endif
+  
+   laFIELDS       := {'TP_PODER','DESC_PODER'}
+   laINPUT_HIDDEN := {{'NM_FIELD',lcNM_FLD}}
+   laJAVA := {'mntform',{{lcNM_FLD,'TP_PODER'},{'DESC_PODER','DESC_PODER'}}}
+   laQUICK_SEARCH := {'TP_PODER'}
+   laWHERE        := {'FL_ATIVO <> '+DLAP+'I'+DLAP}
+
+   xbp2('tipo_poder',;                   //Tabela Alvo
+       ,;                          //Join
+       laWHERE,;                          //Where
+       ,;                          //Order by
+       ,;                          //Sort [A]-Ascendente [D]-Descentende
+       ,;                          //Group by
+       ,;                          //Limit
+       ,;                          //Banco de Dados
+       3,;                         //Modo de funcionamento [1]-Listagem/Form para manutenção [2]-Listagem e Manutenção [3]-Search
+       'gr5',;                     //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;   //Programa chamador
+       ,;                          //Parametros para linhas clicáveis
+       ,;                          //Botoes (nil)
+       'mnt.tipo_poder.html',;          //Programa chamado pelos links (linhas clicáveis)
+       'gr5',;                     //Módulo do programa chamado pelos links
+       laJAVA,;                    //Retorno java (nil) - usado apenas no search
+       laQUICK_SEARCH,;            //Campos usados na pesquisa rápida
+       laINPUT_HIDDEN,;            //Campos ocultos. Usado apenas em manutenções    ***
+       ,;                          //Campos da área de manutenção/entrada de dados  ***
+       laFIELDS,;                  //Campos mostratos no grid
+       laFIELDS)                   //Campos usados no select
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

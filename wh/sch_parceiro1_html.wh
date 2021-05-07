@@ -1,0 +1,148 @@
+/*
+
+Project      : gr5
+Program      : sch.parceiro1.html
+Function     : sch_parceiro1_html
+Created on   : 15/10/2015 10:39:04
+Descripition : Pesquisa de Parceiros
+
+*/
+
+   local lcWHERE            := '' ,;
+         lcCIP_EMPRESA      := '' as string
+
+   local laRES          := {} ,;
+         laFIELDS       := {} ,;
+         laFIELDS_GRID  := {} ,;
+         laWHERE        := {} ,;
+         laJAVA         := {} ,;
+         laJOIN         := {} ,;
+         laPFPJ_TIPOS   := {} ,;
+         laQUICK_SEARCH := {} ,;
+         laINPUT_HIDDEN := {} as array
+         
+         
+   local lnPOS        := 0 as int
+
+   lcCD_PARCEIRO   := alltrim(WGet('CD_PARCEIRO','C'))
+   lcCIP_EMPRESA   := WGet('CIP_EMPRESA','C')
+   
+    laINPUT_HIDDEN     := {{'CD_PARCEIRO',lcCD_PARCEIRO},;
+                          {'CIP_EMPRESA',  lcCIP_EMPRESA}}
+
+
+   laFIELDS_GRID := {'CD_PARCEIRO',;
+                     'PARCEIROS1',;
+                     'CIP_EMPRESA',;
+                     'FL_ATIVO'}
+
+  laFIELDS       := {'CD_PARCEIRO',;
+                     'PARCEIROS1',;
+                     'CIP_EMPRESA',;
+                     'FL_ATIVO'}
+
+
+   laJAVA   := {'mntform',{{'CD_PARCEIRO','CD_PARCEIRO'},{'PARCEIROS1','PARCEIROS1'}}}
+                               
+
+   laJOIN   := {}
+ 
+   laQUICK_SEARCH := {'CIP_EMPRESA',;
+                      'CD_PARCEIRO',;
+                      'PARCEIRO1'}
+
+
+   aadd(laWHERE,'FL_ATIVO<>'+DLAP+'I'+DLAP)
+   aadd(laWHERE,'CIP_EMPRESA ='+lcCIP_EMPRESA)
+
+
+
+   xbp('parceiros1',;                  //Tabela Alvo
+       laJOIN,;                  //Join
+       laWHERE,;                 //Where
+       ,;                        //Order by
+       ,;                        //Sort [A]-Ascendente [D]-Descentende
+       ,;                        //Group by
+       ,;                        //Limit
+       ,;                        //Banco de Dados
+       3,;                       //Modo de funcionamento [1]-Listagem/Form para manutenção [2]-Listagem e Manutenção [3]-Search
+       'gr5',;                   //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),; //Programa chamador
+       ,;                        //Parametros para linhas clicáveis
+       ,;                        //Botoes (nil)
+       'parceiro1.mnt.html',;         //Programa chamado pelos links (linhas clicáveis)
+       'gr5',;                   //Módulo do programa chamado pelos links
+       laJAVA,;                  //Retorno java
+       laQUICK_SEARCH,;          //Campos usados na pesquisa rápida
+       laINPUT_HIDDEN,;          //Campos ocultos. Usado apenas em manutenções    ***
+       ,;                        //Campos da área de manutenção/entrada de dados  ***
+       laFIELDS_GRID,;           //Campos mostratos no grid
+       laFIELDS)                 //Campos usados no select   
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

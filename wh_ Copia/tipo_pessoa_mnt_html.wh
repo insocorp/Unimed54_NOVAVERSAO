@@ -1,0 +1,49 @@
+/*
+
+Project      : gr5
+Program      : tipo_pessoa.mnt.html
+Function     : tipo_pessoa_mnt_html
+Created on   : 09/12/2016 15:17:42
+Descripition : Manutenção de Tipo de Pessoa
+
+*/
+
+local laPARAM        := {} ,;
+      laINPUT_OBJ    := {} ,;
+      laSELECT       := {} as array
+
+laPARAM := {{'PFPJ_NM_TIPO',''     ,'*'},;
+            {'FL_ATIVO','',},;
+            {'ACTION'               ,'ALTER',   }}
+laINPUT_OBJ := {{'PFPJ_NM_TIPO',0,,'Y',},;
+                {,,,,},;
+                {'FL_ATIVO',2,,,'"S"' }}
+laSELECT := {'PFPJ_NM_TIPO','FL_ATIVO'}
+
+
+xbp('tipo_pessoa',;                                             //Tabela alvo
+    ,;                                                                  //Joins
+    ,;                                                                  //Where
+    {'PFPJ_NM_TIPO'},;                                           //Order by
+    ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+    ,;                                                                  //Group by
+    ,;                                                                  //Limit
+    ,;                                                                  //Banco de Dados
+    2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+    'gr5',;                                                            //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                                           //Programa chamador
+    laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+    ,;                                                                  //Parâmetros para os botões das linhas do grid
+    'tipo_pessoa.mnt.html',;                                             //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                                            //Módulo do programa chamado pelos links/botoes do grid
+    ,;                                                                  //Retorno java (nil) - usado apenas para Search
+    ,;                                                                  //Campos usados na pesquisa rápida
+    ,;                                                                  //Campos Ocultos
+    laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+    laSELECT ,;                                                         //Campos exibidos no grid
+    laSELECT)                                                           //Campos usados no select
+return
+
+
+
+

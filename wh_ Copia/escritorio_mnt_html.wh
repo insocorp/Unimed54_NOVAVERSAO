@@ -1,0 +1,554 @@
+/*
+
+Project      : gr5
+Program      : escritorio.mnt.html
+Function     : escritorio_mnt_html
+Created on   : 16-Jun-2006   10:29:34
+Descripition : Escritório Externo
+
+*/
+   local laSAVE    := {} ,;
+         laSAVE_AUX:= {} ,;
+         laRES     := {} ,;
+         laRES_AUX := {} ,;
+         laRESULT  := {} ,;
+         laPAGINAS := {} ,;
+         laWHERE   := {} ,;
+         laFIELDS  := {} ,;
+         laSEGMENT := {} ,;
+         laREGIAO  := {} ,;
+         laLIMIT   := {} ,;
+         laJOIN    := {} as array
+
+   local ii        := 0 ,;
+         lnELEMENTO:= 0 ,;
+         lnNCAMPRG := WGet('NCAMPRG','N') ,;   // numero de registro por região
+         lnNCAMPTP := WGet('NCAMPTP','N') ,;   // numero de registro por tp segmento
+         lnNCAMPH  := WGet('NCAMPH','N')  ,;   // numero de linhas da primeira tabela
+         lnNCAMPHV := WGet('NCAMPHV','N') as int  // numero de linhas da segunda tabela
+
+   local lcITEM   := '' ,;
+         lcACTION := WGet('ACTION','C') ,;
+         lcCIP    := alltrim(WGet('CIP_ESCRITORIO','C')) as string
+
+   laSEGMENT := loadcbox_build('TIPO_SEGMENTO','TP_SEGMENTO',.t.)
+   laREGIAO  := loadcbox_build('REGIAO','REGIAO',.t.)
+
+   wput('ifREGIAO'     ,.t.)
+   wput('ifTP_SEGMENTO',.t.)
+   wput('ifFIXO',.t.)
+   wput('ifVARIAVEL',.t.)
+
+   if lcACTION == 'ALTER' .and. gbWAC_WRITE
+      alter()
+   elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+      if !empty(lcCIP)
+         // resgatando valores  [pfpj_escritorio_honorario_fixo] - Honorários Fixos
+         laWHERE:= {}
+         laSAVE := {{'CIP','NR_CONTROLE','VL_RHFIXO_INICIAL','VL_RHFIXO_FINAL','PC_RHFIXO','VL_RHMINIMO','FL_NEGOCIAVEL'}}
+         for ii := 1 to lnNCAMPH
+             lcITEM := alltrim(str(ii))
+             if ((val(WGet('VL_RHFIXO_INICIAL_'+lcITEM,'C'))!=0) .or. (val(WGet('VL_RHFIXO_FINAL_'+lcITEM,'C'))!=0);
+             		.or. (val(WGet('PC_RHFIXO_'+lcITEM,'C'))!=0) .or. (val(WGet('VL_RHMINIMO_'+lcITEM,'N'))!=0))
+                if(empty(WGet('FL_NEGOCIAVEL_'+lcITEM,'C')))
+                	 aadd(laSAVE  ,{lcCIP,,val(WGet('VL_RHFIXO_INICIAL_'+lcITEM,'C')),val(WGet('VL_RHFIXO_FINAL_'+lcITEM,'C')),;
+                   	val(WGet('PC_RHFIXO_'+lcITEM,'C')),val(WGet('VL_RHMINIMO_'+lcITEM,'C')),WGet('FL_NEGOCIAVEL_'+lcITEM,'C')})
+                else
+                   aadd(laSAVE  ,{lcCIP,,val(WGet('VL_RHFIXO_INICIAL_'+lcITEM,'C')),val(WGet('VL_RHFIXO_FINAL_'+lcITEM,'C')),;
+                   	0.00,val(WGet('VL_RHMINIMO_'+lcITEM,'C')),WGet('FL_NEGOCIAVEL_'+lcITEM,'C')})
+                endif
+             endif
+         next ii
+         if(valida_grid(laSAVE)) // Função no final do arquivo
+             // resgatando valores  [pfpj_escritorio_honorario_variavel] - Honorários de Êxito Variável
+             laWHERE:= {}
+             laSAVE_AUX := {{'CIP','NR_CONTROLE','PC_ECONOMIA_INICIAL','PC_ECONOMIA_FINAL','PC_RHVARIAVEL','VL_RHMAXIMO'}}
+
+             for ii := 1 to lnNCAMPHV
+                 lcITEM := alltrim(str(ii))
+                 if ((val(WGet('PC_ECONOMIA_INICIAL_'+lcITEM,'C'))!=0) .or. (val(WGet('PC_ECONOMIA_FINAL_'+lcITEM,'C'))!=0);
+                 		.or. (val(WGet('PC_RHVARIAVEL_'+lcITEM,'C'))!=0) .or. (val(WGet('VL_RHMAXIMO_'+lcITEM,'N'))!=0))
+                    aadd(laSAVE_AUX  ,{lcCIP,'',val(WGet('PC_ECONOMIA_INICIAL_'+lcITEM,'C')),val(WGet('PC_ECONOMIA_FINAL_'+lcITEM,'C')),;
+                         val(WGet('PC_RHVARIAVEL_'+lcITEM,'C')),val(WGet('VL_RHMAXIMO_'+lcITEM,'C'))})
+                 endif
+             next ii
+             if(valida_grid(laSAVE_AUX)) // Função no final do arquivo
+                // salvando  [pfpj_escritorio_honorario_fixo] - Honorários Fixos
+                if db_delete('pfpj_escritorio_honorario_fixo','CIP='+'"'+lcCIP+'"') == -1
+                   error_sys(db_error())
+                endif
+                if len(laSAVE) > 1
+                   if db_insert(laSAVE,'pfpj_escritorio_honorario_fixo',,wset('DB_ACTIVE')) == -1
+                      error_sys(db_error())
+                   endif
+                endif
+
+                // salvando  [pfpj_escritorio_honorario_variavel] - Honorários de Êxito Variável
+                if db_delete('pfpj_escritorio_honorario_variavel','CIP='+'"'+lcCIP+'"') == -1
+		             error_sys(db_error())
+      		    endif
+
+		          if len(laSAVE_AUX) > 1
+       			    if db_insert(laSAVE_AUX,'pfpj_escritorio_honorario_variavel',,wset('DB_ACTIVE')) == -1
+               	 	error_sys(db_error())
+		             endif
+       			 endif
+                // salvando  [ pfpj_escritorio_regiao ] Escritório - Região
+                laWHERE:= {}
+                laSAVE := {{'CIP','REGIAO'}}
+                for ii := 1 to lnNCAMPRG
+                    lcITEM := alltrim(str(ii))
+                    if !empty(WGet('REGIAO'+lcITEM,'C'))
+                       aadd(laSAVE  , {lcCIP, WGet('REGIAO'+lcITEM,'C')})
+                       aadd(laWHERE , 'CIP='+'"'+lcCIP+'" and REGIAO="'+alltrim(WGet('REGIAO'+lcITEM,'C'))+'"')
+                    endif
+                next ii
+                if db_delete('pfpj_escritorio_regiao','CIP='+'"'+lcCIP+'"') == -1
+                   error_sys(db_error())
+                endif
+                if len(laSAVE) > 1
+                   if db_replace(laSAVE,'pfpj_escritorio_regiao',laWHERE,wset('DB_ACTIVE')) == -1
+                      error_sys(db_error())
+                   endif
+                endif
+                // salvando  [pfpj_escritorio_tipo_segmento] Escritório - Tipo de Segmento
+                laWHERE:= {}
+                laSAVE := {}
+                laSAVE := {{'CIP','TP_SEGMENTO'}}
+                for ii := 1 to lnNCAMPTP
+                    lcITEM := alltrim(str(ii))
+                    if !empty(WGet('TP_SEGMENTO'+lcITEM,'C'))
+                       aadd(laSAVE  ,{lcCIP,WGet('TP_SEGMENTO'+lcITEM,'C')})
+                       aadd(laWHERE ,'CIP='+'"'+lcCIP+'" and TP_SEGMENTO="'+alltrim(WGet('TP_SEGMENTO'+lcITEM,'C'))+'"')
+                    endif
+                next ii
+                if db_delete('pfpj_escritorio_tipo_segmento','CIP='+'"'+lcCIP+'"') == -1
+                   error_sys(db_error())
+                endif
+                if len(laSAVE) > 1
+                   if db_replace(laSAVE,'pfpj_escritorio_tipo_segmento',laWHERE,wset('DB_ACTIVE')) == -1
+                      error_sys(db_error())
+                   endif
+         		  endif
+
+             else
+               alter()
+               get2put()
+             endif
+         else
+            alter()
+            get2put()
+         endif
+      endif
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      if db_delete('pfpj_escritorio_regiao','CIP='+DLMT+lcCIP+DLMT) == -1
+         error_sys(db_error())
+      endif
+      if db_delete('pfpj_escritorio_tipo_segmento','CIP='+DLMT+lcCIP+DLMT) == -1
+         error_sys(db_error())
+      endif
+      if db_delete('pfpj_escritorio_honorario_fixo','CIP='+DLMT+lcCIP+DLMT) == -1
+         error_sys(db_error())
+      endif
+      if db_delete('pfpj_escritorio_honorario_variavel','CIP='+DLMT+lcCIP+DLMT) == -1
+         error_sys(db_error())
+      endif
+   endif
+
+   wput('TP_SEGMENTO1_OPT',laSEGMENT)
+   wput('REGIAO1_OPT'     ,laREGIAO)
+   wput('FL_NEGOCIAVEL_1_OPT','S')
+
+   laJOIN := {{2,'pfpj_escritorio_regiao'       ,'pfpj.CIP = pfpj_escritorio_regiao.CIP'},;
+              {2,'pfpj_escritorio_tipo_segmento','pfpj.CIP = pfpj_escritorio_tipo_segmento.CIP'},;
+              {2,'pfpj_escritorio_honorario_fixo','pfpj.CIP = pfpj_escritorio_honorario_fixo.CIP'},;
+              {2,'pfpj_escritorio_honorario_variavel','pfpj.CIP = pfpj_escritorio_honorario_variavel.CIP'}}
+
+   laWHERE:= {'pfpj.CIP = pfpj_escritorio_regiao.CIP or pfpj.CIP = pfpj_escritorio_tipo_segmento.CIP'+;
+   			  ' or pfpj.CIP = pfpj_escritorio_honorario_fixo.CIP or pfpj.CIP = pfpj_escritorio_honorario_variavel.CIP'}
+
+
+
+   if db_select({'distinct(pfpj.CIP)','pfpj.PFPJ'},'pfpj',laJOIN,laWHERE) == -1
+     error_sys(db_error())
+   endif
+   laRESULT  := db_fetchall()
+   lnCOUNT   := len(laRESULT)-1
+   laPAGINAS := paginacao(lnCOUNT,'','','escritorio.mnt.html')
+   laLIMIT   := param_fetch(laPAGINAS,'LIMIT')
+   if db_select({'distinct(pfpj.CIP)','pfpj.PFPJ'},'pfpj',laJOIN,laWHERE,,,,laLIMIT) == -1
+     error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 1
+      //Resumo da pesquisa
+      lcCODE := alltrim(str(laLIMIT[1]+1))+'-'
+      if ((len(laRES)-1) < (laLIMIT[2]-laLIMIT[1]))
+         lcCODE += alltrim(str(len(laRES)-1))
+      elseif param_fetch(laPAGINAS,'GOTO_PAGE') == param_fetch(laPAGINAS,'NR_PAGES') //lnNR_PAGES
+         lcCODE += alltrim(str(lnCOUNT))
+      else
+         lcCODE += alltrim(str(laLIMIT[1]+param_fetch(laPAGINAS,'ROWS_PAGE')))
+      endif
+      lcCODE += ' de '+alltrim(str(lnCOUNT))
+      if lnCOUNT > 1
+         lcCODE := ' Resultados '+lcCODE+' registros'
+      else
+         lcCODE := ' Resultado '+lcCODE+' registro'
+      endif
+      wput('RESUME_RESULTSET',lcCODE)
+
+      // Montando array da GRID
+      aadd(laRES[1],'(row)')
+      for ii := 2 to len(laRES)
+          aadd(laRES[ii],'(row)'+wic_action('wicaction_gr5/escritorio.mnt.html'+;
+                                            '?CIP_ESCRITORIO='+laRES[ii, db_fetchncol(laRES,'CIP')]+;
+                                            '&ACTION=ALTER'))
+      next ii
+      WPut('GRIDCIP',grid_create(laRES)) // Gera a Grid Dinâmica
+   endif
+return
+
+/*
+* Data.Criação: 27.02.2007
+* Function..: valida_grid(fcNR_PASTA)
+* Objetivo..: verifica se os valores definidos para as grids de Honorarios Fixo e Variável.
+* Parâmetros:
+*    paSAVE: Matriz que representa as grids de Honorarios Fixo e Variável.
+* Retorno...: .t. em caso de sucesso.
+*             .f. em caso de erro.
+*/
+Static function valida_grid(paSAVE)
+
+local laVALIDA := aclone(paSAVE)
+local ii         := 0,;
+      lnSEEK     := 0,;
+      lnCURSOR   := 0,;
+      lnXX       := 0,;
+      lnELEMENTO := 0 as numeric
+
+  // Ordenação do array
+  asort(laVALIDA,2,,{|x,y| x[3] < y[3]})
+
+  // Valida se o valor inicial é maior que o valor final
+  for ii := 2 to len(laVALIDA)
+     if laVALIDA[ii,3] > laVALIDA[ii,4]
+        if(len(laVALIDA[1])==7)
+          walert("Erro na definição de valores para Honorários Fixos, Valor Risco Honorário (De) com valor "+str(laVALIDA[ii,3]))
+        else
+        	 walert("Erro na definição de valores para Honorários de Êxito Variável, Percentual de Economia (De) com valor "+str(laVALIDA[ii,3]))
+        endif
+        return(.f.)
+     endif
+  next ii
+  if len(laVALIDA) >= 3
+     for lnii := 3 to len(laVALIDA)
+         for lnCURSOR := (lnii-1) to 2 step -1
+             if laVALIDA[lnii,3] <= laVALIDA[lnCURSOR,4]
+                if(len(laVALIDA[1])==7)
+                   walert("Erro na definição de valores para Honorários Fixos, Valor Risco Honorário (De) com valor "+str(laVALIDA[lnii,3]))
+        			 else
+                   walert("Erro na definição de valores para Honorários de Êxito Variável, Percentual de Economia (De) com valor "+str(laVALIDA[lnii,3]))
+        			 endif
+                return(.f.)
+             endif
+         next lnCURSOR
+     next lnii
+  endif
+
+  return(.t.)
+
+/*
+* Data.Criação: 06.03.2007
+* Function..: alter()
+* Objetivo..: funciona como a ação ALTER mas, foi definida como função para corrigir o problema de refresh de tela.
+* Parâmetros:
+* Retorno...:
+*/
+Static function alter()
+
+local laRES     := {} ,;
+      laFIELDS  := {} ,;
+      laSEGMENT := {} ,;
+      laREGIAO  := {} as array
+
+local ii        := 0 as int
+
+local lcITEM   := '' ,;
+      lcCIP    := alltrim(WGet('CIP_ESCRITORIO','C')) as string
+
+laSEGMENT := loadcbox_build('TIPO_SEGMENTO','TP_SEGMENTO',.t.)
+laREGIAO  := loadcbox_build('REGIAO','REGIAO',.t.)
+
+ wput('ifREGIAO',.f.)
+ wput('ifTP_SEGMENTO',.f.)
+ wput('ifFIXO',.f.)
+ wput('ifVARIAVEL',.f.)
+ wput('CIP_ESCRITORIO',lcCIP)
+ if db_select({'pfpj'},'pfpj',,{'CIP='+DLMT+lcCIP+DLMT}) == -1
+    db_error()
+ endif
+ laRES := db_fetchall()
+ wput('CIP_ESCRITORIO_PFPJ',laRES[2,1])
+
+ //  ******   Alimentando os campos dos ESCRITORIOS    ******
+ laFIELDS := {'REGIAO'}
+ if db_select(laFIELDS,'pfpj_escritorio_regiao',,{'CIP='+DLMT+lcCIP+DLMT}) == -1
+    db_error()
+ endif
+ laRES := db_fetchall()
+ if len(laRES) > 1
+    aadd(laRES[1],'REGIAO_VAR')
+    aadd(laRES[1],'TITLE')
+    for ii := 2 to len(laRES)
+        aadd(laRES[ii],'REGIAO'+alltrim(str(ii-1)))
+        aadd(laRES[ii],alltrim(str((ii-1))))
+        wput('REGIAO'+alltrim(str(ii-1))+'_OPT',laREGIAO)
+    next ii
+    aadd(laRES,{'','REGIAO'+alltrim(str(ii-1)),alltrim(str(ii-1))})
+    wput('REGIAO'+alltrim(str(ii-1))+'_OPT',laREGIAO)
+    WPut('lstREGIAO',laRES)
+    for ii := 2 to len(laRES)
+        wput(laRES[ii,2],laRES[ii,1])
+    next ii
+ else
+    wput('ifREGIAO',.t.)
+ endif
+
+ // *******   Alimentando os campos dos TIPOS DE SEGMENTOS   *******
+ laFIELDS := {'TP_SEGMENTO'}
+ if db_select(laFIELDS,'pfpj_escritorio_tipo_segmento',,{'CIP='+DLMT+lcCIP+DLMT}) == -1
+    db_error()
+ endif
+ laRES := db_fetchall()
+ if len(laRES) > 1
+    aadd(laRES[1],'TP_SEGMENTO_VAR')
+    aadd(laRES[1],'TITLE')
+    for ii := 2 to len(laRES)
+        aadd(laRES[ii],'TP_SEGMENTO'+alltrim(str(ii-1)))
+        aadd(laRES[ii],alltrim(str(ii-1)))
+        wput('TP_SEGMENTO'+alltrim(str(ii-1))+'_OPT',laSEGMENT)
+    next ii
+    aadd(laRES,{'','TP_SEGMENTO'+alltrim(str(ii-1)),alltrim(str(ii-1))})
+    wput('TP_SEGMENTO'+alltrim(str(ii-1))+'_OPT',laSEGMENT)
+    WPut('lstTP_SEGMENTO',laRES)
+    for ii := 2 to len(laRES)
+        wput(laRES[ii,2],laRES[ii,1])
+    next ii
+ else
+    wput('ifTP_SEGMENTO',.t.)
+ endif
+ //  *******   Alimentando os campos dos Honorários Fixos   *******
+ laFIELDS := {'VL_RHFIXO_INICIAL','VL_RHFIXO_FINAL','PC_RHFIXO','VL_RHMINIMO','FL_NEGOCIAVEL'}
+ if db_select(laFIELDS,'pfpj_escritorio_honorario_fixo',,{'CIP='+DLMT+lcCIP+DLMT}) == -1
+    db_error()
+ endif
+ laRES := db_fetchall()
+ if len(laRES) > 1
+    aadd(laRES,{'','','','',''})
+    // O laco abaixo abre espaços em branco por toda a matriz p/ q posteriormente
+    // seja inserido o valor de linha da grid a qual os valores pertencem
+    for ii := 1  to len(laRES)
+       sizelaRESii := len(laRES[ii])
+       for hh := 1  to sizelaRESii
+          aadd(laRES[ii],"")
+       next hh
+    next ii
+    // Abaixo os espaços em branco são arrumados em posições específicas dentro da matriz
+    for ii := 1  to len(laRES)
+       sizelaRESii := (len(laRES[ii])/2)
+       for hh := 1  to sizelaRESii
+          ains(laRES[ii],(hh*2))
+       next hh
+       aadd(laRES[ii],"")
+    next ii
+    // Escrevendo dados nos espaços em branco da 1° linha
+    for hh := 1  to ((len(laRES[1])-1)/2)
+       laRES[1,(hh*2)] = laFIELDS[hh]+'_VAR'
+    next hh
+    laRES[1,len(laRES[1])] = 'TITLE'
+    // Escrevendo dados nos espaços em branco restantes
+    for ii := 2  to len(laRES)
+       for hh := 1  to ((len(laRES[ii])-1)/2)
+          laRES[ii,(hh*2)] = alltrim(laFIELDS[hh])+alltrim('_')+alltrim(str(val(str(ii))-1))
+       next hh
+       laRES[ii,len(laRES[ii])] = alltrim(str(val(str(ii))-1))
+    next ii
+
+    for ii := 1 to len(laRES)
+ 		lcITEM := alltrim(str(ii))
+ 		wput('FL_NEGOCIAVEL_'+lcITEM+'_OPT','S')
+ 	next ii
+    WPut('lstFIXO',laRES)
+    for ii := 2  to len(laRES)
+       for hh := 1  to (len(laRES[ii])-1) step 2
+          if(hh==9)
+             if(!empty(laRES[ii,hh]))
+                // Se o check box é carregado do banco sem valor o campo PC_RHFIXO
+                // se torna readonly
+                wPut(alltrim(laRES[ii,(hh-3)])+alltrim(".class"),"winput")
+ 					wPut(alltrim(laRES[ii,(hh-3)])+alltrim(".readonly"),.t.)
+ 					wPut(alltrim(laRES[ii,(hh-3)])+alltrim(".class"),"winputreadonly")
+                wput(laRES[ii,(hh+1)],laRES[ii,hh])
+                wput(laRES[ii,(hh-3)],)
+             else
+                wput(laRES[ii,(hh+1)],laRES[ii,hh])
+             endif
+          else
+          	wput(laRES[ii,(hh+1)],laRES[ii,hh])
+          endif
+       next hh
+       //wput('TITLE',laRES[ii,11])
+    next ii
+ else
+    wput('ifFIXO',.t.)
+    wput('FL_NEGOCIAVEL_1_OPT','S')
+    wput('FL_NEGOCIAVEL_1','')
+ endif
+ //  *******   Alimentando os campos dos Honorários Variáveis   *******
+ laFIELDS := {'PC_ECONOMIA_INICIAL','PC_ECONOMIA_FINAL','PC_RHVARIAVEL','VL_RHMAXIMO'}
+ if db_select(laFIELDS,'pfpj_escritorio_honorario_variavel',,{'CIP='+DLMT+lcCIP+DLMT}) == -1
+    db_error()
+ endif
+ laRES := db_fetchall()
+ if len(laRES) > 1
+    aadd(laRES,{'','','',''})
+    // O laco abaixo abre espaços em branco por toda a matriz p/ q posteriormente
+    // seja inserido o valor de linha da grid a qual os valores pertencem
+    for ii := 1  to len(laRES)
+       sizelaRESii := len(laRES[ii])
+       for hh := 1  to sizelaRESii
+          aadd(laRES[ii],"")
+       next hh
+    next ii
+    // Abaixo os espaços em branco são arrumados em posições específicas dentro da matriz
+    for ii := 1  to len(laRES)
+       sizelaRESii := (len(laRES[ii])/2)
+       for hh := 1  to sizelaRESii
+          ains(laRES[ii],(hh*2))
+       next hh
+       aadd(laRES[ii],"")
+    next ii
+    // Escrevendo dados nos espaços em branco da 1° linha
+    for hh := 1  to ((len(laRES[1])-1)/2)
+       laRES[1,(hh*2)] = laFIELDS[hh]+'_VAR'
+    next hh
+    laRES[1,len(laRES[1])] = 'TITLE'
+    // Escrevendo dados nos espaços em branco restantes
+    for ii := 2  to len(laRES)
+       for hh := 1  to ((len(laRES[ii])-1)/2)
+          laRES[ii,(hh*2)] = alltrim(laFIELDS[hh])+alltrim('_')+alltrim(str(val(str(ii))-1))
+       next hh
+       laRES[ii,len(laRES[ii])] = alltrim(str(val(str(ii))-1))
+    next ii
+    WPut('lstVARIAVEL',laRES)
+    for ii := 2  to len(laRES)
+       for hh := 1  to (len(laRES[ii])-1) step 2
+          wput(laRES[ii,(hh+1)],laRES[ii,hh])
+       next hh
+       //wput('TITLE',laRES[ii,9])
+    next ii
+ else
+    wput('ifVARIAVEL',.t.)
+ endif
+
+
+/*
+function paginacao(fnCOUNT,fcMSGTYPE,fcQUICK_SEARCH)
+  local ii          := 0 ,;
+        lnGOTO_PAGE := WGet('GOTO_PAGE','N') ,;
+        lnNR_PAGES  := 0 ,;
+        lnROWS_PAGE := 0 ,;
+        lnMAX_PAGES := 0 ,;
+        lnPAGE_INI  := 0 ,;
+        lnPAGE_FIN  := 0 ,;
+        lnLIMIT1    := 0 ,;
+        lnLIMIT2    := 0 as int
+
+   local lcCODE     := '' as string
+
+   local laPAGES    := {} ,;
+         laLIMIT    := {} ,;
+         laRETURN   := {} as array
+
+   if lnCOUNT > 0
+      if lnGOTO_PAGE <= 0
+         lnGOTO_PAGE := 1
+      endif
+      lnMAX_PAGES := iif(val(WSet('MAX_PAGES'))==0,10,val(WSet('MAX_PAGES')))
+      lnROWS_PAGE := iif(val(WSet('ROWS_PAGE'))==0,10,val(WSet('ROWS_PAGE')))
+
+      if lnROWS_PAGE > fnCOUNT
+         lnROWS_PAGE := fnCOUNT
+      endif
+      lnNR_PAGES := fnCOUNT/lnROWS_PAGE
+
+      if (fnCOUNT % lnROWS_PAGE) > 0
+         lnNR_PAGES += 1
+      endif
+
+      lnMAX_PAGES := iif(lnNR_PAGES < lnMAX_PAGES,lnNR_PAGES,lnMAX_PAGES)
+      if lnGOTO_PAGE == 1
+         lnPAGE_INI := 1                              // Página inicial
+         lnPAGE_FIN := lnMAX_PAGES                    // Página final
+      else
+         if alltrim(WGet('MORE')) == 'Y'              // Visualizar as próximas 10 páginas, se possível
+            lnPAGE_INI := lnGOTO_PAGE
+            lnPAGE_FIN := lnMAX_PAGES+(lnGOTO_PAGE-1)
+            if lnPAGE_FIN > lnNR_PAGES
+               lnPAGE_FIN := lnNR_PAGES
+            endif
+         elseif alltrim(WGet('LESS')) == 'Y'          // Visualizar as 10 páginas anteriores, se possível
+            lnPAGE_INI := lnGOTO_PAGE-lnMAX_PAGES+1
+            lnPAGE_FIN := lnGOTO_PAGE
+         else
+            lnPAGE_INI := WGet('FIRST_PAGE','N')
+            lnPAGE_FIN := WGet('LAST_PAGE','N')
+         endif
+      endif
+
+      aadd(laPAGES,{'PROGRAM_CALL','NR_PAGE'})
+      for ii := lnPAGE_INI to lnPAGE_FIN
+          lcCODE := wic_action('wicaction/escritorio.mnt.html?GOTO_PAGE='+alltrim(str(ii)))
+          lcCODE += '&FIRST_PAGE='+alltrim(str(lnPAGE_INI))+'&LAST_PAGE='+alltrim(str(lnPAGE_FIN))
+          if ii == lnPAGE_INI
+             lcCODE += '&LESS=Y'
+          endif
+          if ii == lnPAGE_FIN .and. lnPAGE_FIN < lnNR_PAGES
+             lcCODE += '&MORE=Y'
+          endif
+
+          // Manter a pesquisa do usuário caso ela exista e demais parametros
+          if !empty(fcQUICK_SEARCH)
+             lcCODE += '&QUICK_SEARCH='+fcQUICK_SEARCH
+          endif
+
+          if !empty(fcMSGTYPE)
+             lcCODE += '&MSGTYPE='+fcMSGTYPE
+          endif
+
+          aadd(laPAGES,{lcCODE,alltrim(str(ii))})
+      next ii
+      WPut('ifRESULT',.T.)
+      WPut('PAGES',laPAGES)
+
+      lnLIMIT1 := iif(lnGOTO_PAGE == 1,0,((lnGOTO_PAGE*lnROWS_PAGE)-1)-(lnROWS_PAGE-1))
+      lnLIMIT2 := lnROWS_PAGE
+      laLIMIT  := {lnLIMIT1,lnLIMIT2}
+
+      aadd(laRETURN,{'NR_PAGES',lnNR_PAGES})
+      aadd(laRETURN,{'ROWS_PAGE',lnROWS_PAGE})
+      aadd(laRETURN,{'GOTO_PAGE',lnGOTO_PAGE})
+      aadd(laRETURN,{'LIMIT',laLIMIT})
+   else
+      aadd(laRETURN,{'NR_PAGES' ,0})
+      aadd(laRETURN,{'ROWS_PAGE',0})
+      aadd(laRETURN,{'GOTO_PAGE',0})
+      aadd(laRETURN,{'LIMIT',{}})
+   endif
+return(laRETURN)
+
+*/
+
+
+

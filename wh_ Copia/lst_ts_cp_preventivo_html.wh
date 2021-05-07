@@ -1,0 +1,55 @@
+/*
+
+Project      : gr5
+Program      : lst.ts.cp.preventivo.html
+Function     : lst_ts_cp_preventivo_html
+Created on   : 10-Oct-2002   10:15:12
+Descripition : Listagem de Localização de Timesheet Preventivo Corporativo
+
+*/
+
+   local laPARAM := {{'NR_PASTA',''},;
+                     {'NR_SERVICO',''},;
+                     {'ACTION'  ,'ALTER'}} as array
+   local laWHERE        := {} ,;
+         laINPUT_HIDDEN := {} ,;
+         laQUICK_SEARCH := {} ,;
+         laJOIN         := {} as array
+
+   laSELECT       := {'mvt_servico.NR_PASTA',;
+                      'mvt_servico.NR_SERVICO',;
+                      'mvt_servico.CD_SERVICO',;
+                      'servico.NM_SERVICO',;
+                      'mvt_servico.DT_REF',;
+                      'mvt_servico.QUANTIDADE'}
+   laJOIN         := {{2,'servico','mvt_servico.CD_SERVICO=servico.CD_SERVICO'}}
+
+   laQUICK_SEARCH := {'servico.NM_SERVICO'}
+
+   aadd(laWHERE,'mvt_servico.LOGIN='+DLAP+WSet('LOGIN')+DLAP)
+
+   xbp('mvt_servico',;                                                     //Tabela alvo
+       laJOIN,;                                                            //Joins
+       laWHERE,;                                                           //Where
+       ,;                                                                  //Order by
+       ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+       ,;                                                                  //Group by
+       ,;                                                                  //Limit
+       ,;                                                                  //Banco de Dados
+       4,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search, 4-Listagem
+       'gr5',;                                                            //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;                                           //Programa chamador
+       laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+       ,;                                                                  //Parâmetros para os botões das linhas do grid
+       'mnt.ts.cp.preventivo.html',;                                       //Programa que os links/botoes do grid deverao chamar
+       'gr5',;                                                            //Módulo do programa chamado pelos links/botoes do grid
+       ,;                                                                  //Retorno java (nil) - usado apenas para Search
+       laQUICK_SEARCH,;                                                    //Campos usados na pesquisa rápida
+       ,;                                                                  //Campos Ocultos
+       ,;                                                                  //Campos da área de manutenção/entrada de dados
+       laSELECT,;                                                          //Campos exibidos no grid
+       laSELECT)                                                           //Campos usados no select
+   WPut('TITLE','Timesheet Preventivo Corporativo')
+return
+
+// lst_tsht_preventivo_html()

@@ -1,0 +1,377 @@
+/*
+
+Project      : gr5
+Program      : psab.adv.avaliacoes.html
+Function     : psab_adv_avaliacoes_html
+Created on   : 07/10/2014 09:21:30
+Descripition : Aba de Avaliações / Provas
+
+*/
+
+   local lcACTION     := '' ,;
+         lcTP_PASTA   := '' ,;
+         lcWHERE      := '' ,;
+         lcWHERE1      := '' ,;
+         lcTABLE      := '' ,;
+         lcProgram    := 'psab_adv_avaliacoes_html' ,;
+         lcRelac      := '' ,;
+         lcNR_PASTA   := '' ,;
+         lcNR_CONTROLE := '' as string
+
+   local laRESULT   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laSAVEFILHO:= {} ,;
+         laFIELDS   := {} ,;
+         laLABELS   := {} ,;
+         laVALIDA   := {} as array
+   local ii         := 0 as int
+   local lnAuto     := 0 as int
+   local llReturn   := .f. as logical
+
+   lcACTION     := upper(alltrim(WGet('ACTION','C')))
+   lcNR_PASTA   := WGet('NR_PASTA','C')
+  
+   lcUSUARIO := wSet('LOGIN')
+   Wput('LOGIN',lcUSUARIO)
+   Wput('LOGIN_CADASTRO',lcUSUARIO)
+   Wput('DT_CADASTRO',DATE())
+
+   lcTP_PASTA    := WGet('TP_PASTA','C')
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   if lcNR_CONTROLE = 'New'
+      lcNR_CONTROLE := '0'
+   endif
+
+   lcTABLE      := 'pasta_avalia'
+   lcWHERE1     := 'pasta_avalia.NR_PASTA='+lcNR_PASTA+' and pasta_avalia.NR_CONTROLE='+lcNR_CONTROLE
+   lcWHERE      := 'pasta_avalia.NR_PASTA='+lcNR_PASTA
+   laFIELDS     := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS     := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+   AbasPerfil(lcTP_PASTA,laFIELDS)
+
+   WPut('SOLICITOU.option',{'','Não','Sim'})
+   WPut('SOLICITOU.optionvalue',{'','N', 'S'})
+   WPut('COMPARECEU.option',{'','Não','Sim'})
+   WPut('COMPARECEU.optionvalue',{'','N', 'S'})
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   make_psthead(lcNR_PASTA,lcTP_PASTA) //Cabeçalho
+
+//   WPut('TIPO_AVALIA.option',{'','Advogado','Preposto','Técnico','Testemunha'})
+//   WPut('TIPO_AVALIA.optionvalue',{'','Advogado','Preposto','Técnico','Testemunha'})
+
+   WPut('TIPO_AVALIA.option',{'Advogado'})
+   WPut('TIPO_AVALIA.optionvalue',{'Advogado'})
+
+   carrega_cbox({{'apresentacao','APRESENTACAO','Y'}})
+   carrega_cbox({{'pontualidade','PONTUALIDADE','Y'}})
+   carrega_cbox({{'conhecimento_fatos','CONHECIMENTO_FATOS','Y'}})
+   carrega_cbox({{'desenvoltura','DESENVOLTURA','Y'}})
+   carrega_cbox({{'orientacao_preposto','ORIENTACAO_PREPOSTO','Y'}})
+   carrega_cbox({{'pontualidade_tecnica','PONTUALIDADE_TECNICA','Y'}})
+   carrega_cbox({{'qualidade_tecnica','QUALIDADE_TECNICA','Y'}})
+
+   if gbWAC_CREATE
+      WPut('ifWAC_CREATE',.t.)
+   endif
+
+   if gbWAC_WRITE
+      WPut('ifWAC_WRITE',.t.)
+   endif
+
+   WPut('ifWAC_DELETE',.f.)
+
+   if empty(lcACTION)
+      lcACTION = 'NEW'
+   endif
+
+
+   wPut('TP_PASTA',lcTP_PASTA)
+   wPut('DT_CADASTRO',date())
+
+   wPut('TITLE',lcTP_PASTA+' - Inclusão de Avaliação')
+// debug2(lcaction)
+   if lcACTION = 'NEW' .and. gbWAC_CREATE
+
+       lcLOGIN := wSet('LOGIN')
+       Wput('LOGIN_CADASTRO',lcLOGIN)
+       Wput('DT_CADASTRO',DATE())
+       WPut('NR_CONTROLE','New')
+
+   elseif lcACTION = 'ALTER' .and. gbWAC_READ
+      lcNR_CONTROLE   := WGet('NR_CONTROLE','C')
+      mkgedico(lcTABLE,lcNR_PASTA,lcNR_CONTROLE)
+
+      if db_select(laFIELDS,lcTABLE,,{'pasta_avalia.NR_PASTA='+lcNR_PASTA+' and pasta_avalia.NR_CONTROLE='+lcNR_CONTROLE}) == -1
+         error_sys(db_error())
+      endif
+      db2put(db_fetchall())
+      lares := db_fetchall()
+    
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+      if ! verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+         pasta_abas(lcTP_PASTA)
+         return(.f.)
+      endif
+      if val(lcNR_CONTROLE) == 0    
+                  lcNR_CONTROLE := alltrim(str(db_insert_id()))
+                  if db_select({'max(NR_CONTROLE)'},'pasta_avalia') == -1
+	                   error_sys(db_error())
+    	            endif
+               
+                  laRES     := db_fetchrow() 
+                  lNNR_CONTROLE := laRES[1]
+                  lcNR_CONTROLE := STR(LNNR_CONTROLE)
+      endif
+
+      if db_select({'ID_PONTUALIDADE','PONTUALIDADE'},'pontualidade',,{'PONTUALIDADE='+DLAP+WGet('PONTUALIDADE','C')+DLAP}) == -1
+           error_sys(db_error())
+        endif
+        laRES1 := db_fetchall()
+
+        if len(laRES1) > 1
+           lnID_PONTUALIDADE := laRES1[2,1]
+        else 
+           lnID_PONTUALIDADE := 0
+        endif
+
+        if db_select({'ID_CONHECIMENTO_FATOS','CONHECIMENTO_FATOS'},'conhecimento_fatos',,{'CONHECIMENTO_FATOS='+DLAP+WGet('CONHECIMENTO_FATOS','C')+DLAP}) == -1
+           error_sys(db_error())
+        endif
+        laRES1 := db_fetchall()
+
+        if len(laRES1) > 1
+           lnID_CONHECIMENTO_FATOS := laRES1[2,1]
+        else 
+           lnID_CONHECIMENTO_FATOS := 0
+        endif
+
+        if db_select({'ID_APRESENTACAO','APRESENTACAO'},'apresentacao',,{'APRESENTACAO='+DLAP+WGet('APRESENTACAO','C')+DLAP}) == -1
+           error_sys(db_error())
+        endif
+        laRES1 := db_fetchall()
+
+        if len(laRES1) > 1
+           lnID_APRESENTACAO := laRES1[2,1]
+        else 
+           lnID_APRESENTACAO := 0
+        endif
+
+        if db_select({'ID_DESENVOLTURA','DESENVOLTURA'},'desenvoltura',,{'DESENVOLTURA='+DLAP+WGet('DESENVOLTURA','C')+DLAP}) == -1
+           error_sys(db_error())
+        endif
+        laRES1 := db_fetchall()
+
+        if len(laRES1) > 1
+           lnID_DESENVOLTURA := laRES1[2,1]
+        else 
+           lnID_DESENVOLTURA := 0
+        endif
+
+        if db_select({'ID_ORIENTACAO_PREPOSTO','ORIENTACAO_PREPOSTO'},'orientacao_preposto',,{'ORIENTACAO_PREPOSTO='+DLAP+WGet('ORIENTACAO_PREPOSTO','C')+DLAP}) == -1
+           error_sys(db_error())
+        endif
+        laRES1 := db_fetchall()
+
+        if len(laRES1) > 1
+           lnID_ORIENTACAO_PREPOSTO := laRES1[2,1]
+        else 
+           lnID_ORIENTACAO_PREPOSTO := 0
+        endif
+
+        if db_select({'ID_PONTUALIDADE_TECNICA','PONTUALIDADE_TECNICA'},'pontualidade_tecnica',,{'PONTUALIDADE_TECNICA='+DLAP+WGet('PONTUALIDADE_TECNICA','C')+DLAP}) == -1
+           error_sys(db_error())
+        endif
+        laRES1 := db_fetchall()
+
+        if len(laRES1) > 1
+           lnID_TECNICA := laRES1[2,1]
+        else 
+           lnID_TECNICA := 0
+        endif
+
+        if db_select({'ID_QUALIDADE_TECNICA','QUALIDADE_TECNICA'},'qualidade_tecnica',,{'QUALIDADE_TECNICA='+DLAP+WGet('QUALIDADE_TECNICA','C')+DLAP}) == -1
+           error_sys(db_error())
+        endif
+        laRES1 := db_fetchall()
+
+        if len(laRES1) > 1
+           lnID_QUALIDADE_TECNICA := laRES1[2,1]
+        else 
+           lnID_QUALIDADE_TECNICA := 0
+        endif
+        
+   carrega_cbox({{'qualidade_tecnica','QUALIDADE_TECNICA','Y'}})
+
+      aadd(laSAVE,laFIELDS)
+      for ii := 1 to len(laFIELDS)  
+            if laFIELDS[ii] == 'ID_PONTUALIDADE'
+               aadd(laSAVE_AUX,lnID_PONTUALIDADE)
+            elseif laFIELDS[ii] == 'ID_APRESENTACAO'
+               aadd(laSAVE_AUX,lnID_APRESENTACAO)
+            elseif laFIELDS[ii] == 'ID_CONHECIMENTO_FATOS'
+               aadd(laSAVE_AUX,lnID_CONHECIMENTO_FATOS)
+            elseif laFIELDS[ii] == 'ID_DESENVOLTURA'
+               aadd(laSAVE_AUX,lnID_DESENVOLTURA)
+            elseif laFIELDS[ii] == 'ID_ORIENTACAO_PREPOSTO'
+               aadd(laSAVE_AUX,lnID_ORIENTACAO_PREPOSTO)
+            elseif laFIELDS[ii] == 'ID_PONTUALIDADE_TECNICA'
+               aadd(laSAVE_AUX,lnID_TECNICA)
+            elseif laFIELDS[ii] == 'ID_QUALIDADE_TECNICA'
+               aadd(laSAVE_AUX,lnID_QUALIDADE_TECNICA)
+            elseif laFIELDS[ii] == 'NR_CONTROLE'
+              if (wget('NR_CONTROLE','C') == 'New') .or. empty(lcNR_CONTROLE)  
+                 aadd(laSAVE_AUX, 0)
+              else             
+                 lcNR_CONTROLE := wget('NR_CONTROLE','C')
+                 if (wget('NR_CONTROLE','C') == 'New') .or. empty(lcNR_CONTROLE)  
+                    aadd(laSAVE_AUX, 0)
+                 else
+                    aadd(laSAVE_AUX, wget('NR_CONTROLE'))
+                 endif
+               endif 
+            elseif laFIELDS[ii] == 'DT_CADASTRO'
+                   aadd(laSAVE_AUX,date())
+            elseif laFIELDS[ii] ==  'LOGIN_CADASTRO'
+                   aadd(laSAVE_AUX,lcUsuario)
+            else
+                   aadd(laSAVE_AUX,Wget(laFIELDS[ii]))
+            endif
+      next ii
+      aadd(laSAVE,laSAVE_AUX)
+
+         if (Lower(Wget('NR_CONTROLE')) == 'new') .or. (Wget('NR_CONTROLE','N') == 0)
+                    if db_insert(laSAVE,'pasta_avalia') == -1
+                       error_sys(db_error())
+                    endif
+                 else
+                     if db_replace(laSAVE,lcTABLE,{'NR_PASTA='+WGet('NR_PASTA','C')+' and NR_CONTROLE = '+lcNR_CONTROLE}) == -1
+                       error_sys(db_error())
+                     endif
+                 endif
+ 
+
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+         if db_delete(lcTABLE,'NR_CONTROLE = '+(Wget('NR_CONTROLE','C'))) == -1
+            error_sys(db_error())
+         endif
+//         lista_avalia(lcNR_PASTA)
+   endif
+   if val(lcNR_PASTA) > 0 .and. gbWAC_READ
+      lcnr_controle := WGet('NR_CONTROLE','C')
+      if empty(lcnr_controle)
+         lcnr_controle := '0'
+      endif
+
+      if db_select(laFIELDS,lcTABLE,,{'NR_PASTA='+WGet('NR_PASTA','C')+' and NR_CONTROLE = '+lcnr_controle}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2Put(laRESULT)
+
+        /* Tabelas estrangeiras   */
+
+        laFOREIGN := {{'ID_APRESENTACAO','ID_APRESENTACAO','apresentacao','APRESENTACAO'},;
+                      {'ID_PONTUALIDADE_TECNICA','ID_PONTUALIDADE_TECNICA','pontualidade_tecnica','PONTUALIDADE_TECNICA'},;
+                      {'ID_CONHECIMENTO_FATOS','ID_CONHECIMENTO_FATOS','conhecimento_fatos','CONHECIMENTO_FATOS'},;
+                      {'ID_PONTUALIDADE','ID_PONTUALIDADE','pontualidade','PONTUALIDADE'},;
+                      {'ID_DESENVOLTURA','ID_DESENVOLTURA','desenvoltura','DESENVOLTURA'},;
+                      {'ID_ORIENTACAO_PREPOSTO','ID_ORIENTACAO_PREPOSTO','orientacao_preposto','ORIENTACAO_PREPOSTO'},;
+                      {'ID_QUALIDADE_TECNICA','ID_QUALIDADE_TECNICA','qualidade_tecnica','QUALIDADE_TECNICA'},;
+                      {'CIP','CIP','pfpj','PFPJ'}}
+
+         /* Selecionando Relacionamentos */
+         for ii := 1 to len(laFOREIGN)
+            lnPOS := ascan(laRESULT[1],laFOREIGN[ii,1])
+            if lnPOS > 0
+               if valtype(laRESULT[2,lnPOS]) == 'N'
+                  if laRESULT[2,lnPOS] == 0
+                     llAUX := .f.
+                  else
+                     lcAUX := laFOREIGN[ii,2]+'='+str(laRESULT[2,lnPOS])
+                     llAUX := .t.
+                  endif
+               else
+                  if empty(alltrim(laRESULT[2,lnPOS]))
+                     llAUX := .f.
+                  else
+                     lcAUX := laFOREIGN[ii,2]+'='+DLAP+laRESULT[2,lnPOS]+DLAP
+                     llAUX := .t.
+                  endif
+               endif
+
+               if llAUX
+                  if db_select({laFOREIGN[ii,4]},laFOREIGN[ii,3],,{lcAUX}) == -1
+                     error_sys(db_error())
+                  endif
+                  db2Put(db_fetchall())
+               endif
+            endif
+         next ii
+
+     endif
+
+   endif
+ if db_select({'pasta_avalia.NR_CONTROLE',;
+                'TIPO_AVALIA',;
+                'pasta_avalia.CIP',;
+                'pfpj.PFPJ',;
+                'DT_AUDIENCIA',;
+                'pasta_avalia.LOGIN_CADASTRO',;
+                'pasta_avalia.DT_CADASTRO'},;
+                 lcTABLE,;
+                 {{2,'pfpj','pfpj.CIP=pasta_avalia.CIP'}},;
+                {'pasta_avalia.NR_PASTA='+lcNR_PASTA+'and pasta_avalia.TIPO_AVALIA = '+DLAP+'Advogado'+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 0
+      aadd(laRES[1],'(row)')
+      for ii := 2 to len(laRES)
+         aadd(laRES[ii],'(row)'+wic_action('wicaction/psab.adv.avaliacoes.html?'+;
+                                           'TP_PASTA='+lcTP_PASTA+;
+                                           '&NR_PASTA='+lcNR_PASTA+;
+                                           '&NR_CONTROLE='+str(laRES[ii, db_fetchncol(laRES,'NR_CONTROLE')])+;
+                                           '&ACTION=ALTER'))
+      next ii
+
+      if len(laRES) > 0
+         WPut('GRID_AVALIACAO',laRES)
+      endif
+   endif
+
+   pasta_abas(lcTP_PASTA)
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+return
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

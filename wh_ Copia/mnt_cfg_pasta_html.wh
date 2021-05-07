@@ -1,0 +1,1404 @@
+/*
+
+Project      : gr5
+Program      : mnt.cfg.pasta.html
+Function     : mnt_cfg_pasta_html
+Created on   : 14-May-2004   11:04:15
+Descripition : Manutenção de Configuração de Pasta
+OBSERVAÇÂO:   Na onfiguração do campo 'LITS_ABAS_NAOCOMUM' as abas "PSAB_AUTO E MNT_PST_ANDAMENTO"
+são vinculadas qdo optar por uma destas abas automaticamente o prg inclui a outra,
+
+*/
+
+   public pcLAYOUT_PASTA := ''
+   private pcUSER_INTERFACE := ''
+
+   local lcACTION      := '' ,;
+         lcWHERE       := '' ,;
+         lcTABLE       := '' ,;
+         lcITEM        := '' ,;
+         lcHTML        := '' ,;
+         lcTP_PASTA    := '' ,;
+         lcOCOR_INI    := '' ,;
+         lcOCOR_RATEIO := '' ,;
+         lcOCOR_CORREC := '' ,;
+         lcPastaConfig := '' ,;
+         lcVALIDA      := '' as string
+
+   local laRESULT        := {} ,;
+         laSAVE          := {} ,;
+         laRes           := {} ,;
+         laSAVE_AUX      := {} ,;
+         laFIELDS        := {} ,;
+         laLABELS        := {} ,;
+         laPOSICAO_PARTE := {} ,;
+         laPastaConfig   := {} ,;
+         laVAL_ABAS      := {} ,;
+         laDESP1         := {} ,;
+         laDESP2         := {} ,;
+         laSAVEOCOR      := {} ,;
+         laRESULTOCOR    := {} ,;
+         laCAMPOSDT      := {} ,;
+         laVALIDA        := {} as array
+
+   local ii     := 0 as int
+   local x      := 0 as int
+
+   local llERROR  := .F. as logical
+
+   lcACTION   := upper(WGet('ACTION'))
+   lcTP_PASTA := WGet('TP_PASTA','C')
+   lcTABLE    := 'pasta_config'
+   lcWHERE    := 'TP_PASTA = '+DLAP+lcTP_PASTA+DLAP
+   laFIELDS   := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+   laLABELS   := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'A')
+
+
+ /* Define Layout e Abas de acordo com TP_PASTA */
+ //  layout_pasta(lcTP_PASTA, iif(plPRE,'pasta_pre','pasta') ,.F.,pcABA)
+ //  pcUSER_INTERFACE := WSet('_USER_INTERFACE')
+  
+//
+//     plPRE := .f.
+//   endif
+
+   /* Templates ----------------------------------------------------------------------------------------------------------*/
+   /* Novos templates Tributario 2 com Aba psab.ped3.html - Banco Alfa */
+   laTEMPLATE := asort({'',;
+                        'Ambiental',;
+                        'Civel',;
+                        'Consultoria',;
+                        'Contrato',;
+                        'Marcas',;
+                        'Patentes',;
+                        'Seguro_civel',;
+                        'Seguro_cobranca_adm',;
+                        'Seguro_ressarc_adm',;
+                        'Trabalhista',;
+                        'Termos_int_fiscal',;
+                        'Tributario_exec_fiscais',;
+                        'Tributario_exec_fisc_contra',;
+                        'Tributario_judicial',;
+                        'Tributario_administrativo',;
+                        'Tributario_administrativo2',;
+                        'Tributario_adm_contra',;
+                        'Criminal',;
+                        'Civel_administrativo',;
+                        'Societario',;
+                        'Procuracao',;
+                        'Poderes',;
+                        'Procon',;
+                        'Oficio',;
+                        'Consignacao',;
+                        'Notificacao',;
+                        'Seguro_consultoria',;
+                        'Contrato_locacao',;
+                        'Juridico_operacional',;
+                        'Civel_adm_procon',;
+                        'Civel_adm_ans',;
+                        'Civel_adm_cade',;
+                        'Civel_adm_susep',;
+                        'Civel_securit_com_sinistro',;
+                        'Civel_securit_sem_sinistro',;
+                        'Contrato2',;
+                        'RecAtivos',;
+                        'Civel_Loja',;
+                        'Bacen',;
+                        'Imprensa',;
+                        'Email',;
+                        'Juizo_Filial',;
+                        'Jurisprudencia',;
+                        'Jurisprudencia_Seguro',;
+                        'Consultivo_Seguro',;
+                        'Consultivo',;
+                        'Imobiliario',;
+                        'Contrato_Contra',;
+                        'Contrato_Locacao_Contra',;
+                        'Contrato_Locacao_Imovel',;
+                        'Certidoes',;
+                        'Contrato_Prestacao_Servico',;
+                        'Pasta_PFPJ',;
+			                  'Contrato_TCE',;
+			                  'Ouvidoria',;
+			                  'Civel_securit_com_sin_cont',;
+                        'DPVAT',;
+                        'Civel_cont',;
+                        'Seguro_civel_cont',;
+                        'Trabalhista_cont',;
+                        'Tributario_adm_cont',;
+                        'Tributario_exec_fiscais_cont',;
+                        'Tributario_judicial_cont',;
+                        'Civel_adm_ans_cont',;
+                        'Civel_adm_cade_cont',;
+                        'Civel_adm_susep_cont',;
+                        'Civel_securit_sem_sin_cont',;
+                        'Civel_administrativo_cont',;
+                        'Civel_loja_cont',;
+                        'Consignacao_cont',;
+                        'Recativos_cont',;
+                        'Ambiental_cont',;
+                        'Tributario_adm2_cont',;
+                        'Juizo_filial_cont',;
+                        'Jurisprudencia_cont',;
+                        'Tributario_exec_fisc_con_cont',;
+                        'Tributario_adm_contra_cont',;
+                        'Dpvat_cont',;
+                        'Empreendimento',;
+	            					'Civel2',;
+			            			'Civel_Recupera',;
+			            			'Civel_Consultivo',;
+                        'Ressarcimento',;
+                        'Comunicacao_Corporativa',;
+                        'Procon2',;
+                        'Auto_Infracao',;
+                        'Representacao',;
+                        'Ressarcimento_exp',;
+                        'Civel_securit_exp',;
+                        'Societario3',;
+                        'Contrato_Contra2',;
+                        'Procuracao2',;
+                        'Tributario2_adm_contra_cont',;
+                        'Tributario2_judicial_cont',;                        
+                        'Tributario2_exec_fisc_con_cont',;
+                        'Societario4',;
+                        'Civel_Consultivo2',;
+                        'Civel_Consultivo3',;
+                        'Civel_securit_sin_cob_ramo',;
+                        'Projetos',;
+                        'Ocorrencias',;
+                        'Ouvidoria2',;
+                        'Ouvidoria3',;
+                        'Ouvidoria4',;
+                        'Trabalhista2_cont',;
+                        'Contrato3',;
+                        'Procuracao3',;
+                        'Ouvidoria5',;
+                        'Contrato4',;
+                        'Contrato5',;
+                        'Contrato6',;
+                        'Plano_acao'})
+
+   //Insere template padrão no topo do array
+   aadd(laTEMPLATE,nil)
+   ains(laTEMPLATE,2)
+   laTEMPLATE[2] := 'Padrao'
+
+   /* Campos obrigatórios
+   * Formato do array abaixo
+   * 1 - Campo para captura da informação no HTML - WGet()
+   * 2 - Parte do label a exibir em caso de erro, está inf. e capturado do Wictrix
+   */
+   laVALIDA := {{'TP_PASTA',laLABELS[ascan(laFIELDS,'TP_PASTA')]},;
+                {'LAYOUT_PASTA',laLABELS[ascan(laFIELDS,'LAYOUT_PASTA')]}}
+
+   for ii := 1 to len(laVALIDA)
+      *WPut(laVALIDA[ii,1]+'.label.style.color','#FF0000')
+      *WPut(laVALIDA[ii,1]+'.label.style.font-weight','bold')
+      WPut(laVALIDA[ii,1]+'.style.border','2px solid red')
+   next ii
+
+   wPut('LAYOUT_PASTA_OPT',laTEMPLATE)
+   wPut('TITLE','Configuração de Pasta')
+  
+  // move dados para o combo 
+  
+   WPut('FL_CTPAG.option',{'Manual','Interface'})
+   WPut('FL_CTPAG.optionvalue',{'M', 'I'})
+   
+   WPut('ID_PAR_VL_RESULTADO.option',{'0-Manual','1-Automatico','2-Sem Acerto','3-Obr.Provisão Zerada'})
+   WPut('ID_PAR_VL_RESULTADO.optionvalue',{'0', '1', '2', '3'})
+
+   WPut('CONTSDXP.option',{'Não','1-Apenas Alerta','2-Não permite'})
+   WPut('CONTSDXP.optionvalue',{'', '1', '2'})
+
+   WPut('CONTSXP.option',{'Não','1-Apenas Alerta','2-Não permite'})
+   WPut('CONTSXP.optionvalue',{'', '1', '2'})
+
+   WPut('DT_RISCO_CONF.option',{'','0-DT_CADASTRO','1-DT_CITACAO','2-DT_ENTRADA','4-DT_DISTRIBUICAO'})
+   WPut('DT_RISCO_CONF.optionvalue',{'','DT_CADASTRO','DT_CITACAO','DT_ENTRADA','DT_DISTRIBUICAO'})
+
+
+   laRES := structtable(WSet("DB_ACTIVE"),'pasta',1,'A')
+
+   aadd(laCAMPOSDT,'')
+   for ii:=1 to len(laRES)
+       if upper(substr(laRES[ii],1,2))='DT'
+          aadd(laCAMPOSDT,laRES[ii])
+       endif
+   next ii
+
+   WPut('WFIELD_DATABASE_JUROS.option',asort(laCAMPOSDT))
+   WPut('WFIELD_DATABASE_JUROS.optionvalue',asort(laCAMPOSDT))
+
+   //WPut('WFIELD_DATABASE_JUROS.option',{'','0-DT_CADASTRO','1-DT_CITACAO','2-DT_ENTRADA','4-DT_DISTRIBUICAO'})
+   //WPut('WFIELD_DATABASE_JUROS.optionvalue',{'','DT_CADASTRO','DT_CITACAO','DT_ENTRADA','DT_DISTRIBUICAO'})
+
+   WPut('VALIDA_OBJETO.option',{'SIM','NAO'})
+   WPut('VALIDA_OBJETO.optionvalue',{'S', 'N'})
+
+   WPut('FL_PROVISAO_AUTO.option',{'SIM','NAO'})
+   WPut('FL_PROVISAO_AUTO.optionvalue',{'S', 'N'})
+
+   WPut('FL_FAMILIA_CAUSA.option',{'SIM','NAO'})
+   WPut('FL_FAMILIA_CAUSA.optionvalue',{'S', 'N'})
+
+   WPut('FL_ANDAMENTO_ANEXO.option',{'SIM','NAO'})
+   WPut('FL_ANDAMENTO_ANEXO.optionvalue',{'S', 'N'})
+
+   WPut('FL_ANDAMENTO_ADITIVO.option',{'SIM','NAO'})
+   WPut('FL_ANDAMENTO_ADITIVO.optionvalue',{'S', 'N'})
+
+   WPut('FL_ATO_SOCIETARIO.option',{'SIM','NAO'})
+   WPut('FL_ATO_SOCIETARIO.optionvalue',{'S', 'N'})
+
+   WPut('FL_COBERTURA_RAMO.option',{'SIM','NAO'})
+   WPut('FL_COBERTURA_RAMO.optionvalue',{'S', 'N'})
+   
+   WPut('FL_CODAUX.option',{'SIM','NAO'})
+   WPut('FL_CODAUX.optionvalue',{'S', 'N'})
+
+   WPut('FL_DESPESA.option',{'SIM','NAO'})
+   WPut('FL_DESPESA.optionvalue',{'S', 'N'})
+
+   WPut('FL_DEPOSITO1.option',{'SIM','NAO'})
+   WPut('FL_DEPOSITO1.optionvalue',{'S', 'N'})
+
+   WPut('CALCSLA.option',{'SIM','NAO'})
+   WPut('CALCSLA.optionvalue',{'S', 'N'})
+
+   WPut('ATUSALP.option',{'SIM','NAO'})
+   WPut('ATUSALP.optionvalue',{'S', 'N'})
+
+   WPut('DIF_REMOTO.option',{'','NAO','SIM'})
+   WPut('DIF_REMOTO.optionvalue',{'N','N','S'})
+
+   WPut('VER_INTERD.option',{'SIM','NAO'})
+   WPut('VER_INTERD.optionvalue',{'S', 'N'})
+
+   WPut('CONTANDG.option',{'SIM','NAO'})
+   WPut('CONTANDG.optionvalue',{'S', 'N'})
+
+   WPut('INCGEDAND.option',{'SIM','NAO'})
+   WPut('INCGEDAND.optionvalue',{'S', 'N'})
+
+   WPut('INCGEDPRI.option',{'SIM','NAO'})
+   WPut('INCGEDPRI.optionvalue',{'S', 'N'})
+
+   WPut('INCGEDDEP.option',{'SIM','NAO'})
+   WPut('INCGEDDEP.optionvalue',{'S', 'N'})
+
+   WPut('INCGEDDES.option',{'SIM','NAO'})
+   WPut('INCGEDDES.optionvalue',{'S', 'N'})
+
+   WPut('INCGEDPRO.option',{'SIM','NAO'})
+   WPut('INCGEDPRO.optionvalue',{'S', 'N'})
+
+   WPut('PESQUISA_RF.option',{'SIM','NAO'})
+   WPut('PESQUISA_RF.optionvalue',{'S', 'N'})
+
+   WPut('VFILEMP.option',{'SIM','NAO'})
+   WPut('VFILEMP.optionvalue',{'S', 'N'})
+
+   WPut('APROV_DIF_REV.option',{'SIM','NAO'})
+   WPut('APROV_DIF_REV.optionvalue',{'S', 'N'})
+
+   WPut('CANC_DESP.option',{'','Revisado','Aprovado'})
+   WPut('CANC_DESP.optionvalue',{'', 'Revisado','Aprovado'})
+
+   WPut('FL_FCPA.option',{'SIM','NAO'})
+   WPut('FL_FCPA.optionvalue',{'S', 'N'})
+
+   WPut('FL_BDPO.option',{'SIM','NAO'})
+   WPut('FL_BDPO.optionvalue',{'S', 'N'})
+
+
+   carregaobj(lcTP_PASTA)
+
+   monta_combo(lcTP_PASTA,laFIELDS) // Carregar combox do layout especifico
+
+    // Combobox POSICAO PARTE ------------------------------------------------------------------------
+//   if db_select({'POSICAO_PARTE'},'posicao_parte',,{'TP_PASTA='+DLAP+lcTP_PASTA+DLAP}) == -1
+//      error_sys(db_error())
+//   endif
+//   laRESULT := db_fetchall()
+//   if len(laRESULT) > 0
+//      aadd(laPOSICAO_PARTE,'')
+//      for ii:= 2 to len(laRESULT)
+//         aadd(laPOSICAO_PARTE,laRESULT[ii,1])
+//      next
+//      wPut('POSICAO_PARTE_OPT',laPOSICAO_PARTE)
+//   wout (laPOSICAO_PARTE)
+//   endif
+// Combobox POSICAO PARTE ------------------------------------------------------------------------
+
+     WPut('VALIDA_OBJETO.option','Y')
+     WPut('VALIDA_OBJETO','')
+
+     WPut('FL_PROVISAO_AUTO.option','S')
+     WPut('FL_PROVISAO_AUTO','N')
+     
+     WPut('FL_FAMILIA_CAUSA.option','S')
+     WPut('FL_FAMILIA_CAUSA','')
+
+     WPut('FL_ANDAMENTO_ANEXO.option','S')
+     WPut('FL_ANDAMENTO_ANEXO','N')
+
+     WPut('FL_ANDAMENTO_ADITIVO.option','S')
+     WPut('FL_ANDAMENTO_ADITIVO','N')
+
+     WPut('FL_ATO_SOCIETARIO.option','S')
+     WPut('FL_ATO_SOCIETARIO','N')
+
+
+// Glauber 11/11
+// Geraçao do combo GERA_EST_AUT
+
+   WPut('GERA_EST_AUT.option',{'Não','Sim'})
+   WPut('GERA_EST_AUT.optionvalue',{'N','S'})
+
+// Sonia 22/11/2010 18:37:15
+// Geraçao do combo FL_RISCO_CEM
+
+   WPut('FL_RISCO_CEM.option',{'Não','Sim'})
+   WPut('FL_RISCO_CEM.optionvalue',{'N','S'})
+
+   WPut('FL_COBERTURA_RAMO.option','S')
+   WPut('FL_COBERTURA_RAMO','N')
+
+   WPut('FL_CODAUX.option','S')
+   WPut('FL_CODAUX','N')
+
+   WPut('FL_DESPESA.option','S')
+   WPut('FL_DESPESA','N')
+
+   WPut('FL_DEPOSITO1.option','S')
+   WPut('FL_DEPOSITO1','N')
+
+   WPut('CALCSLA.option','S')
+   WPut('CALCSLA','N')
+
+   WPut('ATUSALP.option','S')
+   WPut('ATUSALP','N')
+
+   WPut('VER_INTERD.option','S')
+   WPut('VER_INTERD','N')
+
+   WPut('CONTANDG.option','S')
+   WPut('CONTANDG','N')
+
+   WPut('INCGEDAND.option','S')
+   WPut('INCGEDAND','N')
+
+   WPut('INCGEDPRI.option','S')
+   WPut('INCGEDPRI','N')
+
+   WPut('INCGEDDEP.option','S')
+   WPut('INCGEDDEP','N')
+
+   WPut('INCGEDDES.option','S')
+   WPut('INCGEDDES','N')
+
+   WPut('INCGEDPRO.option','S')
+   WPut('INCGEDPRO','N')
+
+   WPut('PESQUISA_RF.option','S')
+   WPut('PESQUISA_RF','N')
+
+   WPut('VFILEMP.option','S')
+   WPut('VFILEMP','N')
+
+   WPut('FL_PEDIDO_ZERO.option','S')
+   WPut('FL_PEDIDO_ZERO','N')
+
+   WPut('FL_PENHORA_ZERO.option','S')
+   WPut('FL_PENHORA_ZERO','N')
+
+   WPut('FL_DEPOSITO_ZERO.option','S')
+   WPut('FL_DEPOSITO_ZERO','N')
+
+   WPut('APROV_DIF_REV.option','S')
+   WPut('APROV_DIF_REV','N')
+
+
+// Combobox POSICAO PARTE ------------------------------------------------------------------------
+
+   WPut('CPOSSIVEL.option',{'S','N'})
+   WPut('CPROVAVEL.option',{'S','N'})
+   WPut('CREMOTO.option',{'S','N'})
+
+
+   if lcACTION = 'NEW' .and. gbWAC_CREATE
+      wPut('QUANT_COL',2)
+
+
+      WPut('CPOSSIVEL','S')
+      WPut('CPROVAVEL','S')
+      WPut('CREMOTO','S')
+
+      WPut('DIF_REMOTO','NAO')
+
+      WPut('LIM_MAX','0,00')
+      WPut('MAX_VAR','0,00')
+
+      Wput('NS_PROV','1')
+      Wput('NS_POSS','2')
+      Wput('NS_REMO','3')
+
+   elseif lcACTION = 'ALTER' .and. gbWAC_READ
+      mkgedico(lcTABLE,lcTP_PASTA)
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+
+      if len(laRESULT)>1
+
+         if laRESULT[2,db_fetchncol(laRESULT,'GED_INSERIDO')]!=''
+            laRes := str2array(laRESULT[2,db_fetchncol(laRESULT,'GED_INSERIDO')],',')
+            Wput('VAR_GED_INSERIDO.option',laRes)
+            Wput('VAR_GED_INSERIDO.optionvalue',laRes)
+         endif
+
+         if laRESULT[2,db_fetchncol(laRESULT,'ANDAMENTOS_INSERIDOS')]!=''
+            laRes := str2array(laRESULT[2,db_fetchncol(laRESULT,'ANDAMENTOS_INSERIDOS')],',')
+            Wput('VAR_ANDAMENTOS_INSERIDOS.option',laRes)
+            Wput('VAR_ANDAMENTOS_INSERIDOS.optionvalue',laRes)
+         endif
+
+      endif
+
+      db2put(laRESULT)
+
+      laFIELDS:= {'TP_PASTA',;
+                  'CD_DESPESA',;
+                  'NM_DESPESA',;
+                  'REVISADA',;
+                  'APROVADA',;
+                  'IMPOSTOS',;
+                  'PAGA',;
+                  'ENVIADA'}
+
+      if db_select(laFIELDS,'cfg_desp_encerramento',,{lcWHERE},{'NM_DESPESA'}) == -1
+         error_sys(db_error())
+      endif
+
+      laRESULT := db_fetchall()
+
+      if len(laRESULT)>1
+         lcHTML :=''
+
+         for x := 2 to len(laRESULT)
+
+             lcITEM := alltrim(str(x-2))
+
+             lcHTML += '<tr id="'+'LINHA_'+lcITEM+'" class="wgridrow">'+CRLF
+             lcHTML += '  <td align="center">'+CRLF
+             lcHTML += '    <input style="text-align:center" type="text" id="'+'VAR_CD_DESPESA_'+lcITEM+'"  class="winputreadonly" wicinput readonly value="'+laRESULT[x,2]+'">'+CRLF
+             lcHTML += '  </td>'+CRLF
+             lcHTML += '  <td align="center">'+CRLF
+             lcHTML += '    <input type="text" size="50" id="'+'VAR_NM_DESPESA_'+lcITEM+'" class="winputreadonly" wicinput readonly value="'+laRESULT[x,3]+'">'+CRLF
+             lcHTML += '  </td>'+CRLF
+             lcHTML += '  <td align="center">'+CRLF
+             lcHTML += '  <input type="checkbox" id="'+'VAR_REVISADA_'+lcITEM+'" name="'+'VAR_REVISADA_'+lcITEM+'" wicinput class="winput">'+CRLF
+             lcHTML += '  </td>'+CRLF
+             lcHTML += '  <td align="center">'+CRLF
+             lcHTML += '  <input type="checkbox" id="'+'VAR_APROVADA_'+lcITEM+'" name="'+'VAR_APROVADA_'+lcITEM+'" wicinput class="winput">'+CRLF
+             lcHTML += '  </td>'+CRLF
+             lcHTML += '  <td align="center">'+CRLF
+             lcHTML += '  <input type="checkbox" id="'+'VAR_IMPOSTOS_'+lcITEM+'" name="'+'VAR_IMPOSTOS_'+lcITEM+'" wicinput class="winput">'+CRLF
+             lcHTML += '  </td>'+CRLF
+             lcHTML += '  <td align="center">'+CRLF
+             lcHTML += '  <input type="checkbox" id="'+'VAR_PAGA_'+lcITEM+'" name="'+'VAR_PAGA_'+lcITEM+'" wicinput class="winput">'+CRLF
+             lcHTML += '  </td>'+CRLF
+             lcHTML += '  <td align="center">'+CRLF
+             lcHTML += '  <input type="checkbox" id="'+'VAR_ENVIADA_'+lcITEM+'" name="'+'VAR_ENVIADA_'+lcITEM+'" wicinput class="winput">'+CRLF
+             lcHTML += '  </td>'+CRLF
+             lcHTML += '</tr>'+CRLF
+
+             aadd(laDESP1,laRESULT[x,3])
+             aadd(laDESP2,laRESULT[x,2])
+
+         next x
+
+         wPut('LDESPESASWH',lcHTML)
+
+         for x := 2 to len(laRESULT)
+             lcITEM := alltrim(str(x-2))
+
+             WPut('VAR_REVISADA_'+lcITEM+'.option','S')
+             WPut('VAR_REVISADA_'+lcITEM,laRESULT[x,4])
+
+             WPut('VAR_APROVADA_'+lcITEM+'.option','S')
+             WPut('VAR_APROVADA_'+lcITEM,laRESULT[x,5])
+
+             WPut('VAR_IMPOSTOS_'+lcITEM+'.option','S')
+             WPut('VAR_IMPOSTOS_'+lcITEM,laRESULT[x,6])
+
+             WPut('VAR_PAGA_'+lcITEM+'.option','S')
+             WPut('VAR_PAGA_'+lcITEM,laRESULT[x,7])
+
+             WPut('VAR_ENVIADA_'+lcITEM+'.option','S')
+             WPut('VAR_ENVIADA_'+lcITEM,laRESULT[x,8])
+
+         next x
+
+         Wput('DESPESAS.option',laDESP1)
+         Wput('DESPESAS.optionvalue',laDESP2)
+
+     endif
+
+
+
+
+      wPut('ifALTER',.T.)
+
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+
+      if lower(WGet('LAYOUT_PASTA')) != 'padrao'
+         for ii := 1 to len(laVALIDA)
+             lcVALIDA := alltrim(WGet(laVALIDA[ii,1],'C'))
+             if len(lcVALIDA) = 0 .or. lcVALIDA == '0'
+                walert(laVALIDA[ii,2]+' é um campo obrigatório!')
+                get2Put()
+                return(.f.)
+             endif
+         next ii
+      endif
+
+
+      aadd(laSAVE,laFIELDS)
+      for ii := 1 to len(laFIELDS)
+         if laFIELDS[ii] == 'TP_PASTA'
+            //Se for template padrão, grava implicitamente como padrao.
+            if lower(WGet('LAYOUT_PASTA')) == 'padrao'
+               aadd(laSAVE_AUX,'Padrao')
+               lcWHERE := 'TP_PASTA = '+DLAP+'Padrao'+DLAP
+               walert('O Tipo de Pasta para este template será gravado obrigatóriamente como "Padrao"!')
+            else
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+            endif
+         else 
+            if laFIELDS[ii] == 'LITS_ABAS_NAOCOMUM'
+               lcPastaConfig:=WGet(laFIELDS[ii])            
+               if !empty(lcPastaConfig)
+                  laRES := str2array(lcPastaConfig,',')
+                  for jj := 1 to len(laRES)
+                      aadd(laVAL_ABAS,laRES[jj])
+                  next jj
+                  if ascan(laVAL_ABAS,'psab_auto_html') > 0
+                     if ascan(laVAL_ABAS,'mnt_pst_andamento_html') <= 0
+                        lcPastaConfig +=  ',mnt_pst_andamento_html'
+                     endif
+                  else   
+                     lnPos:=ascan(laVAL_ABAS,'mnt_pst_andamento_html')
+                     if lnPos > 0
+                        lcPastaConfig += ',psab_auto_html'
+                     endif   
+                  endif
+                  aadd(laSAVE_AUX,lcPastaConfig)    
+               else  
+                 aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+               endif
+            elseif laFIELDS[ii] == 'OCOR_PEDIDO_INICIO' .OR. laFIELDS[ii] == 'OCOR_PEDIDO_RATEIO' .OR. laFIELDS[ii] == 'OCOR_PEDIDO_CORRECAO' 
+               lcOCOR_PEDIDO := WGet(laFIELDS[ii])
+               if empty(lcOCOR_PEDIDO)
+                  walert('Os campos Ocorrência de Pedido Inicial, Ocorrência de Pedido Encerrar e Ocorrência para Cálculo devem ser preenchidos.')
+                  llERROR = .T.
+               else
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+               endif
+            else
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+            endif
+         endif
+      next ii
+      if !llERROR
+
+         aadd(laSAVE,laSAVE_AUX)
+         if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+            error_sys(db_error())
+         endif
+
+
+
+
+
+
+         *** grava codigos de despesas
+
+         lcWHERE:='TP_PASTA='+DLAP+lcTP_PASTA+DLAP
+         if db_delete('cfg_desp_encerramento',lcWHERE) == -1
+            error_sys(db_error())
+         endif
+
+         laRESULT     :={}
+         if WGet('GRADESP','C')<>''
+            laRESULT := str2array(WGet('GRADESP','C'),'|')
+
+            for ii := 1 to len(laRESULT)
+
+                laTMP        :={}
+                laLINHA_ATUAL:={}
+                laAUX        :={}
+
+                aadd(laTMP,str2array(laRESULT[ii],','))
+
+                laSAVE  := {'TP_PASTA',;
+                            'CD_DESPESA',;
+                            'NM_DESPESA',;
+                            'REVISADA',;
+                            'APROVADA',;
+                            'IMPOSTOS',;
+                            'PAGA',;
+                            'ENVIADA'}
+
+                aadd(laLINHA_ATUAL,laSAVE)
+
+                laSAVE  := {laTMP[1,1],;
+                            laTMP[1,2],;
+                            laTMP[1,3],;
+                            laTMP[1,4],;
+                            laTMP[1,5],;
+                            laTMP[1,6],;
+                            laTMP[1,7],;
+                            laTMP[1,8]}
+
+                aadd(laLINHA_ATUAL,laSAVE)
+
+                if db_insert(laLINHA_ATUAL,'cfg_desp_encerramento') == -1
+                   error_sys(db_error())
+                endif
+
+            next ii
+         endif
+
+
+
+     
+         if db_select(laFIELDS,lcTABLE,,{lcWHERE}) = -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchall()
+         db2put(laRESULT)
+         WSet('_USER_INTERFACE','lst.cfg.pasta.html')
+         lst_cfg_pasta_html()
+
+      endif   
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+      if db_select({'count(*)'},'pasta',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            walert('Tipo de Pasta não pode ser Excluido!\nExiste(m) '+alltrim(str(laRESULT[1]))+' Pasta(s) Relacionada(s) a ele.')
+            get2put()
+            return (.f.)
+         endif
+      endif
+      if db_delete(lcTABLE,lcWHERE) = -1
+         error_sys(db_error())
+      endif
+// DELETA TABELAS DO OPERACIONAL      
+      if db_select({'count(*)'},'ambito',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('ambito',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'andamento_tipo',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('andamento_tipo',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'area_responsavel',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('area_responsavel',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'causaacao',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('causaacao',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'clas_contabil',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('clas_contabil',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'cobranca_cliente',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('cobranca_cliente',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'contrato_exclusiv_abrangencia',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('contrato_exclusiv_abrangencia',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'contrato_periodicidade_valor',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('contrato_periodicidade_valor',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'contrato_periodo_reajuste',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('contrato_periodo_reajuste',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'contrato_tipo',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('contrato_tipo',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'cumprimento',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('cumprimento',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'departamento',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('departamento',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'empresa_area',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('empresa_area',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'empresa_area_solicitada',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('empresa_area_solicitada',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'empresa_area_solicitante',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('empresa_area_solicitante',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'fase_processual',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('fase_processual',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'forma_contato',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('forma_contato',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'forum',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('forum',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'imposto',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('imposto',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'instancia',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('instancia',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'motivo_infracao',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('motivo_infracao',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'motivo_irregularidade',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('motivo_irregularidade',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'orgao_autarquia',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('orgao_autarquia',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'orgaos',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('orgaos',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'pasta_classifica',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('pasta_classifica',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'pasta_config_valores',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('pasta_config_valores',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'pasta_familia',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('pasta_familia',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'pasta_natureza',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('pasta_natureza',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'pasta_objeto',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('pasta_objeto',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'pasta_tb_assunto',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('pasta_tb_assunto',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'pasta_tp_baixa',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('pasta_tp_baixa',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'posicao_parte',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('posicao_parte',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'prioridade',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('prioridade',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'procedimento',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('procedimento',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'provisao',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('provisao',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'resultado_processo',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('resultado_processo',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'tipo_ar',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('tipo_ar',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'tipo_deposito',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('tipo_deposito',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'tipo_segmento',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('tipo_segmento',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'tipo_vara',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('tipo_vara',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'tipoacao',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('tipoacao',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+      if db_select({'count(*)'},'tribunal',,{lcWHERE}) = -1
+         error_sys()
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if laRESULT[1] > 0
+            if db_delete('tribunal',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+         endif
+      endif      
+
+
+      WSet('_USER_INTERFACE','lst.cfg.pasta.html')
+      lst_cfg_pasta_html()
+   else
+      WSet('_USER_INTERFACE','lst.cfg.pasta.html')
+      lst_cfg_pasta_html()
+   endif
+return
+
+/*
+* Function....: monta_combo()
+* Objetivo....: Carregar os dados do combobox da Tabela Posicao Parte
+* Parï¿½etros..: Nenhum
+*    fcTP_PASTA.: Tipo de Pasta
+*    faFIELDS...: Campos da tabela pasta
+*    faRESULT...: Registro selecionado
+*
+*    colocar para chamada  -   pscc(lcTP_PASTA,laFIELDS) // Carregar combox do layout especifico
+*
+* Retorno.....: Nenhum
+*/
+function monta_combo(fcTP_PASTA,faFIELDS,faRESULT)
+   local lcSELECT   := '' ,;
+         lcFIELD    := '' ,;
+         lcFIELD_UI := '' as string
+
+   local laFOREIGN := {} ,;
+         laRESULT  := {} ,;
+         laPUT     := {} as array
+
+   local lnSIZE := 0 ,;
+         lnPOS  := 0 ,;
+         ii     := 0 as int
+
+   /*
+   * Carrega Combos de acordo com o Layout.
+   * Formato do Array:
+   * laFOREIGN := {{'Coluna 1','Coluna 2','Coluna 3','Coluna 4',Coluna 5}}
+   *   Onde:
+   *      Coluna 1: Tabela alvo
+   *      Coluna 2: Campo a selecionar na tabela alvo
+   *      Coluna 3: Campo na UI
+   *      Coluna 4: Indicador de combobox com a primeira linha em branco [Y/N]
+   *      Coluna 5: Vetor com a condiï¿½o de pesquisa, caso seja necessï¿½ia
+   */
+ 
+    aadd(laFOREIGN,{'posicao_parte','POSICAO_PARTE','LITS_POSICAO_PARTE','Y',{'TP_PASTA='+DLAP+fcTP_PASTA+DLAP}})
+    aadd(laFOREIGN,{'posicao_parte','POSICAO_PARTE','LITS_POSICAO_MASTER','Y',{'TP_PASTA='+DLAP+fcTP_PASTA+DLAP}})
+
+   lnSIZE := wmd_fieldsize('WFIELD')
+   for ii := 1 to len(laFOREIGN)
+       if ii == 1
+          lcSELECT += 'select distinct '+DLAP+space(45)+DLAP+' as WFIELD,'
+          lcSELECT += DLAP+space(45)+DLAP+' as WFVALUE '
+       endif
+       lcSELECT += ' union select distinct '+DLAP+laFOREIGN[ii,3]+DLAP+' as WFIELD,'
+       lcSELECT += laFOREIGN[ii,2]+' as WFVALUE from '+laFOREIGN[ii,1]
+       if valtype(laFOREIGN[ii,5]) != 'U'
+          lcSELECT += ' where '+laFOREIGN[ii,5][1]
+       endif
+   next ii
+
+   if ! empty(alltrim(lcSELECT))
+      lcSELECT += ' order by WFIELD,WFVALUE'
+      if db_query(lcSELECT) == -1
+         error_sys('Monta Combo: '+db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 2
+         adel(laRESULT,2)
+         asize(laRESULT,len(laRESULT)-1)
+
+         if valtype(faRESULT) == 'U'
+            for ii := 1 to len(laFOREIGN)
+                if laFOREIGN[ii,4] == 'Y'
+                   lcFIELD := laFOREIGN[ii,3]
+                   lnPOS   := ascan(laRESULT,{|x| x[1]== lcFIELD})
+                   if lnPOS > 0
+                      asize(laRESULT,len(laRESULT)+1)
+                      ains(laRESULT,lnPOS)
+                      laRESULT[lnPOS] := {laFOREIGN[ii,3],''}
+                   endif
+                endif
+            next ii
+
+            lcFIELD := laRESULT[2,1]
+            for ii := 2 to len(laRESULT)
+                if laRESULT[ii,1] != lcFIELD
+                   WPut(lcFIELD+'_OPT',laPUT)
+                   lcFIELD := laRESULT[ii,1]
+                   laPUT   := {}
+                endif
+                aadd(laPUT,alltrim(laRESULT[ii,2]))
+
+            next ii
+            if len(laPUT) > 0
+               WPut(lcFIELD+'_OPT',laPUT)
+            endif
+         else
+            for ii := 2 to len(laRESULT)
+                WPut(laRESULT[ii,1],laRESULT[ii,2])
+            next ii
+         endif
+      endif
+   endif
+return(nil)
+
+**************************************
+static function carregaobj(fcTP_PASTA)
+**************************************
+
+local lcWHERE   :=''
+local lcTABLEDET:=''
+local lcWHEREDET:=''
+local laRES:={}
+local laLST_NOVA:={}
+local laVINCULADO:={}
+
+local paAUTO     :={} as array
+
+
+
+local  laOPT    := {} ,;
+       laOPTV   := {} ,;
+       laPUT    := {} ,;
+       laDEF    := {} ,;
+       laDEFV   := {} ,;
+       laATI    := {} ,;
+       laATIV   := {} ,;
+       laINA    := {} ,;
+       laINAV   := {} ,;
+       laPUTV   := {} ,;
+       laFIELD  := {} as array
+
+
+local  jj    := 1  ,;
+       liPOS := 0  as int
+
+
+laDEF := {}
+laDEFV:= {}
+
+laATI := {}
+laATIV:= {}
+
+laINA := {}
+laINAV:= {}
+
+laPUT := {}
+laPUTV:= {}
+
+laFIELD := structtable(WSet("DB_ACTIVE"),'objeto',1,'A')
+liPOS   := ascan(laFIELD,'FL_ATIVO')
+
+if liPOS<>0
+   laFIELD:={'OBJETO','FL_ATIVO'}
+  else
+   laFIELD:={'OBJETO'}
+ endif
+
+lcTABLEDET      := 'pasta_objeto'
+lcWHEREDET      := 'TP_PASTA = '+DLAP+fcTP_PASTA+DLAP+' and FL_ATIVO <>'+DLAP+'I'+DLAP+' and FL_VISIVEL ='+DLAP+'W'+DLAP
+
+if db_select(laFIELD,;
+              lcTABLEDET,,;
+              {lcWHEREDET},{'OBJETO'}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+
+for jj := 2 to len(laRES)
+    if liPOS<>0
+       if laRES[jj,2] == 'D'
+          aadd(laDEF,laRES[jj,1])
+          aadd(laDEFV,laRES[jj,1])
+
+        elseif laRES[jj,2] == 'I'
+          aadd(laINA,laRES[jj,1])
+          aadd(laINAV,laRES[jj,1])
+
+        else
+          aadd(laATI,laRES[jj,1])
+          aadd(laATIV,laRES[jj,1])
+       endif
+    else
+       aadd(laATI,laRES[jj,1])
+       aadd(laATIV,laRES[jj,1])
+    endif
+next jj
+
+if len(laDEF) == 0
+   aadd(laDEF,'') // Adiciona uma linha vazia no inicio do combo, caso seja solicitado
+   aadd(laDEFV,'')
+endif
+
+for jj=1 to len(laDEF)
+    aadd(laPUT,laDEF[jj])
+    aadd(laPUTV,laDEFV[jj])
+next jj
+
+for jj=1 to len(laATI)
+    aadd(laPUT,laATI[jj])
+    aadd(laPUTV,laATIV[jj])
+next jj
+
+for jj=1 to len(laINA)
+    aadd(laPUT,'INATIVO - '+laINA[jj])
+    aadd(laPUTV,laINAV[jj])
+next jj
+
+
+WPut('OCOR_SUCU.option',laPUT)
+WPut('OCOR_SUCU.optionvalue',laPUTV)
+
+return(nil)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

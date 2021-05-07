@@ -1,0 +1,51 @@
+/*
+Project      : gr5
+Program      : lst.mvt.indice.html
+Function     : lst_mvt_indice_html
+Created on   : 15-Aug-2002   14:21:42
+Descripition : Filtros de localização de Variações de indices
+*/
+
+   local laPARAM        := {{'CD_INDICE',''},;
+                            {'ACTION'  ,'ALTER'}},;
+         laQUICK_SEARCH := {} ,;
+         laBUTTON       := {}  as array
+
+   laSELECT       := {'CD_INDICE',;
+                      'NM_INDICE'}
+
+   laQUICK_SEARCH := {'NM_INDICE'}
+   laBUTTON       := {{'Variações',{{'CD_INDICE','','*'}},3,'gr5','mnt.mvt.indice.html'},;
+                      {'Juros'    ,{{'CD_INDICE','','*'}},4,'gr5','mnt.mvt.juros.html'},;
+                      {'Diarios'  ,{{'CD_INDICE','','*'}},5,'gr5','mnt.diario_indice.html'}}
+
+   xbp('indice_reajuste',;                            //Tabela alvo
+       ,;                                             //Joins
+       ,;                                             //Where
+       {'CD_INDICE'},;                                //Order by
+       ,;                                             //Sort [A]-Ascendente [D]-Descentende
+       ,;                                             //Group by
+       ,;                                             //Limit
+       ,;                                             //Banco de Dados
+       4,;                                            //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search, 4-Listagem
+       'gr5',;                                        //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;                      //Programa chamador
+       laPARAM,;                                      //Parametros das linhas clicaveis do grid
+       laBUTTON,;                                     //Parâmetros para os botões das linhas do grid
+       'mnt.indice.reajuste.html',;                   //Programa que os links/botoes do grid deverao chamar
+       'gr5',;                                        //Módulo do programa chamado pelos links/botoes do grid
+       ,;                                             //Retorno java (nil) - usado apenas para Search
+       laQUICK_SEARCH,;                               //Campos usados na pesquisa rápida
+       ,;                                             //Campos Ocultos
+       ,;                                             //Campos da área de manutenção/entrada de dados
+       laSELECT,;                                     //Campos exibidos no grid
+       laSELECT)                                      //Campos usados no select
+
+   WPut('TITLE','Variação de Índices')
+return
+
+
+
+
+
+

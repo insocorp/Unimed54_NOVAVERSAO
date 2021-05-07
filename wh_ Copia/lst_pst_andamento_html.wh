@@ -1,0 +1,10 @@
+/*
+Project      : gr5
+Program      : lst.pst.andamento.html
+Function     : lst_pst_andamento_html
+Created on   : 04-Jan-2002   16:52:08
+Descripition : Relação do Andamento das Pastas
+*/
+
+WSet('_USER_INTERFACE','lst.pasta.html')
+lst_pasta_html('mnt.pst.andamento.html')

@@ -1,0 +1,284 @@
+/*
+
+Project      : isj_45
+Program      : mnt.filxplat.html
+Function     : mnt_filxplat_html
+Created on   : 09/04/2015 14:08:03
+Descripition :
+
+*/
+
+private lcACTION   := ''
+
+local laRESULT     := {} ,;
+      laSAVE       := {} ,;
+      laLINHA_ATUAL:= {} as array
+
+local lcCIP_EMPRESA:= '' ,;
+      lcLIBERADO   := '' as string
+local ii           := 0 as int
+
+
+lcACTION          := upper(Wget('ACTION'))
+
+
+WPut('TITLE','Identificação das Filiais por Plataforma')
+
+***carrega_cbox({{'pasta_config','TP_PASTA','Y'}})
+
+if lcACTION == 'SAVE' .and. gbWAC_WRITE
+
+   laRESULT := str2array(WGet('FILIAIS','C'),',')
+
+   for ii := 1 to len(laRESULT)
+
+          lcCIP_EMPRESA:=buscaemp(laRESULT[ii])
+
+          laLINHA_ATUAL:={}
+
+          laSAVE  := {'ID_PLATAFORMA',;
+                      'CIP_FILIAL',;
+                      'CIP_EMPRESA',;
+                      'DT_CADASTRO',;
+                      'LOGIN_CADASTRO'}
+
+          aadd(laLINHA_ATUAL,laSAVE)
+
+
+          laSAVE  := {WGet('ID_PLATAFORMA','C'),;
+                     laRESULT[ii],;
+                     lcCIP_EMPRESA,;
+                     date(),;
+                     gcLOGIN}
+
+          aadd(laLINHA_ATUAL,laSAVE)
+
+
+
+          if db_insert(laLINHA_ATUAL,'filxdiv') == -1
+              error_sys(db_error())
+          endif
+
+   next ii
+
+elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+
+    lcLIBERADO:=podexcluir(WGet('EXCLUIR','C'))
+
+    if lcLIBERADO='S'
+       lcWHERE    := 'NR_CONTROLE = ' + WGet('EXCLUIR','C')
+
+       if db_delete('filxdiv',lcWHERE) == -1
+          error_sys(db_error())
+       endif
+    endif
+
+endif
+
+cmb_plataforma()
+alimenta_grid()
+
+WPut('ACTION','')
+lcACTION:=''
+
+return
+
+********************************
+static function cmb_plataforma()
+********************************
+local lcWHERE:=''
+local laRES:={}
+local laLST_NOVA:={}
+local laVINCULADO:={}
+
+local paAUTO     :={} as array
+
+
+
+local  laOPT    := {} ,;
+       laOPTV   := {} ,;
+       laPUT    := {} ,;
+       laDEF    := {} ,;
+       laDEFV   := {} ,;
+       laATI    := {} ,;
+       laATIV   := {} ,;
+       laINA    := {} ,;
+       laINAV   := {} ,;
+       laPUTV   := {} ,;
+       laFIELD  := {} as array
+
+
+local  jj    := 1  as int
+
+
+laDEF := {}
+laDEFV:= {}
+
+laATI := {}
+laATIV:= {}
+
+laINA := {}
+laINAV:= {}
+
+laPUT := {}
+laPUTV:= {}
+
+laFIELD:={'ID_PLATAFORMA','DESC_PLATAFORMA','FL_ATIVO'}
+
+if db_select(laFIELD,'plataforma',,,{'DESC_PLATAFORMA'}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+
+
+for jj := 2 to len(laRES)
+    if laRES[jj,3] == 'D'
+       aadd(laDEF,laRES[jj,2])
+       aadd(laDEFV,laRES[jj,1])
+
+     elseif laRES[jj,3] == 'I'
+       aadd(laINA,laRES[jj,2])
+       aadd(laINAV,laRES[jj,1])
+
+     else
+       aadd(laATI,laRES[jj,2])
+       aadd(laATIV,laRES[jj,1])
+    endif
+next jj
+
+if len(laDEF) == 0
+   aadd(laDEF,'') // Adiciona uma linha vazia no inicio do combo, caso seja solicitado
+   aadd(laDEFV,'0')
+endif
+
+for jj=1 to len(laDEF)
+    aadd(laPUT,laDEF[jj])
+    aadd(laPUTV,laDEFV[jj])
+next jj
+
+for jj=1 to len(laATI)
+    aadd(laPUT,laATI[jj])
+    aadd(laPUTV,laATIV[jj])
+next jj
+
+for jj=1 to len(laINA)
+    aadd(laPUT,'INATIVO - '+laINA[jj])
+    aadd(laPUTV,laINAV[jj])
+next jj
+
+
+WPut('DESC_PLATAFORMA.option',laPUT)
+WPut('DESC_PLATAFORMA.optionvalue',laPUTV)
+
+return(nil)
+
+
+**************************************
+static function buscaemp(fnCIP_FILIAL)
+**************************************
+**** busca empresa
+
+local lcWHERE   :='' as string
+local laRES     :={} as array
+local lcCIP_EMP :=''
+
+lcWHERE:='CIP='+fnCIP_FILIAL
+
+if db_select({'CIP_EMPRESA'},'pfpj',,{lcWHERE}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+if len(laRES)>1
+   lcCIP_EMP:=laRES[2,1]
+   if lcCIP_EMP=''
+      lcCIP_EMP:='0'
+   endif
+else
+   lcCIP_EMP:='0'
+endif
+
+
+return(lcCIP_EMP)
+
+
+
+*******************************
+static function alimenta_grid()
+*******************************
+
+local lcQUERY :='' as string
+local laRESULT:={} as array
+
+
+lcQUERY  ='select'
+lcQUERY +=' filxdiv.NR_CONTROLE,'
+lcQUERY +=' filxdiv.ID_PLATAFORMA,'
+lcQUERY +=' plataforma.DESC_PLATAFORMA as DESCPLATAFORMA,'
+lcQUERY +=' filxdiv.CIP_FILIAL,'
+lcQUERY +=' pfpj.PFPJ as FILIAL,'
+lcQUERY +=' filxdiv.CIP_EMPRESA,'
+lcQUERY +=' pfpj_empresa.PFPJ as EMPRESA'
+lcQUERY +=' from filxdiv'
+lcQUERY +=' left join plataforma on plataforma.ID_PLATAFORMA = filxdiv.ID_PLATAFORMA'
+lcQUERY +=' left join pfpj on pfpj.cip=filxdiv.CIP_FILIAL'
+lcQUERY +=' left join pfpj_empresa on pfpj_empresa.CIP = filxdiv.CIP_EMPRESA'
+lcQUERY +=' order by plataforma.DESC_PLATAFORMA,filxdiv.CIP_EMPRESA,pfpj.PFPJ'
+
+if db_query(lcQUERY) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchall()
+
+if len(laRESULT)>1
+   aadd(laRESULT[1],'VAR_NR_CONTROLE')
+
+   for xx=2 to len(laRESULT)
+       lcNR_ROW := alltrim(str(xx-1))
+       aadd(laRESULT[xx],'VAR_NR_CONTROLE'+lcNR_ROW)
+
+       WPut('VAR_NR_CONTROLE'+lcNR_ROW,  laRESULT[xx,db_fetchncol(laRESULT,'NR_CONTROLE')])
+
+
+   next xx
+
+endif
+
+WPut('GRID',laRESULT)
+
+return(nil)
+
+
+
+*****************************************
+static function podexcluir(fcNR_CONTROLE)
+*****************************************
+
+local lcWHERE   :='' as string
+local laRES     :={} as array
+local laRES2    :={} as array
+
+
+lcWHERE:='NR_CONTROLE='+fcNR_CONTROLE
+
+if db_select({'CIP_FILIAL'},'filxdiv',,{lcWHERE}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+
+lcWHERE:='CIP_FILIAL='+laRES[2,1]
+
+if db_select({'NR_CONTROLE'},'filxgrp',,{lcWHERE}) == -1
+   error_sys(db_error())
+endif
+laRES2 := db_fetchall()
+if len(laRES2)>1
+   walert('Filial esta sendo utilizada no grupo, exclusão não permitida!')
+   return('N')
+else
+   return('S')
+endif
+
+return(nil)
+

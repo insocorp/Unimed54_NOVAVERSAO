@@ -1,0 +1,66 @@
+/*
+
+Project      : gr5
+Program      : view.markup.html
+Function     : view_markup_html
+Created on   : 01-Feb-2005   14:46:11
+Descripition : Visualização de Markup
+
+*/
+
+   local lcCD_INDICE := WGet('CD_INDICE','C'),;
+         lcAM_REF    := alltrim(WGet('AM_REF','C')) ,;
+         lcAM_BASE   := alltrim(WGet('AM_BASE','C')) ,;
+         lcMSG       := '' as string
+   local laRES := {} as array
+
+   WPut('TITLE','Visualização de Markup')
+   if upper(WGet('ACTION')) == 'EXECSEL'
+      if empty(lcCD_INDICE) .or. val(lcCD_INDICE) == 0
+         walert('Selecione um Índice!')
+         get2Put()
+      elseif empty(lcAM_REF)
+         walert('Digite um Ano Mês!')
+         get2Put()
+      elseif empty(lcAM_BASE)
+         walert('Digite um Ano Mês Base!')
+         get2Put()
+      else
+         if db_select({'MARKUP'},'markup',,{'CD_INDICE='+lcCD_INDICE+;
+                                                                   ' and AM_REF='+DLAP+lcAM_REF+DLAP+;
+                                                                   ' and AM_BASE='+DLAP+lcAM_BASE+DLAP}) == -1
+            error_sys(db_error())
+         endif
+         laMARKUP := db_fetchrow()
+         if db_select({'MARKUP_JUROS'},'markup_juros',,{'CD_INDICE='+lcCD_INDICE+;
+                                                                   ' and AM_REF='+DLAP+lcAM_REF+DLAP+;
+                                                                   ' and AM_BASE='+DLAP+lcAM_BASE+DLAP}) == -1
+            error_sys(db_error())
+         endif
+         laMARKJUR := db_fetchrow()
+         if len(laMARKUP) > 0
+            lcMSG := '<table align="center" cellpadding="2" cellspacing="1">'+CRLF
+            lcMSG += '   <tr>'+CRLF
+            lcMSG += '      <td class="wgridheader">wiclabel.MARKUP</td>'+CRLF
+            lcMSG += '      <td class="wgridheader">wiclabel.PC_INDICE</td>'+CRLF
+            lcMSG += '      <td class="wgridheader">wiclabel.PC_JUROS</td>'+CRLF
+            lcMSG += '   </tr>'+CRLF
+            lcMSG += '   <tr>'+CRLF
+            lcMSG += '      <td class="wgridrow" align="right">'+wpictrans('MARKUP',laMARKUP[1]*laMARKJUR[1])+'</td>'+CRLF
+            lcMSG += '      <td class="wgridrow" align="right">'+wpictrans('PC_INDICE',((laMARKUP[1]*100)-100))+' %</td>'+CRLF
+            lcMSG += '      <td class="wgridrow" align="right">'+wpictrans('PC_JUROS',((laMARKJUR[1]*100)-100))+' %</td>'+CRLF
+            lcMSG += '   </tr>'+CRLF
+            lcMSG += '</table>'+CRLF
+
+            WPut('GRID_MARKUP',lcMSG)
+         else
+            WPut('GRID_MARKUP','<center><font color="red">Não existe Markup Calculado para o Índice e datas informados.<br>Realize o Cálculo de Markup.</font></center>')
+         endif
+         get2Put()
+      endif
+   endif
+return
+
+
+
+

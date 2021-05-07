@@ -1,0 +1,211 @@
+/* 
+Project      : isj_398
+Program      : gerar.saldos.mnt.html
+Function     : gerar_saldos_mnt_html
+Created on   : 28-Jun-2012   16:50:00
+Descripition :
+*/
+
+      
+local lcACTION    := '' ,;
+      lcTP_PASTA  := '' ,; 
+      lcTABLE     := '' ,;
+      lcORDER     := '' ,;       
+      lcWHERE     := '' ,;
+      lcTPASTAS   := '' as string
+      
+local llERROR     := .f. as logical
+
+local laRES     := {} ,;
+      laRESTP   := {} ,;
+      laJOIN    := {} ,;     
+      laFIELDS  := {} ,;
+      laSAVE    := {} as array  
+      
+local lnXX      := 0 as int 
+
+local llGRAVA   := .f. as logical
+
+
+lcACTION   := upper(Wget('ACTION'))
+lcTP_PASTA := Wget('TP_PASTA','C') 
+
+***make_psthead(lcNR_PASTA,lcTP_PASTA)
+pasta_abas(lcTP_PASTA)
+
+
+lcTABLE    := 'pasta_config'
+lcORDER    := 'TP_PASTA'
+laFIELDS   := {'TP_PASTA'} 
+
+*** BUSCA TIPO DE PASTAS (SO MOSTRA AS QUE O USUARIO TEM ACESSO)
+if db_select(laFIELDS, lcTABLE,,,{lcORDER}) == -1
+   error_sys(db_error())
+endif
+laRESTP := db_fetchall()
+
+
+*** ALIMENTA COMBOBOX
+laRES := {}
+aadd(laRES,'Todas')
+for lnXX := 2 to len(laRESTP)
+    
+    aadd(laRES,laRESTP[lnXX,1])
+    
+    if lcTPASTAS==''
+      lcTPASTAS := DLAP+laRESTP[lnXX,1]+DLAP
+    else
+      lcTPASTAS := lcTPASTAS+','+DLAP+laRESTP[lnXX,1]+DLAP
+    endif 
+    
+next lnXX
+wPut('TP_PASTA_OPT',laRES)  
+
+
+wPut('ifNEW',.T.)
+wPut('ifGERAN',.F.)
+llGRAVA:=.f.
+
+if lcACTION=='GERAR'
+   get2put()  
+
+   laFIELDS     := {'NR_PASTA',;     
+                    'NR_CONTROLE',; 
+                    'TP_PASTA',; 
+                    'VL_RISCO',;     
+                    'VL_RISCO_CALC',;
+                    'PC_RISCO',;     
+                    'VL_CORRECAO',;  
+                    'VL_JUROS',;     
+                    'FL_CALCULO',;   
+                    'DT_MOVTO_PED',;
+                    'OCOR_PEDIDO',;
+                    'DT_ALTERACAO',;
+                    'HR_ALTERACAO',;
+                    'LOGIN_CADASTRO'}
+                    
+   lcTABLE    := 'pasta_saldo_pedidos' 
+
+   if WGET('TP_PASTA','C') == 'Todas' 
+      lcWHERE    := 'DT_ALTERACAO = ' + DLAP + dtos(DATE()) + DLAP 
+   else
+      lcWHERE    := 'DT_ALTERACAO = ' + DLAP + dtos(DATE()) + DLAP + ' and TP_PASTA = ' + DLAP + lcTP_PASTA + DLAP 
+   endif
+
+   if db_select(laFIELDS, lcTABLE,,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+   
+   laRES := db_fetchall()
+     
+   if len(laRES)>1
+
+      *** encontrou lançamento já calculado
+      *** deve perguntar se recalcula
+      
+      wPut('ifNEW',.T.)
+      wPut('ifGERAN',.T.) 
+
+      llGRAVA:=.f.      
+      
+     else
+
+      llGRAVA:=.t.
+      
+   endif         
+
+elseif lcACTION=='GERARN'
+      get2put() 
+
+      lcTABLE    := 'pasta_saldo_pedidos'   
+
+      if WGET('TP_PASTA','C') == 'Todas' 
+         lcWHERE    := 'DT_ALTERACAO = ' + DLAP + dtos(DATE()) + DLAP 
+        else
+         lcWHERE    := 'DT_ALTERACAO = ' + DLAP + dtos(DATE()) + DLAP + ' and TP_PASTA = ' + DLAP + lcTP_PASTA + DLAP 
+      endif          
+      
+      If db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+      
+      llGRAVA:=.t.   
+
+endif 
+
+
+if llGRAVA==.t. 
+
+   lcTABLE    := 'pasta_pedidos' 
+   
+   if WGET('TP_PASTA','C') == 'Todas' 
+      lcWHERE    := 'pasta.TP_PASTA in (' + lcTPASTAS + ')'
+   else
+      lcWHERE    := 'pasta.TP_PASTA = ' + DLAP + lcTP_PASTA + DLAP
+   endif   
+   
+   lcORDER    := 'pasta_pedidos.NR_PASTA,pasta_pedidos.NR_CONTROLE'
+
+   laFIELDS     := {'pasta_pedidos.NR_PASTA',; 
+                    'pasta_pedidos.NR_CONTROLE',; 
+                    'pasta.TP_PASTA',;                     
+                    'pasta_pedidos.VL_RISCO',;     
+                    'pasta_pedidos.VL_RISCO_CALC',;
+                    'pasta_pedidos.PC_RISCO',;     
+                    'pasta_pedidos.VL_CORRECAO',;  
+                    'pasta_pedidos.VL_JUROS',;     
+                    'pasta_pedidos.FL_CALCULO',;   
+                    'pasta_pedidos.DT_MOVTO_PED'}
+                    
+   laJOIN       := {{2,'pasta','pasta.NR_PASTA=pasta_pedidos.NR_PASTA'}}   
+ 
+   if db_select(laFIELDS, lcTABLE,laJOIN,{lcWHERE},{lcORDER}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   
+   if len(laRES)>1
+
+      laFIELDS     := {'NR_PASTA',;     
+                    'NR_CONTROLE',; 
+                    'TP_PASTA',; 
+                    'VL_RISCO',;     
+                    'VL_RISCO_CALC',;
+                    'PC_RISCO',;     
+                    'VL_CORRECAO',;  
+                    'VL_JUROS',;     
+                    'FL_CALCULO',;   
+                    'DT_MOVTO_PED',;
+                    'OCOR_PEDIDO',;
+                    'DT_ALTERACAO',;
+                    'HR_ALTERACAO',;
+                    'LOGIN_CADASTRO'}
+   
+      laSAVE    := {}
+   
+      aadd(laSAVE,laFIELDS)
+      if len(laRES)>1 
+         for lnXX := 2 to len(laRES)
+           
+             aadd(laRES[lnXX],'Saldo')
+             aadd(laRES[lnXX],date())
+             aadd(laRES[lnXX],time())
+             aadd(laRES[lnXX],gcLOGIN)
+                     
+             aadd(laSAVE,laRES[lnXX])                   
+
+         next lnXX   
+      endif
+      
+      lcTABLE    := 'pasta_saldo_pedidos'    
+      
+      if db_insert(laSAVE,lcTABLE) = -1
+         error_sys(db_error())
+      endif 
+      walert('Total de lançamentos alterados: ' + str(len(laSAVE)-1))
+     else
+      walert('Não encontrei lançamento para pasta tipo: '+ WGET('TP_PASTA','C'))
+   endif  
+endif
+
+return

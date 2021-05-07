@@ -1,0 +1,499 @@
+/*
+
+Project      : gr5
+Program      : mnt.pedexcontabil.html
+Function     : mnt_pedexcontabil_html
+Created on   : 19/06/2015 09:40:52
+Descripition : Exceção contabil de pedidos
+
+*/
+
+   local laRESULT   := {},;
+         laSAVE     := {},;               
+         laSAVEAUX  := {},;
+         laMVTSAVE  := {},;
+         laRES      := {},;
+         laNFIELDS  := {},;
+         laUFIELDS  := {},;
+         laFIELDS   := {} as array
+
+   local lcWHERE    := '',;
+         lcTABLE    := '',;
+         lcACTION   := ''  as string
+   local lii        := 0 as numeric;
+   
+   local erro := .F.
+
+   lcTABLE := 'excontped'
+
+   WPut('TITLE','Exceção contabil de pedidos')
+   WPut('WSAJAX',WSet('WSAJAX'))
+
+
+
+ laFIELDS := {'CD_EXCT',; 
+              'NM_TRCT',;         
+              'PEDIDO_PROCESSO',;      
+              'CD_PLCT_DEBITO',;  
+              'CD_PLCT_CREDITO',; 
+              'HISTORICO',;       
+              'TP_PASTA',;        
+              'EST1',;            
+              'CD_PLCT_1DEBITO',; 
+              'CD_PLCT_1CREDITO',;
+              'CORR',;            
+              'CHISTORICO',;      
+              'CD_PLCT_CDEBITO',; 
+              'CD_PLCT_CCREDITO',;
+              'EST2',;  
+              'CD_PLCT_2DEBITO',; 
+              'CD_PLCT_2CREDITO',;
+              'JUR',;             
+              'JHISTORICO',;      
+              'CD_PLCT_JDEBITO',; 
+              'CD_PLCT_JCREDITO',;
+              'EST3',;  
+              'CD_PLCT_3DEBITO',; 
+              'CD_PLCT_3CREDITO',;
+              'HIST1',;           
+              'HIST2',;           
+              'HIST3'}           
+
+   
+
+   lcACTION := upper(Wget('ACTION'))
+
+   
+
+ laVALIDA := {'TP_PASTA',;         
+              'PEDIDO_PROCESSO',;      
+              'NM_TRCT'}   
+   
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+   
+   carrega_cbox({{'pasta_config','tp_pasta','Y'}})
+
+   carrega_ocorped()   
+   
+   Monta_Grade()
+   
+
+
+   if lcACTION == 'ALTER'
+
+      lcWHERE := 'CD_EXCT = ' + Wget('CD_EXCT','C')
+      
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE},,,,,) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) >= 2
+         db2put(laRESULT)
+      endif
+      
+      WPut('DESC_PED',laRESULT[2,ascan(laRESULT[1],'PEDIDO_PROCESSO')])
+      
+      
+      MostraConta(laRESULT[2,ascan(laRESULT[1],'CD_PLCT_DEBITO')] ,laRESULT[2,ascan(laRESULT[1],'CD_PLCT_CREDITO')] ,'NM_PLCT_DEBITO','NM_PLCT_CREDITO')
+      MostraConta(laRESULT[2,ascan(laRESULT[1],'CD_PLCT_1DEBITO')],laRESULT[2,ascan(laRESULT[1],'CD_PLCT_1CREDITO')],'NM_PLCT_1DEBITO','NM_PLCT_1CREDITO') 
+      MostraConta(laRESULT[2,ascan(laRESULT[1],'CD_PLCT_CDEBITO')],laRESULT[2,ascan(laRESULT[1],'CD_PLCT_CCREDITO')],'NM_PLCT_CDEBITO','NM_PLCT_CCREDITO')
+      MostraConta(laRESULT[2,ascan(laRESULT[1],'CD_PLCT_2DEBITO')],laRESULT[2,ascan(laRESULT[1],'CD_PLCT_2CREDITO')],'NM_PLCT_2DEBITO','NM_PLCT_2CREDITO')
+      MostraConta(laRESULT[2,ascan(laRESULT[1],'CD_PLCT_JDEBITO')],laRESULT[2,ascan(laRESULT[1],'CD_PLCT_JCREDITO')],'NM_PLCT_JDEBITO','NM_PLCT_JCREDITO')
+      MostraConta(laRESULT[2,ascan(laRESULT[1],'CD_PLCT_3DEBITO')],laRESULT[2,ascan(laRESULT[1],'CD_PLCT_3CREDITO')],'NM_PLCT_3DEBITO','NM_PLCT_3CREDITO')
+
+      
+      return
+   elseif lcACTION == 'DELETE'
+   
+      lcWHERE := 'CD_EXCT = ' + Wget('CD_EXCT','C')
+      
+      if db_delete(lcTABLE,lcWHERE) = -1
+         error_sys(db_error())
+      endif
+      
+      Monta_Grade()
+      
+      limpatela(laFIELDS)
+      
+   elseif lcACTION == 'SAVE'
+ 
+      get2put()      
+      
+      if ! verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+         erro:=.T.
+      else
+      
+          if alltrim(Wget('CD_EXCT','C')) == "0"
+          
+             lcWHERE:='TP_PASTA = ' + DLAP + Wget('TP_PASTA') + DLAP + ' AND  NM_TRCT = ' + DLAP + Wget('NM_TRCT') + DLAP + ' AND PEDIDO_PROCESSO = ' + DLAP + Wget('PEDIDO_PROCESSO') + DLAP
+
+             if db_select(laFIELDS,lcTABLE,,{lcWHERE},,,,,) == -1
+                error_sys(db_error())
+             endif
+             laRESULT := db_fetchall()
+             
+             if len(laRESULT) > 1
+                 walert('Atenção chave já cadastrada!')
+                 return 
+             endif
+          endif
+      
+ laNFIELDS := {'NM_TRCT',;         
+              'PEDIDO_PROCESSO',;      
+              'CD_PLCT_DEBITO',;  
+              'CD_PLCT_CREDITO',; 
+              'HISTORICO',;       
+              'TP_PASTA',;        
+              'EST1',;            
+              'CD_PLCT_1DEBITO',; 
+              'CD_PLCT_1CREDITO',;
+              'CORR',;            
+              'CHISTORICO',;      
+              'CD_PLCT_CDEBITO',; 
+              'CD_PLCT_CCREDITO',;
+              'EST2',;  
+              'CD_PLCT_2DEBITO',; 
+              'CD_PLCT_2CREDITO',;
+              'JUR',;             
+              'JHISTORICO',;      
+              'CD_PLCT_JDEBITO',; 
+              'CD_PLCT_JCREDITO',;
+              'EST3',;  
+              'CD_PLCT_3DEBITO',; 
+              'CD_PLCT_3CREDITO',;
+              'HIST1',;           
+              'HIST2',;           
+              'HIST3'}  
+              
+ laUFIELDS := {'CD_PLCT_DEBITO',;  
+              'CD_PLCT_CREDITO',; 
+              'HISTORICO',;       
+              'EST1',;            
+              'CD_PLCT_1DEBITO',; 
+              'CD_PLCT_1CREDITO',;
+              'CORR',;            
+              'CHISTORICO',;      
+              'CD_PLCT_CDEBITO',; 
+              'CD_PLCT_CCREDITO',;
+              'EST2',;  
+              'CD_PLCT_2DEBITO',; 
+              'CD_PLCT_2CREDITO',;
+              'JUR',;             
+              'JHISTORICO',;      
+              'CD_PLCT_JDEBITO',; 
+              'CD_PLCT_JCREDITO',;
+              'EST3',;  
+              'CD_PLCT_3DEBITO',; 
+              'CD_PLCT_3CREDITO',;
+              'HIST1',;           
+              'HIST2',;           
+              'HIST3'}               
+
+        if alltrim(Wget('CD_EXCT','C')) == "0"
+            for x := 1 to len(laNFIELDS)
+                aadd(laSAVEAUX,Wget(laNFIELDS[x]))
+            next x
+            aadd(laSAVE,laNFIELDS)
+            aadd(laSAVE,laSAVEAUX)        
+           if db_insert(laSAVE,lcTABLE)= -1
+              error_sys(db_error())
+           endif         
+        else
+            for x := 1 to len(laUFIELDS)
+                aadd(laSAVEAUX,Wget(laUFIELDS[x]))
+            next x
+            aadd(laSAVE,laUFIELDS)
+            aadd(laSAVE,laSAVEAUX)        
+            lcWHERE := 'CD_EXCT =' + Wget('CD_EXCT','C')
+            if db_update(laSAVE,lcTABLE,{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+        endif
+         
+         Monta_Grade() 
+         
+         limpatela(laFIELDS)
+        
+      endif
+
+   else   
+       limpatela(laFIELDS)   
+   endif
+
+   
+   
+return
+*******************************************
+Static Function limpatela(laFIELDS)
+*******************************************
+
+local lii := 0
+
+         for lii := 1 to len(laFIELDS)         
+             Wput(laFIELDS[lii], ' ')
+         next lii
+                  
+   
+         Wput('NM_PLCT_CREDITO','')
+         Wput('NM_PLCT_DEBITO','')
+   
+         Wput('NM_PLCT_1CREDITO','')
+         Wput('NM_PLCT_1DEBITO','')
+   
+         Wput('NM_PLCT_CCREDITO','')
+         Wput('NM_PLCT_CDEBITO','')
+   
+         Wput('NM_PLCT_2CREDITO','')
+         Wput('NM_PLCT_2DEBITO','')
+   
+         Wput('NM_PLCT_JCREDITO','')
+         Wput('NM_PLCT_JDEBITO','')
+   
+         Wput('NM_PLCT_3CREDITO','')
+         Wput('NM_PLCT_3DEBITO','') 
+
+return(nil)
+
+// Montagem da Grade com os dados cadastrados
+*******************************************
+Static Function Monta_Grade()
+*******************************************
+local laFIELDS := {},;
+      laRESULT := {} as array
+local lcTABLE  := '',;
+      lcWHERE  := '' as string
+local ii       := 0 as numeric
+
+   lcTABLE := 'excontped'
+
+ laFIELDS := {'CD_EXCT',;
+              'TP_PASTA',;         
+              'PEDIDO_PROCESSO',;      
+              'NM_TRCT',;  
+              'HISTORICO',;    
+              'CD_PLCT_DEBITO',; 
+              'CD_PLCT_CREDITO',;
+              'HIST1',;
+              'CD_PLCT_1DEBITO',; 
+              'CD_PLCT_1CREDITO',;              
+              'CORR',;           
+              'CHISTORICO',;      
+              'CD_PLCT_CDEBITO',; 
+              'CD_PLCT_CCREDITO',;   
+              'HIST2',;                 
+              'CD_PLCT_2DEBITO',; 
+              'CD_PLCT_2CREDITO',;               
+              'JUR',;             
+              'JHISTORICO',;      
+              'CD_PLCT_JDEBITO',; 
+              'CD_PLCT_JCREDITO',;
+              'HIST3',;
+              'CD_PLCT_3DEBITO',; 
+              'CD_PLCT_3CREDITO'}    
+   
+
+   if db_select({'excontped.CD_EXCT','excontped.NM_TRCT'},'excontped',,) == -1
+      db_error()
+   endif
+   laRESULT  := db_fetchall()
+
+   lnCOUNT   := len(laRESULT)-1
+   laPAGINAS := paginacao(lnCOUNT,'','','mnt.pedexcontabil.html')
+   laLIMIT   := param_fetch(laPAGINAS,'LIMIT')
+
+   if db_select(laFIELDS,lcTABLE,,,{'TP_PASTA','PEDIDO_PROCESSO','NM_TRCT'},'A',,laLIMIT) == -1
+      error_sys(db_error())
+   endif
+
+   laRESULT := db_fetchall()
+   //Resumo da pesquisa
+   if len(laRESULT) > 1
+      lcCODE := alltrim(str(laLIMIT[1]+1))+'-'
+      if ((len(laRESULT)-1) < (laLIMIT[2]-laLIMIT[1]))
+         lcCODE += alltrim(str(len(laRESULT)-1))
+      elseif param_fetch(laPAGINAS,'GOTO_PAGE') == param_fetch(laPAGINAS,'NR_PAGES') //lnNR_PAGES
+         lcCODE += alltrim(str(lnCOUNT))
+      else
+         lcCODE += alltrim(str(laLIMIT[1]+param_fetch(laPAGINAS,'ROWS_PAGE')))
+      endif
+      lcCODE += ' de '+alltrim(str(lnCOUNT))
+      if lnCOUNT > 1
+         lcCODE := ' Resultados '+lcCODE+' registros'
+      else
+         lcCODE := ' Resultado '+lcCODE+' registro'
+      endif
+      wput('RESUME_RESULTSET',lcCODE)
+      aadd(laRESULT[1],'(row)')
+      
+      
+      for ii := 2 to len(laRESULT)
+          aadd(laRESULT[ii],'(row)'+wic_action('wicaction/mnt.pedexcontabil.html?'+;
+                                           'CD_EXCT='+str(laRESULT[ii, db_fetchncol(laRESULT,'CD_EXCT')])+;
+                                           '&ACTION=ALTER'))
+
+      next ii
+      
+      laRESULT[1,ascan(laRESULT[1],'PEDIDO_PROCESSO')]='PEDIDO_PROCESSO'
+      wPut('lstTRCT',grid_create(laRESULT))
+      ***db2put(laRESULT)
+
+   endif
+return
+// Mostra a Descrição das contas no form
+*********************************************************************
+Static Function MostraConta(pc_debito, pc_credito, debdest, creddest)
+*********************************************************************
+local laFIELDS := {},;
+      laRESULT := {} as array
+local lcTABLE  := '',;
+      lcWHERE  := '' as string
+local ii       := 0 as numeric
+
+      lcTABLE := 'plano_conta'
+      laFIELDS := {'CD_PLCT','NM_PLCT'}
+      lcWHERE := ' CD_PLCT = '+ DLAP+alltrim(pc_debito)+DLAP
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE},,,,,) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) >= 2
+         Wput(debdest,laRESULT[2,ascan(laRESULT[1],'NM_PLCT')])
+      endif
+      lcWHERE := ' CD_PLCT = '+ DLAP+alltrim(pc_credito)+DLAP
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE},,,,,) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) >= 2
+         Wput(creddest,laRESULT[2,ascan(laRESULT[1],'NM_PLCT')])
+      endif
+return
+
+
+********************************
+static function carrega_ocorped()
+********************************
+
+local lcWHERE:=''
+local laRES:={}
+local laLST_NOVA:={}
+local laVINCULADO:={}
+
+local paAUTO     :={} as array
+
+
+
+local  laOPT    := {} ,;
+       laOPTV   := {} ,;
+       laPUT    := {} ,;
+       laDEF    := {} ,;
+       laDEFV   := {} ,;
+       laATI    := {} ,;
+       laATIV   := {} ,;
+       laINA    := {} ,;
+       laINAV   := {} ,;
+       laPUTV   := {} ,;
+       laFIELD  := {} as array
+
+
+local  jj    := 1  ,;
+       liPOS := 0  as int
+
+
+laDEF := {}
+laDEFV:= {}
+
+laATI := {}
+laATIV:= {}
+
+laINA := {}
+laINAV:= {}
+
+laPUT := {}
+laPUTV:= {}
+
+laFIELD := structtable(WSet("DB_ACTIVE"),'ocorrencia_pedido',1,'A')
+liPOS   := ascan(laFIELD,'FL_ATIVO')
+
+if liPOS<>0
+   laFIELD:={'DESCR_OCOR','FL_ATIVO'}
+  else
+   laFIELD:={'DESCR_OCOR'}
+ endif
+
+if db_select(laFIELD,'ocorrencia_pedido',,,{'DESCR_OCOR'}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+for jj := 2 to len(laRES)
+    if liPOS<>0
+       if laRES[jj,2] == 'D'
+          aadd(laDEF,laRES[jj,1])
+          aadd(laDEFV,laRES[jj,1])
+
+        elseif laRES[jj,2] == 'I'
+          aadd(laINA,laRES[jj,1])
+          aadd(laINAV,laRES[jj,1])
+
+        else
+          aadd(laATI,laRES[jj,1])
+          aadd(laATIV,laRES[jj,1])
+       endif
+    else
+       aadd(laATI,laRES[jj,1])
+       aadd(laATIV,laRES[jj,1])
+    endif
+next jj
+
+if len(laDEF) == 0
+   aadd(laDEF,'') // Adiciona uma linha vazia no inicio do combo, caso seja solicitado
+   aadd(laDEFV,'')
+endif
+
+for jj=1 to len(laDEF)
+    aadd(laPUT,laDEF[jj])
+    aadd(laPUTV,laDEFV[jj])
+next jj
+
+for jj=1 to len(laATI)
+    aadd(laPUT,laATI[jj])
+    aadd(laPUTV,laATIV[jj])
+next jj
+
+for jj=1 to len(laINA)
+    aadd(laPUT,'INATIVO - '+laINA[jj])
+    aadd(laPUTV,laINAV[jj])
+next jj
+
+
+WPut('NM_TRCT.option',laPUT)
+WPut('NM_TRCT.optionvalue',laPUTV)
+
+WPut('EST1.option',laPUT)
+WPut('EST1.optionvalue',laPUTV)
+
+WPut('CORR.option',laPUT)
+WPut('CORR.optionvalue',laPUTV)
+
+WPut('EST2.option',laPUT)
+WPut('EST2.optionvalue',laPUTV)
+
+WPut('JUR.option',laPUT)
+WPut('JUR.optionvalue',laPUTV)
+
+WPut('EST3.option',laPUT)
+WPut('EST3.optionvalue',laPUTV)
+
+return(nil)
+
+
+
+
+
+
+
+
+
+
+

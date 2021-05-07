@@ -1,0 +1,396 @@
+/*
+
+Project      : isj_45
+Program      : sla.analitico.html
+Function     : sla_analitico_html
+Created on   : 05-Dec-2014   13:38:54
+Descripition :
+
+*/
+
+   local laSAVE        := {},;
+         laSAVE_AUX    := {},;
+         laRES         := {},;
+         laPUT         := {'TP_PASTA',;
+                           'DESC_PLATAFORMA',;
+                           'TP_CONTRATO_LABEL',;
+                           'MARGEM',;
+                           'PESO',;
+                           'HORAS_PREVISTAS',;
+                           'PRAZO_INF',;
+                           'PRAZO_CALC'},;
+         laFIELDS      := {} as array
+
+
+    local laOPT           := {},;
+          laWHERE         := {},;
+          laOPTVAL        := {} as Array
+
+    local lcAction        := Upper(WGet('ACTION')) as String
+    local lcWhere         := '' as String
+
+    local ii              := 0 as Int
+
+    local llErro          := .F.
+
+
+    laFIELDS := {'NR_PASTA',;
+                 'TP_PASTA',;
+                 'ID_PLATAFORMA',;
+                 'ID_CONTRATO',;
+                 'ID_MARGEM',;
+                 'PRAZO_INF',;
+                 'PRAZO_CALC',;
+                 'PESO',;
+                 'HORAS_PREVISTAS'}
+
+    lcWhere := 'NR_PASTA = 0'
+
+    // Carga dos combos
+
+
+    // Tipo de pasta
+
+    laOPT := loadcboxorder_build('pasta_config','TP_PASTA',.T.,{'TP_PASTA'})
+    WPut('TP_PASTA.optionvalue',laOPT)
+    WPut('TP_PASTA.option',laOPT)
+
+
+    // Ativo
+
+    laOPT    := {'S','I','D'}
+    laOPTVAL := {'S','I','D'}
+    WPut('FL_ATIVO.optionvalue',laOPT)
+    WPut('FL_ATIVO.option',laOPTVAL)
+
+
+    if (Empty(lcACTION))
+       Wput('ID_CONTRATO','New')
+    endif
+
+    if lcACTION == 'ALTER'
+
+       // Carregar combos
+
+       NovoCbox('DESC_PLATAFORMA','ID_PLATAFORMA','DESC_PLATAFORMA','plataforma','TP_PASTA='+DLAP+WGET('TP_PASTA')+DLAP,'DESC_PLATAFORMA',{})
+       NovoCbox('TP_CONTRATO_LABEL','ID_CONTRATO','TP_CONTRATO_LABEL','contrato_label','ID_PLATAFORMA='+DLAP+WGET('DESC_PLATAFORMA')+DLAP,'TP_CONTRATO_LABEL',{})
+       NovoCbox('MARGEM','ID_MARGEM','MARGEM','margem','TP_PASTA='+DLAP+WGET('TP_PASTA')+DLAP,'MARGEM',{})
+
+       for ii := 1 to len(laPUT)
+           WPut(laPUT[ii],WGet(laPUT[ii]))
+       next ii
+    elseif lcACTION == 'SAVE'
+
+           if ValidaPK()
+              laSAVE := {{'NR_PASTA',;
+                          'TP_PASTA',;
+                          'ID_PLATAFORMA',;
+                          'ID_CONTRATO',;
+                          'ID_MARGEM',;
+                          'PESO',;
+                          'HORAS_PREVISTAS',;
+                          'PRAZO_INF',;
+                          'PRAZO_CALC'},;
+                         {0,;
+                          WGET('TP_PASTA'),;
+                          Wget('DESC_PLATAFORMA','N'),;
+                          Wget('TP_CONTRATO_LABEL','N'),;
+                          Wget('MARGEM','N'),;
+                          Wget('PESO','N'),;
+                          Wget('HORAS_PREVISTAS','N'),;
+                          WGET('PRAZO_INF'),;
+                          WGET('PRAZO_INF')}}
+
+
+              lcWhere := 'NR_PASTA = 0 and TP_PASTA='+ DLAP+ WGET('TP_PASTA')+DLAP + ' and ID_PLATAFORMA = ' + Wget('DESC_PLATAFORMA','C') + ' and ID_CONTRATO = ' + Wget('TP_CONTRATO_LABEL','C') + ' and ID_MARGEM = ' + Wget('MARGEM','C')
+
+              if db_replace(laSAVE,'sla_analitico',{lcWhere}) == -1
+                 error_sys(db_error())
+              endif
+
+              lcWhere := 'TP_PASTA='+ DLAP+ WGET('TP_PASTA') + DLAP + ' and ID_PLATAFORMA = ' + Wget('DESC_PLATAFORMA','C') + ' and ID_CONTRATO = ' + Wget('TP_CONTRATO_LABEL','C') + ' and ID_MARGEM = ' + Wget('MARGEM','C')
+
+              if db_select({'count(*)'},'sla_sintetico',,{lcWhere}) == -1
+                 error_sys(db_error())
+              endif
+
+              laRES := db_fetchall()
+
+              if laRES[2,1] == 0
+                 laSAVE := {{'TP_PASTA',;
+                             'ID_PLATAFORMA',;
+                             'ID_CONTRATO',;
+                             'ID_MARGEM',;
+                             'PRAZO_CALC',; 
+                             'HORAS_PREVISTAS'},;
+                            {WGET('TP_PASTA'),;
+                             Wget('DESC_PLATAFORMA','N'),;
+                             Wget('TP_CONTRATO_LABEL','N'),;
+                             Wget('MARGEM','N'),;
+                             WGET('PRAZO_INF'),;
+                             Wget('HORAS_PREVISTAS','N')}}
+                  if db_insert(laSAVE,'sla_sintetico') == -1
+                     error_sys(db_error())
+                  endif
+
+
+              endif
+
+
+           endif
+
+    endif
+
+
+   GridPaginada()
+
+return
+
+
+/*
+* Glauber - 12/2014
+*
+* Function..: GridPaginada()
+* Objetivo..: Monta a grid paginada com os dados.
+* Parâmetros:
+*
+*
+* Retorno...:
+*
+*
+*
+*/
+
+Static Function GridPaginada()
+
+
+    local lcTable         := 'sla_analitico' as String
+
+    local laRESULT        := {},;
+          laPAGINAS       := {},;
+          laLIMIT         := {}  as Array
+
+    local lnCOUNT         := 0 as Int
+
+    local laFIELDS        := {lcTable+'.TP_PASTA',;
+                              lcTable+'.ID_PLATAFORMA',;
+                              'plataforma.DESC_PLATAFORMA',;
+                              lcTABLE+'.ID_CONTRATO',;
+                              'contrato_label.TP_CONTRATO_LABEL',;
+                              lcTABLE+'.ID_MARGEM',;
+                              'margem.MARGEM',;
+                              'Cast('+lcTABLE+'.PRAZO_INF' + ' as Integer)',;
+                              'Cast('+lcTABLE+'.PRAZO_CALC' + ' as Integer)',;
+                              lcTABLE+'.PESO',;
+                              lcTABLE+'.HORAS_PREVISTAS'} as Array
+
+
+    local laORDER         := {lcTable+'.TP_PASTA',lcTABLE+'.ID_CONTRATO',lcTABLE+'.ID_MARGEM'}
+
+    local laJoin          := {{2,'contrato_label','sla_analitico.ID_CONTRATO = contrato_label.ID_CONTRATO and contrato_label.TP_PASTA ='+lcTable+'.TP_PASTA'},;
+                              {2,'plataforma'    ,'sla_analitico.ID_PLATAFORMA = plataforma.ID_PLATAFORMA'},;
+                              {2,'margem'        ,'sla_analitico.ID_MARGEM = margem.ID_MARGEM and margem.TP_PASTA ='+lcTable+'.TP_PASTA'}} as Array
+
+    local lcCODE          := '' as String
+
+    local xx              := 0,;
+          ii              := 0 as Int
+
+    local pcFILTRO        := lcTable + '.NR_PASTA = 0 ' as String
+
+    local lcWHERE         := '' as String
+
+
+    if Upper(Wget('ACTION')) == 'SEARCH'
+
+
+       if ! Empty(WGet('TP_PASTA'))
+          pcFILTRO += iif(! Empty(pcFILTRO),' and ', '')
+          pcFILTRO += lcTable+'.TP_PASTA LIKE ' + DLAP + '%' +WGet('TP_PASTA') + '%' + DLAP
+       endif
+
+       if Wget('DESC_PLATAFORMA','N') > 0
+          pcFILTRO += iif(! Empty(pcFILTRO),' and ', '')
+          pcFILTRO += lcTable+'.ID_PLATAFORMA= ' + WGet('DESC_PLATAFORMA','C')
+       endif
+
+       if Wget('TP_CONTRATO_LABEL','N') > 0
+          pcFILTRO += iif(! Empty(pcFILTRO),' and ', '')
+          pcFILTRO += lcTable+'.ID_CONTRATO= ' + WGet('TP_CONTRATO_LABEL','C')
+       endif
+
+       if Wget('MARGEM','N') > 0
+          pcFILTRO += iif(! Empty(pcFILTRO),' and ', '')
+          pcFILTRO += lcTable+'.ID_MARGEM = ' + WGet('MARGEM','C')
+       endif
+
+    endif
+
+   // Rotina para executar paginação
+   *** rufino 20/06/2016 10:43:08 estava contando sem levar em consideração o filtro
+   if empty(pcFILTRO)
+      if db_select({'count(*)'},lcTable) == -1
+         db_error()
+      endif
+   else
+      if db_select({'count(*)'},lcTable,,{pcFILTRO}) == -1
+         db_error()
+      endif
+   endif
+
+   laRESULT  := db_fetchall()
+   lnCOUNT   := laRESULT[2,1]
+
+   if lnCOUNT==0
+      walert('Não localizei lançamento.')
+   endif
+
+   if lnCOUNT > 0
+      laPAGINAS := paginacao(lnCOUNT,'','','sla.analitico.html')
+      laLIMIT   := param_fetch(laPAGINAS,'LIMIT')
+
+      if empty(pcFILTRO)
+          if db_select(laFIELDS,lcTABLE,laJOIN,,laORDER,,,laLIMIT) == -1
+            error_sys(db_error())
+         endif
+      else
+          if db_select(laFIELDS,lcTABLE,laJOIN,{pcFILTRO},laORDER,,,laLIMIT) == -1
+             error_sys(db_error())
+          endif
+      endif
+      laRESULT := db_fetchall()
+
+      //Resumo da pesquisa
+       lcCODE := alltrim(str(laLIMIT[1]+1))+'-'
+       if ((len(laRESULT)-1) < (laLIMIT[2]-laLIMIT[1]))
+          lcCODE += alltrim(str(len(laRESULT)-1))
+       elseif param_fetch(laPAGINAS,'GOTO_PAGE') == param_fetch(laPAGINAS,'NR_PAGES') //lnNR_PAGES
+          lcCODE += alltrim(str(lnCOUNT))
+       else
+          lcCODE += alltrim(str(laLIMIT[1]+param_fetch(laPAGINAS,'ROWS_PAGE')))
+       endif
+       lcCODE += ' de '+alltrim(str(lnCOUNT))
+       if lnCOUNT > 1
+          lcCODE := ' Resultados '+lcCODE+' registros'
+       else
+          lcCODE := ' Resultado '+lcCODE+' registro'
+       endif
+       wput('RESUME_RESULTSET',lcCODE)
+
+      if len(laRESULT) > 0
+         aadd(laRESULT[1],'(row)')
+         for ii := 2 to len(laRESULT)
+            aadd(laRESULT[ii],'(row)'+wic_action('wicaction/sla.analitico.html?ACTION=ALTER'+;
+                                                 '&TP_PASTA='+laRESULT[ii,ascan(laRESULT[1],'TP_PASTA')] +;
+                                                 '&DESC_PLATAFORMA='+Alltrim(laRESULT[ii,ascan(laRESULT[1],'ID_PLATAFORMA')]) +;
+                                                 '&TP_CONTRATO_LABEL='+Alltrim(laRESULT[ii,ascan(laRESULT[1],'ID_CONTRATO')]) +;
+                                                 '&MARGEM='+Alltrim(laRESULT[ii,ascan(laRESULT[1],'ID_MARGEM')]) +;
+                                                 '&PRAZO_INF='+Alltrim(laRESULT[ii,ascan(laRESULT[1],'PRAZO_INF')]) +;
+                                                 '&PRAZO_CALC='+Alltrim(laRESULT[ii,ascan(laRESULT[1],'PRAZO_CALC')]) +;
+                                                 '&PESO='+Alltrim(laRESULT[ii,ascan(laRESULT[1],'PESO')]) +;
+                                                 '&HORAS_PREVISTAS='+ALLTRIM(laRESULT[ii,ascan(laRESULT[1],'HORAS_PREVISTAS')]) ))
+         next ii
+
+
+         WPut('GRID_SLA_ANALITICO',grid_create(laRESULT))
+      else
+         Wput('ifEMPTY_RESULTSET',.T.)
+      endif
+   endif
+
+
+
+return(nil)
+
+
+/*
+* Glauber - 12/2014
+*
+* Function..: ValidaPK()
+* Objetivo..: Valida se a chave primária esta preenchida no formulário.
+* Parâmetros:
+*
+*
+* Retorno...: .T. Caso afirmativo.
+*
+*
+*
+*/
+
+Static Function ValidaPK()
+
+
+   if (Empty(Wget('TP_PASTA')))
+       WAlert('O campo '+lblfscreen('TP_PASTA') + ' é de preenchimento obrigatório')
+       get2put()
+       return .f.
+   endif
+
+   if (Empty(Wget('DESC_PLATAFORMA')))
+       WAlert('O campo '+lblfscreen('DESC_PLATAFORMA') + ' é de preenchimento obrigatório')
+       get2put()
+       return .f.
+   endif
+
+   if (Empty(Wget('TP_CONTRATO_LABEL')))
+       WAlert('O campo '+lblfscreen('TP_CONTRATO_LABEL') + ' é de preenchimento obrigatório')
+       get2put()
+       return .f.
+   endif
+
+   if Wget('MARGEM','N') == 0
+       WAlert('O campo '+lblfscreen('MARGEM') + ' é de preenchimento obrigatório')
+       get2put()
+       return .f.
+   endif
+
+
+return .T.
+
+
+
+/*
+* Glauber - 12/2014
+*
+* Function..: PodeExcluir()
+* Objetivo..: Verifica se o registro pode ser excluido.
+* Parâmetros:
+*
+*
+* Retorno...: .T. Caso afirmativo.
+*
+*
+*
+*/
+
+Static Function PodeExcluir()
+
+
+   local laRES   := {} as Array
+   local lcWhere := 'NR_PASTA > 0 and TP_PASTA='+ DLAP+ WGET('TP_PASTA')+DLAP + ' and ID_PLATAFORMA = ' + Wget('DESC_PLATAFORMA','C') + ' and ID_CONTRATO = ' + Wget('TP_CONTRATO_LABEL','C') + ' and ID_MARGEM = ' + Wget('MARGEM','C') AS String
+   
+
+   if db_select({'count(*)'},'sla_analitico',,{lcWhere}) == -1
+      error_sys(db_error())
+   endif
+
+   laRES := db_fetchall()
+
+
+   return (laRES[2,1] == 0)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

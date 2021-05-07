@@ -1,0 +1,718 @@
+/*
+Project      : gr5
+Program      : mnt.pst.vendor.html
+Function     : mnt_pst_vendor_html
+Created on   : 04/06/2013  12:00:00
+Descripition :
+*/
+
+local lcACTION      := '' ,;
+      lcTABLE       := '' ,;
+      lcWHERE       := '' ,;
+      lcNR_CONTROLE := '' ,;
+      lcLOGIN       := '' ,;
+      lcNR_PASTA    := '' ,;
+      lcTP_PASTA    := '' ,;
+      lcNR_ADITIVO  := '' ,;
+      lcTIPO_VENDOR := '' ,;
+      lcRESP1       := '' ,;
+      lcRESP2       := '' ,;
+      lcRESP3       := '' ,;
+      lcRESP4       := '' ,;
+      lcRESP5       := '' ,;
+      lcRESP6       := '' ,;
+      lcRESP7       := '' ,;
+      lcIMPACTO           := '' ,;
+      lcDIMENSAO          := '' ,;
+      lcCRITICIDADE       := '' ,;
+      lc1ESPECIFICAR      := '' ,;
+      lc2ESPECIFICAR      := '' ,;
+      lc3ESPECIFICAR      := '' ,;
+      lcCIP_EMPRESA_GRUPO := '' ,;
+      lcMOTIVO_VENDOR     := '' ,;
+      lcRESC              := '' as string
+
+local ldDT_CADASTRO as date
+
+local llERRO := .f. as logical
+
+local laFIELDS:= {} ,;
+      laWHERE := {} ,;
+      laSAVE0 := {} ,;
+      laSAVE1 := {} as array
+
+lcTABLE := 'pasta_vendor'
+
+
+laFIELDS  :={'NR_PASTA',;
+             'NR_CONTROLE',;
+             'TIPO_VENDOR',;
+             'NR_ADITIVO',;
+             'RESPOSTA1',;
+             'RESPOSTA2',;
+             'RESPOSTA3',;
+             'RESPOSTA4',;
+             'RESPOSTA5',;
+             'RESPOSTA6',;
+             'RESPOSTA7',;
+             'RESULTADO_CONTRATO',;
+             'IMPACTO',;
+             'DIMENSAO',;
+             'CRITICIDADE',;
+             'ESPECIFICAR1',;
+             'ESPECIFICAR2',;
+             'ESPECIFICAR3',;
+             'CIP_EMPRESA_GRUPO',;
+             'MOTIVO_VENDOR',;
+             'OBSERVACAO',;
+             'FL_FCPA',;
+             'FCPA_NR',;
+             'FL_SLA',;
+             'SLA_NR',;
+             'FL_KPI',;
+             'KPI_NR',;
+             'FL_ISSUE_TRACK',;
+             'ISSUE_TRACK_NR',;
+             'FL_ISQ',;
+             'FL_BCQ',;
+             'CRI_VEN',;
+             'RIS_RAT',;
+             'COMPLIANCE',;
+             'DESC_KEY_VENDOR'}
+             
+/* erro apontado na gravacao da aba teste em leroy51              
+             'ESPECIFICAR7',;
+             'CONCLUSAO',;
+             'CLASS3'}
+*/             
+
+lcACTION      := upper(WGet('ACTION','C'))
+
+lcTP_PASTA    := WGet('TP_PASTA','C')
+lcNR_PASTA    := WGet('NR_PASTA','C')
+lcNR_CONTROLE := WGet('NR_CONTROLE','C')
+lcTIPO_VENDOR := WGet('TIPO_VENDOR','C')
+lcNR_ADITIVO  := WGet('NR_ADITIVO','C')
+lcLOGIN       := WGet('LOGIN_CADASTRO','C')
+ldDT_CADASTRO := WGet('DT_CADASTRO','D')
+lcRESP1       := WGet('RESPOSTA1','C')
+lcRESP2       := WGet('RESPOSTA2','C')
+lcRESP3       := WGet('RESPOSTA3','C')
+lcRESP4       := WGet('RESPOSTA4','C')
+lcRESP5       := WGet('RESPOSTA5','C')
+lcRESP6       := WGet('RESPOSTA6','C')
+lcRESP7       := WGet('RESPOSTA7','C')
+lcRESC        := WGet('RESULTADO_CONTRATO','C')
+lcOBSERVACAO  := WGet('OBSERVACAO','C')
+
+lcIMPACTO            := WGet('IMPACTO','C')
+lcDIMENSAO           := WGet('DIMENSAO','C')
+lcCRITICIDADE        := WGet('CRITICIDADE','C')
+lc1ESPECIFICAR       := WGet('ESPECIFICAR1','C')
+lc2ESPECIFICAR       := WGet('ESPECIFICAR2','C')
+lc3ESPECIFICAR       := WGet('ESPECIFICAR3','C')
+lcCIP_EMPRESA_GRUPO  := WGet('CIP_EMPRESA_GRUPO','C')
+lcMOTIVO_VENDOR      := WGet('MOTIVO_VENDOR','C')
+
+lcFL_FCPA         := WGet('FL_FCPA','C')
+lcFCPA_NR         := WGet('FCPA_NR','C')
+lcFL_SLA          := WGet('FL_SLA','C')
+lcSLA_NR          := WGet('SLA_NR','C')
+lcFL_KPI          := WGet('FL_KPI','C')
+lcKPI_NR          := WGet('KPI_NR','C')
+lcFL_ISSUE_TRACK  := WGet('FL_ISSUE_TRACK','C')
+lcISSUE_TRACK_NR  := WGet('ISSUE_TRACK_NR','C')
+lcFL_ISQ          := WGet('FL_ISQ','C')
+lcFL_BCQ          := WGet('FL_BCQ','C')
+lcCRI_VEN         := WGet('CRI_VEN','C')
+lcRIS_RAT         := WGet('RIS_RAT','C')
+
+lcCOMPLIANCE      := WGet('COMPLIANCE','C')
+lcDESC_KEY_VENDOR := WGet('RESKEYVENDOR','C')
+
+WPut('TITLE','Vendor Governance Pasta ' + lcNR_PASTA )
+
+
+*** marca em vermelho campos obrigatorios
+init_reqfield(WSet('_USER_INTERFACE'))
+
+
+wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+pasta_abas(lcTP_PASTA)   // Função coloca abas lado esquerdo
+
+
+WPut('TP_PASTA',lcTP_PASTA)
+WPut('NR_PASTA',lcNR_PASTA)
+
+enchecombos(lcNR_PASTA)
+
+WPut('ifLISTAVENDOR',.t.)
+
+if empty(lcACTION)
+   ***lcACTION = 'NEW'
+
+   WPut('ifMANUVENDOR',.f.)
+
+endif
+
+
+if gbWAC_CREATE
+   WPut('ifWAC_CREATE',.t.)
+endif
+
+if gbWAC_WRITE
+   WPut('ifWAC_WRITE',.t.)
+endif
+
+WPut('ifWAC_DELETE',.f.)
+
+if lcACTION = 'NEW' .and. gbWAC_CREATE
+
+   WPut('ifMANUVENDOR',.t.)
+
+   lcLOGIN := wSet('LOGIN')
+   Wput('LOGIN_CADASTRO',lcLOGIN)
+   Wput('DT_CADASTRO',DATE())
+
+   wPut('TITLE','Inclusão de novo Vendor Governance Pasta ' + lcNR_PASTA)
+   wPut('NR_CONTROLE','New')
+
+   laDADOS:=busca_pasta(lcNR_PASTA)
+
+   WPut('RESPOSTA7',substr(laDADOS[2],1,1))
+   WPut('RESPOSTA6',substr(laDADOS[3],1,1))
+   WPut('RESULTADO_CONTRATO',laDADOS[4])
+
+
+
+elseif lcACTION == 'ALTER' .and. gbWAC_READ
+
+
+  WPut('ifMANUVENDOR',.t.)
+
+  if gbWAC_WRITE
+     WPut('ifWAC_WRITE',.t.)
+  endif
+
+  if gbWAC_DELETE
+     WPut('ifWAC_DELETE',.t.)
+  endif
+
+  busca_lancto(lcNR_CONTROLE,laFIELDS,lcNR_PASTA)
+
+  get2put()
+
+
+elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+
+   if WGet('NR_CONTROLE ','C') == 'New'
+      wPut('NR_CONTROLE','New')
+   endif
+
+   if val(lcNR_CONTROLE)>0
+      if gbWAC_DELETE
+         WPut('ifWAC_DELETE',.t.)
+      endif
+   endif
+
+   llERRO:=.F.
+
+   *** verifica campos obrigatorios
+   if ! verif_reqfield(WSet('_USER_INTERFACE'))
+       llERRO:=.T.
+   endif
+
+   if llERRO==.F.
+      if len(lcTIPO_VENDOR)==0
+         walert('Favor informar o Tipo Vendor !')
+         llERRO:=.T.
+      elseif len(lcRESP1)==0
+         walert('Favor responder a pergunta 1 !')
+         llERRO:=.T.
+      elseif len(lcRESP2)==0
+         walert('Favor responder a pergunta 2 !')
+         llERRO:=.T.
+      elseif len(lcRESP3)==0
+         walert('Favor responder a pergunta 3 !')
+         llERRO:=.T.
+      elseif len(lcRESP4)==0
+         walert('Favor responder a pergunta 4 !')
+         llERRO:=.T.
+      elseif len(lcRESP5)==0
+         walert('Favor responder a pergunta 5 !')
+         llERRO:=.T.
+      elseif len(lcRESP6)==0
+         walert('Favor responder a pergunta 6 !')
+         llERRO:=.T.
+      elseif lcRESP6=='S' .and. len(lcRESC)==0
+         walert('Informar o resultado do contrato !')
+         llERRO:=.T.
+//      elseif len(lcRESP7)==0
+//         walert('Favor responder a pergunta 7 !')
+//         llERRO:=.T.
+      endif
+   endif
+
+   if llERRO==.T.
+      WPut('ifMANUVENDOR',.t.)
+
+      get2put()
+
+   else
+
+         
+      laWHERE:={}
+      laSAVE0:={}
+      laSAVE1:={}
+
+
+      lcWHERE  := 'NR_PASTA = ' + lcNR_PASTA + ' AND NR_CONTROLE = ' + lcNR_CONTROLE
+
+      aadd(laWHERE,lcWHERE)
+
+      if val(lcNR_CONTROLE)>0
+         aadd(laFIELDS,'DT_ALTERACAO')
+         aadd(laFIELDS,'LOGIN_ALTERACAO')
+        else
+         aadd(laFIELDS,'DT_CADASTRO')
+         aadd(laFIELDS,'LOGIN_CADASTRO')
+      endif
+
+      aadd(laSAVE0,laFIELDS)
+
+      aadd(laSAVE1,val(lcNR_PASTA))
+      aadd(laSAVE1,val(lcNR_CONTROLE))
+      aadd(laSAVE1,lcTIPO_VENDOR)
+      aadd(laSAVE1,lcNR_ADITIVO)
+      aadd(laSAVE1,substr(lcRESP1,1,1))
+      aadd(laSAVE1,substr(lcRESP2,1,1))
+      aadd(laSAVE1,substr(lcRESP3,1,1))
+      aadd(laSAVE1,substr(lcRESP4,1,1))
+      aadd(laSAVE1,substr(lcRESP5,1,1))
+      aadd(laSAVE1,substr(lcRESP6,1,1))
+      aadd(laSAVE1,substr(lcRESP7,1,1))
+      aadd(laSAVE1,lcRESC)
+      aadd(laSAVE1,lcIMPACTO)
+      aadd(laSAVE1,lcDIMENSAO)
+      aadd(laSAVE1,lcCRITICIDADE)
+      aadd(laSAVE1,lc1ESPECIFICAR)
+      aadd(laSAVE1,lc2ESPECIFICAR)
+      aadd(laSAVE1,lc3ESPECIFICAR)
+      aadd(laSAVE1,lcCIP_EMPRESA_GRUPO)
+      aadd(laSAVE1,lcMOTIVO_VENDOR)
+      aadd(laSAVE1,lcOBSERVACAO)
+      aadd(laSAVE1,substr(lcFL_FCPA,1,1))
+      aadd(laSAVE1,lcFCPA_NR)
+      aadd(laSAVE1,substr(lcFL_SLA,1,1))
+      aadd(laSAVE1,lcSLA_NR)
+      aadd(laSAVE1,substr(lcFL_KPI,1,1))
+      aadd(laSAVE1,lcKPI_NR)
+      aadd(laSAVE1,substr(lcFL_ISSUE_TRACK,1,1))
+      aadd(laSAVE1,lcISSUE_TRACK_NR)
+      aadd(laSAVE1,substr(lcFL_ISQ,1,1))
+      aadd(laSAVE1,substr(lcFL_BCQ,1,1))
+      aadd(laSAVE1,substr(lcCRI_VEN,1,1))
+      aadd(laSAVE1,substr(lcRIS_RAT,1,1))
+
+      aadd(laSAVE1,lcCOMPLIANCE)
+      aadd(laSAVE1,lcDESC_KEY_VENDOR)
+      aadd(laSAVE1,DATE())
+      aadd(laSAVE1,lcLOGIN)
+
+      aadd(laSAVE0,laSAVE1)
+
+      psab_logs(laSAVE0,lcTABLE,lcWHERE,lcNR_PASTA,'Vendor')
+
+      if db_replace(laSAVE0,lcTABLE,laWHERE) == -1
+         error_sys(db_error())
+      endif
+
+      WPut('ifMANUVENDOR',.f.)
+
+   endif
+
+elseif lcACTION == 'DELETAR'  .and. gbWAC_DELETE
+
+      llERROR        := .f.
+      lcWHERE        := 'NR_PASTA = '+lcNR_PASTA+' and NR_CONTROLE = '+lcNR_CONTROLE
+
+      psab_logdel(lcNR_PASTA,'NR_CONTROLE',lcNR_CONTROLE,,'Vendor')
+
+      if db_delete('pasta_vendor',lcWHERE) == -1
+         error_sys(db_error())
+      endif
+
+endif
+
+lst_vendor(lcNR_PASTA)
+
+
+return
+
+****************************************
+static function enchecombos(flcNR_PASTA)
+****************************************
+
+
+local  laOPT    := {} ,;
+       laOPTV   := {} ,;
+       laPUT    := {} ,;
+       laDEF    := {} ,;
+       laDEFV   := {} ,;
+       laATI    := {} ,;
+       laATIV   := {} ,;
+       laINA    := {} ,;
+       laINAV   := {} ,;
+       laPUTV   := {} ,;
+       laFIELD  := {} ,;
+       laRES    := {} as array
+
+local  ii    := 1  ,;
+       liPOS := 0  as int
+
+   lcTP_PASTA    := WGet('TP_PASTA','C')
+
+   WPut('TIPO_VENDOR.option',{'','Contrato','Aditivo'})
+   WPut('TIPO_VENDOR.optionvalue',{'','C','A'})
+
+   WPut('RESPOSTA1.option',{'','Sim','Não'})
+   WPut('RESPOSTA1.optionvalue',{'','S','N'})
+
+   WPut('RESPOSTA2.option',{'','Sim','Não'})
+   WPut('RESPOSTA2.optionvalue',{'','S','N'})
+
+   WPut('RESPOSTA3.option',{'','Sim','Não'})
+   WPut('RESPOSTA3.optionvalue',{'','S','N'})
+
+   WPut('RESPOSTA4.option',{'','Sim','Não'})
+   WPut('RESPOSTA4.optionvalue',{'','S','N'})
+
+   WPut('RESPOSTA5.option',{'','Sim','Não'})
+   WPut('RESPOSTA5.optionvalue',{'','S','N'})
+
+   WPut('RESPOSTA6.option',{'','Sim','Não'})
+   WPut('RESPOSTA6.optionvalue',{'','S','N'})
+
+   WPut('RESPOSTA7.option',{'','Sim','Não'})
+   WPut('RESPOSTA7.optionvalue',{'','S','N'})
+
+   WPut('IMPACTO.option',{'','Alta','Media','Baixa'})
+   WPut('IMPACTO.optionvalue',{'','Alta','Media','Baixa'})
+
+   WPut('DIMENSAO.option',{'','Alta','Media','Baixa'})
+   WPut('DIMENSAO.optionvalue',{'','Alta','Media','Baixa'})
+
+   WPut('CRITICIDADE.option',{'','Alta','Media','Baixa'})
+   WPut('CRITICIDADE.optionvalue',{'','Alta','Media','Baixa'})
+
+   WPut('RESPOSTA7.option',{'','Sim','Não'})
+   WPut('RESPOSTA7.optionvalue',{'','S','N'})
+   
+   WPut('FL_FCPA.option',{'','Sim','Não'})
+   WPut('FL_FCPA.optionvalue',{'','S','N'})
+   
+   WPut('FL_SLA.option',{'','Sim','Não'})
+   WPut('FL_SLA.optionvalue',{'','S','N'})
+   
+   WPut('FL_KPI.option',{'','Sim','Não'})
+   WPut('FL_KPI.optionvalue',{'','S','N'})
+   
+   WPut('FL_ISSUE_TRACK.option',{'','Sim','Não'})
+   WPut('FL_ISSUE_TRACK.optionvalue',{'','S','N'})  
+   
+   WPut('FL_ISQ.option',{'','Sim','Não'})
+   WPut('FL_ISQ.optionvalue',{'','S','N'})
+   
+   WPut('FL_BCQ.option',{'','Sim','Não'})
+   WPut('FL_BCQ.optionvalue',{'','S','N'})
+
+   WPut('CRI_VEN.option',{'','Sim','Não'})
+   WPut('CRI_VEN.optionvalue',{'','S','N'})
+
+   WPut('RIS_RAT.option',{'','Low','Medium','High','Very High'})
+   WPut('RIS_RAT.optionvalue',{'','L','M','H','V'})
+
+   carrega_cbox({{'MOTIVO_VENDOR','motivo_vendor','Y'}})
+
+   *** alimenta combo tipo de resultado_contrato
+//  carrega_cbox({{'resultado_contrato','RESULTADO_CONTRATO','Y','TP_PASTA='+DLAP+'Contratos'+DLAP}})
+  
+  carrega_cbox({{'resultado_contrato','RESULTADO_CONTRATO','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+  carrega_cbox({{'compliance','COMPLIANCE','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+
+   *** alimenta combo numero Aditivo
+
+   laDEF := {}
+   laDEFV:= {}
+
+   laATI := {}
+   laATIV:= {}
+
+   laINA := {}
+   laINAV:= {}
+
+   laPUT := {}
+   laPUTV:= {}
+
+   laFIELD := structtable(WSet("DB_ACTIVE"),'pasta_contrato_aditivo',1,'A')
+   liPOS   := ascan(laFIELD,'FL_ATIVO')
+
+   if liPOS<>0
+      laFIELD:={'NR_CONTRATO_ADITIVO','FL_ATIVO'}
+     else
+      laFIELD:={'NR_CONTRATO_ADITIVO'}
+    endif
+
+   if db_select(laFIELD,'pasta_contrato_aditivo',,{'NR_PASTA = '+ DLAP + flcNR_PASTA + DLAP},{'NR_CONTRATO_ADITIVO'}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+
+   for jj := 2 to len(laRES)
+       if liPOS<>0
+          if laRES[jj,3] == 'D'
+             aadd(laDEF,laRES[jj,2])
+             aadd(laDEFV,laRES[jj,1])
+
+           elseif laRES[jj,3] == 'I'
+             aadd(laINA,laRES[jj,2])
+             aadd(laINAV,laRES[jj,1])
+
+           else
+             aadd(laATI,laRES[jj,2])
+             aadd(laATIV,laRES[jj,1])
+          endif
+       else
+          aadd(laATI,laRES[jj,1])
+          aadd(laATIV,laRES[jj,1])
+       endif
+   next jj
+
+   if len(laDEF) == 0
+      aadd(laDEF,'') // Adiciona uma linha vazia no inicio do combo, caso seja solicitado
+      aadd(laDEFV,'0')
+   endif
+
+   for jj=1 to len(laDEF)
+       aadd(laPUT,laDEF[jj])
+       aadd(laPUTV,laDEFV[jj])
+   next jj
+
+   for jj=1 to len(laATI)
+       aadd(laPUT,laATI[jj])
+       aadd(laPUTV,laATIV[jj])
+   next jj
+
+   for jj=1 to len(laINA)
+       aadd(laPUT,'INATIVO - '+laINA[jj])
+       aadd(laPUTV,laINAV[jj])
+   next jj
+
+
+   WPut('NR_ADITIVO.option',laPUT)
+   WPut('NR_ADITIVO.optionvalue',laPUTV)
+   ***
+
+
+
+
+
+   *laOPT := {}
+   *laOPTV:= {}
+   *if db_select({'NR_CONTRATO_ADITIVO'},'pasta_contrato_aditivo',,{'NR_PASTA = '+ DLAP + flcNR_PASTA + DLAP},{'NR_CONTRATO_ADITIVO'}) == -1
+   *   error_sys(db_error())
+   *endif
+   *laRES := db_fetchall()
+   *
+   *if len(laRES) > 1
+   *   aadd(laOPT,{''})
+   *   aadd(laOPTV,{''})
+   *   for ii := 2 to len(laRES)
+   *     aadd(laOPT,laRES[ii,1])
+   *     aadd(laOPTV,laRES[ii,1])
+   *   next ii
+   *   WPut('NR_ADITIVO.option',laOPT)
+   *   WPut('NR_ADITIVO.optionvalue',laOPTV)
+   *endif
+   ***
+
+return(nil)
+
+**************************************
+static function lst_vendor(fcNR_PASTA)
+**************************************
+local faFIELDS := {},;
+      faRES    := {} as array
+
+local li       := 0 as int
+
+faFIELDS  :={'NR_PASTA',;
+             'NR_CONTROLE',;
+             'TIPO_VENDOR',;
+             'NR_ADITIVO',;
+             'LOGIN_CADASTRO',;
+             'DT_CADASTRO',;
+             'LOGIN_ALTERACAO',;
+             'DT_ALTERACAO',;
+             'RESPOSTA1',;
+             'RESPOSTA2',;
+             'RESPOSTA3',;
+             'RESPOSTA4',;
+             'RESPOSTA5',;
+             'RESPOSTA6',;
+             'RESPOSTA7',;
+             'RESULTADO_CONTRATO'}
+
+if db_select(faFIELDS,'pasta_vendor',,{'NR_PASTA = '+ DLAP + fcNR_PASTA + DLAP},{'NR_CONTROLE'}) == -1
+   error_sys(db_error())
+endif
+faRES:= db_fetchall()
+
+if len(faRES) > 0
+
+   aadd(faRES[1],'COR_LIN')
+
+   for li := 2 to len(faRES) //numero de linhas
+
+       if faRES[li,db_fetchncol(faRES,'RESPOSTA6')] == 'S'
+          faRES[li,db_fetchncol(faRES,'RESPOSTA6')] := 'Sim'
+         else
+          faRES[li,db_fetchncol(faRES,'RESPOSTA6')] := 'Não'
+       endif
+
+       if val(WGet('NR_CONTROLE','C'))>0
+          if WGet('NR_CONTROLE','C') == str(faRES[li,db_fetchncol(faRES,'NR_CONTROLE')])
+             aadd(faRES[li],'red')
+            else
+             aadd(faRES[li],'black')
+          endif
+         else
+          aadd(faRES[li],'black')
+       endif
+   next li
+
+   WPut('lstVENDOR',faRES)
+endif
+
+return
+
+***************************************
+static function busca_pasta(fcNR_PASTA)
+***************************************
+local faFIELDS := {},;
+      faRES    := {} as array
+
+local fcWHERE  := '' as string
+
+faFIELDS  :={'NR_PASTA',;
+             'FL_TT_LITSCONSORTE',;
+             'VENDOR',;
+             'RESULTADO_CONTRATO'}
+
+fcWHERE := 'NR_PASTA = '+ DLAP + fcNR_PASTA + DLAP
+
+if db_select(faFIELDS,'pasta',,{fcWHERE}) == -1
+   error_sys(db_error())
+endif
+faRES:= db_fetchrow()
+
+return (faRES)
+
+***************************************************************
+static function busca_lancto(fcNR_CONTROLE,faFIELDS,fcNR_PASTA)
+***************************************************************
+
+local faRES    := {} as array
+local laJOIN   := {} as array
+
+local fcWHERE  := '' as string
+
+local li      := 1  as int
+
+fcWHERE := 'pasta_vendor.NR_CONTROLE = '+ DLAP + fcNR_CONTROLE + DLAP
+
+aadd(faFIELDS,'pasta_vendor.DT_CADASTRO')
+aadd(faFIELDS,'pasta_vendor.LOGIN_CADASTRO')
+aadd(faFIELDS,'pasta_vendor.DT_ALTERACAO')
+aadd(faFIELDS,'pasta_vendor.LOGIN_ALTERACAO')
+aadd(faFIELDS,'pfpj.PFPJ')
+
+faFIELDS[2]:='pasta_vendor.NR_CONTROLE'
+
+
+laJOIN:={}
+aadd(laJOIN,{2,'pfpj','pfpj.CIP=pasta_vendor.CIP_EMPRESA_GRUPO'})
+
+if db_select(faFIELDS,'pasta_vendor',laJOIN,{fcWHERE}) == -1
+   error_sys(db_error())
+endif
+faRES:= db_fetchall()
+
+if len(faRES) > 1
+   for li:=1 to len(faFIELDS)
+       ***se o nome da culuna for o mesmo do campo
+       if faFIELDS[li] == faRES[1,li]
+          wput(faFIELDS[li],faRES[2,li])
+       endif
+   next li
+endif
+
+wput('CIP_EMPRESA_GRUPO_PFPJ',faRES[2,db_fetchncol(faRES,'PFPJ')])
+
+wput('DT_CADASTRO',faRES[2,db_fetchncol(faRES,'DT_CADASTRO')])
+wput('LOGIN_CADASTRO',faRES[2,db_fetchncol(faRES,'LOGIN_CADASTRO')])
+wput('DT_ALTERACAO',faRES[2,db_fetchncol(faRES,'DT_ALTERACAO')])
+wput('LOGIN_ALTERACAO',faRES[2,db_fetchncol(faRES,'LOGIN_ALTERACAO')])
+wput('RESKEYVENDOR',faRES[2,db_fetchncol(faRES,'DESC_KEY_VENDOR')])
+
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

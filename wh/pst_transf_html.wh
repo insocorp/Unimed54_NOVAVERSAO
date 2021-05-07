@@ -1,0 +1,124 @@
+/*
+
+Project      : gr5
+Program      : pst.transf.html
+Function     : pst_transf_html
+Created on   : 20-Sep-2004   14:47:45
+Descripition : Transferência de Tipo de Pasta
+              
+              Alteração 10/03/2009 - Valdimari Martins
+              Qudo alterar o tipo de pasta não pode ser alterado o status da pasta.
+              Por isso, foi alterada a linha do laSAVE retirando o campo FL_PASTA e a lcFL_PASTA
+              e também retiradas as seguintes de busca do status e alimentação da variável lcFL_PASTA.
+              
+*/
+
+   local lcNR_PASTA := WGet('NR_PASTA','C') ,;
+         lcTP_PASTA := WGet('TP_PASTA','C') ,;
+         lcWHERE    := '' ,;
+         lcACTION   := upper(wGet('ACTION','C')) ,;
+         lcFL_PASTA := '',;
+         lcCAMPO    := '' as string
+   local laRES    := {} ,;
+         laSAVE   := {} ,;
+         laRESULT := {} as array
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+
+   carrega_cbox({{'pasta_config','TP_PASTA','Y','(TP_PASTA<>"Padrao" and TP_PASTA<>"Padrão")'}})    
+   
+   get2Put({'NR_PASTA','TP_PASTA'})
+   make_psthead(lcNR_PASTA,lcTP_PASTA) //Cabeçalho
+   pasta_abas(lcTP_PASTA)
+
+ //  WPut('TP_PASTA.label.style.color','#FF0000')
+ //  WPut('TP_PASTA.label.style.font-weight','bold')
+
+     WPut('TP_PASTA'+'.style.border','2px solid red')
+   // Glauber 06/01/2011
+   AbasPerfil(lcTP_PASTA,{'NR_PASTA','TP_PASTA'})
+
+   WPut('TRANSFERIDO','')
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      if empty(alltrim(wGet('TP_PASTA','C')))
+         walert(lblfscreen('TP_PASTA')+' é um campo obrigatório')
+         get2Put()
+         return (.f.)
+      endif
+
+      laSAVE := {{'TP_PASTA'},;
+                 {lcTP_PASTA}}
+      lcWHERE := 'NR_PASTA='+lcNR_PASTA
+
+      //
+      // Glauber 12/02/2014
+      // A partir da versão 4.1 o workflow passou a utilizar o tp_pasta como referencia.
+      // Ajustar o tp_pasta da tabela ged
+      //
+
+      if db_select({'wfield2','wfield3','wfield4','wfield5'},;
+                    'gdrelacionamento',,{"WTABLE = 'pasta'" }) == -1
+         error_sys(db_error())
+      endif
+      laRESULT:= db_fetchall()
+
+      // Caso não exista a configuração para tabela pasta no relacionamento do ged, antes de transferir a pasta, verifico se existe algum ged para a pasta em questão.
+      if len(laRESULT) < 2
+          if db_select({'count(*)'},;
+                        'ged',,{"WTABLE = 'pasta' and referencia1='" + alltrim(lcNR_PASTA) +"'"}) == -1
+             error_sys(db_error())
+          endif
+          laRESULT:= db_fetchall()
+          if laRESULT[2,1] > 0
+             error_sys('A pasta não pode ser transferida porque existe ged atrelado,' + chr(13) +'mas não existe a configuração de relacionamento do ged no workflow.')
+          endif
+      else
+          if (laRESULT[2,1] == 'TP_PASTA')
+                 lcCAMPO = 'REFERENCIA2'
+          elseif (laRESULT[2,2] == 'TP_PASTA')
+                 lcCAMPO = 'REFERENCIA3'
+          elseif (laRESULT[2,3] == 'TP_PASTA')
+                 lcCAMPO = 'REFERENCIA4'
+          elseif (laRESULT[2,4] == 'TP_PASTA')
+                 lcCAMPO = 'REFERENCIA5'
+          endif
+
+          if db_update({{lcCAMPO},{lcTP_PASTA}},'ged',{"wtable = 'pasta' and REFERENCIA1='" + alltrim(lcNR_PASTA) + "'"}) = -1
+             error_sys(db_error())
+          endif
+      endif
+      psab_logs(laSAVE,'pasta',lcWHERE,lcNR_PASTA,'Transferência de Pasta') //Gravar log de alterações da pasta
+      if db_update(laSAVE,'pasta',{lcWHERE}) = -1
+         error_sys(db_error())
+      endif
+
+      WPut('TRANSFERIDO','S')
+
+      **mnt_pasta_html(lcNR_PASTA,'ALTER')
+   endif
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

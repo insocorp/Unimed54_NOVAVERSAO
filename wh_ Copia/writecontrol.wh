@@ -1,0 +1,509 @@
+//
+// Glauber - 04/2016
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+*
+* Glauber - 08/2017
+*
+* Classe...........: WriteControl
+*
+* Objetivo.........: Classe que controla a gravação dos pedidos e agregados quando utiliza comunicação com webservice eVida.
+*
+* Atributos........:
+*
+*    INSTANCE Pedidos
+*    INSTANCE Detalhe
+*    INSTANCE LogPedidoAtual
+*    INSTANCE LogSaveAux
+*    INSTANCE MovContabil
+*    INSTANCE PedidoGeraEstimativa
+*    INSTANCE DetalAtualizaDetalhe
+*    INSTANCE PedidoAtualizaDetalhe
+*    INSTANCE SucPedidos
+*    INSTANCE SucObjeto
+*    INSTANCE SucDelPedido
+*    INSTANCE SucDelDetalhe
+*
+*
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD InicializarAmbiente()
+*    METHOD SucDelPedidoAdd(where, save)
+*    METHOD SucObjetoAdd(where, save)
+*    METHOD MovContabilAdd(where, save)
+*    METHOD LogSaveAuxAdd(where, save)
+*    METHOD DetalheAdd(where, save)
+*    METHOD PedidosAdd(where, save)
+*    METHOD EfetivarGravacao()
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS EWriteControl
+
+    // Atributos publico
+
+    INSTANCE Pedidos
+    INSTANCE Detalhe
+    INSTANCE LogPedidoAtual
+    INSTANCE LogSaveAux
+    INSTANCE MovContabil
+    INSTANCE PedidoGeraEstimativa
+    INSTANCE DetalAtualizaDetalhe
+    INSTANCE PedidoAtualizaDetalhe
+    INSTANCE SucPedidos
+    INSTANCE SucObjeto
+    INSTANCE SucDelPedido
+    INSTANCE SucDelDetalhe
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()                       CLASS EWriteControl
+    PROTOTYPE METHOD Destroy()                    CLASS EWriteControl
+    PROTOTYPE METHOD InicializarAmbiente()        CLASS EWriteControl
+    PROTOTYPE METHOD SucObjetoAdd(where, save)    CLASS EWriteControl
+    PROTOTYPE METHOD MovContabilAdd(where, save)  CLASS EWriteControl
+    PROTOTYPE METHOD LogSaveAuxAdd(where, save)   CLASS EWriteControl
+    PROTOTYPE METHOD DetalheAdd(where, save)      CLASS EWriteControl
+    PROTOTYPE METHOD PedidosAdd(where, save)      CLASS EWriteControl
+    PROTOTYPE METHOD EfetivarGravacao()           CLASS EWriteControl
+
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS EWriteControl
+
+
+    self:InicializarAmbiente()
+
+
+return(self)
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS EWriteControl
+
+    self:Pedidos               := nil
+    self:Detalhe               := nil
+    self:LogPedidoAtual        := nil
+    self:LogSaveAux            := nil
+    self:MovContabil           := nil
+    self:PedidoGeraEstimativa  := nil
+    self:DetalAtualizaDetalhe  := nil
+    self:PedidoAtualizaDetalhe := nil
+    self:SucPedidos            := nil
+    self:SucObjeto             := nil
+    self:SucDelPedido          := nil
+    self:SucDelDetalhe         := nil
+
+
+return(nil)
+
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: InicializarAmbiente()
+* Objetivo..: Inicializa os arrays
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD InicializarAmbiente() CLASS EWriteControl
+
+    self:Pedidos               := {}
+    self:Detalhe               := {}
+    self:LogPedidoAtual        := {}
+    self:LogSaveAux            := {}
+    self:MovContabil           := {}
+    self:PedidoGeraEstimativa  := {}
+    self:DetalAtualizaDetalhe  := {}
+    self:PedidoAtualizaDetalhe := {}
+    self:SucPedidos            := {}
+    self:SucObjeto             := {}
+    self:SucDelPedido          := {}
+    self:SucDelDetalhe         := {}
+
+
+return(nil)
+
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: PedidosAdd
+* Objetivo..: Adiciona elemento de gravaçao para pedidos
+*
+* Parâmetros:
+*
+*   where   : String com a condição where
+*   save    : Array laSAVE
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD PedidosAdd(where, save) CLASS EWriteControl
+
+    aadd(self:Pedidos, {where, save})
+
+return(nil)
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: SavePedidos
+* Objetivo..: Salva as informações na tabela pasta_pedidos.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD SavePedidos() CLASS EWriteControl
+
+   local ii := 1 AS Int
+
+   for ii := 1  TO len(self:Pedidos)
+       if (self:Pedidos[ii,1] == nil .OR. Empty(self:Pedidos[ii,1]))
+           if db_insert(self:Pedidos[ii,2],'pasta_pedidos') == -1
+             error_sys(db_error())
+          endif
+       else
+          if db_update(self:Pedidos[ii,2],'pasta_pedidos',{self:Pedidos[ii,1]}) == -1
+             error_sys(db_error())
+          endif
+       endif
+   next ii
+
+return(nil)
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: DetalheAdd
+* Objetivo..: Adiciona elemento de gravaçao para detalhe de pedidos
+*
+* Parâmetros:
+*
+*   where   : String com a condição where
+*   save    : Array laSAVE
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD DetalheAdd(where, save) CLASS EWriteControl
+
+    aadd(self:Detalhe, {where, save})
+
+return(nil)
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: SaveDetalhe
+* Objetivo..: Salva as informações na tabela pasta_detal_pedidos.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD SaveDetalhe() CLASS EWriteControl
+
+   local ii := 1 AS Int
+
+   for ii := 1  TO len(self:Detalhe)
+       if (self:Detalhe[ii,1] == nil .OR. Empty(self:Detalhe[ii,1]))
+           if db_insert(self:Detalhe[ii,2],'pasta_detal_pedidos') == -1
+             error_sys(db_error())
+          endif
+       else
+          if db_update(self:Detalhe[ii,2],'pasta_objeto',{self:Detalhe[ii,1]}) == -1
+             error_sys(db_error())
+          endif
+       endif
+   next ii
+
+return(nil)
+
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: LogSaveAuxAdd
+* Objetivo..: Adiciona elemento de gravaçao para log auxiliar de alteração de pedidos
+*
+* Parâmetros:
+*
+*   where   : String com a condição where
+*   save    : Array laSAVE
+*   save    : Array laSAVE_AUX
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD LogSaveAuxAdd(where, save, saveaux) CLASS EWriteControl
+
+    aadd(self:LogSaveAux, {where, save, saveaux})
+
+return(nil)
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: SaveContabil
+* Objetivo..: Salva as informações de log de alteração.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD SaveLogSaveAuxAdd() CLASS EWriteControl
+
+   local ii := 1 AS Int
+
+   for ii := 1  TO len(self:LogSaveAux)
+       psab_logs(self:LogSaveAux[ii,2],'pasta_pedidos',self:LogSaveAux[ii,1], WGET('NR_PASTA','C'),'Pedidos')
+   next ii
+
+return(nil)
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: MovContabilAdd
+* Objetivo..: Adiciona elemento de gravaçao para contalização dos pedidos.
+*
+* Parâmetros:
+*
+*   where   : String com a condição where
+*   save    : Array laSAVE
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD MovContabilAdd(where, save) CLASS EWriteControl
+
+    aadd(self:MovContabil, {where, save})
+
+return(nil)
+
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: SaveContabil
+* Objetivo..: Salva as informações na tabela mvt_contabil.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD SaveContabil() CLASS EWriteControl
+
+   local ii := 1 AS Int
+
+   for ii := 1  TO len(self:MovContabil)
+       if (self:MovContabil[ii,1] == nil .OR. Empty(self:MovContabil[ii,1]))
+           if db_insert(self:MovContabil[ii,2],'mvt_contabil') == -1
+             error_sys(db_error())
+          endif
+       else
+          if db_update(self:MovContabil[ii,2],'mvt_contabil',{self:MovContabil[ii,1]}) == -1
+             error_sys(db_error())
+          endif
+       endif
+   next ii
+
+return(nil)
+
+
+
+
+
+
+
+
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: SucObjetoAdd
+* Objetivo..: Adiciona elemento de gravaçao para sucumbência de condenação dos objetos.
+*
+* Parâmetros:
+*
+*   where   : String com a condição where
+*   save    : Array laSAVE
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD SucObjetoAdd(where, save) CLASS EWriteControl
+
+    aadd(self:SucObjeto, {where, save})
+
+return(nil)
+
+
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: SaveSucObjeto
+* Objetivo..: Salva as informações na tabela pasta_objeto.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD SaveSucObjeto() CLASS EWriteControl
+
+   local ii := 1 AS Int
+
+   for ii := 1  TO len(self:SucObjeto)
+       if (self:SucObjeto[ii,1] == nil .OR. Empty(self:SucObjeto[ii,1]))
+           if db_insert(self:SucObjeto[ii,2],'pasta_objeto') == -1
+             error_sys(db_error())
+          endif
+       else
+          if db_update(self:SucObjeto[ii,2],'pasta_objeto',{self:SucObjeto[ii,1]}) == -1
+             error_sys(db_error())
+          endif
+       endif
+   next ii
+
+return(nil)
+
+
+
+
+
+
+
+/*
+*
+* Glauber - 08/2017
+*
+* Metodo....: EfetivarGravacao
+* Objetivo..: Realiza todas as gravações pendentes.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD EfetivarGravacao()  CLASS EWriteControl
+
+    self:SaveContabil()
+    self:SavePedidos()
+    self:SaveSucObjeto()
+    self:SaveDetalhe()
+    self:SaveLogSaveAuxAdd()
+
+return(nil)
+
+

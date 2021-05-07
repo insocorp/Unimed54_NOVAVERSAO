@@ -1,0 +1,494 @@
+/*
+
+Project      : gr5
+Program      : mnt.tsht.preventivo.html
+Function     : mnt_tsht_preventivo_html
+Created on   : 10-Oct-2002   10:13:43
+Descripition : Manutenção de Timesheet Preventivo
+
+*/
+
+   local lcACTION         := '',;
+         lcWHERE          := '',;
+         lcTABLE          := '',;
+         lcNR_PASTA       := '',;
+         lcNR_SERVICO     := '',;
+         lcVALIDA         := '',;
+         lcITEM           := '',;
+         lcITEM1          := '',;
+         lcTP_TIMESHEET   := '',;
+         lcAPROVADO       := '',;
+         lcCALC_PADRAO    := '',;
+         lcCD_COBRANCA    := '',;
+         lcCD_TBHONORARIO := '',;
+         lcCD_TBSERVICO   := '' as string
+
+   local laRESULT      := {} ,;
+         laRESULT2     := {} ,;
+         laRES         := {} ,;
+         laFIELDS      := {} ,;
+         laWHERE       := {} ,;
+         laSAVE        := {} ,;
+         laSAVE_AUX    := {} ,;
+         laVALIDA      := {} ,;
+         laFOREIGN     := {} ,;
+         laAPROVACAO   := {} as array
+
+   local ii := 0 as int
+
+   local lnPOS_COD := 0 as int
+
+   local llSERV_PREV := upper(alltrim(wSet('_USER_INTERFACE'))) == 'MNT.TSHT.PREVENTIVO.HTML' //Timesheet Preventivo Indiv. ou Corp
+
+   lcACTION     := upper(WGet('ACTION','C'))
+   lcNR_SERVICO := alltrim(WGet('NR_SERVICO','C'))
+   if lcNR_SERVICO = 'New'
+      lcNR_SERVICO := '0'
+   endif
+   lcNR_PASTA   := alltrim(WGet('NR_PASTA','C'))
+   lcTABLE      := 'mvt_servico'
+   lcWHERE      := 'NR_PASTA = '+lcNR_PASTA+' and NR_SERVICO = '+lcNR_SERVICO
+   laFIELDS     := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS     := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+
+   if !empty(lcNR_PASTA)
+      wPut('ifBT_PASTA',.T.)
+   endif
+
+   if empty(lcACTION)
+      lcACTION := 'NEW'
+   endif
+
+   laFIELDS_PST := {'pasta.NR_PASTA',;
+                    'pasta.FL_PASTA',;
+                    'pasta.CIP_EMPRESA',;
+                    'pfpj.PFPJ'}
+   if lcACTION = 'ALTER'
+      if db_select(laFIELDS_PST,'pasta,pfpj',,;
+                   {'pasta.NR_PASTA = '+lcNR_PASTA+' and pasta.CIP_EMPRESA=pfpj.CIP'}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2put(laRESULT)
+         WPut('CIP_EMPRESA_PFPJ',getWPut('PFPJ'))
+      endif
+      laRESULT := {}
+   endif
+   if !llSERV_PREV
+      laAPROVACAO   := {'Pendente','Faturar','Isentar'}
+      wPut('FL_VL_PADRAO_OPT','S')
+      wPut('FL_AVULSO_OPT','S')
+      wPut('FL_APROVADO_OPT',laAPROVACAO)
+      if lcACTION = 'NEW'
+         wPut('FL_VL_PADRAO','S')
+         wPut('FL_AVULSO','S')
+         wPut('LOGIN_RESP',gcLOGIN)
+         lcCALC_PADRAO := alltrim(getWPut('FL_VL_PADRAO','C'))
+      else
+         lcCALC_PADRAO := alltrim(WGet('FL_VL_PADRAO','C'))
+      endif
+   endif
+
+   /* Tabelas extrangeiras
+   * Formato do array abaixo
+   * 1 - nome da tabela a pesquisar
+   * 2 - campo do relacionamento
+   * 3 - descricao
+   */
+   laFOREIGN := {{'servico','CD_SERVICO',{'NM_SERVICO','UNIDADE','UNIDADE_TEMPO'}}}
+   if !llSERV_PREV .and. lcCALC_PADRAO !='S'
+      aadd(laFOREIGN,{'moeda','CD_MOEDA',{'NM_MOEDA'}})
+   endif
+
+   /* Campos obrigatórios
+   * Formato do array abaixo
+   * 1 - Campo para captura da informação no HTML - WGet()
+   * 2 - Parte do label a exibir em caso de erro, esta inf. á capturada do Wictrix
+   */
+   laVALIDA := {{'NR_PASTA','O Número da Pasta'},;
+                {'CD_SERVICO',laLABELS[ascan(laFIELDS,'CD_SERVICO')]},;
+                {'DT_REF',laLABELS[ascan(laFIELDS,'DT_REF')]},;
+                {'QUANTIDADE',laLABELS[ascan(laFIELDS,'QUANTIDADE')]},;
+                {'CIP_CONSULENTE',laLABELS[ascan(laFIELDS,'CIP_CONSULENTE')]}}
+   if !llSERV_PREV .and. lcCALC_PADRAO !='S'
+      aadd(laVALIDA,{'CD_MOEDA',laLABELS[ascan(laFIELDS,'CD_MOEDA')]})
+   endif
+
+   /* Relacionamentos que devem ser validados
+   * Formato do array abaixo
+   * 1 - Tabela
+   * 2 - Campo para captura da informação no HTML - WGet()
+   * 3 - Campo para montagem da cláusula WHERE usada em db_findrec()
+   * 4 - Parte do label a exibir em caso de erro, está inf. e capturada do Wictrix
+   */
+   laFIND_REC   := {{'pasta','NR_PASTA','NR_PASTA','O Número da Pasta'},;
+                  {'servico','CD_SERVICO','CD_SERVICO',laLABELS[ascan(laFIELDS,'CD_SERVICO')]}}
+   if !llSERV_PREV .and. lcCALC_PADRAO !='S'
+      aadd(laFIND_REC,{'moeda','CD_MOEDA','CD_MOEDA',laLABELS[ascan(laFIELDS,'CD_MOEDA')]})
+   endif
+
+   if lcACTION = 'NEW' .and. gbWAC_CREATE
+      wPut('NR_SERVICO','New')
+      wPut('DT_REF',date())
+      wPut('LOGIN',gcLOGIN)
+      wPut('LBL_QUANTIDADE','Quantidade')
+      wPut('ifNR_PASTA0',.T.)
+      wPut('ifNR_PASTA1',.F.)
+      wPut('ifBTN_SAVE',.T.)
+      wPut('ifBTN_DELETE',.T.)
+      wPut('LOGIN_READONLY','readonly')
+      wPut('TITLE','Inclusão de novo Timesheet Preventivo')
+   elseif lcACTION = 'ALTER' .and. gbWAC_READ
+      if !llSERV_PREV
+         wPut('LOGIN_READONLY','readonly')
+      endif
+      wPut('ifNR_PASTA0',.F.)
+      wPut('ifNR_PASTA1',.T.)
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchrow()
+      for ii := 1 to len(laFIELDS)
+          lnPOS_COD := ascan2(laFOREIGN,2,laFIELDS[ii])
+          if lnPOS_COD > 0 .and. (!empty(laFIELDS[ii]) .or. val(laRESULT[ii]) != 0)
+             if db_select(laFOREIGN[lnPOS_COD,3],laFOREIGN[lnPOS_COD,1],,;
+                          {laFOREIGN[lnPOS_COD,2]+'='+alltrim(str(laRESULT[ii]))}) == -1
+                error_sys(db_error())
+             endif
+             laRESULT2 := db_fetchrow()
+             if len(laRESULT2) > 0
+                for jj := 1 to len(laFOREIGN[lnPOS_COD,3])
+                    if laFOREIGN[lnPOS_COD,3][jj] == 'UNIDADE'
+                       wPut('LBL_QUANTIDADE',;
+                            laRESULT2[ascan(laFOREIGN[lnPOS_COD,3],laFOREIGN[lnPOS_COD,3][jj])])
+                    else
+                       wPut(laFOREIGN[lnPOS_COD,3][jj],;
+                            laRESULT2[ascan(laFOREIGN[lnPOS_COD,3],laFOREIGN[lnPOS_COD,3][jj])])
+                    endif
+                next jj
+             endif
+          endif
+          if laFIELDS[ii] = 'FL_APROVADO' .and. !llSERV_PREV .and. !empty(laRESULT[ii])  //Apenas para Preventivo Timesheet Corp.
+            if laRESULT[ii] = '0'
+               wPut(laFIELDS[ii],'Pendente')
+            elseif laRESULT[ii] = '1'
+               wPut(laFIELDS[ii],'Faturar')
+            elseif laRESULT[ii] = '2'
+               wPut(laFIELDS[ii],'Isentar')
+            endif
+            loop
+          endif
+          wPut(laFIELDS[ii],laRESULT[ii])
+      next ii
+      /* Se ainda não foi faturado, permite alterar exibindo os botões Salvar e Excluir ----------------------------------*/
+      if empty(laRESULT[ascan(laFIELDS,'NR_FATURA')])
+         wPut('ifBTN_SAVE',.T.)
+         wPut('ifBTN_DELETE',.T.)
+      endif
+      wPut('TITLE','Alteração do Timesheet Preventivo')
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+      for ii := 1 to len(laVALIDA)
+          lcVALIDA := alltrim(WGet(laVALIDA[ii,1],'C'))
+          if len(lcVALIDA) = 0 .or. lcVALIDA == '0'
+             walert(laVALIDA[ii,2]+' é um campo obrigatório!')
+             wPut('ifNR_PASTA0',iif(lcNR_SERVICO='0',.T.,.F.))
+             wPut('ifNR_PASTA1',iif(lcNR_SERVICO='0',.F.,.T.))
+             wPut('ifBTN_SAVE',.T.)
+             wPut('ifBTN_DELETE',.T.)
+             get2Put()
+             return(.f.)
+          endif
+      next ii
+      for ii := 1 to len(laFIND_REC)
+          lcVALIDA := alltrim(WGet(laFIND_REC[ii,2],'C'))
+          if !empty(lcVALIDA) .and. lcVALIDA <> '0'
+             if len(db_findrec({laFIND_REC[ii,3]},laFIND_REC[ii,1],laFIND_REC[ii,3]+'='+lcVALIDA)) = 0
+                walert(laFIND_REC[ii,4]+' é inválido(a) ou não pode ser encontrado(a)!')
+                wPut('ifNR_PASTA0',iif(lcNR_SERVICO='0',.T.,.F.))
+                wPut('ifNR_PASTA1',iif(lcNR_SERVICO='0',.F.,.T.))
+                wPut('ifBTN_SAVE',.T.)
+                wPut('ifBTN_DELETE',.T.)
+           get2Put()
+           return(.f.)
+             endif
+          endif
+      next ii
+      /* Pesquisar Código de Cobranca, Cód. Tab. de Honorarios, Cód. da Tab. Serviços
+      *  Pesquisa primeiro na [pasta], de acordo com o Cód. de Pasta selecionado aqui, caso não encontre na [pasta],
+      *  pesquisa na tabela [cobranca_cliente], de acorodo com o Cód. de Pasta e o Tipo de Caso encontrado na [pasta]
+      */
+      if lcCALC_PADRAO != 'S' .and. alltrim(WGet('FL_AVULSO','C')) != 'S' .and. !llSERV_PREV
+         if db_select({'CIP_EMPRESA','TP_PASTA','CD_COBRANCA','CD_TB_HONORARIO','CD_TB_SERVICO'},;
+                       'pasta',,{'NR_PASTA='+lcNR_PASTA}) == -1
+             error_sys(db_error())
+         endif
+         laRESULT2 := db_fetchrow()
+         if len(laRESULT2) > 0
+            /* Código de Cobranca ----------------------------------------------------------------------------------------*/
+            if empty(laRESULT2[3])
+               laWHERE := {'CIP_EMPRESA='+DLAP+laRESULT2[1]+DLAP,'TP_PASTA='+DLAP+laRESULT2[2]+DLAP}
+               if db_select({'CD_COBRANCA'},'cobranca_cliente',,laWHERE) == -1
+                  error_sys(db_error())
+               endif
+               laRES         := db_fetchrow()
+               lcCD_COBRANCA := iif(len(laRES) > 0,alltrim(str(laRES[1])),'')
+            else
+               lcCD_COBRANCA := alltrim(str(laRESULT2[3]))
+            endif
+
+            /* Código da Tabela de Honorários ----------------------------------------------------------------------------*/
+            if empty(laRESULT2[4])
+               laWHERE := {'CIP_EMPRESA='+DLAP+laRESULT2[1]+DLAP,'TP_PASTA='+DLAP+laRESULT2[2]+DLAP}
+               if db_select({'CD_TB_HONORARIO'},'cobranca_cliente',,laWHERE) == -1
+                  error_sys(db_error())
+               endif
+               laRES            := db_fetchrow()
+               lcCD_TBHONORARIO := iif(len(laRES) > 0,alltrim(str(laRES[1])),'')
+            else
+               lcCD_TBHONORARIO := alltrim(str(laRESULT2[4]))
+            endif
+
+            /* Código da Tabela de Serviços ------------------------------------------------------------------------------*/
+            if empty(laRESULT2[5])
+               laWHERE := {'CIP_EMPRESA='+DLAP+laRESULT2[1]+DLAP,'TP_PASTA='+DLAP+laRESULT2[2]+DLAP}
+               if db_select({'CD_TB_SERVICO'},'cobranca_cliente',,laWHERE) == -1
+                  error_sys(db_error())
+               endif
+               laRES          := db_fetchrow()
+               lcCD_TBSERVICO := iif(len(laRES) > 0,alltrim(str(laRES[1])),'')
+            else
+               lcCD_TBSERVICO := alltrim(str(laRESULT2[5]))
+            endif
+         endif
+      endif
+      if lcNR_SERVICO = '0'
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            if laFIELDS[ii] = 'LOGIN'
+               if llSERV_PREV      //Timesheet Preventivo
+                  aadd(laSAVE_AUX,gcLOGIN)
+               else                //Timesheet Preventivo Corporativo
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+               endif
+               loop
+            elseif laFIELDS[ii] = 'QTD_PRODUCAO'
+               aadd(laSAVE_AUX,WGet('QUANTIDADE','N'))
+               loop
+            elseif laFIELDS[ii] = 'FL_VL_PADRAO' .and. llSERV_PREV
+               aadd(laSAVE_AUX,'S')
+               loop
+            elseif laFIELDS[ii] = 'CD_MOEDA' .and. !llSERV_PREV
+               if lcCALC_PADRAO = 'S'
+                  aadd(laSAVE_AUX,0)
+                  loop
+               endif
+            elseif laFIELDS[ii] = 'VL_UNIT' .and. !llSERV_PREV
+               if lcCALC_PADRAO = 'S'
+                  aadd(laSAVE_AUX,0)
+                  loop
+               endif
+            elseif laFIELDS[ii] = 'FL_APROVADO'
+               if lcCALC_PADRAO != 'S' .and. !llSERV_PREV
+                  lcITEM := alltrim(WGet(laFIELDS[ii],'C'))
+                  if lcITEM == 'Pendente'
+                     aadd(laSAVE_AUX,'0')
+                  elseif lcITEM == 'Faturar'
+                     aadd(laSAVE_AUX,'1')
+                  elseif lcITEM == 'Isentar'
+                     aadd(laSAVE_AUX,'2')
+                  endif
+               else
+                  aadd(laSAVE_AUX,tp_aprovacao(lcNR_PASTA))
+               endif
+               loop
+            elseif laFIELDS[ii] = 'FL_AVULSO' .and. !llSERV_PREV
+               if lcCALC_PADRAO = 'S'
+                  aadd(laSAVE_AUX,'')
+                  loop
+               endif
+            elseif laFIELDS[ii] = 'FL_TP_TIMESHEET' .and. !llSERV_PREV
+               if alltrim(WGet('FL_AVULSO','C')) = 'S'
+                  aadd(laSAVE_AUX,'3')
+               else
+                  aadd(laSAVE_AUX,'')
+               endif
+               loop
+            elseif laFIELDS[ii] = 'CD_COBRANCA'  .and. !llSERV_PREV
+               aadd(laSAVE_AUX,val(lcCD_COBRANCA))
+               loop
+            elseif laFIELDS[ii] = 'CD_TB_HONORARIO' .and. !llSERV_PREV
+               aadd(laSAVE_AUX,val(lcCD_TBHONORARIO))
+               loop
+            elseif laFIELDS[ii] = 'CD_TB_SERVICO' .and. !llSERV_PREV
+               aadd(laSAVE_AUX,val(lcCD_TBSERVICO))
+               loop
+
+
+            /* Teste temporário */
+            elseif laFIELDS[ii] = 'CD_COBRANCA' // teste
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii],'N'))
+               loop
+            elseif laFIELDS[ii] = 'CD_TB_HONORARIO' // teste
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii],'N'))
+               loop
+            elseif laFIELDS[ii] = 'CD_TB_SERVICO' // teste
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii],'N'))
+               loop
+            elseif laFIELDS[ii] = 'VL_UNIT' // teste
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii],'N'))
+               loop
+            elseif laFIELDS[ii] = 'NR_FATURA' // teste
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii],'N'))
+               loop
+            elseif laFIELDS[ii] = 'CD_MOEDA' // teste
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii],'N'))
+               loop
+            elseif laFIELDS[ii] = 'VL_TOTAL' // teste
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii],'N'))
+               loop
+            /* fim */
+
+
+            endif
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+
+         if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+            error_sys(db_error())
+         endif
+      else
+         if !llSERV_PREV
+            if alltrim(WGet('FL_AVULSO','C')) = 'S'
+               lcTP_TIMESHEET := '3'
+            else
+               lcTP_TIMESHEET := ''
+            endif
+         endif
+         if lcCALC_PADRAO != 'S' .and. !llSERV_PREV
+            lcITEM1 := alltrim(WGet('FL_APROVADO','C'))
+            if lcITEM1 == 'Pendente'
+               lcAPROVADO := '0'
+            elseif lcITEM1 == 'Faturar'
+               lcAPROVADO := '1'
+            elseif lcITEM1 == 'Isentar'
+               lcAPROVADO := '2'
+            endif
+         else
+            lcAPROVADO := tp_aprovacao(lcNR_PASTA)
+         endif
+         laSAVE := {}
+         aadd(laSAVE,{'DT_REF','CD_SERVICO','QUANTIDADE','CONSULTA','TIMESHEET','EXTRA','CIP_CONSULENTE'})
+         aadd(laSAVE,{WGet('DT_REF'),;
+                      WGet('CD_SERVICO','N'),;
+                      WGet('QUANTIDADE','N'),;
+                      WGet('CONSULTA'),;
+                      WGet('TIMESHEET'),;
+                      WGet('EXTRA'),;
+                      WGet('CIP_CONSULENTE')})
+         if llSERV_PREV
+            aadd(laSAVE[1],'LOGIN')
+            aadd(laSAVE[1],'LOGIN_RESP')
+            aadd(laSAVE[1],'FL_VL_PADRAO')
+            aadd(laSAVE[2],WGet('LOGIN'))
+            aadd(laSAVE[2],gcLOGIN)
+            aadd(laSAVE[2],'S')
+         else
+            aadd(laSAVE[1],'VL_UNIT')
+            aadd(laSAVE[1],'CD_MOEDA')
+            aadd(laSAVE[1],'FL_TP_TIMESHEET')
+            aadd(laSAVE[1],'FL_AVULSO')
+            aadd(laSAVE[2],iif(lcCALC_PADRAO='S',0,WGet('VL_UNIT','N')))
+            aadd(laSAVE[2],iif(lcCALC_PADRAO='S',0,WGet('CD_MOEDA','N')))
+            aadd(laSAVE[2],iif(lcCALC_PADRAO='S','',lcTP_TIMESHEET))
+            aadd(laSAVE[2],iif(lcCALC_PADRAO='S','',WGet('FL_AVULSO')))
+         endif
+         if db_update(laSAVE,lcTABLE,{lcWHERE}) == -1
+             error_sys(db_error())
+         endif
+      endif
+      if llSERV_PREV
+         wSet('_USER_INTERFACE','lst.tsht.preventivo.html')
+         lst_tsht_preventivo_html()
+      else
+         wSet('_USER_INTERFACE','lst.ts.cp.preventivo.html')
+         lst_ts_cp_preventivo_html()
+      endif
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+      if llSERV_PREV
+         wSet('_USER_INTERFACE','lst.tsht.preventivo.html')
+         lst_tsht_preventivo_html()
+      else
+         wSet('_USER_INTERFACE','lst.ts.cp.preventivo.html')
+         lst_ts_cp_preventivo_html()
+      endif
+   endif
+return
+
+/*
+* Function..: tp_aprovacao(fcNR_PASTA)
+* Objetivo..: Buscar o tipo de aprovação de acordo com a Tabela de Serviços indicada pela Pasta selecionada
+* Parâmetros:
+*    faNR_PASTA: Código da Pasta
+*    fcTABLE..:
+*    fnINIT...:
+*
+* Retorno...: String contendo o Código do tipo de Aprovação
+*     Tipos: [0]-Pendente
+*            [1]-Faturar
+*            [2]-Isentar
+*/
+static function tp_aprovacao(fcNR_PASTA)
+  local laRESULT := {} ,;
+        laWHERE  := {} ,;
+        laRES    := {} as array
+  local lcQUERY        := '' ,;
+        lcTP_APROVACAO := '' as string
+
+  if db_select({'CIP_EMPRESA','TP_PASTA','CD_TB_SERVICO'},'pasta',,{'NR_PASTA='+fcNR_PASTA}) == -1
+     error_sys(db_error())
+  endif
+  laRESULT := db_fetchrow()
+  if len(laRESULT) > 0
+     if empty(laRESULT[3])
+        laWHERE := {'CIP_EMPRESA='+DLAP+laRESULT[1]+DLAP,'TP_PASTA='+DLAP+laRESULT[2]+DLAP}
+        if db_select({'CD_TB_SERVICO'},'cobranca_cliente',,laWHERE) == -1
+           error_sys(db_error())
+        endif
+        laRES := db_fetchrow()
+        if len(laRES) > 0
+           if !empty(laRES[1])
+              laWHERE := {'CD_TB_SERVICO='+alltrim(str(laRES[1])),'CD_SERVICO='+WGet('CD_SERVICO','C')}
+              if db_select({'FL_APROVADO'},'vl_tabela_servico',,laWHERE) == -1
+                 error_sys(db_error())
+              endif
+              laRES := db_fetchrow()
+              if len(laRES) > 0
+                 lcTP_APROVACAO := iif(!empty(laRES[1]),alltrim(laRES[1]),'0')
+              else
+                 lcTP_APROVACAO := '0'
+              endif
+           else
+              lcTP_APROVACAO := '0'
+           endif
+        else
+           lcTP_APROVACAO := '0'
+        endif
+     else
+        laWHERE := {'CD_TB_SERVICO='+alltrim(str(laRESULT[3])),'CD_SERVICO='+WGet('CD_SERVICO','C')}
+        if db_select({'FL_APROVADO'},'vl_tabela_servico',,laWHERE) == -1
+           error_sys(db_error())
+        endif
+        laRES := db_fetchrow()
+        if len(laRES) > 0
+           lcTP_APROVACAO := iif(!empty(laRES[1]),alltrim(laRES[1]),'0')
+        else
+           lcTP_APROVACAO := '0'
+        endif
+     endif
+  endif
+return(lcTP_APROVACAO)

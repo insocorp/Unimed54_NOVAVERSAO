@@ -1,0 +1,267 @@
+/*
+
+Project      : gr5_366
+Program      : cont2valor
+Function     : cont2valor
+Created on   : 04-Apr-2007   15:25:00
+Descripition : Migração dos dados da aba contingencia para a aba valor.
+
+*/
+
+  local laRESULT     := {},;
+        laRESULT2    := {},;
+        laSAVE       := {},;
+        laFIELDS     := {},;
+        laSAVE_AUX   := {},;
+        laCAMPOS     := {},;
+        laJOIN       := {},;
+        laREGRA      := {}   as array
+  local lnRESULT     := 0 ,;
+        lnXX         := 0 ,;
+        lxYY         := 0 ,;
+        lnGRAVAR     := 0    as int
+  local lcEVAL       := '',;
+        lcGRAVAR     := '',;
+        lcWHERE      := ''   as string
+
+  // Atualização dos valores do risco (coluna PC_RISCO)
+
+  laFIELDS := {'NR_PASTA','PC_RISCO','PC_RISCO2'}
+  // Array com o conjunto de bloco de código onde é processado a regra e retornado o valor a atualizar
+  laREGRA  := { '{|lnRESULT| iif((lnRESULT >=  0 .and. lnRESULT <=  40),  20, 0)}',;
+                '{|lnRESULT| iif((lnRESULT >= 41 .and. lnRESULT <=  60),  50, 0)}',;
+                '{|lnRESULT| iif((lnRESULT >= 61 .and. lnRESULT <=  80),  80, 0)}',;
+                '{|lnRESULT| iif((lnRESULT >= 80 .and. lnRESULT <= 100), 100, 0)}' }
+
+   lcWHERE := 'TP_PASTA in (select TP_PASTA from pasta_config where '
+   lcWHERE +=           '(layout_pasta = '+DLAP+'Civel2'+DLAP
+   lcWHERE +=           ' or layout_pasta = '+DLAP+'Civel_adm_cade'+DLAP
+   lcWHERE +=           ' or layout_pasta = '+DLAP+'Civel_securit_com_sinistro'+DLAP
+   lcWHERE +=           ' or layout_pasta = '+DLAP+'Civel_securit_sem_sinistro '+DLAP
+   lcWHERE +=           ' or layout_pasta = '+DLAP+'DPVAT'+DLAP+'))'
+
+   if db_select(laFIELDS,'pasta',,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      db_begin()
+      for lnXX := 2 to len(laRESULT)
+          // lcEVAL verica qual o campo contém o maior valor do risco e retorna o nome do campo, PC_RISCO ou PC_RISCO2
+          lcEVAL   := iif(laRESULT[lnXX,ascan(laRESULT[1],'PC_RISCO')] > laRESULT[lnXX,ascan(laRESULT[1],'PC_RISCO2')], 'PC_RISCO','PC_RISCO2')
+          lnRESULT := laRESULT[lnXX,ascan(laRESULT[1],lcEVAL)] // Armazena o maior valor
+          // Array com o conjunto de bloco de código onde é processado a regra e retornado o valor a atualizar
+          for lnYY := 1 to len(laREGRA)
+              lcGRAVAR := laREGRA[lnYY]
+              lnGRAVAR := eval(&lcGRAVAR,lnRESULT)
+              if lnGRAVAR > 0
+                 exit
+              endif
+          next lnYY
+          // Atualiza o registro da tabela pasta
+          if lnGRAVAR > 0 .and. laRESULT[lnXX,ascan(laRESULT[1],'NR_PASTA')] > 0
+             lcWHERE := 'NR_PASTA = '+ alltrim(str(laRESULT[lnXX,ascan(laRESULT[1],'NR_PASTA')]))
+             if db_replace({{'PC_RISCO'},{lnGRAVAR}},'pasta',{lcWHERE}) == -1
+                db_rollback()
+                error_sys(db_error())
+             endif
+          endif
+      next lnXX
+      db_commit()
+   endif
+
+   // Este bloco atualiza as colunas PEDIDO_PROCESSO, VL_PEDIDO, DT_RISCO, DT_RISCO2, VL_RISCO, VL_RISCO2,
+   //                                PC_RISCO, PC_RISCO2 da tabela pasta_valor_pedidos
+
+   laFIELDS := {'pasta_contingencia.NR_PASTA',;
+                'pasta_contingencia.PEDIDO_PROCESSO',;
+                'pasta_contingencia.VL_PEDIDO',;
+                'pasta.DT_RISCO',;
+                'pasta_contingencia.VL_RISCO',;
+                'pasta_contingencia.PC_RISCO'}
+
+   laJOIN   := {{2,'pasta','pasta_contingencia.NR_PASTA = pasta.NR_PASTA'}}
+
+   laCAMPOS := {}
+   aadd({'Emissão de apólice'                        , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Exibição de documentos'                    , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Furto em armazém'                          , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Furto em estacionamento'                   , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Honorários Extracontratuais'               , 'VL_RISCO2', 'PC_RISCO2'})
+   aadd({'Honorários médicos'                        , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Incêndio'                                  , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Inclusão de cobertura'                     , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Inclusão de segurado na apólice'           , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Indenização contratual'                    , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Indenização diária incapacidade temporária', 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Indenização extracontratual'               , 'VL_RISCO2', 'PC_RISCO2'})
+   aadd({'Indenização perda habilitação vôo'         , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Indenização por morte'                     , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Indenização Securitária Contratual'        , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Indenização Securitária Extracontratual'   , 'VL_RISCO2', 'PC_RISCO2'})
+   aadd({'Informações'                               , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Interceptação de passagem'                 , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Intermediação'                             , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Invalidez + Dams'                          , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Investigação'                              , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Molhadura'                                 , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Morte + Dams'                              , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Mudança de faixa'                          , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Multa'                                     , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Multa diária Extracontratual'              , 'VL_RISCO2', 'PC_RISCO2'})
+   aadd({'Multa Extracontratual'                     , 'VL_RISCO2', 'PC_RISCO2'})
+   aadd({'Não cancelamento de apólice'               , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Não exclusão de cobertura'                 , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Ordenando depósito em juízo'               , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Pagamento de benefício Contratual'         , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Pagamento de benefício Extracontratual'    , 'VL_RISCO2', 'PC_RISCO2'})
+   aadd({'Perdas e danos'                            , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Plano previdência averbado'                , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Plano previdência instituído'              , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Publicidade'                               , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Quitação dívida'                           , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Quitação do Saldo Devedor Contratual'      , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Quitação do Saldo Devedor Extracontratual' , 'VL_RISCO2', 'PC_RISCO2'})
+   aadd({'RCTRC'                                     , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Reativação da apólice'                     , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Reembolso de serviços'                     , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Reembolso de serviços Contratual'          , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Reembolso de serviços Extracontratual'     , 'VL_RISCO2', 'PC_RISCO2'})
+   aadd({'Reintegração ao plano'                     , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Remuneração'                               , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Renda Contratual'                          , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Renda Extracontratual'                     , 'VL_RISCO2', 'PC_RISCO2'})
+   aadd({'Repique'                                   , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Representação'                             , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Requisitando documento - apólice'          , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Requisitando documentos - sinistros'       , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Requisitando informação'                   , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Requisitando informação - apólice'         , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Requisitando informação - criminal'        , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Requisitando informação - sinistro'        , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Requisitando informação de salvado'        , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Requisitando suspensão de indenização'     , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Ressarcimento de Franquia'                 , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Restituição do prêmio ou contribuição'     , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Roubo de carga'                            , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Sigilo e confidencialidade'                , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Sucumbência'                               , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Sucumbência Contratual'                    , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Sucumbência Extracontratual'               , 'VL_RISCO2', 'PC_RISCO2'})
+   aadd({'Tombamento de carga'                       , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Transferência de reservas'                 , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Transferência de Titularidade/Salvado'     , 'VL_RISCO' , 'PC_RISCO' })
+   aadd({'Veículo do terceiro na contra-mão'         , 'VL_RISCO' , 'PC_RISCO' })
+
+   lcWHERE  :=  'pasta_contingencia.nr_pasta in (select nr_pasta from pasta where TP_PASTA in'
+   lcWHERE  +=  '(select TP_PASTA from pasta_config where '
+   lcWHERE  +=  '(layout_pasta = '+DLAP+'Civel2'+DLAP+ 'or layout_pasta = '+DLAP+'Civel_adm_cade'+DLAP
+   lcWHERE  +=  ' or layout_pasta = '+DLAP+'Civel_securit_com_sinistro'+DLAP
+   lcWHERE  +=  ' or layout_pasta = '+DLAP+'Civel_securit_sem_sinistro'+DLAP
+   lcWHERE  +=  ' or layout_pasta = '+DLAP+'DPVAT'+DLAP+')))'
+
+   if db_select(laFIELDS,'pasta_contingencia',laJOIN,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      db_begin()
+      for lnXX := 2 to len(laRESULT)
+          if laRESULT[lnXX,ascan(laRESULT[1],'NR_PASTA')] > 0
+             laSAVE     := {{'NR_PASTA','PEDIDO_PROCESSO','VL_PEDIDO','DT_RISCO','DT_RISCO2'}}
+             laSAVE_AUX := {laRESULT[lnXX,ascan(laRESULT[1],'NR_PASTA')],;
+                            laRESULT[lnXX,ascan(laRESULT[1],'PEDIDO_PROCESSO')],;
+                            laRESULT[lnXX,ascan(laRESULT[1],'VL_PEDIDO')],;
+                            laRESULT[lnXX,ascan(laRESULT[1],'DT_RISCO')],;
+                            laRESULT[lnXX,ascan(laRESULT[1],'DT_RISCO')]}
+             lcEVAL := laRESULT[lnXX,ascan(laRESULT[1],'PEDIDO_PROCESSO')]
+             lnYY := ascan(laCAMPOS,{|xvetor|xvetor[1] == lcEVAL})
+             if lnYY > 0
+                aadd(laSAVE[1],laCAMPOS[lnYY,2])
+                aadd(laSAVE[1],laCAMPOS[lnYY,3])
+                aadd(laSAVE_AUX,laRESULT[lnXX,ascan(laRESULT[1],'VL_RISCO')])
+                aadd(laSAVE_AUX,laRESULT[lnXX,ascan(laRESULT[1],'PC_RISCO')])
+             endif
+             aadd(laSAVE,laSAVE_AUX)
+             lcWHERE := 'NR_PASTA = '+ alltrim(str(laRESULT[lnXX,ascan(laRESULT[1],'NR_PASTA')]))
+             lcWHERE += ' AND PEDIDO_PROCESSO = '+DLAP+laRESULT[lnXX,ascan(laRESULT[1],'PEDIDO_PROCESSO')]+DLAP
+             if db_replace(laSAVE,'pasta_valor_pedidos',{lcWHERE}) == -1
+                db_rollback()
+                error_sys(db_error())
+             endif
+          endif
+      next lnXX
+      db_commit()
+   endif
+
+   // Bloco que atualiza dados originados da tabela pasta, cujo pasta_valor_pedidos.VL_RISCO + pasta_valor_pedidos.VL_RISCO2 == 0
+
+   laFIELDS := {'pasta_valor_pedidos.NR_PASTA',;
+                'pasta_valor_pedidos.PEDIDO_PROCESSO',;
+                'pasta_valor_pedidos.VL_PEDIDO',;
+                'pasta.DT_RISCO',;
+                'pasta_valor_pedidos.VL_RISCO',;
+                'pasta_valor_pedidos.PC_RISCO',;
+                'pasta_valor_pedidos.VL_RISCO2',;
+                'pasta_valor_pedidos.PC_RISCO2'}
+
+   laJOIN   := {{2,'pasta','pasta_valor_pedidos.NR_PASTA = pasta.NR_PASTA'}}
+
+   lcWHERE  :=  'pasta_valor_pedidos.nr_pasta in (select nr_pasta from pasta where TP_PASTA in'
+   lcWHERE  +=  '(select TP_PASTA from pasta_config where '
+   lcWHERE  +=  '(layout_pasta = '+DLAP+'Civel2'+DLAP+ 'or layout_pasta = '+DLAP+'Civel_adm_cade'+DLAP
+   lcWHERE  +=  ' or layout_pasta = '+DLAP+'Civel_securit_com_sinistro'+DLAP
+   lcWHERE  +=  ' or layout_pasta = '+DLAP+'Civel_securit_sem_sinistro'+DLAP
+   lcWHERE  +=  ' or layout_pasta = '+DLAP+'DPVAT'+DLAP+')))'
+
+   if db_select(laFIELDS,'pasta_valor_pedidos',laJOIN,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      db_begin()
+      for lnXX := 2 to len(laRESULT)
+          if laRESULT[lnXX,ascan(laRESULT[1],'NR_PASTA')] > 0 .and. ((laRESULT[lnXX,ascan(laRESULT[1],'VL_RISCO')] + laRESULT[lnXX,ascan(laRESULT[1],'VL_RISCO2')]) == 0)
+             lcWHERE := 'NR_PASTA = '+ alltrim(str(laRESULT[lnXX,ascan(laRESULT[1],'NR_PASTA')]))
+             lcWHERE += ' AND PEDIDO_PROCESSO = '+DLAP+laRESULT[lnXX,ascan(laRESULT[1],'PEDIDO_PROCESSO')]+DLAP
+             laSAVE     := {{'NR_PASTA','PEDIDO_PROCESSO','VL_RISCO','PC_RISCO','DT_RISCO','DT_RISCO2','VL_RISCO2', 'PC_RISCO2'}}
+             // Selecionar dados da tabela pasta
+             if db_select({'OBJETO','TP_PASTA','DT_RISCO','VL_RISCO','PC_RISCO','VL_RISCO2','PC_RISCO2'},'pasta',,{'NR_PASTA = '+alltrim(str(laRESULT[lnXX,ascan(laRESULT[1],'NR_PASTA')]))}) == -1
+                error_sys(db_error())
+             endif
+             laRESULT2 := db_fetchall()
+             if len(laRESULT2) > 1
+                laSAVE     := {{'NR_PASTA','PEDIDO_PROCESSO','VL_RISCO','PC_RISCO','DT_RISCO','DT_RISCO2','VL_RISCO2', 'PC_RISCO2'}}
+                laSAVE_AUX := {laRESULT[lnXX,ascan(laRESULT[1],'NR_PASTA')],;
+                               laRESULT[lnXX,ascan(laRESULT[1],'PEDIDO_PROCESSO')]+' - Migração',;
+                               laRESULT2[2,ascan(laRESULT2[1],'VL_RISCO')],;
+                               laRESULT2[2,ascan(laRESULT2[1],'PC_RISCO')],;
+                               laRESULT2[2,ascan(laRESULT2[1],'DT_RISCO')],;
+                               laRESULT2[2,ascan(laRESULT2[1],'DT_RISCO')],;
+                               laRESULT2[2,ascan(laRESULT2[1],'VL_RISCO2')],;
+                               laRESULT2[2,ascan(laRESULT2[1],'PC_RISCO2')]}
+                aadd(laSAVE,laSAVE_AUX)
+                if db_update(laSAVE,'pasta_valor_pedidos',{lcWHERE}) == -1
+                   db_rollback()
+                   error_sys(db_error())
+                endif
+                // Atualização do campo objeto na tabela pasta
+                lcEVAL := strtran(laRESULT2[2,ascan(laRESULT2[1],'OBJETO')],laRESULT[lnXX,ascan(laRESULT[1],'PEDIDO_PROCESSO')] ,'MIGRAÇÃO - '+laRESULT[lnXX,ascan(laRESULT[1],'PEDIDO_PROCESSO')] )
+                if db_replace({{'OBJETO'},{lcEVAL}},'pasta',{'NR_PASTA = '+alltrim(str(laRESULT[lnXX,ascan(laRESULT[1],'NR_PASTA')]))}) == -1
+                   db_rollback()
+                   error_sys(db_error())
+                endif
+                // Inserção do novo registro na tabela pasta_objeto
+                if db_replace({{'TP_PASTA','OBJETO'},{laRESULT2[2,ascan(laRESULT2[1],'TP_PASTA')],lcEVAL}},'pasta_objeto',{'TP_PASTA = '+DLAP+laRESULT2[2,ascan(laRESULT2[1],'TP_PASTA')]+DLAP + ' AND OBJETO = '+ DLAP+lcEVAL+DLAP}) == -1
+                   db_rollback()
+                   error_sys(db_error())
+                endif
+             endif
+          endif
+      next lnXX
+      db_commit()
+   endif
+return
+

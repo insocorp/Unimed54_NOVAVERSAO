@@ -1,0 +1,286 @@
+/*
+
+Project      : gr5
+Program      : ps.prc.poderes.html
+Function     : ps_prc_poderes_html
+Created on   : 28-Jul-2004   13:33:39
+Descripition : Aba Poderes Específicos do layout de Pasta Procuração
+
+*/
+
+   local lcACTION              := '' ,;
+         lcTP_PASTA            := '' ,;
+         lcPRC_PODER_CLASS_ANT := '' ,;
+         lcTABLE               := '' ,;
+         lcNR_PASTA            := '' as string
+   local laRESULT    := {} ,;
+         laRES       := {} ,;
+         laPUT       := {} ,;
+         laSAVE      := {} ,;
+         laSAVE_AUX  := {} ,;
+         laWHERE     := {} ,;
+         laOUTORGADO := {} ,;
+         laFIELDS    := {} ,;
+         laLABELS    := {} ,;
+         laVALIDA    := {} as array
+   local ii := 0 as int
+   local llERRO := .F. as logical
+
+   lcACTION   := upper(alltrim(WGet('ACTION','C')))
+   lcTP_PASTA := WGet('TP_PASTA','C')
+   lcNR_PASTA := WGet('NR_PASTA','C')
+   lcTABLE    := 'pasta_poderes'
+   laWHERE               := {'NR_PASTA='+lcNR_PASTA+' and '+;
+                             'NR_ATA='+DLAP+'0'+DLAP+' and '+;
+                             'PROCURACAO_PODER_CLASS='+DLAP+wGet('PROCURACAO_PODER_CLASS','C')+DLAP}
+   laFIELDS              := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS              := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   laVALIDA              := {'PROCURACAO_PODER_CLASS'}
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+   /*
+   Devido ao Campo PROCURACAO_PODER_CLASS ser chave primária e estar liberado na tela
+   permitindo alterações pelo usuário, foi criado essa variável juntamente com um
+   campo hidden no HTML para controlar se essa chave foi alterada.
+   Caso seja, ao invéz de duplicar o registro ao salvar, insere um novo e remove
+   o anterior.
+   */
+   lcPRC_PODER_CLASS_ANT := wGet('PROCURACAO_PODER_CLASS_ANT','C')
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+
+   carrega_cbox({{'procuracao_poder_class','PROCURACAO_PODER_CLASS','Y'}})
+   /*
+   if db_select({'NR_PASTA','TP_PASTA'},'pasta',,{'NR_PASTA='+lcNR_PASTA}) = -1
+      error_sys(db_error())
+   endif
+   db2Put(db_fetchall())
+   */
+   make_psthead(lcNR_PASTA,lcTP_PASTA) //Cabeçalho
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+   if empty(lcACTION)
+      lcACTION = 'NEW'
+   endif
+
+   wPut('TP_PASTA',lcTP_PASTA)
+
+   if lcACTION == 'NEW' .and. gbWAC_CREATE
+//       wPut('TITLE','Inclusão de Ata de Poder Específico')
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+
+      if db_select(laFIELDS,lcTABLE,,laWHERE) = -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      db2put(laRESULT)
+      amkgedico(lcTABLE,lcNR_PASTA,'0',WGet('PROCURACAO_PODER_CLASS','C'))
+//       wPut('TITLE','Alteração do Poder Específico '+getWPut('PROCURACAO_PODER_CLASS'))
+      wPut('PROCURACAO_PODER_CLASS_ANT',getWPut('PROCURACAO_PODER_CLASS'))
+   elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+      if ! verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+         llERRO := .T.
+      endif
+
+//       for ii := 1 to len(laVALIDA)
+//           if empty(alltrim(WGet(laVALIDA[ii],'C')))
+//              //wPut('ERROR_MENS',laLABELS[ascan(laFIELDS,laVALIDA[ii])]+' é um campo obrigatório!')
+//              get2Put()
+//              llERRO := .T.
+//              exit
+//           endif
+//       next ii
+
+      if ! llERRO
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            if laFIELDS[ii] == 'NR_ATA'
+               aadd(laSAVE_AUX,'0')
+            else
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+            endif
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+
+         psab_logs(laSAVE,lcTABLE,'NR_PASTA='+lcNR_PASTA+' and '+;
+                                  'NR_ATA='+DLAP+'0'+DLAP+' and '+;
+                                  'PROCURACAO_PODER_CLASS='+DLAP+WGet('PROCURACAO_PODER_CLASS','C')+DLAP,lcNR_PASTA,'Poderes Específicos')
+
+         if db_replace(laSAVE,lcTABLE,laWHERE) = -1
+            error_sys(db_error())
+         endif
+//          wPut('TITLE','Inclusão de novo Poder Específico')
+
+         /*
+         Verifica se o registro foi duplicado,
+         Caso tenha sido, remove o anterior.
+         */
+         if lcPRC_PODER_CLASS_ANT != wGet('PROCURACAO_PODER_CLASS')
+            // Poder
+            if db_delete('pasta_poderes','NR_PASTA='+lcNR_PASTA+' and '+;
+                                         'NR_ATA='+DLAP+'0'+DLAP+' and '+;
+                                         'PROCURACAO_PODER_CLASS='+DLAP+lcPRC_PODER_CLASS_ANT+DLAP) = -1
+               error_sys(db_error())
+            endif
+            // Poder Outorgados
+            if db_delete('pasta_poderes_outorgado','NR_PASTA='+lcNR_PASTA+' and '+;
+                                                   'NR_ATA='+DLAP+'0'+DLAP+' and '+;
+                                                   'PROCURACAO_PODER_CLASS='+DLAP+lcPRC_PODER_CLASS_ANT+DLAP) = -1
+               error_sys(db_error())
+            endif
+
+         endif
+      endif
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      psab_logdel(lcNR_PASTA,'PROCURACAO_PODER_CLASS',WGet('PROCURACAO_PODER_CLASS','C'),'Poder Excluído','Poderes Específicos')
+
+      if db_delete(lcTABLE,laWHERE[1]) = -1
+         error_sys(db_error())
+      endif
+      if db_delete('pasta_poderes_outorgado',laWHERE[1]) = -1
+         error_sys(db_error())
+      endif
+//       wPut('TITLE','Inclusão de novo Poder Específico')
+   elseif lcACTION == 'OUTORGADO_DELETE' .and. gbWAC_DELETE
+      psab_logdel(lcNR_PASTA,'CIP_OUTORGADO',WGet('CIP_OUTORGADO','C'),,'Poderes Específicos')
+
+      if db_delete('pasta_poderes_outorgado','NR_PASTA='+lcNR_PASTA+' and '+;
+                                             'NR_ATA='+DLAP+'0'+DLAP+' and '+;
+                                             'PROCURACAO_PODER_CLASS='+DLAP+wGet('PROCURACAO_PODER_CLASS')+DLAP+' and '+;
+                                             'CIP_OUTORGADO='+DLAP+wGet('CIP_OUTORGADO')+DLAP) = -1
+         error_sys(db_error())
+      endif
+//       wPut('TITLE','Inclusão de novo Poder Específico')
+   endif
+
+   /* Listagem */
+   if db_select(laFIELDS,lcTABLE,,{'NR_PASTA='+lcNR_PASTA}) = -1
+      error_sys(db_error())
+   endif
+   wPut('lstPODERES',db_fetchall())
+
+   /* Poderes Outorgado */
+   laPUT    := {}
+   laFIELDS := {'NR_PASTA',;
+                'NR_ATA',;
+                'PROCURACAO_PODER_CLASS',;
+                'CIP_OUTORGADO'}
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      ii      := 1
+      lcITEM  := alltrim(str(ii))
+      laSAVE  := {}
+      laWHERE := {}
+      aadd(laSAVE,laFIELDS)
+      do while wGet('VAR_CIP_OUTORGADO'+lcITEM,'B')
+         if ! empty(wGet('VAR_CIP_OUTORGADO'+lcITEM))
+            aadd(laSAVE,{wGet('NR_PASTA'),;
+                         '0',;
+                         wGet('PROCURACAO_PODER_CLASS'),;
+                         wGet('VAR_CIP_OUTORGADO'+lcITEM)})
+            aadd(laWHERE,'NR_PASTA='+lcNR_PASTA+;
+                         ' and NR_ATA='+DLAP+'0'+DLAP+;
+                         ' and PROCURACAO_PODER_CLASS='+DLAP+wGet('PROCURACAO_PODER_CLASS')+DLAP+;
+                         ' and CIP_OUTORGADO='+DLAP+wGet('VAR_CIP_OUTORGADO'+lcITEM)+DLAP)
+
+            // Remove registro anterior, caso ele foi duplicado
+            if wGet('VAR_CIP_OUTORGADO_ANT'+lcITEM) != wGet('VAR_CIP_OUTORGADO'+lcITEM)
+               if db_delete('pasta_poderes_outorgado','NR_PASTA='+lcNR_PASTA+;
+                                                      ' and NR_ATA='+DLAP+'0'+DLAP+;
+                                                      ' and PROCURACAO_PODER_CLASS='+DLAP+wGet('PROCURACAO_PODER_CLASS')+DLAP+;
+                                                      ' and CIP_OUTORGADO='+DLAP+wGet('VAR_CIP_OUTORGADO_ANT'+lcITEM)+DLAP) = -1
+                  error_sys(db_error())
+               endif
+            endif
+         endif
+         ii++
+         lcITEM := alltrim(str(ii))
+      enddo
+      if len(laSAVE) > 1
+         if db_replace(laSAVE,'pasta_poderes_outorgado',laWHERE) = -1
+            error_sys(db_error())
+         endif
+      endif
+   endif
+
+   if db_select({'pasta_prc_outorgado.CIP_OUTORGADO','pfpj.PFPJ'},;
+                'pasta_prc_outorgado',;
+                {{2,'pfpj','pfpj.CIP=pasta_prc_outorgado.CIP_OUTORGADO'}},;
+                {'NR_PASTA='+lcNR_PASTA}) = -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) < 2
+      if db_select({'pasta_prcp_outorgado.CIP_OUTORGADO','pfpj.PFPJ'},;
+                   'pasta_prcp_outorgado',;
+                   {{2,'pfpj','pfpj.CIP=pasta_prcp_outorgado.CIP_OUTORGADO'}},;
+                   {'NR_PASTA='+lcNR_PASTA}) = -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+   endif
+   laOUTORGADO := {''}
+   laPFPJ_OUTORGADO := {''}
+   for ii:= 2 to len(laRES)
+      aadd(laOUTORGADO,laRES[ii,1])
+      aadd(laPFPJ_OUTORGADO,laRES[ii,1]+'-'+laRES[ii,2])
+   next ii
+
+   laRES := {}
+   ii    := 1
+
+   if lcACTION == 'ALTER'
+      if db_select(laFIELDS,'pasta_poderes_outorgado',,laWHERE,{'CIP_OUTORGADO'}) = -1
+         error_sys(db_error())
+      endif
+      laRES:= db_fetchall()
+   endif
+
+   aadd(laPUT,{'VAR_CIP_OUTORGADO','CIP_OUTORGADO','VAR_CIP_OUTORGADO_ANT'})
+   if len(laRES) > 1
+      for ii:= 2 to len(laRES)
+         lcITEM := alltrim(str(ii-1))
+         aadd(laPUT,{'VAR_CIP_OUTORGADO'+lcITEM,;
+                     laRES[ii,db_fetchncol(laRES,'CIP_OUTORGADO')],;
+                     'VAR_CIP_OUTORGADO_ANT'+lcITEM})
+         wPut('VAR_CIP_OUTORGADO'+lcITEM+'.option',laPFPJ_OUTORGADO)
+         wPut('VAR_CIP_OUTORGADO'+lcITEM+'.optionvalue',laOUTORGADO)
+         wPut('VAR_CIP_OUTORGADO'+lcITEM,laRES[ii,db_fetchncol(laRES,'CIP_OUTORGADO')])
+         wPut('VAR_CIP_OUTORGADO_ANT'+lcITEM,laRES[ii,db_fetchncol(laRES,'CIP_OUTORGADO')])
+      next ii
+   endif
+
+
+   jj := len(laPUT) + 4
+
+   for ii:= if( len(laRES) < 2 , 1 , (ii -1) ) to jj
+      lcITEM := alltrim(str(ii))
+      aadd(laPUT,{'VAR_CIP_OUTORGADO'+lcITEM,'','VAR_CIP_OUTORGADO_ANT'+lcITEM})
+      wPut('VAR_CIP_OUTORGADO'+lcITEM+'.option',laPFPJ_OUTORGADO)
+      wPut('VAR_CIP_OUTORGADO'+lcITEM+'.optionvalue',laOUTORGADO)
+   next ii
+   wPut('lstOUTORGADO',laPUT)
+
+   pasta_abas(lcTP_PASTA)
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

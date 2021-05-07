@@ -1,0 +1,108 @@
+/*
+
+Project      : gr5
+Program      : mnt.empresa_usuaria.html
+Function     : mnt_empresa_usuaria_html
+Created on   : 19-Oct-2001   00:28:46
+Descripition : Manutenção de Empresas Usuárias
+
+*/
+
+   local lcCD_EMPRESA   := '',;
+         lcWHERE        := '',;
+         lcTABLE        := '',;
+         lcACTION       := '' as string
+
+   local laFIELDS   := {} ,;
+         laRESULT   := {} ,;
+         laRESULT2  := {} ,;
+         laLABELS   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laAUX      := {} ,;
+         laFOREIGN  := {} as array
+
+   local ii        := 0 ,;
+         liPOS_COD := 0 as int
+
+   lcACTION     := upper(WGet('ACTION','C'))
+   lcCD_EMPRESA := '1'
+   lcTABLE      := 'empresa_usuaria'
+   lcWHERE      := 'CD_EMPRESA='+DLAP+lcCD_EMPRESA+DLAP
+   laFIELDS     := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+   laLABELS     := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'A')
+
+   /* Tabelas extrangeiras
+   * Formato do array abaixo
+   * 1 - nome da tabela a pesquisar
+   * 2 - campo do relacionamento
+   * 3 - descricao
+   */
+   laFOREIGN := {{'moeda','CD_MOEDA','NM_MOEDA'}}
+
+   /* Relacionamentos que devem ser validados
+   * Formato do array abaixo
+   * 1 - Tabela
+   * 2 - Campo para captura da informação no HTML - WGet()
+   * 3 - Campo para montagem da cláusula WHERE usada em db_findrec()
+   * 4 - Parte do label a exibir em caso de erro, está inf. e capturado do Wictrix
+   */
+   laFIND_REC := {{'moeda','CD_MOEDA','CD_MOEDA',laLABELS[ascan(laFIELDS,'CD_MOEDA')]}}
+
+   if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchrow()
+
+   if len(laRESULT) > 0
+      mkgedico(lcTABLE,lcCD_EMPRESA)
+      for ii := 1 to len(laFIELDS)
+          liPOS_COD := ascan2(laFOREIGN,2,laFIELDS[ii])
+          if liPOS_COD > 0 .and. (!empty(laFIELDS[ii]) .or. val(laRESULT[ii]) != 0)
+             if db_select({laFOREIGN[liPOS_COD,3]},laFOREIGN[liPOS_COD,1],,;
+                          {laFOREIGN[liPOS_COD,2]+'='+alltrim(str(laRESULT[ii]))}) == -1
+                error_sys(db_error())
+             endif
+             laRESULT2 := db_fetchrow()
+             if len(laRESULT2) > 0
+                wPut(laFOREIGN[liPOS_COD,3],laRESULT2[1])
+             endif
+          endif
+          wPut(laFIELDS[ii],laRESULT[ii])
+      next ii
+   endif
+   wPut('UF.option',uf())
+   if lcACTION = 'SAVE' .and. gbWAC_WRITE
+      for ii := 1 to len(laFIND_REC)
+          lcVALIDA := alltrim(WGet(laFIND_REC[ii,2],'C'))
+          if !empty(lcVALIDA)
+             if len(db_findrec({laFIND_REC[ii,3]},laFIND_REC[ii,1],laFIND_REC[ii,3]+'='+lcVALIDA)) = 0
+                walert(laFIND_REC[ii,4]+' é inválido(a) ou não pode ser encontrado(a)!')
+                get2Put()
+                return(.f.)
+             endif
+          endif
+      next ii
+
+
+      for ii := 1 to len(laFIELDS)
+         if WGet(laFIELDS[ii],'B')
+            aadd(laAUX,laFIELDS[ii])
+         endif
+      next ii
+      aadd(laSAVE,laAUX)
+      for ii:= 1 to len(laAUX)
+         aadd(laSAVE_AUX, WGet(laAUX[ii]))
+      next ii
+      aadd(laSAVE,laSAVE_AUX)
+      if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+         error_sys(db_error())
+      endif
+      get2put()
+   endif
+return
+
+
+
+
+

@@ -1,0 +1,54 @@
+/*
+
+Project      : gr5
+Program      : mnt.autoresultado.html
+Function     : mnt_autoresultado_html
+Created on   : 06-Oct-2004   09:55:45
+Descripition : Cadastro de Auto Resultado
+
+*/
+
+local laPARAM        := {},;
+      laINPUT_OBJ    := {},;
+      laSELECT       := {} as array
+
+laPARAM := {{'AUTOPROC',''     ,'*'},;
+            {'AUTORESULTADO','','*'},;
+            {'FL_ATIVO','',},;
+            {'ACTION'       ,'ALTER',   }}
+
+laINPUT_OBJ := {{'AUTOPROC',1,,'Y',"loadcbox_build('autoproc','AUTOPROC',.T.)"} ,;
+                {,,,,},;
+                {'AUTORESULTADO' ,0,,'Y',} ,;
+                { , , , , },;
+                {'FL_ATIVO',1,,'Y','{"S","I","D"}' }}
+
+laSELECT := {'AUTOPROC','AUTORESULTADO','FL_ATIVO'}
+
+if upper(alltrim(WGet('ACTIONBP'))) == 'ALTER'
+   mkgedico('autoresultado',WGet('AUTOPROC','C'),WGet('AUTORESULTADO','C'))
+endif
+
+xbp('autoresultado',;                                                   //Tabela alvo
+    ,;                                                                  //Joins
+    ,;                                                                  //Where
+    {'AUTOPROC','AUTORESULTADO'},;                                      //Order by
+    ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+    ,;                                                                  //Group by
+    ,;                                                                  //Limit
+    ,;                                                                  //Banco de Dados
+    2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+    'gr5',;                                                             //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                                           //Programa chamador
+    laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+    ,;                                                                  //Parâmetros para os botões das linhas do grid
+    'mnt.autoresultado.html',;                                          //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+    ,;                                                                  //Retorno java (nil) - usado apenas para Search
+    ,;                                                                  //Campos usados na pesquisa rápida
+    ,;                                                                  //Campos Ocultos
+    laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+    laSELECT ,;                                                         //Campos exibidos no grid
+    laSELECT)                                                           //Campos usados no select
+return
+

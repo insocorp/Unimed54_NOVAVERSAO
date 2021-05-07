@@ -1,0 +1,452 @@
+/*
+
+Project      : gr5
+Program      : transf.responsabilidade.bat.html
+Function     : transf_responsabilidade_bat_html
+Created on   : 24-Mar-2005   12:05:55
+Descripition : Transferência de Responsabilidade
+
+*/
+
+  // Private variables ------------------------------------------------------------------------------------------------------------------
+  private pnNR_ITEMS := 0
+
+  private pcITEM := '' ,;
+          pcVAR  := ''
+
+  private paVAR_WICDO  := {'VAR_FIELDNAME','VAR_CHKCIP','VAR_NMCIP'} ,;
+          paWICDO1     := {} ,;
+          paWICDO2     := {} ,;
+          paVALUESGRID := {}
+
+  // Local variables ----------------------------------------------------------------------------------------------------------------------
+  local lcACTION     := alltrim(WGet('ACTION','C')) ,;
+        lcFLTC       := alltrim(WGet('FL_TC','C')) ,;
+        lcLOGIN_FROM := alltrim(WGet('LOGIN_FROM')) ,;
+        lcLOGIN_TO   := alltrim(WGet('LOGIN_TO')) ,;
+        lcFLPASTA    := alltrim(WGet('FL_PASTA')) ,;
+        lcTPPASTA    := alltrim(WGet('TP_PASTA')) ,;
+        lcFLDFILT1   := alltrim(WGet('FILTER_FIELD1','C')) ,;
+        lcFLDFILT2   := alltrim(WGet('FILTER_FIELD2','C')) ,;
+        lcFLDFILT3   := alltrim(WGet('FILTER_FIELD3','C')) ,;
+        lcTPFILT1    := alltrim(WGet('TPFILTER1','C')) ,;
+        lcTPFILT2    := alltrim(WGet('TPFILTER2','C')) ,;
+        lcTPFILT3    := alltrim(WGet('TPFILTER3','C')) ,;
+        lcVL_FILT1   := alltrim(WGet('FILTER_CONTENT1','C')),;
+        lcVL_FILT2   := alltrim(WGet('FILTER_CONTENT2','C')),;
+        lcVL_FILT3   := alltrim(WGet('FILTER_CONTENT3','C')),;
+        lcVL_FIL21   := alltrim(WGet('FILTER2_CONTENT1','C')),;
+        lcVL_FIL22   := alltrim(WGet('FILTER2_CONTENT2','C')),;
+        lcVL_FIL23   := alltrim(WGet('FILTER2_CONTENT3','C')),;
+        lcWHERE      := '' ,;
+        lcCIP        := '' as string
+
+  local laFLD_LOG  := {} ,;
+        laUSERS    := {} ,;
+        laPASTA    := {} ,;
+        laPASTA1   := {} ,;
+        laWHERE    := {} ,;
+        laSAVE     := {} ,;
+        laSAVE1    := {} ,;
+        laCOND     := {} ,;
+        laSAVE_AUX := {} ,;
+        laRESULTS  := {} ,;
+        laFIELDLST := {} ,;
+        laTPFILTER := {} ,;
+        laLABELLST := {} as array
+
+  local lnPOS1  := 0 ,;
+        lnPOS2  := 0 ,;
+        ii      := 0 ,;
+        iiG     := 0 ,;
+        iiP     := 0 ,;
+        iiL     := 0 ,;
+        lnPASTA := 0 ,;
+        lnVEZES := 0 as int
+
+  local llERROR := .f. as logical
+
+  laFIELDLST := structtable(WSet("DB_ACTIVE"),'pasta',1,'A')
+  laLABELLST := structtable(WSet("DB_ACTIVE"),'pasta',11,'A')
+
+  laTPFILTER := {'Contendo'  ,;
+                 'Igual'     ,;
+                 'Intervalo' ,;
+                 'Maior que' ,;
+                 'Menor que' ,;
+                 'Não contém' }
+  for ii := 1 to 3
+      WPut('FILTER_FIELD'+alltrim(str(ii))+'.option',laLABELLST)
+      wPut('TPFILTER'+alltrim(str(ii))+'.option',laTPFILTER)
+  next ii
+  laorder := 'FL_PASTA'
+//  carrega_cbox({{'pasta_status','distinct FL_PASTA','Y',,{'FL_PASTA'}}})
+//
+NovoCbox('FL_PASTA','distinct FL_PASTA','FL_PASTA','pasta_status',,'FL_PASTA','')
+//LOADCBOXORDER_build({{'pasta_status','distinct FL_PASTA','Y',,{'FL_PASTA'}}})
+  WPut('FL_PASTA','')
+  WPut('FL_TC.option','S')
+  WPut('TITLE','Transferência de Responsabilidade')
+  monta_grid()
+  if lcACTION == 'EXEC'
+     if empty(lcLOGIN_FROM) .or. empty(lcLOGIN_TO)
+        walert('Os campos login são obrigatórios')
+        get2put()
+     else
+        WSet('_WF_STATUS','DISABLE') //Desabilita o WF
+        if db_select({'LOGIN','CIP'},'acuser',,{'LOGIN in ('+DLAP+lcLOGIN_FROM+DLAP+','+DLAP+lcLOGIN_TO+DLAP+')'},{'LOGIN'}) == -1
+           error_sys(db_error())
+        endif
+        laUSERS := db_fetchall()
+        if len(laUSERS) > 1
+           lnPOS1 := ascan(laUSERS,{|x| alltrim(x[1])=lcLOGIN_FROM})
+           lnPOS2 := ascan(laUSERS,{|x| alltrim(x[1])=lcLOGIN_TO})
+           if lnPOS1 == 0
+              walert('O usuário '+lcLOGIN_FROM+' é inválido')
+              get2put()
+              llERROR := .t.
+           endif
+           if lnPOS2 == 0
+              walert('O usuário '+lcLOGIN_TO+' é inválido')
+              get2put()
+              llERROR := .t.
+           endif
+           if !llERROR
+              getvgrid()
+              if len(paVALUESGRID) > 0
+                 laFLD_LOG := {'NR_PASTA',;
+                               'LOGIN',;
+                               'WFIELD',;
+                               'CONTEUDO_ANTERIOR',;
+                               'CONTEUDO_NOVO',;
+                               'DT_ALTERACAO',;
+                               'HR_ALTERACAO',;
+                               'LOCAL_ALTERACAO'}
+                 aadd(laRESULTS,{'ITEM_ALTERADO','NR_ALTERACOES'})
+
+                 for iiG := 1 to len(paVALUESGRID)
+                     if !empty(paVALUESGRID[iiG,2])
+                        laWHERE := {}
+                        laPASTA := {}
+                        lcWHERE := 'WFIELD = '+DLAP+paVALUESGRID[iiG,1]+DLAP+' and CIP ='+DLAP+laUSERS[lnPOS1,2]+DLAP
+                        if !empty(lcFLPASTA)
+                           aadd(laWHERE,'FL_PASTA='+DLAP+lcFLPASTA+DLAP)
+                        endif
+                        // Condições de pesquisa inseridas nos filtros ------------------------------------------------------------------
+                        for ii := 1 to 3
+                            if !Empty(WGet('FILTER_CONTENT'+alltrim(str(ii)),'C'))
+                               laCOND := {}
+                               if WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Igual'
+                                  aadd(laWHERE,mkwheresch({{laFIELDLST[ascan(laLABELLST,WGet('FILTER_FIELD'+alltrim(str(ii)),'C'))],WGet('FILTER_CONTENT'+alltrim(str(ii)),'C')}},1))
+                               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Intervalo'
+                                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FILTER_FIELD'+alltrim(str(ii)),'C'))],WGet('FILTER_CONTENT'+alltrim(str(ii)),'C')})
+                                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FILTER_FIELD'+alltrim(str(ii)),'C'))],WGet('FILTER2_CONTENT'+alltrim(str(ii)),'C')})
+                                  aadd(laWHERE,mkwheresch(laCOND,2))
+                               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Não contém'
+                                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FILTER_FIELD'+alltrim(str(ii)),'C'))],WGet('FILTER_CONTENT'+alltrim(str(ii)),'C')})
+                                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FILTER_FIELD'+alltrim(str(ii)),'C'))],WGet('FILTER2_CONTENT'+alltrim(str(ii)),'C')})
+                                  aadd(laWHERE,mkwheresch(laCOND,3))
+                               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Contendo'
+                                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FILTER_FIELD'+alltrim(str(ii)),'C'))],WGet('FILTER_CONTENT'+alltrim(str(ii)),'C')})
+                                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FILTER_FIELD'+alltrim(str(ii)),'C'))],WGet('FILTER2_CONTENT'+alltrim(str(ii)),'C')})
+                                  aadd(laWHERE,mkwheresch(laCOND,4))
+                               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Maior que'
+                                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FILTER_FIELD'+alltrim(str(ii)),'C'))],WGet('FILTER_CONTENT'+alltrim(str(ii)),'C')})
+                                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FILTER_FIELD'+alltrim(str(ii)),'C'))],WGet('FILTER2_CONTENT'+alltrim(str(ii)),'C')})
+                                  aadd(laWHERE,mkwheresch(laCOND,5))
+
+                               elseif WGet('TPFILTER'+alltrim(str(ii)),'C') = 'Menor que'
+                                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FILTER_FIELD'+alltrim(str(ii)),'C'))],WGet('FILTER_CONTENT'+alltrim(str(ii)),'C')})
+                                  aadd(laCOND,{laFIELDLST[ascan(laLABELLST,WGet('FILTER_FIELD'+alltrim(str(ii)),'C'))],WGet('FILTER2_CONTENT'+alltrim(str(ii)),'C')})
+                                  aadd(laWHERE,mkwheresch(laCOND,6))
+                               endif
+                            else
+                               exit
+                            endif
+                        next ii
+                        if len(laWHERE) > 0
+                           lcWHERE += ' and nr_pasta in ( Select NR_PASTA from pasta where '+laWHERE[1]
+                           for ii := 2 to len(laWHERE)
+                               lcWHERE += ' and '+laWHERE[ii]
+                           next ii
+                           lcWHERE += ' )'
+                        endif
+                        if db_select({'NR_PASTA','WFIELD','CIP'},'pasta_cip',,{lcWHERE},{'NR_PASTA'}) == -1
+                           puterror(db_error())
+                           loop
+                        endif
+                        laPASTA := db_fetchall()
+                        if len(laPASTA) > 1
+                           // Atualiza os CIPs de uma unica vez
+                           laSAVE := {{'CIP'},{laUSERS[lnPOS2,2]}}
+                           if db_update(laSAVE,'pasta_cip',{lcWHERE}) == -1
+                              aadd(laRESULTS,{'Erro ao transferir "'+lblfscreen(paVALUESGRID[iiG,1]),0})
+                              puterror('Não foi possivel alterar o CIP "'+lblfscreen(paVALUESGRID[iiG,1])+'". Motivo: '+db_error())
+                              loop
+                           endif
+                           aadd(laRESULTS,{lblfscreen(paVALUESGRID[iiG,1]),(len(laPASTA)-1)})
+                           lnVEZES := 50
+                           laSAVE  := {}
+                           aadd(laSAVE,laFLD_LOG)
+                           for iiP := 2 to len(laPASTA)
+
+                               // atualiza a tabela pasta.cips, para a pesquisa de pessoas.
+/*
+                               if db_select({'NR_PASTA','CIP'},'pasta_cip',,{'NR_PASTA = '+str(laPASTA[iiP,1])}) == -1
+                                  puterror(db_error())
+                                  loop
+                               endif
+                               laRESULT := db_fetchall()
+                               lcCIP   := '#'
+                               laSAVE1 := {}
+                               laWHERE := {}
+
+                               aadd(laSAVE1,{'CIPS'})
+                               for ii := 2 to len(laRESULT)
+                                   if len(laRESULT[ii,2]) > 0
+                                      lcCIP += alltrim(laRESULT[ii,2])+'#'
+                                   endif
+                               next ii
+                               aadd(laWHERE,'NR_PASTA = '+alltrim(str(laPASTA[iiP,1])))
+                               aadd(laSAVE1,{lcCIP})
+
+                               if db_update(laSAVE1,'pasta',laWHERE) == -1
+                                  qout("Erro Update -> "+db_error())
+                                  qout("Ultimo Comando -> " + wset("_LASTSQL"))
+                               endif
+*/
+                               //
+                               // Glauber 04/2016 - Pasta 7330
+                               //
+                               // Quando é realizado uma operação de atualização na tabela pasta e no perfil do usuário contém filtro por tipo de pasta é gerado o erro
+                               // Access Control: wdbc.wh->db_update(), seu perfil não permite realizar esta operação, por favor contate o administrador do sistema.
+                               // A apresentação do erro esta correta, visto que estou salvando dados de uma pasta, o meu perfil contém restrição de para determinados 
+                               // tipos de pasta e no momento de salvar não consegue-se obter qual o tipo de pasta em questão estou tentando salvar a informação.
+                               // Adicionei a coluna do tipo de pasta no select do pasta_cip para poder resgatar e adciona-lo no SAVE da tabela pasta.
+
+                               // atualiza a tabela pasta.cips, para a pesquisa de pessoas.
+                               if db_select({'pasta_cip.NR_PASTA','pasta_cip.CIP','pasta.TP_PASTA'},'pasta_cip, pasta',,{'pasta.NR_PASTA = pasta_cip.NR_PASTA and pasta_cip.NR_PASTA = '+str(laPASTA[iiP,1])}) == -1
+                                  puterror(db_error())
+                                  loop
+                               endif
+
+                               laRESULT := db_fetchall()
+                               lcCIP   := '#'
+                               laSAVE1 := {}
+                               laWHERE := {}
+
+                               aadd(laSAVE1,{'CIPS','TP_PASTA'})
+                               for ii := 2 to len(laRESULT)
+                                   if len(laRESULT[ii,2]) > 0
+                                      lcCIP += alltrim(laRESULT[ii,2])+'#'
+                                   endif
+                               next ii
+                               aadd(laWHERE,'NR_PASTA = '+alltrim(str(laPASTA[iiP,1])))
+                               aadd(laSAVE1,{lcCIP,laRESULT[2,3]})
+
+                               if db_update(laSAVE1,'pasta',laWHERE) == -1
+                                  qout("Erro Update -> "+db_error())
+                                  qout("Ultimo Comando -> " + wset("_LASTSQL"))
+                               endif
+
+
+                               // Gravando log de alterações da pasta
+                               laSAVE_AUX := {}
+                               for iiL := 1 to len(laFLD_LOG)
+                                   do case
+                                      case laFLD_LOG[iiL] == 'NR_PASTA'
+                                         aadd(laSAVE_AUX,db_fetchcolvalue(laPASTA,'NR_PASTA',iiP))
+                                      case laFLD_LOG[iiL] == 'LOGIN'
+                                         aadd(laSAVE_AUX,WSet('LOGIN'))
+                                      case laFLD_LOG[iiL] == 'WFIELD'
+                                         aadd(laSAVE_AUX,paVALUESGRID[iiG,1])
+                                      case laFLD_LOG[iiL] == 'CONTEUDO_ANTERIOR'
+                                         aadd(laSAVE_AUX,laPASTA[iiP,3])
+                                      case laFLD_LOG[iiL] == 'CONTEUDO_NOVO'
+                                         aadd(laSAVE_AUX,laUSERS[lnPOS2,2])
+                                      case laFLD_LOG[iiL] == 'DT_ALTERACAO'
+                                         aadd(laSAVE_AUX,dtos(date()))
+                                      case laFLD_LOG[iiL] == 'HR_ALTERACAO'
+                                         aadd(laSAVE_AUX,time())
+                                      case laFLD_LOG[iiL] == 'LOCAL_ALTERACAO'
+                                         aadd(laSAVE_AUX,'Transf. de Responsabilidade')
+                                   endcase
+                               next iiL
+                               aadd(laSAVE,laSAVE_AUX)
+                               laSAVE_AUX := {}
+                               lnVEZES ++
+                               if lnVEZES > 50
+                                  wout('')
+                                  lnVEZES := 0
+                               endif
+                           next iiP
+                           if len(laSAVE) > 0
+                              if db_insert(laSAVE,'pasta_log_altera') == -1
+                                 puterror('Não foi possivel gerar log de alteração para o CIP: '+lblfscreen(paVALUESGRID[iiG,1])+;
+                                          ' Nr. Pasta: '+alltrim(str(db_fetchcolvalue(laPASTA,'NR_PASTA',iiP)))+'. Motivo:'+db_error())
+                              endif
+                           endif
+                        else
+                           aadd(laRESULTS,{lblfscreen(paVALUESGRID[iiG,1]),0})
+                        endif
+                     endif
+                 next iiG
+              endif
+              if lcFLTC == 'S'
+                 pnNR_ITEMS := wftransftc(lcLOGIN_FROM,lcLOGIN_TO)
+                 if pnNR_ITEMS <= -1
+                    aadd(laRESULTS,{'Erro ao transferir Tarefas/Compromissos',0})
+                 else
+                    aadd(laRESULTS,{'Tarefas/Compromissos',pnNR_ITEMS})
+                 endif
+              endif
+              if len(laRESULTS) > 1
+                 WPut('ifRESULT',.t.)
+                 WPut('lstRESULTS',laRESULTS)
+              else
+                 WPut('ifNORESULT',.t.)
+                 WPut('NORESULTS','Nenhum processamento foi realizado')
+              endif
+           endif
+        else
+           walert('Nenhum dos usuários informados foi encontrado')
+           get2put()
+        endif
+        WSet('_WF_STATUS','ENABLE') //Habilita o WF
+     endif
+     WPut('LOGIN_FROM'          ,lcLOGIN_FROM)
+     WPut('LOGIN_TO'            ,lcLOGIN_TO)
+     WPut('FL_PASTA'            ,lcFLPASTA)
+     WPut('FL_TC'               ,lcFLTC)
+     WPut('FILTER_FIELD1'       ,lcFLDFILT1)
+     WPut('FILTER_FIELD2'       ,lcFLDFILT2)
+     WPut('FILTER_FIELD3'       ,lcFLDFILT3)
+     WPUT('TPFILTER1'           ,lcTPFILT1)
+     WPUT('TPFILTER2'           ,lcTPFILT2)
+     WPUT('TPFILTER3'           ,lcTPFILT3)
+     WPut('FILTER_CONTENT1'     ,lcVL_FILT1)
+     WPut('FILTER_CONTENT2'     ,lcVL_FILT2)
+     WPut('FILTER_CONTENT3'     ,lcVL_FILT3)
+     WPut('FILTER2_CONTENT1'    ,lcVL_FIL21)
+     WPut('FILTER2_CONTENT2'    ,lcVL_FIL22)
+     WPut('FILTER2_CONTENT3'    ,lcVL_FIL23)
+  endif
+return(nil)
+
+/*
+* Function..: monta_grid()
+* Objetivo..: Cria um grid com os campos CIPs existentes na tabela [pasta]
+* Parâmetros: Nenhum
+* Retorno...: Nenhum
+*/
+static function monta_grid()
+  local iiC     := 0 ,;
+        lnRES   := 0 ,;
+        lnVEZES := 0 as int
+
+  local laFIELDS := {} ,;
+        laTEMP   := {} as array
+
+  paWICDO1 := {}
+  paWICDO2 := {}
+  if db_select({'distinct(WFIELD)'},'pasta_cip') == -1
+     error_sys(db_error())
+  endif
+  laFIELDS := db_fetchall()
+  for iiC := 2 to len(laFIELDS)
+      aadd(laTEMP,laFIELDS[iiC,1])
+  next iiC
+
+  laFIELDS := aclone(laTEMP)
+  laTEMP   := {}
+  lnRES    := len(laFIELDS)/2
+  lnMOD    := mod(len(laFIELDS),2)
+
+  getvgrid()
+
+  aadd(paWICDO1,paVAR_WICDO)
+  aadd(paWICDO2,paVAR_WICDO)
+
+  if len(laFIELDS) == 1
+     lnVEZES := 1
+  elseif len(laFIELDS) >= 2
+     lnVEZES := iif(lnMOD==0,lnRES,lnRES+1)
+  endif
+
+  for iiC := 1 to lnVEZES
+      pcITEM := '_'+alltrim(str(iiC))
+      aadd(paWICDO1,{paVAR_WICDO[1]+pcITEM,;
+                     paVAR_WICDO[2]+pcITEM,;
+                     lblfscreen(laFIELDS[iiC])})
+
+      WPut(paVAR_WICDO[1]+pcITEM,laFIELDS[iiC]) // Nome fisico do campo, controle do wicdo
+      WPut(paVAR_WICDO[2]+pcITEM+'_OPT','S')    // Inicializa checkbox da lista de campos CIP
+      WPut(paVAR_WICDO[2]+pcITEM,'N')           // Desmarca checkbox da lista de campos CIP
+  next
+
+  if len(laFIELDS) >= 2
+     if len(laFIELDS) == 2
+        lnVEZES := 2
+     elseif len(laFIELDS) >= 3
+        lnVEZES := iif(lnMOD==0,lnRES+1,lnRES+2)
+     endif
+
+     for iiC := lnVEZES to len(laFIELDS)
+         pcITEM := '_'+alltrim(str(iiC))
+         aadd(paWICDO2,{paVAR_WICDO[1]+pcITEM,;
+                        paVAR_WICDO[2]+pcITEM,;
+                        lblfscreen(laFIELDS[iiC])})
+
+         WPut(paVAR_WICDO[1]+pcITEM,laFIELDS[iiC]) // Nome fisico do campo, controle do wicdo
+         WPut(paVAR_WICDO[2]+pcITEM+'_OPT','S')    // Inicializa checkbox da lista de campos CIP
+         WPut(paVAR_WICDO[2]+pcITEM,'N')           // Desmarca checkbox da lista de campos CIP
+     next
+  endif
+
+  WPut('lstCIPS1',paWICDO1)
+  WPut('lstCIPS2',paWICDO2)
+
+  // Restauração dos valores digitados no grid ------------------------------------------------------------------------------------------
+  if len(paVALUESGRID) > 0
+     for iiC := 1 to len(paVALUESGRID)
+         WPut(paVAR_WICDO[2]+'_'+alltrim(str(iiC)),paVALUESGRID[iiC,2])
+     next iiC
+  endif
+return(nil)
+
+/*
+* Function..: getvgrid()
+* Objetivo..: Capturar valores digitados ou marcados no grid. Altera o conteúdo da variável private paVALUESGRID
+* Parâmetros: Nenhum
+* Retorno...: Nenhum
+*/
+static function getvgrid()
+
+  paVALUESGRID := {}
+
+  // Captura valores digitados no grid caso eles existam --------------------------------------------------------------------------------
+  pnNR_ITEMS := 1
+  pcITEM     := '_'+alltrim(str(pnNR_ITEMS))
+  pcVAR      := paVAR_WICDO[1]+pcITEM         //Controle do laço
+  do while WGet(pcVAR,'B')
+     aadd(paVALUESGRID,{WGet(paVAR_WICDO[1]+pcITEM,'C'),; // Nome do campo
+                        WGet(paVAR_WICDO[2]+pcITEM,'C')}) // Checkbox
+     pnNR_ITEMS++
+     pcITEM := '_'+alltrim(str(pnNR_ITEMS))
+     pcVAR  := paVAR_WICDO[1]+pcITEM
+  enddo
+  //-------------------------------------------------------------------------------------------------------------------------------------
+return(nil)
+
+
+
+
+
+
+
+
+
+
+
+
+

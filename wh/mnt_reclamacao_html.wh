@@ -1,0 +1,65 @@
+/*
+Project      : gr5
+Program      : mnt.reclamacao.html.wh
+Function     : mnt_reclamacao_html.wh
+Created on   : 26-Fev-2002   15:23:00
+Descripition : Manutenção de reclamação
+*/
+local laPARAM        := {},;
+      laINPUT_OBJ    := {},;
+      laSELECT       := {} as array
+laPARAM := {{'TP_PASTA' ,''     ,'*'},;
+            {'TP_RECLAMACAO' ,''     ,'*'},;
+            {'FL_ATIVO','',},;
+            {'ACTION'  ,'ALTER',   }}
+
+laINPUT_OBJ := {{'TP_PASTA',1, ,'Y',"loadcboxorder_build('pasta_config','TP_PASTA',.T.,{'TP_PASTA'})"},;
+                {          , , ,   , },;
+                {'TP_RECLAMACAO',0, ,'Y',   },;
+                {          , , ,   , },;
+                {'FL_ATIVO',1,,'Y','{"S","I","D"}' }}
+
+laSELECT := {'TP_PASTA','TP_RECLAMACAO','FL_ATIVO'}
+
+if upper(alltrim(WGet('ACTIONBP'))) == 'ALTER'
+   mkgedico('tipo_reclamacao',WGet('TP_PASTA','C'),WGet('TP_RECLAMACAO','C'))
+endif
+
+xbp2('tipo_reclamacao',;                                                //Tabela alvo
+    ,;                                                                  //Joins
+    ,;                                                                  //Where
+    {'TP_PASTA','TP_RECLAMACAO'},;                                      //Order by
+    ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+    ,;                                                                  //Group by
+    ,;                                                                  //Limit
+    ,;                                                                  //Banco de Dados
+    2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+    'gr5',;                                                             //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                                           //Programa chamador
+    laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+    ,;                                                                  //Parâmetros para os botões das linhas do grid
+    'mnt.reclamacao.html',;                                             //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+    ,;                                                                  //Retorno java (nil) - usado apenas para Search
+    ,;                                                                  //Campos usados na pesquisa rápida
+    ,;                                                                  //Campos Ocultos
+    laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+    laSELECT ,;                                                         //Campos exibidos no grid
+    laSELECT)                                                           //Campos usados no select
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

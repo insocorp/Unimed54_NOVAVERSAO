@@ -1,0 +1,703 @@
+/*
+
+Project      : isj_45
+Program      : ebaoutils.class
+Function     : ebaoutils_class
+Created on   : 19-Apr-2016   14:21:04
+Descripition :
+
+*/
+
+
+
+// Glauber - 04/2016
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Classe...........: EbaoUtils
+*
+* Objetivo.........: Classe que manipula as configurações do Ebao.
+*
+* Atributos........:
+*
+*
+*
+*
+*
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD Parser2Str(pcConteudo,paResult)
+*    METHOD ExecutarPlugIn(pcRun, pllDebug)
+*    METHOD TrataDate(pcData)
+*    METHOD getTag(pcCONTEUDO,pcTAG)
+*    METHOD TrataErroEbao(pcCONTEUDO)
+*    METHOD ValidaPathAppEbao()
+*    METHOD StrSerealize(pcStr)
+*    METHOD MultiRowStrSerealize(pcStr)
+*    METHOD CadastrarProduto(pcProduto)
+*    METHOD CadastrarCausaSinisto(pcCausa)
+*    METHOD TratarPfPj(poRespEbaoConsultar)
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS EbaoUtils
+
+    // Atributos privado
+
+
+    // Atributos publico
+
+    EXPORT PathEbao
+    EXPORT AppEbao
+
+    EXPORT ErrorCode
+    EXPORT ErrorMessage
+
+
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()                                CLASS EbaoUtils
+    PROTOTYPE METHOD Destroy()                             CLASS EbaoUtils
+    PROTOTYPE METHOD Parser2Str(pcConteudo,paResult)       CLASS EbaoUtils
+    PROTOTYPE METHOD ExecutarPlugIn(pcRun, pllDebug)       CLASS EbaoUtils
+    PROTOTYPE METHOD TrataDate(pcData)                     CLASS EbaoUtils
+    PROTOTYPE METHOD getTag(pcCONTEUDO,pcTAG)              CLASS EbaoUtils
+    PROTOTYPE METHOD TrataErroEbao(pcCONTEUDO)             CLASS EbaoUtils
+    PROTOTYPE METHOD ValidaPathAppEbao()                   CLASS EbaoUtils
+    PROTOTYPE METHOD StrSerealize(pcStr)                   CLASS EbaoUtils
+    PROTOTYPE METHOD MultiRowStrSerealize(pcStr)           CLASS EbaoUtils
+    PROTOTYPE METHOD CadastrarProduto(pcProduto)           CLASS EbaoUtils
+    PROTOTYPE METHOD CadastrarCausaSinisto(pcCausa)        CLASS EbaoUtils
+    PROTOTYPE METHOD TratarPfPj(poRespEbaoConsultar)       CLASS EbaoUtils
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS EbaoUtils
+
+      self:PathEbao    := WSet('PATHEBAO')
+      self:AppEbao     := WSet('APPEBAO')
+
+      self:ErrorCode    := 0
+      self:ErrorMessage := ''
+
+
+return(self)
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS EbaoUtils
+
+      self:PathEbao     := nil
+      self:AppEbao      := nil
+
+      self:ErrorCode    := nil
+      self:ErrorMessage := nil
+
+
+return(nil)
+
+
+
+
+/*
+* Data......: 04/2016 - Glauber
+* Metodo....: Parser2Str(pcConteudo,paResult)
+* Objetivo..: Processa o parser em expC1 com base nos dados de expA1.
+* Parâmetros:
+*    expC1: String a processado o parser.
+*    expA1: Array com os dados no formato laRESULT
+* Retorno...: Retorna uma string com os dados processados
+*
+*
+*/
+
+METHOD Parser2Str(pcConteudo,paResult) CLASS EbaoUtils
+
+     local xx := 0 as int
+     local lcResult := '',;
+           lcTmp    := '' as String
+     lcResult := pcConteudo
+     if len(pcConteudo) > 0 .and. len(paResult) > 1
+        for xx := 1 to len(paResult[1])
+            lcTMP := '[' + paResult[1,xx] + ']'
+            lcResult := StrTran(lcResult,lcTMP,AllTrim(paResult[2,xx]))
+        next xx
+     endif
+
+return (lcResult)
+
+
+/*
+* Data......: 04/2016 - Glauber
+* Metodo....: ExecutarPlugIn(pcRun, pllDebug)
+* Objetivo..: Executa uma chamada externa.
+* Parâmetros:
+*    pcRun   : Instrução externa a ser executada.
+*    pllDebug: Executar em modo debug gerado o arquivo de saida
+* Retorno...:
+*
+*
+*/
+
+METHOD ExecutarPlugIn(pcRun, pllDebug) CLASS EbaoUtils
+
+      if pllDebug
+         pcRun += ' > LOGWS.LOG'
+      endif
+      if pllDebug
+         wout('<BR> Executando a aplicação:'+pcRun+'</BR>')
+      endif
+
+      ! (pcRun)
+
+return
+
+/*
+* Data......: 04/2015 - Glauber
+* Metodo....: TrataDate(pcData)
+* Objetivo..: Converter a data para o formato flagship.
+* Parâmetros:
+* pcData    : Data retornada pelo ws.
+* Retorno...: Data no formato fs.
+*/
+
+METHOD TrataDate(pcData) CLASS EbaoUtils
+
+//123456789
+//2015-03-15
+
+return (substr(pcData,9,2) + '/' + substr(pcData,6,2) + '/' + substr(pcData,1,4))
+
+
+
+/*
+* Data......: 04/2015 - Glauber
+* Metodo....: getTag(pcCONTEUDO,pcTAG)
+* Objetivo..: Retorna o conteúdo da tag pcTAG em pcCONTEUDO.
+* Parâmetros:
+* pcCONTEUDO: Conteúdo do arquivo
+* pcTAG     : Tag a ter seu conteúdo extraido.
+* Retorno...: String com o conteúdo.
+*/
+
+METHOD getTag(pcCONTEUDO,pcTAG) CLASS EbaoUtils
+
+     local lcRet := '',;
+           lcTMP := '' as String
+
+     if at('<'+lower(pcTAG)+'>',lower(pcCONTEUDO)) > 0
+        lcTMP := Substr(pcCONTEUDO,at('<'+lower(pcTAG)+'>',lower(pcCONTEUDO)) +len('<'+pcTAG+'>'),len(pcCONTEUDO))
+        lcTMP := Substr(lcTMP,1,at('</'+lower(pcTAG)+'>',lower(lcTMP))-1)
+        lcRet := lcTMP
+     endif
+
+return (lcRet)
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: TrataErroEbao(pcCONTEUDO)
+* Objetivo..: Verifica o conteúdo do xml a procura de erros.
+*
+* Parâmetros:
+* pcCONTEUDO: Conteúdo do arquivo
+* Retorno...:
+*    String com a descrição do erro.
+*
+*/
+
+METHOD TrataErroEbao(pcCONTEUDO) CLASS EbaoUtils
+
+      local lcRet := '',;
+            lcTMP := '' as String
+
+
+      /*
+      <enterprise></enterprise>
+      <claim>327687</claim>
+      <OperationCode>B</OperationCode>
+      <StatusCode>007</StatusCode>
+      <StatusMessage>Campo base ¦ obrigat¦rio</StatusMessage>
+      <errorsys>
+      ^MERROR Classe EbaoUtils.EfetivarOperacao, Metodo ValidarRequest, Linha 460, Descri¦¦o: EbaoUtils.EfetivarOperacao.ValidarRequest(EfetivarOperacao.java:460)
+      ERROR Classe EbaoUtils.EfetivarOperacao, Metodo Executar, Linha 116, Descri¦¦o: EbaoUtils.EfetivarOperacao.Executar(EfetivarOperacao.java:116)
+      ERROR Classe EbaoUtils.ExecutarAcao, Metodo Executar, Linha 59, Descri¦¦o: EbaoUtils.ExecutarAcao.Executar(ExecutarAcao.java:59)
+      ERROR Classe EbaoUtils.EbaoUtils, Metodo main, Linha 70, Descri¦¦o: EbaoUtils.EbaoUtils.main(EbaoUtils.java:70)
+      </errorsys>
+      */
+      
+      if at('<StatusCode>',pcCONTEUDO) > 0
+          lcTMP := Substr(pcCONTEUDO,at('<StatusCode>',pcCONTEUDO) +12,len(pcCONTEUDO))
+          lcTMP := Substr(lcTMP,1,at('</StatusCode>',lcTMP)-1)
+      
+      
+      // wout('<br><b>StatusCode:'+ alltrim(lcTMP))
+      
+          if val(lcTMP) > 0
+             lcRet := ' Erro retornado do Ebao: ' + lcTMP
+             lcTMP := Substr(pcCONTEUDO,at('<StatusMessage>',pcCONTEUDO) +15,len(pcCONTEUDO))
+             lcTMP := Substr(lcTMP,1,at('</StatusMessage>',lcTMP)-1)
+             lcRet += ' - ' + lcTMP
+             return (lcRet)
+          else
+             if at('<errorsys>',pcCONTEUDO) > 0
+                lcTMP := Substr(pcCONTEUDO,at('<errorsys>',pcCONTEUDO) +10,len(pcCONTEUDO))
+                lcTMP := Substr(lcTMP,1,at('</errorsys>',lcTMP)-1)
+                lcRet := lcTMP
+             elseif at('<CODERRO>999</CODERRO>',pcCONTEUDO) > 0
+                    lcTMP := Substr(pcCONTEUDO,at('<DESCRICAO>',pcCONTEUDO) +12,len(pcCONTEUDO))
+                    lcTMP := Substr(lcTMP,1,at('</DESCRICAO>',lcTMP)-1)
+                    lcRet := ' Erro retornado do Ebao: ' + lcTMP
+             endif
+             return (lcRet)
+          endif
+
+      endif
+
+return ('')
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: ValidaPathAppEbao()
+* Objetivo..: Valida a configuração do path e app do plug-in java.
+*
+* Parâmetros:
+*
+* Retorno...:
+*    T. Em caso de configuração valida.
+*
+*/
+
+METHOD ValidaPathAppEbao() CLASS EbaoUtils
+
+      local llValido := .T.
+
+      if empty(self:PathEbao)
+         self:ErrorCode    := -1
+         self:ErrorMessage := 'Path da aplicação de consumo webservice não configurada no wprofile.'
+         llValido := .f.
+      endif
+
+      if empty(self:AppEbao)
+         self:ErrorCode    := -1
+         self:ErrorMessage := 'Aplicação de consumo webservice não configurada no wprofile.'
+         llValido := .f.
+      endif
+
+      if ( ! llValido)
+         WAlert(self:ErrorMessage)
+      endif
+
+
+return llValido
+
+
+/*
+*
+* Glauber - 05/2016
+*
+* Metodo....: StrSerealize(pcStr)
+* Objetivo..: Serealiza uma string no formato array do FS.
+*
+* Parâmetros:
+*
+* Retorno...:
+*    Array serealizado
+*
+*/
+
+METHOD StrSerealize(pcStr) CLASS EbaoUtils
+
+      if empty(pcStr)
+         return {}
+      else
+         return Eval({|| &pcStr})
+      endif
+
+
+
+
+/*
+*
+* Glauber - 09/2016
+*
+* Metodo....: MultiRowStrSerealize(pcStr)
+* Objetivo..: Serealiza uma string "grande" no formato array do FS.
+*
+* Parâmetros:
+*
+* Retorno...:
+*    Array serealizado
+*
+*/
+
+METHOD MultiRowStrSerealize(pcStr) CLASS EbaoUtils
+
+    local laRET := {} AS Array
+
+      if empty(pcStr)
+         return laRET
+      else
+         lcTmp := STRTRAN(pcStr,'{{','{')
+         lcTmp := STRTRAN(lcTmp,'}}','}')
+
+         laTmp := Str2Array(lcTmp,'},')
+
+         for ii := 1 to len(laTMP)
+             lcTMP := Alltrim(laTMP[ii])
+             if ! Empty(lcTMP)
+                lcTMP += iif(ii < len(laTMP), '}', '')
+
+                laSWP := Eval({|| &lcTMP})
+                aadd(laRET, laSWP )
+             endif
+         next ii
+
+         return laRET
+      endif
+
+/*
+
+{{'CDRETORNO','NMRETORNO','ENDERECO', 'FIMVIGENCIA','INIVIGENCIA','NOMECOMPLETO','NUMAPOLICE','PRODUTO','SINISTRONUMERO','STATUSSINISTRO','TIPOSINISTRO','CD_RAMOSRSN'},
+ {'0','Transação efetuada com sucesso','Rua,Santa Marcelina,177,Vila Carmosina','20160714','20150715','CASA DE SAUDE SANTA MARCELINA','019702015010378001332','RCPSO -- RC Profissional Saúde – Organizações_V1.0','20160000055/001','Open','claim','0378'},
+ {'0','Transação efetuada com sucesso','Rua,Santa Marcelina,177,Vila Carmosina','20160714','20150715','CASA DE SAUDE SANTA MARCELINA','019702015010378001332','RCPSO -- RC Profissional Saúde – Organizações_V1.0','20160000056/001','Open','claim','0378'},
+ {'0','Transação efetuada com sucesso','Rua,Santa Marcelina,177,Vila Carmosina','20160714','20150715','CASA DE SAUDE SANTA MARCELINA','019702015010378001332','RCPSO -- RC Profissional Saúde – Organizações_V1.0','20160000057/001','Open','claim','0378'},
+ {'0','Transação efetuada com sucesso','Rua,Santa Marcelina,177,Vila Carmosina','20160714','20150715','CASA DE SAUDE SANTA MARCELINA','019702015010378001332','RCPSO -- RC Profissional Saúde – Organizações_V1.0','20160000059/001','Open','claim','0378'},
+ {'0','Transação efetuada com sucesso','Rua,Santa Marcelina,177,Vila Carmosina','20160714','20150715','CASA DE SAUDE SANTA MARCELINA','019702015010378001332','RCPSO -- RC Profissional Saúde – Organizações_V1.0','20160000061/001','Open','claim','0378'},
+ {'0','Transação efetuada com sucesso','Rua,Santa Marcelina,177,Vila Carmosina','20160714','20150715','CASA DE SAUDE SANTA MARCELINA','019702015010378001332','RCPSO -- RC Profissional Saúde – Organizações_V1.0','20160000058/001','Open','claim','0378'},
+ {'0','Transação efetuada com sucesso','Rua,Santa Marcelina,177,Vila Carmosina','20160714','20150715','CASA DE SAUDE SANTA MARCELINA','019702015010378001332','RCPSO -- RC Profissional Saúde – Organizações_V1.0','20160000060/001','Open','claim','0378'},
+ {'0','Transação efetuada com sucesso','Rua,Santa Marcelina,177,Vila Carmosina','20160714','20150715','CASA DE SAUDE SANTA MARCELINA','019702015010378001332','RCPSO -- RC Profissional Saúde – Organizações_V1.0','20160000062/001','Open','claim','0378'},
+ {'0','Transação efetuada com sucesso','Rua,Santa Marcelina,177,Vila Carmosina','20160714','20150715','CASA DE SAUDE SANTA MARCELINA','019702015010378001332','RCPSO -- RC Profissional Saúde – Organizações_V1.0','20160000078/001','Open','claim','0378'},
+ {'0','Transação efetuada com sucesso','Rua,Santa Marcelina,177,Vila Carmosina','20170715','20160715','CASA DE SAUDE SANTA MARCELINA','019702016010378002131','RCPSO -- RC Profissional Saúde – Organizações_V1.0','20170000135/001','Open','claim','0378'},
+ {'0','Transação efetuada com sucesso','Rua,Santa Marcelina,177,Vila Carmosina','20170715','20160715','CASA DE SAUDE SANTA MARCELINA','019702016010378002131','RCPSO -- RC Profissional Saúde – Organizações_V1.0','20170000156/001','Open','claim','0378'},
+ {'0','Transação efetuada com sucesso','Rua,Santa Marcelina,177,Vila Carmosina','20170715','20160715','CASA DE SAUDE SANTA MARCELINA','019702016010378002131','RCPSO -- RC Profissional Saúde – Organizações_V1.0','20170000134/001','Open','claim','0378'},
+ {'0','Transação efetuada com sucesso','Rua,Santa Marcelina,177,Vila Carmosina','20170715','20160715','CASA DE SAUDE SANTA MARCELINA','019702016010378002131','RCPSO -- RC Profissional Saúde – Organizações_V1.0','20170000152/001','Open','claim','0378'},
+ {'0','Transação efetuada com sucesso','Rua,Santa Marcelina,177,Vila Carmosina','20170715','20160715','CASA DE SAUDE SANTA MARCELINA','019702016010378002131','RCPSO -- RC Profissional Saúde – Organizações_V1.0','20170000155/001','Open','claim','0378'},
+ {'0','Transação efetuada com sucesso','Rua,Santa Marcelina,177,Vila Carmosina','20170715','20160715','CASA DE SAUDE SANTA MARCELINA','019702016010378002131','RCPSO -- RC Profissional Saúde – Organizações_V1.0','20170000151/001','Open','claim','0378'},
+ {'0','Transação efetuada com sucesso','Rua,Santa Marcelina,177,Vila Carmosina','20170715','20160715','CASA DE SAUDE SANTA MARCELINA','019702016010378002131','RCPSO -- RC Profissional Saúde – Organizações_V1.0','20170000157/001','Open','claim','0378'},
+ {'0','Transação efetuada com sucesso','Rua,Santa Marcelina,177,Vila Carmosina','20170715','20160715','CASA DE SAUDE SANTA MARCELINA','019702016010378002131','RCPSO -- RC Profissional Saúde – Organizações_V1.0','20170000231/001','Open','claim','0378'},
+ {'0','Transação efetuada com sucesso','Rua,Santa Marcelina,177,Vila Carmosina','20170715','20160715','CASA DE SAUDE SANTA MARCELINA','019702016010378002131','RCPSO -- RC Profissional Saúde – Organizações_V1.0','20170000232/001','Open','claim','0378'},
+ {'0','Transação efetuada com sucesso','Rua,Santa Marcelina,177,Vila Carmosina','20170715','20160715','CASA DE SAUDE SANTA MARCELINA','019702016010378002131','RCPSO -- RC Profissional Saúde – Organizações_V1.0','20170000233/001','Open','claim','0378'},
+ {'0','Transação efetuada com sucesso','Rua,Santa Marcelina,177,Vila Carmosina','20170715','20160715','CASA DE SAUDE SANTA MARCELINA','019702016010378002131','RCPSO -- RC Profissional Saúde – Organizações_V1.0','20170000234/001','Open','claim','0378'},
+ {'0','Transação efetuada com sucesso','Rua,Santa Marcelina,177,Vila Carmosina','20170715','20160715','CASA DE SAUDE SANTA MARCELINA','019702016010378002131','RCPSO -- RC Profissional Saúde – Organizações_V1.0','20170000236/001','Open','claim','0378'},
+ {'0','Transação efetuada com sucesso','Rua,Santa Marcelina,177,Vila Carmosina','20170715','20160715','CASA DE SAUDE SANTA MARCELINA','019702016010378002131','RCPSO -- RC Profissional Saúde – Organizações_V1.0','20170000235/001','Open','claim','0378'},
+ {'0','Transação efetuada com sucesso','Rua,Santa Marcelina,177,Vila Carmosina','20170715','20160715','CASA DE SAUDE SANTA MARCELINA','019702016010378002131','RCPSO -- RC Profissional Saúde – Organizações_V1.0','20170000237/001','Open','claim','0378'}}
+
+*/
+
+
+
+
+/*
+*
+* Glauber - 05/2016
+*
+* Metodo....: CadastrarProduto(pcProduto)
+* Objetivo..: Cadastra um produto caso o mesmo não exista.
+*
+* Parâmetros:
+*
+* pcProduto: Produto a ser cadastrado.
+*
+* Retorno...:
+*    laProduto Vetoro com duas posições sendo a primeira o codigo e a segunda o nome do produto.
+*
+*/
+
+METHOD CadastrarProduto(pcProduto) CLASS EbaoUtils
+
+      local laProduto := {} as Array
+
+
+      if (pcProduto == nil) .or. ( Empty(pcProduto))
+         return
+      endif
+
+      laProduto := Str2Array(pcProduto,"--")
+
+      if len(laPRODUTO) > 1
+         if db_replace({{'CD_PRODUTO','NM_PRODUTO','FL_ATIVO'},{AllTrim(laProduto[1]),AllTrim(laProduto[2]),'S'}},'produto',{'CD_PRODUTO='+ DLAP + AllTrim(laProduto[1]) + DLAP }) == -1
+            error_sys(db_error())
+         endif
+      endif
+
+return laProduto
+
+
+
+
+
+
+/*
+*
+* Glauber - 05/2016
+*
+* Metodo....: CadastrarCausaSinisto(pcCausa)
+* Objetivo..: Cadastra um produto caso o mesmo não exista.
+*
+* Parâmetros:
+*
+* pcProduto: Produto a ser cadastrado.
+*
+* Retorno...:
+*    laProduto Vetoro com duas posições sendo a primeira o codigo e a segunda o nome do produto.
+*
+*/
+
+METHOD CadastrarCausaSinisto(pcCausa) CLASS EbaoUtils
+
+      local laRes   := {} as Array
+
+      local lnULT   := 0 as Int
+
+      if (pcCausa == nil) .or. ( Empty(pcCausa))
+         return
+      endif
+      
+      pcCausa := substr(pcCausa,1,30)
+
+      if db_select({'CD_CAUSA_SINISTRO','NM_CAUSA_SINISTRO'},'sinistro_causa',,{'NM_CAUSA_SINISTRO=' + DLAP+AllTrim(pcCausa)+DLAP}) == -1
+         error_sys(db_error())
+      endif
+
+      laRES := db_fetchall()
+
+      if len(laRES) == 1
+         if db_select({'MAX(CD_CAUSA_SINISTRO)'},'sinistro_causa') == -1
+             error_sys(db_error())
+         endif
+         laRES := db_fetchall()
+         lnULT := ++laRES[2,1]
+         laRES := {{'CD_CAUSA_SINISTRO','NM_CAUSA_SINISTRO'},{lnULT,pcCausa}}
+
+         if db_insert(laRES,'sinistro_causa') == -1
+             error_sys(db_error())
+         endif
+
+      endif
+
+// select CD_CAUSA_SINISTRO,NM_CAUSA_SINISTRO from sinistro_causa
+
+return laRES
+
+
+
+
+
+
+/*
+*
+* Glauber - 05/2016
+*
+* Metodo....: TratarPfPj(poRespEbaoConsultar)
+* Objetivo..: Verifica se existe o cadastro do titular e reclamante na tabela pfpj.
+*             Caso não eixta é feito a inclusão automática.
+*
+* Parâmetros:
+*
+* poRespEbaoConsultar....: Objeto resposta da consulta eBao.
+*
+* Retorno...:
+*
+*      Array no formato {{'WFIELD','CIP','PFPJ'},{'CIP_TITULAR','123','Fulano'},{'CIP_RECLAMANTE','456','Beltrano'}}
+*
+*/
+
+METHOD TratarPfPj(poRespEbaoConsultar) CLASS EbaoUtils
+
+      local pfpjTIPO      := '',;
+            lcQUERY       := '',;
+            lcWHERE       := '',;
+            lcNR_CONTROLE := ''  as String
+
+      local laSAVE        := {},;
+            laAUX         := {},;
+            laRET         := {} as Array
+
+
+      if (poRespEbaoConsultar == nil) .or. (ValType(poRespEbaoConsultar) != 'O')
+         return {}
+      endif
+
+      lcQUERY := "SELECT 'CIP_TITULAR' AS WFIELD," +;
+                 "pfpj.CIP," +;
+                 "pfpj.PFPJ " +;
+                 "FROM pfpj " +;
+                 "WHERE CNPJ_CPF = '{0}' " +;
+                 "UNION " +;
+                 "SELECT 'CIP_RECLAMANTE' AS WFIELD, " +;
+                 "pfpj.CIP, " +;
+                 "pfpj.PFPJ " +;
+                 "FROM pfpj " +;
+                 "WHERE PFPJ_CHAR = '{1}' "
+
+      lcQuery := StrTran(lcQuery, "{0}", poRespEbaoConsultar:DocumentoTitular)
+      lcQuery := StrTran(lcQuery, "{1}", poRespEbaoConsultar:Reclamante)
+
+      if db_query(lcQuery) == -1
+          error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+
+      if len(laRESULT) > 2
+         return laRESULT
+      else // Inserir o PFP
+
+           laRET := {{'WFIELD',    'CIP',        'PFPJ'}}
+
+           lnPOS := ascan(laRESULT, {|x| x[2] == 'CIP_TITULAR'})
+
+           if lnPOS == 0
+
+               // Titular
+
+               laSAVE := {{'PFPJ',;
+                           'PFPJ_CHAR',;
+                           'PFPJ_TIPOS',;
+                           'LOGIN_CADASTRO',;
+                           'DT_CADASTRO',;
+                           'CNPJ_CPF',;
+                           'PFPJ_NATUREZA',;
+                           'EXTRA'}}
+               laAUX  := {poRespEbaoConsultar:TitularApolice,;
+                          lower(lat2char(poRespEbaoConsultar:TitularApolice)),;
+                          'PES',;
+                          'EBAO',;
+                          DATE(),;
+                          alltrim(poRespEbaoConsultar:DocumentoTitular),;
+                          iif(len(alltrim(poRespEbaoConsultar:DocumentoTitular))  < 14,'Fisica','Juridica'),;
+                          'Contato: ' + alltrim(poRespEbaoConsultar:PessoaContato) + ' - Telefone: ' +  alltrim(poRespEbaoConsultar:TelefoneContato)}
+
+               aadd(laSAVE,laAUX)
+
+               lcNR_CONTROLE := self:GravarPfpj(laSAVE)
+
+               aadd(laRET, {'CIP_TITULAR',lcNR_CONTROLE,poRespEbaoConsultar:TitularApolice})
+           endif
+
+           lnPOS := ascan(laRESULT, {|x| x[2] == 'CIP_RECLAMANTE'})
+
+           if lnPOS == 0
+
+               // Reclamante
+
+               laSAVE := {{'PFPJ',;
+                           'PFPJ_CHAR',;
+                           'PFPJ_TIPOS',;
+                           'LOGIN_CADASTRO',;
+                           'DT_CADASTRO',;
+                           'CNPJ_CPF',;
+                           'PFPJ_NATUREZA',;
+                           'TELEFONE'}}
+               laAUX  := {poRespEbaoConsultar:Reclamante,;
+                          lower(lat2char(poRespEbaoConsultar:Reclamante)),;
+                          'PES',;
+                          'EBAO',;
+                          DATE(),;
+                          alltrim(poRespEbaoConsultar:DocumentoReclamante),;
+                          iif(len(alltrim(poRespEbaoConsultar:DocumentoReclamante))  < 14,'Fisica','Juridica'),;
+                          poRespEbaoConsultar:TelefoneReclamante}
+
+               aadd(laSAVE,laAUX)
+
+               lcNR_CONTROLE := self:GravarPfpj(laSAVE)
+
+               aadd(laRET, {'CIP_RECLAMANTE',lcNR_CONTROLE,poRespEbaoConsultar:TitularApolice})
+           endif
+      endif
+
+return laRET
+
+
+
+
+
+/*
+*
+* Glauber - 05/2016
+*
+* Metodo....: GravarPfpj(paSAVE)
+* Objetivo..: Insere um pfpj retornando o cip inserido.
+*
+*
+* Parâmetros:
+*
+* paSAVE....: Array com os dados do Save
+*
+* Retorno...:
+*
+*      String com o CIP, exemplo: 123456
+*
+*/
+
+METHOD GravarPfpj(paSAVE) CLASS EbaoUtils
+
+      local lcNR_CONTROLE := ''  as String
+
+      if db_insert(paSAVE,'pfpj') == -1
+         error_sys(db_error())
+         return(.f.)
+      endif
+      lcNR_CONTROLE := alltrim(str(db_insert_id()))
+      if db_update({{'CIP'},{lcNR_CONTROLE}},'pfpj',{'NR_CONTROLE='+lcNR_CONTROLE}) == -1
+         error_sys(db_error())
+      endif
+
+return lcNR_CONTROLE

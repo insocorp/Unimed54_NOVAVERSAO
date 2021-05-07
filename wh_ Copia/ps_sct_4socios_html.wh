@@ -1,0 +1,647 @@
+/*
+
+Project      : gr5
+Program      : ps.sct.4socios.html
+Function     : ps_sct_4socios_html
+Created on   : 2010-08-20 16:01:21
+Descripition : Societário - Sócios
+
+*/
+
+   local lcACTION      := '' ,;
+         lcTP_PASTA    := '' ,;
+         lcTABLE       := '' ,;
+         lcFIELDS      := '' ,;
+         lcNR_PASTA    := '' ,;
+         lcINICIO      := '' ,;
+         lcFIM         := '' ,;
+         lcSEQUENCIA   := '' ,;
+         lcNR_CONTROLE := '' as string
+         
+   local laRESULT   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laWHERE    := {} ,;
+         laFIELDS   := {} ,;
+         laFIELDS2  := {} ,;
+         laLABELS   := {} ,;
+         laDIFFROW  := {} ,;
+         laVALIDA   := {} as array
+       
+   local ii     := 0  as int
+   local xx     := 0  as int
+   
+   local lnPORC := 0.00 ,;
+         lnqtde := 0.00 ,;
+         lntotal_quotas := 0.00,;
+         lnGERAL := 0,;
+         lnTOTAL1 := 0,;
+         lnTOTAL_TIPO := 0  as numeric
+          
+   local llERRO := .F. as logical
+
+  
+   lcTP_PASTA    := WGet('TP_PASTA','C')
+   lcNR_PASTA    := WGet('NR_PASTA','C')
+   lcNR_CONTROLE := alltrim(WGet('NR_CONTROLE','C'))
+   lcSEQUENCIA   := alltrim(WGet('NR_SEQUENCIA','C'))
+
+
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   if upper(lcNR_CONTROLE) = 'NEW' .or. empty(lcNR_CONTROLE)
+      lcNR_CONTROLE := '0'
+   endif
+   lcTABLE    := 'pasta_sct_socios'
+   lcTABLE1   := 'pasta_emissao_acoes'
+   laWHERE    := {'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE}
+   laFIELDS   := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS   := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   laVALIDA   := {'CIP_SOCIO_ACIONISTA'}
+   lcACTION      := upper(alltrim(WGet('ACTION','C')))
+
+   if alltrim(lcACTION) == 'FILTRAR'
+      lcINICIO  := WGet('DT_INICIO','C')
+      lcFIM     := WGet('DT_SAIDA','C')
+      lcCIP_SOCIO_ACIONISTA := WGet('CIP_SOCIO_ACIONISTA','C')
+   endif
+   
+   WPut('FL_ATIVO_OPT','N')
+
+   WPut('ifLISTADETAL',.F.)
+
+
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   make_psthead(lcNR_PASTA,lcTP_PASTA) //Cabeçalho
+   
+   *** Rufino 05/07/2012
+   *** marca em vermelho campos obrigatorios
+   init_reqfield(WSet('_USER_INTERFACE'))
+
+   if empty(lcACTION)
+      lcACTION = 'NEW'
+   endif
+
+   wPut('MANDATO_OPT',{'Todos','Ativos','Inativos'})
+   if empty(lcMANDATO)
+      lcMANDATO := 'Todos'
+   endif
+
+   wPut('TP_PASTA',lcTP_PASTA)
+// wPut('TP_PARTICIPACAO_OPT',{'','Ações','Quotas'})
+   wPut('PERTENCE_GRUPO_OPT',{'','Sim','Não'})
+// Sonia Perdigão - Solicitação Celia - 3/15/2011 4:51:51 PM
+   carrega_cbox({{'tipoparticipacao','TP_PARTICIPACAO','Y'}})
+
+   WPut('ifNOVO',.T.)
+   WPut('ifALTER',.F.)
+   
+   if lcACTION == 'NEW' .and. gbWAC_CREATE
+      wPut('NR_CONTROLE','New')
+
+      WPut('ifNOVO',.T.)
+      WPut('ifALTER',.F.)
+
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+
+
+      if db_select(laFIELDS,lcTABLE,,laWHERE) = -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 0
+         db2put(laRESULT)
+         amkgedico(lcTABLE,lcNR_PASTA,lcNR_CONTROLE)
+         // ALTERACAO SONIA - 9/11/2010 10:49:55 CORRECAO TEMPLATE SOCIETARIO 4 ABA SOCIOS
+         if db_select({'PFPJ,CNPJ_CPF,IE'},'pfpj',,{'CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_SOCIO_ACIONISTA')]+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laPUT := db_fetchrow()
+         if len(laPUT) > 0
+            WPut('CIP_SOCIO_ACIONISTA_PFPJ',laPUT[1])
+            WPut('CIP_SOCIO_ACIONISTA_CNPJ_CPF',laPUT[2])
+            WPut('CIP_SOCIO_ACIONISTA_IE',laPUT[3])
+         endif
+      endif
+
+      *** Rufino 24/09/2013 ref. fase 3/5
+      carregadetal(lcNR_PASTA,lcNR_CONTROLE)
+      
+   elseif lcACTION == 'ABORT'
+          get2Put()
+
+   elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+      
+      for ii := 1 to len(laVALIDA)
+          if empty(alltrim(WGet(laVALIDA[ii],'C')))
+             walert(laLABELS[ascan(laFIELDS,laVALIDA[ii])]+' é um campo obrigatório!')
+             get2Put()
+             llERRO := .T.
+             exit
+          endif
+      next ii
+      
+      *** verifica se campos obrigatorios estão com dados
+      if ! verif_reqfield(WSet('_USER_INTERFACE'))
+         llERRO := .t.
+      endif      
+      
+      
+      lcTP_PARTICIPACAO := wget('TP_PARTICIPACAO','C')
+      lcQUERY := 'select QTD_QUOTAS_ACOES as QTD_TIPO from pasta_emissao_acoes'
+      lcQUERY += ' where '+'NR_PASTA='+lcNR_PASTA+' AND TP_PARTICIPACAO = '+DLAP+(lcTP_PARTICIPACAO)+DLAP
+      if db_query(lcQUERY) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+          lnTOTAL_QUOTAS := laRESULT[1]
+      endif
+      for ii := 1 to len(laFIELDS)
+          if laFIELDS[ii] == 'QTD_QUOTAS_ACOES'
+             lnQTDE :=   WGet(laFIELDS[ii])
+             lnPORC := (lnQTDE / lnTOTAL_QUOTAS)*100.0000  
+         endif
+      next ii 
+      if ! llERRO
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            if laFIELDS[ii] == 'PC_PARTICIPACAO'
+              aadd(laSAVE_AUX,lnPORC)
+            elseif laFIELDS[ii] == 'FL_ATIVO'  
+              
+              if len(alltrim(wget('DT_SAIDA','C')))=10
+                  aadd(laSAVE_AUX,'N')
+                 else
+                  aadd(laSAVE_AUX,'')
+              endif   
+              
+            else
+              aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+           endif  
+        next ii
+
+         aadd(laSAVE,laSAVE_AUX)
+         psab_logs(laSAVE,lcTABLE,'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE,lcNR_PASTA,'Sócios/Acionistas')
+
+         *** Rufino 24/09/2013 ref. fase 3
+         laFIELDS2:={}
+
+
+         aadd(laFIELDS2,{'QTD_QUOTAS_ACOES',;
+                         'NR_ATA',;
+                         'PERTENCE_GRUPO',;
+                         'DT_INICIO',;
+                         'DT_SAIDA',;
+                         'DT_ATA',;
+                         'FL_ATIVO'})
+
+         aadd(laFIELDS2,{wGet('QTD_QUOTAS_ACOES','N'),;
+                         wGet('NR_ATA','C'),;
+                         wGet('PERTENCE_GRUPO','C'),;
+                         wGet('DT_INICIO','D'),;
+                         wGet('DT_SAIDA','D'),;
+                         wGet('DT_ATA','D'),;
+                         wGet('FL_ATIVO','C')})
+
+         lcWHERE    := 'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE
+
+         laDIFFROW := db_diffrow(laFIELDS2,'pasta_sct_socios',lcWHERE)
+
+         if len(laDIFFROW)>0
+
+            laFIELDS2 := {}
+
+            aadd(laFIELDS2,{'NR_PASTA',;
+                            'NR_CONTROLE',;
+                            'SOCIO',;
+                            'CARGO',;
+                            'PC_PARTICIPACAO',;
+                            'QTD_QUOTAS_ACOES',;
+                            'TP_PARTICIPACAO',;
+                            'DT_MANDATO_INICIO',;
+                            'DT_MANDATO_FIM',;
+                            'NR_ATA',;
+                            'TP_SOCIO_ACAO',;
+                            'CIP_SOCIO_ACIONISTA',;
+                            'PROC_PODERES_CONJUNTO',;
+                            'PROC_PODERES_CONJ_COND',;
+                            'PROC_PODERES_ISOLADO',;
+                            'PERTENCE_GRUPO',;
+                            'DT_INICIO',;
+                            'DT_SAIDA',;
+                            'FL_ATIVO',;
+                            'DT_ATA',;
+                            'DT_ALTERACAO',;
+                            'HR_ALTERACAO',;
+                            'LOGIN'})
+
+
+
+            laFIELDS_AUX := {}
+
+            aadd(laFIELDS_AUX,wGet('NR_PASTA','N'))
+            aadd(laFIELDS_AUX,wGet('NR_CONTROLE','N'))
+            aadd(laFIELDS_AUX,wGet('CIP_SOCIO_ACIONISTA_PFPJ','C'))
+            aadd(laFIELDS_AUX,wGet('CARGO','C'))
+            aadd(laFIELDS_AUX,wGet('PC_PARTICIPACAO','N'))
+            aadd(laFIELDS_AUX,wGet('QTD_QUOTAS_ACOES','N'))
+            aadd(laFIELDS_AUX,wGet('TP_PARTICIPACAO','C'))
+            aadd(laFIELDS_AUX,wGet('DT_MANDATO_INICIO','D'))
+            aadd(laFIELDS_AUX,wGet('DT_MANDATO_FIM','D'))
+            aadd(laFIELDS_AUX,wGet('NR_ATA','C'))
+            aadd(laFIELDS_AUX,wGet('TP_SOCIO_ACAO','C'))
+            aadd(laFIELDS_AUX,wGet('CIP_SOCIO_ACIONISTA','C'))
+            aadd(laFIELDS_AUX,wGet('PROC_PODERES_CONJUNTO','C'))
+            aadd(laFIELDS_AUX,wGet('PROC_PODERES_CONJ_COND','C'))
+            aadd(laFIELDS_AUX,wGet('PROC_PODERES_ISOLADO','C'))
+            aadd(laFIELDS_AUX,wGet('PERTENCE_GRUPO','C'))
+            aadd(laFIELDS_AUX,wGet('DT_INICIO','D'))
+            aadd(laFIELDS_AUX,wGet('DT_SAIDA','D'))
+            aadd(laFIELDS_AUX,wGet('FL_ATIVO','C'))
+            aadd(laFIELDS_AUX,wGet('DT_ATA','D'))
+            aadd(laFIELDS_AUX,DATE())
+            aadd(laFIELDS_AUX,TIME())
+            aadd(laFIELDS_AUX,Wset('LOGIN'))
+
+            for xx:=1 to len(laDIFFROW)
+               for ii := 1 to len(laFIELDS2[1])
+                   if laDIFFROW[xx,1]==laFIELDS2[1,ii]
+                      laFIELDS_AUX[ii]:=laDIFFROW[xx,2]
+                   endif
+               next ii
+            next xx
+
+            aadd(laFIELDS2,laFIELDS_AUX)
+
+            if db_insert(laFIELDS2,'pasta_sct_socios_detal') == -1
+               error_sys(db_error())
+            endif
+
+         endif
+         ***
+
+
+         if db_replace(laSAVE,lcTABLE,laWHERE) = -1
+            error_sys(db_error())
+         endif
+      endif
+      WPut('NR_CONTROLE','New')
+
+      WPut('ifNOVO',.T.)
+      WPut('ifALTER',.F.)
+
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      psab_logdel(lcNR_PASTA,'NR_CONTROLE',lcNR_CONTROLE,,'Sócios/Acionistas')
+
+      if db_delete('pasta_sct_socios_detal',laWHERE[1]) = -1
+         error_sys(db_error())
+      endif
+
+      if db_delete(lcTABLE,laWHERE[1]) = -1
+         error_sys(db_error())
+      endif
+
+      WPut('NR_CONTROLE','New')
+
+      WPut('ifNOVO',.T.)
+      WPut('ifALTER',.F.)
+
+   elseif lcACTION == 'ATIVAR' .and. gbWAC_DELETE
+
+      lcWHERE := 'NR_PASTA='+lcNR_PASTA+' and NR_SEQUENCIA='+lcSEQUENCIA
+
+      psab_logs({{'FL_CANCELA'},{''}},'pasta_sct_socios_detal',lcWHERE,lcNR_PASTA,'Sócios/Acionistas')
+
+      if db_update({{'FL_CANCELA'},{''}},'pasta_sct_socios_detal',{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+
+      mkgedico(lcTABLE,lcNR_PASTA,lcNR_CONTROLE)
+      if db_select(laFIELDS,lcTABLE,,laWHERE) = -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 0
+         db2put(laRESULT)
+         // ALTERACAO SONIA - 9/11/2010 10:49:55 CORRECAO TEMPLATE SOCIETARIO 4 ABA SOCIOS
+         if db_select({'PFPJ,CNPJ_CPF,IE'},'pfpj',,{'CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_SOCIO_ACIONISTA')]+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laPUT := db_fetchrow()
+         if len(laPUT) > 0
+            WPut('CIP_SOCIO_ACIONISTA_PFPJ',laPUT[1])
+            WPut('CIP_SOCIO_ACIONISTA_CNPJ_CPF',laPUT[2])
+            WPut('CIP_SOCIO_ACIONISTA_IE',laPUT[3])
+         endif
+      endif
+
+      carregadetal(lcNR_PASTA,lcNR_CONTROLE)
+
+   elseif lcACTION == 'CANCELAR' .and. gbWAC_DELETE
+      get2Put()
+      lcWHERE := 'NR_PASTA='+lcNR_PASTA+' and NR_SEQUENCIA='+lcSEQUENCIA
+
+      psab_logs({{'FL_CANCELA'},{'C'}},'pasta_sct_socios_detal',lcWHERE,lcNR_PASTA,'Sócios/Acionistas')
+
+      if db_update({{'FL_CANCELA'},{'C'}},'pasta_sct_socios_detal',{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+
+      mkgedico(lcTABLE,lcNR_PASTA,lcNR_CONTROLE)
+      if db_select(laFIELDS,lcTABLE,,laWHERE) = -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 0
+         db2put(laRESULT)
+         // ALTERACAO SONIA - 9/11/2010 10:49:55 CORRECAO TEMPLATE SOCIETARIO 4 ABA SOCIOS
+         if db_select({'PFPJ,CNPJ_CPF,IE'},'pfpj',,{'CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_SOCIO_ACIONISTA')]+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laPUT := db_fetchrow()
+         if len(laPUT) > 0
+            WPut('CIP_SOCIO_ACIONISTA_PFPJ',laPUT[1])
+            WPut('CIP_SOCIO_ACIONISTA_CNPJ_CPF',laPUT[2])
+            WPut('CIP_SOCIO_ACIONISTA_IE',laPUT[3])
+         endif
+      endif
+
+      carregadetal(lcNR_PASTA,lcNR_CONTROLE)
+
+   endif
+
+// Verifica quantidade de ações - customização VPAR
+// 22/11/2010 10:04:24 - Sonia Perdigão
+
+// verifica qtde de acoes por TP_PARTICIPACAO
+// Sonia Perdigao - 6/5/2011 15:21:17
+// Solicitante - Celia
+
+   lcQUERY := ' select TP_PARTICIPACAO as TIPO_ACAO, QTD_QUOTAS_ACOES as QTD_TIPO from pasta_emissao_acoes'
+   lcQUERY += ' where '+'NR_PASTA='+lcNR_PASTA
+   if db_query(lcQUERY) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+    if len(laRESULT) > 0
+      for ii := 2 to len(laRESULT)
+        LNTOTAL_QUOTAS := LNTOTAL_QUOTAS + laRESULT[ii,2]
+        lcTIPO := laRESULT[ii,1]
+        LNTOTAL_TIPO := laRESULT[ii,2]
+// customização VPAR - Sonia - 08/06/2012 14:39:06
+// Inserido o flag de ativo e inativo
+   lcINATIVO := 'N'
+//         if db_select({'sum(QTD_QUOTAS_ACOES)'},'pasta_sct_socios',,{'NR_PASTA = '+lcNR_PASTA+' and TP_PARTICIPACAO ='+DLAP+lcTIPO+DLAP}) == -1
+         if db_select({'sum(QTD_QUOTAS_ACOES)'},'pasta_sct_socios',,{'NR_PASTA = '+lcNR_PASTA+' and TP_PARTICIPACAO ='+DLAP+lcTIPO+DLAP + 'and FL_ATIVO <>'+DLAP+lcINATIVO+DLAP}) == -1
+            error_sys(db_error())
+         endif
+        laRES_ACOES  := db_fetchrow()
+
+        if len(laRES_ACOES) > 0
+           lnTOTAL1 := laRES_ACOES[1]
+        endif
+        
+        if lnTOTAL1 <> lnTOTAL_TIPO
+           lndiferenca := lnTOTAL_TIPO - lnTOTAL1
+           if lndiferenca <> 0
+              if lndiferenca > 0
+                 if lndiferenca == 1
+                    walert('Divergência !! Falta '+ alltrim(str(int(lndiferenca))) + ' Ação do tipo : ' + lcTIPO )
+                 else
+                    walert('Divergência !! Faltam '+ alltrim(str(int(lndiferenca))) + ' Ações do tipo : ' + lcTIPO)
+                 endif   
+              else
+                 if lndiferenca == - 1
+                    walert('Divergência !! Lançamento de '+ alltrim(str(int(lndiferenca)*-1)) + ' Ação a maior do tipo : ' + lcTIPO)
+                 else
+                    walert('Divergência !! Lançamento de '+ alltrim(str(int(lndiferenca)*-1)) + ' Ações a maior do tipo : ' + lcTIPO)
+                 endif   
+              endif
+            endif
+         endif
+
+      next ii
+
+   endif
+    
+// alteracao sonia
+   if db_select ({'NR_PASTA',;
+                 'TP_PARTICIPACAO',;
+                 'QTD_QUOTAS_ACOES'},;
+                 lcTABLE1,;
+                 ,;
+                 {'NR_PASTA='+lcNR_PASTA}) = -1
+      error_sys(db_error())
+   endif
+   laRES1 := db_fetchall()
+   
+   if len(laRES1) > 0
+      aadd(laRES1[1],'(row)')
+
+      for ii := 2 to len(laRES1)
+         aadd(laRES1[ii],'(row)'+wic_action('wicaction/ps.sct.4socios.html'+;
+                                           '?ACTION=ALTER'+;
+                                           '&NR_PASTA='+lcNR_PASTA+;
+                                           '&TP_PASTA='+lcTP_PASTA+;
+                                           '&TP_PARTICIPACAO='+str(laRES1[ii,db_fetchncol(laRES1,'TP_PARTICIPACAO')])))
+      next ii
+      
+      WPut('GRID_SCT_SOCIOS0',grid_create(laRES1))
+   endif
+
+
+  //Sonia Perdigão em 08/06/2012 17:49:57
+  //Customização VPAR - Solicitado por Celia
+   lax := 'NR_PASTA='+lcNR_PASTA
+   lcINATIVO := 'N'
+   if lcACTION == 'FILTRAR'
+      if !empty(lcCIP_SOCIO_ACIONISTA)
+         lax := lax + ' and CIP_SOCIO_ACIONISTA = '+lcCIP_SOCIO_ACIONISTA 
+      endif   
+      if !empty(lcINICIO) .or. !empty(lcFIM)
+         if !empty(ctod(lcINICIO))
+            lax := lax + ' and DT_INICIO  >= '+DLAP+dtos(ctod(lcINICIO))+DLAP
+         endif
+         if !empty(ctod(lcFIM))
+             lax := lax + 'AND DT_SAIDA  <= '+DLAP+dtos(ctod(lcFIM))+DLAP
+         endif    
+         if !empty(ctod(lcINICIO)) .and. !empty(ctod(lcFIM))
+            lax := lax + 'AND DT_INICIO  >= '+DLAP+dtos(ctod(lcINICIO))+DLAP+ ' and DT_SAIDA <= '+DLAP+dtos(ctod(lcFIM))+DLAP
+         endif
+      elseif empty(lcFIM)
+            lax := lax + ' and  DT_SAIDA IS NULL'
+      endif    
+   endif
+     
+   if len(laRES1) > 0
+      for ii := 2 to len(laRES1)
+         lax2 := ''
+         lcTP_PARTICIPACAO := laRES1[ii,2]
+         lax2 := ' AND TP_PARTICIPACAO = '+DLAP+lcTP_PARTICIPACAO+DLAP
+         if db_select({'pasta_sct_socios.NR_CONTROLE',;
+                 'pasta_sct_socios.CIP_SOCIO_ACIONISTA',;
+                 'pfpj.PFPJ',;
+                 'pfpj.CNPJ_CPF',;
+                 'pfpj.IE',;
+                 'pasta_sct_socios.TP_PARTICIPACAO',;
+                 'pasta_sct_socios.DT_ATA',;
+                 'pasta_sct_socios.QTD_QUOTAS_ACOES',;
+                 'pasta_sct_socios.PC_PARTICIPACAO',;
+                 'pasta_sct_socios.NR_ATA',;
+                 'pasta_sct_socios.DT_INICIO',;
+                 'pasta_sct_socios.DT_SAIDA',;
+                 'pasta_sct_socios.FL_ATIVO'},;
+                 lcTABLE,;
+                 {{2,'pfpj','pfpj.CIP=pasta_sct_socios.CIP_SOCIO_ACIONISTA'}},;
+                  {(lax+lax2)},{'FL_ATIVO'}) = -1
+            error_sys(db_error())
+          endif
+          laRES := db_fetchall()
+   
+          if len(laRES) > 0
+             aadd(laRES[1],'(row)')
+
+             for jj := 2 to len(laRES)
+             aadd(laRES[jj],'(row)'+wic_action('wicaction/ps.sct.4socios.html'+;
+                                           '?ACTION=ALTER'+;
+                                           '&NR_PASTA='+lcNR_PASTA+;
+                                           '&TP_PASTA='+lcTP_PASTA+;
+                                           '&NR_CONTROLE='+str(laRES[jj,db_fetchncol(laRES,'NR_CONTROLE')])))
+                                                      
+          next jj
+          wgrid := 'GRID_SCT_SOCIOS'+alltrim(str(ii,2))
+
+          if len(laRES)>1
+             WPut('ifSOCIOS'+alltrim(str(ii,2)),.T.)
+             WPut('TP_PARTICIPACAO'+alltrim(str(ii,2)),lcTP_PARTICIPACAO)
+            else
+             WPut('ifSOCIOS'+alltrim(str(ii,2)),.F.)
+             WPut('TP_PARTICIPACAO'+alltrim(str(ii,2)),'')
+          endif
+
+          WPut(wgrid,grid_create(laRES))
+
+
+       endif
+   
+    next ii   
+   ENDIF    
+   pasta_abas(lcTP_PASTA)
+return
+
+******************************************************
+static function carregadetal(fcNR_PASTA,fcNR_CONTROLE)
+******************************************************
+local laFIELDS2    := {} as array
+local laRES        := {} as array
+local laWHERE      := {} as array
+local lcNR_ROW     := '' as string
+local lcCOR_LIN    := '' as string
+
+laFIELDS2 := structtable(WSet("DB_ACTIVE"),'pasta_sct_socios_detal',1,'N')
+laWHERE    := {'NR_PASTA='+fcNR_PASTA+' and NR_CONTROLE='+fcNR_CONTROLE}
+
+if db_select(laFIELDS2,'pasta_sct_socios_detal',,laWHERE,{'DT_ATA'},'D') = -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+if len(laRES) > 0
+   aadd(laRES[1],'COR_LIN')
+   aadd(laRES[1],'TITBOTAO')
+   aadd(laRES[1],'BT_CANATI')
+   aadd(laRES[1],'LIBERADO')
+   aadd(laRES[1],'VAR_NR_SEQUENCIA')
+
+   for ii := 2 to len(laRES)
+       lcNR_ROW := alltrim(str(ii))
+       if laRES[ii,db_fetchncol(laRES,'FL_CANCELA')] == 'C'
+             lcCOR_LIN := 'red'
+          else
+             lcCOR_LIN := 'black'
+       endif
+
+       aadd(laRES[ii],lcCOR_LIN)
+
+       if laRES[ii,db_fetchncol(laRES,'FL_CANCELA')] == 'C'
+             aadd(laRES[ii],'Ativar')
+          else
+             aadd(laRES[ii],'Cancelar')
+       endif
+
+       aadd(laRES[ii],'BT_CANATI'+lcNR_ROW)
+
+       if gbWAC_DELETE //esconde ou libera botão
+          aadd(laRES[ii],'display: block')
+       else
+          aadd(laRES[ii],'display: none')
+       endif
+
+       aadd(laRES[ii],'VAR_NR_SEQUENCIA'+lcNR_ROW)
+
+       WPut('VAR_NR_SEQUENCIA'+lcNR_ROW,laRES[ii,db_fetchncol(laRES,'NR_SEQUENCIA')])
+
+   next ii
+ endif
+
+WPut('lstDETAL',laRES)
+
+WPut('ifLISTADETAL',.T.)
+
+WPut('ifNOVO',.F.)
+WPut('ifALTER',.T.)
+
+return(nil)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

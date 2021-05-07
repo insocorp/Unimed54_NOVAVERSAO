@@ -1,0 +1,155 @@
+                                                                  /*
+
+Project      : isj_45
+Program      : classchedulefiltros
+Function     : classchedulefiltros
+Created on   : 27/03/2017 16:09:46
+Descripition :
+
+*/
+
+
+//
+// Glauber - Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+*
+* Rufino - 03/2017
+*
+* Classe...........: ScheduleFiltros
+*
+* Objetivo.........: Classe que realiza a presistência da tabela rbschedulefilter.
+*
+* Atributos........:
+*
+*    EXPORT pk_rbschedulefilter
+*    EXPORT rbschedule
+*    EXPORT rbmodule
+*    EXPORT rbfilter
+*    EXPORT rbftvalue1
+*    EXPORT rbftvalue2
+*
+*
+*
+*
+* Metodos..........:
+*
+*    METHOD Salvar()
+*    METHOD Apagar()
+
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS ScheduleFiltros
+
+    // Atributos publico
+
+    EXPORT pk_rbschedulefilter
+    EXPORT rbschedule
+    EXPORT rbmodule
+    EXPORT rbfilter
+    EXPORT rbftvalue1
+    EXPORT rbftvalue2
+
+
+// Atributos privado
+
+INSTANCE ErrorCode
+INSTANCE ErrorMessage
+INSTANCE Filter
+
+// Metodos publico
+
+
+PROTOTYPE METHOD Salvar()   CLASS ScheduleFiltros
+PROTOTYPE METHOD Apagar()   CLASS ScheduleFiltros
+
+// GET
+ACCESS ErrorCode CLASS ScheduleFiltros
+   return self:ErrorCode
+
+ACCESS ErrorMessage CLASS ScheduleFiltros
+   return self:ErrorMessage
+
+/*
+*
+* Rufino
+*
+* Metodo....: Salvar()
+* Objetivo..: Salva um registro.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+METHOD Salvar() CLASS ScheduleFiltros
+
+   local laSAVE     := {},;
+         laSAVEAUX  := {} as Array
+
+   local lcWhere    := '',;
+         lcTmp      := '' as String
+
+
+   laSAVE := {{'PK_RBSCHEDULEFILTER','RBSCHEDULE','RBMODULE','RBFILTER','RBFTVALUE1','RBFTVALUE2'}}
+
+
+   aadd(laSAVE, {self:pk_rbschedulefilter,;
+                 self:rbschedule,;
+                 self:rbmodule,;
+                 self:rbfilter,;
+                 self:rbftvalue1,;
+                 self:rbftvalue2})
+
+
+   lcWhere := 'PK_RBSCHEDULEFILTER = ' + iif(alltrim(self:pk_rbschedulefilter) == 'New',0,self:pk_rbschedulefilter)
+
+   if db_replace(laSAVE, 'rbschedulefilter', {lcWhere}) == -1
+      error_sys(db_error())
+   endif
+
+
+return(self)
+
+/*
+*
+* Rufino
+*
+* Metodo....: Apagar()
+* Objetivo..: Apaga um registro.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+METHOD Apagar() CLASS ScheduleFiltros
+
+   local lcWhere := '' as String
+
+   lcWhere := 'PK_RBSCHEDULEFILTER = ' + alltrim(self:pk_rbschedulefilter)
+   if db_delete('rbschedulefilter', lcWHERE) == -1
+      error_sys(db_error())
+   endif
+
+return(self)
+
+

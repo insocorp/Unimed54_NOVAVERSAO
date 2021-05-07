@@ -1,0 +1,46 @@
+/*
+
+Project      : gr5
+Program      : task.status.html
+Function     : task_status_html
+Created on   : 21-May-2002   11:15:02
+Descripition : Status/Stuações de Tarefas
+
+*/
+
+local laPARAM        := {},;
+      laINPUT_HIDDEN := {},;
+      laINPUT_OBJ    := {},;
+      laSELECT       := {} as array
+laPARAM := {{'TASK_STATUS',''     ,'*'},;
+            {'ACTION'           ,'ALTER',   }}
+
+laINPUT_HIDDEN := {{'TASK_STATUS',}}
+
+laINPUT_OBJ := { {'TASK_STATUS',0,,'Y',} }
+laSELECT := {'TASK_STATUS'}
+
+build_program('task_status',;                                                     //Tabela alvo
+              ,;                                                                  //Joins
+              ,;                                                                  //Where
+              ,;                                                                  //Order by
+              ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+              ,;                                                                  //Group by
+              ,;                                                                  //Limit
+              ,;                                                                  //Banco de Dados
+              2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+              'gr5',;                                                            //Modulo do programa chamador
+              WSet('_USER_INTERFACE'),;                                           //Programa chamador
+              laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+              ,;                                                                  //Parâmetros para os botões das linhas do grid
+              'task.status.html',;                                                //Programa que os links/botoes do grid deverao chamar
+              'gr5',;                                                            //Módulo do programa chamado pelos links/botoes do grid
+              ,;                                                                  //Retorno java (nil) - usado apenas para Search
+              ,;                                                                  //Campos usados na pesquisa rápida
+              laINPUT_HIDDEN,;                                                    //Campos Ocultos
+              laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+              laSELECT ,;                                                         //Campos exibidos no grid
+              laSELECT)                                                           //Campos usados no select
+return
+
+

@@ -1,0 +1,115 @@
+/*
+
+Project      : gr5
+Program      : psab.inf.comerciais.html
+Function     : psab_inf_comerciais_html
+Created on   : 01-Feb-2006   15:38:14
+Descripition : Aba de Informações Comerciais da Pasta
+
+*/
+
+   local lcACTION       := upper(WGet('ACTION','C')),;
+         lcNR_PASTA     := WGet('NR_PASTA','C') ,;
+         lcTP_PASTA     := WGet('TP_PASTA','C') ,;
+         lcTABLE        := '' ,;
+         lcWHERE        := '' ,;
+         lcCIPS         := '' as string
+   local laFIELDS   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laAUX      := {} ,;
+         laPUT      := {} ,;
+         laCIP      := {} ,;
+         laRESULT   := {} ,;
+         laFOREIGN  := {} as array
+   local ii := 0 as int
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   if val(lcNR_PASTA) == 0
+      lcNR_PASTA := '0'
+   endif
+
+   lcTABLE  := 'pst_contrato_prestacao_servico'
+   lcWHERE  := 'NR_PASTA='+lcNR_PASTA
+   laFIELDS := {'NR_PASTA',;
+                'VL_CONTRATO',;
+                'CD_MOEDA',;
+                'PERIODICIDADE_VL_CONTRATO',;
+                'VL_PARCELA',;
+                'CD_INDICE',;
+                'PERIODICIDADE_REAJUSTE',;
+                'TRIBUTOS',;
+                'CONDICAO_PAGAMENTO',;
+                'FL_PROTECAO_VOLUME',;
+                'PROTECAO_VOLUME',;
+                'VL_RECEITA_ANUAL',;
+                'PC_MULTA_ATRASO',;
+                'PC_JURO_ATRASO',;
+                'PC_MULTA_CONTRATUAL'}
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+   WPut('FL_PROTECAO_VOLUME.option','S')
+   carrega_cbox({{'contrato_periodicidade_valor','PERIODICIDADE_VL_CONTRATO','Y'},;
+                 {'contrato_periodo_reajuste','PERIODICIDADE_REAJUSTE','Y'}})
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      if verif_reqfield(WSet('_USER_INTERFACE'))
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+
+         psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Informações Comerciais') //Gravar log de alterações da pasta
+
+         if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+             error_sys(db_error())
+         endif
+
+         if WGet('NR_PASTA','N') == 0
+            lcNR_PASTA := str(db_insert_id())
+         endif
+      endif
+   endif
+
+   if val(lcNR_PASTA) > 0 .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,{'NR_PASTA='+lcNR_PASTA}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2Put(laRESULT)
+         /*
+         Formato de laFOREIGN
+         1.tabela estrangeira
+         2.coluna chave da tabela estrangeira
+         3.coluna chave
+         4.lista de campos
+         */
+         laFOREIGN := {{'moeda','CD_MOEDA','CD_MOEDA',{'NM_MOEDA'}},;
+                       {'indice_reajuste','CD_INDICE','CD_INDICE',{'NM_INDICE'}}}
+
+         for ii := 1 to len(laFOREIGN)
+            if laRESULT[2,db_fetchncol(laRESULT,laFOREIGN[ii,3])] > 0
+               if db_select(laFOREIGN[ii,4],;
+                            laFOREIGN[ii,1],,;
+                            {laFOREIGN[ii,2]+'='+str(laRESULT[2,db_fetchncol(laRESULT,laFOREIGN[ii,3])])}) == -1
+                  error_sys(db_error())
+               endif
+               db2Put(db_fetchall())
+            endif
+         next ii
+      endif
+   endif
+
+   pasta_abas(lcTP_PASTA)
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+return
+
+
+
+
+
+
+
+

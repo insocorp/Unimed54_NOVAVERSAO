@@ -1,0 +1,62 @@
+/*
+
+Project      : gr5
+Program      : compliance.mnt.html
+Function     : compliance_mnt_html
+Created on   : 01/06/2016 10:46:38
+Descripition : Cadastro de compliance
+
+*/
+
+   local laPARAM     := {},;
+         laINPUT_OBJ := {} as array
+
+   laPARAM := {{'TP_PASTA',''     ,'*'},;
+               {'COMPLIANCE' ,''     ,'*'},;
+               {'FL_ATIVO','',},;
+               {'ACTION'       ,'ALTER',   }}
+
+laINPUT_OBJ := {{'TP_PASTA',1, ,'Y',"loadcboxorder_build('pasta_config','TP_PASTA',.T.,{'TP_PASTA'})"},;
+                { , , , , },;
+                {'COMPLIANCE',0,,'Y',} ,;
+                { , , , , },;
+                {'FL_ATIVO',1,,'Y','{"S","I","D"}' }}
+
+   if upper(alltrim(WGet('ACTIONBP'))) == 'ALTER'
+      mkgedico('pasta_tb_assunto',WGet('TP_PASTA','C'),WGet('ASSUNTO','C'))
+   endif
+
+   xbp('compliance',;                        //Tabela alvo
+       ,;                                     //Joins
+       ,;                                     //Where
+       {'TP_PASTA','COMPLIANCE'},;            //Order by
+       ,;                                     //Sort [A]-Ascendente [D]-Descentende
+       ,;                                     //Group by
+       ,;                                     //Limit
+       ,;                                     //Banco de Dados
+       2,;                                    //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+       'gr5',;                                //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;              //Programa chamador
+       laPARAM,;                              //Parametros das linhas clicaveis do grid
+       ,;                                     //Parâmetros para os botões das linhas do grid
+       'compliance.mnt.html',;                   //Programa que os links/botoes do grid deverao chamar
+       'gr5',;                                //Módulo do programa chamado pelos links/botoes do grid
+       ,;                                     //Retorno java (nil) - usado apenas para Search
+       ,;                                     //Campos usados na pesquisa rápida
+       ,;                                     //Campos Ocultos
+       laINPUT_OBJ,;                          //Campos da área de manutenção/entrada de dados
+       {'TP_PASTA','COMPLIANCE','FL_ATIVO'} ,;   //Campos exibidos no grid
+       {'TP_PASTA','COMPLIANCE','FL_ATIVO'})     //Campos usados no select
+
+
+return
+
+
+
+
+
+
+
+
+
+

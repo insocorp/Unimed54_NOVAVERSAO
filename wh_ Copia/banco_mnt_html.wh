@@ -1,0 +1,49 @@
+/*
+
+Project      : gr5
+Program      : banco.mnt.html
+Function     : banco_mnt_html
+Created on   : 21/11/2008 15:45:07
+Descripition : Cadastro de gasto  
+
+*/
+local laPARAM        := {},;
+      laINPUT_OBJ    := {},;
+      laSELECT       := {} as array
+
+laPARAM := {{'COD_BANCO',''     ,'*'},;
+            {'ACTION'       ,'ALTER',   }}
+
+laINPUT_OBJ := {{'COD_BANCO'     ,0,   ,'Y',},;
+                {               , , ,   ,   },;
+                {'NM_BANCO',0, ,,  } }
+
+laSELECT := {'COD_BANCO','NM_BANCO'}
+
+
+xbp('banco',;                                                           //Tabela alvo
+    ,;                                                                  //Joins
+    ,;                                                                  //Where
+    'COD_BANCO',;                                                        //Order by
+    ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+    ,;                                                                  //Group by
+    ,;                                                                  //Limit
+    ,;                                                                  //Banco de Dados
+    2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+    'gr5',;                                                             //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                                           //Programa chamador
+    laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+    ,;                                                                  //Parâmetros para os botões das linhas do grid
+    'banco.mnt.html',;                                                //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+    ,;                                                                  //Retorno java (nil) - usado apenas para Search
+    ,;                                                                  //Campos usados na pesquisa rápida
+    ,;                                                                  //Campos Ocultos
+    laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+    laSELECT ,;                                                         //Campos exibidos no grid
+    laSELECT)                                                           //Campos usados no select
+return
+
+
+
+

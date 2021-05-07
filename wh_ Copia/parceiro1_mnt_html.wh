@@ -1,0 +1,325 @@
+/*
+
+Project      : gr5
+Program      : parceiro1.mnt.html
+Function     : parceiro1_mnt_html
+Created on   : 15/10/2015 11:06:01
+Descripition : Parceiros com vínculo
+
+*/
+
+   local laRESULT   := {},;
+         laSAVE     := {},;
+         laSAVEAUX  := {},;
+         laMVTSAVE  := {},;
+         laRES      := {},;
+         laFIELDS   := {},;
+         laVALIDA   := {},;
+         laFOREIGN  := {},;
+         laPUT      := {} as array
+
+   local lcWHERE    := '',;
+         lcTABLE    := '',;
+         lcPROCURA  := '',;
+         lcACTION   := ''  as string
+   local xx         := 0 as numeric
+
+   WPut('TITLE','Parceiros com Vínculo')
+
+   lcTABLE  := 'parceiros1'
+
+   laFIELDS  := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+
+
+   lcWHERE  := 'CD_PARCEIRO='+DLAP+WGet('CD_PARCEIRO')+DLAP
+   lcACTION  := alltrim(upper(WGet('ACTION')))
+   lcPROCURA := ''
+
+   laVALIDA  := {'CD_PARCEIRO','CIP_EMPRESA','PARCEIROS1'}
+
+   wput('FL_ATIVO.option',{'Ativo','Inativo','Default'})
+   wput('FL_ATIVO.optionvalue',{'S','I','D'})
+
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+   if lcACTION == 'ALTER'
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+
+      if len(laRESULT) > 1
+         db2put(laRESULT)
+
+         // Campos CIP
+         if db_select({'CIP'},'pfpj',,{'CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_EMPRESA')]+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laRES := db_fetchrow()
+
+         if len(laRES) > 0
+            WPut('CIP_EMPRESA',laRES[1])
+         endif
+
+         if db_select({'PFPJ'},'pfpj',,{'CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_EMPRESA')]+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laRES := db_fetchrow()
+
+         if len(laRES) > 0
+            WPut('CIP_EMPRESA_PFPJ',laRES[1])
+         endif
+
+         WPut('CD_PARCEIRO.readonly',.T.)
+         WPut('CD_PARCEIRO.class','winputreadonly')
+
+      endif
+
+   elseif lcACTION == 'DELETE'
+        if db_delete(lcTABLE,lcWHERE) = -1
+           error_sys(db_error())
+        endif
+
+   elseif lcACTION == 'SAVE'
+
+      if verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+         for x := 1 to len(laFIELDS)
+            aadd(laSAVEAUX,WGet(laFIELDS[x]))
+         next x
+
+         aadd(laSAVE,laFIELDS)
+         aadd(laSAVE,laSAVEAUX)
+
+         if db_replace(laSAVE,lcTABLE,{lcWHERE},) == -1
+            error_sys(db_error())
+         endif
+      endif
+
+   elseif lcACTION == 'SEARCH'
+      for xx := 1 to len(laFIELDS)
+         if wmd_wfieldtype(laFIELDS[xx]) == 'C'
+             if ! empty(WGet(laFIELDS[xx],'C'))
+                if empty(lcPROCURA)
+                   lcPROCURA += laFIELDS[xx]+' like '+DLAP+'%'+WGet(laFIELDS[xx],'C')+'%'+DLAP
+                else
+                   lcPROCURA += ' and '+laFIELDS[xx]+' like '+DLAP+'%'+WGet(laFIELDS[xx],'C')+'%'+DLAP
+                endif
+             endif
+         elseif wmd_wfieldtype(laFIELDS[xx]) == 'N'
+             if WGet(laFIELDS[xx],'N') > 0
+                if empty(lcPROCURA)
+                   lcPROCURA += laFIELDS[xx]+' = '+WGet(laFIELDS[xx],'C')
+                else
+                   lcPROCURA += ' and '+laFIELDS[xx]+' = '+WGet(laFIELDS[xx],'C')
+                endif
+             endif
+         endif
+      next xx
+
+      Monta_Grade(lcPROCURA)
+      get2put()
+      return
+   endif
+   Monta_Grade()
+return
+
+// Montagem da Grade com os dados cadastrados
+Static Function Monta_Grade(pc_filtro)
+local laFIELDS := {},;
+      laRESULT := {} as array
+local lcTABLE  := '',;
+      lcWHERE  := '' as string
+local ii       := 0 as numeric
+
+   lcTABLE := 'parceiros1'
+   laFIELDS := {'CD_PARCEIRO','CIP_EMPRESA','PARCEIROS1','FL_ATIVO'}
+
+   if ! empty(pc_filtro)
+      lcWHERE := pc_filtro // ' NM_TRCT LIKE '+DLAP+'%' + alltrim(pc_filtro)+'%'+DLAP
+   else
+      lcWHERE := ''
+   endif
+
+   if empty(pc_filtro)
+      if db_select(laFIELDS,lcTABLE,,,{'CIP_EMPRESA','PARCEIROS1'},'A') == -1
+         error_sys(db_error())
+      endif
+   else
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE},{'CIP_EMPRESA','PARCEIROS1'},'A') == -1
+         error_sys(db_error())
+      endif
+   endif
+
+   laRESULT  := db_fetchall()
+   lnCOUNT   := len(laRESULT)-1
+   if lnCOUNT > 0
+	   laPAGINAS := paginacao(lnCOUNT,'','')
+	   laLIMIT   := param_fetch(laPAGINAS,'LIMIT')
+	   if empty(pc_filtro)
+	      if db_select(laFIELDS,lcTABLE,,,{'CIP_EMPRESA','PARCEIROS1'},,,laLIMIT) == -1
+	         error_sys(db_error())
+	      endif
+	   else
+	      if db_select(laFIELDS,lcTABLE,,{lcWHERE},{'CIP_EMPRESA','PARCEIROS1'},,,laLIMIT) == -1
+	         error_sys(db_error())
+	      endif
+	   endif
+	   laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         //Resumo da pesquisa
+         lcCODE := alltrim(str(laLIMIT[1]+1))+'-'
+         if ((len(laRESULT)-1) < (laLIMIT[2]-laLIMIT[1]))
+            lcCODE += alltrim(str(len(laRESULT)-1))
+         elseif param_fetch(laPAGINAS,'GOTO_PAGE') == param_fetch(laPAGINAS,'NR_PAGES') //lnNR_PAGES
+            lcCODE += alltrim(str(lnCOUNT))
+         else
+            lcCODE += alltrim(str(laLIMIT[1]+param_fetch(laPAGINAS,'ROWS_PAGE')))
+         endif
+         lcCODE += ' de '+alltrim(str(lnCOUNT))
+         if lnCOUNT > 1
+            lcCODE := ' Resultados '+lcCODE+' registros'
+         else
+            lcCODE := ' Resultado '+lcCODE+' registro'
+         endif
+         wput('RESUME_RESULTSET',lcCODE)
+         aadd(laRESULT[1],'(row)')
+         for ii := 2 to len(laRESULT)
+            aadd(laRESULT[ii],'(row)'+wic_action('wicaction/parceiro1.mnt.html?'+;
+                                                 'CD_PARCEIRO='+laRESULT[ii, db_fetchncol(laRESULT,'CD_PARCEIRO')]+;
+                                                 '&ACTION=ALTER'))
+         next ii
+         wPut('lstTRCT',grid_create(laRESULT))
+      else
+         wPut('lstTRCT','<center>Nenhum registro foi encontrado</center>')
+      endif
+   endif
+return
+
+Static function paginacao(fnCOUNT,fcMSGTYPE,fcQUICK_SEARCH)
+        local ii          := 0 ,;
+        lnGOTO_PAGE := WGet('GOTO_PAGE','N') ,;
+        lnNR_PAGES  := 0 ,;
+        lnROWS_PAGE := 0 ,;
+        lnMAX_PAGES := 0 ,;
+        lnPAGE_INI  := 0 ,;
+        lnPAGE_FIN  := 0 ,;
+        lnLIMIT1    := 0 ,;
+        lnLIMIT2    := 0 as int
+
+   local lcCODE     := '' as string
+
+   local laPAGES    := {} ,;
+         laLIMIT    := {} ,;
+         laRETURN   := {} as array
+
+   if lnCOUNT > 0
+      if lnGOTO_PAGE <= 0
+         lnGOTO_PAGE := 1
+      endif
+      lnMAX_PAGES := iif(val(WSet('MAX_PAGES'))==0,10,val(WSet('MAX_PAGES')))
+      lnROWS_PAGE := iif(val(WSet('ROWS_PAGE'))==0,10,val(WSet('ROWS_PAGE')))
+
+      if lnROWS_PAGE > fnCOUNT
+         lnROWS_PAGE := fnCOUNT
+      endif
+      lnNR_PAGES := fnCOUNT/lnROWS_PAGE
+
+      if (fnCOUNT % lnROWS_PAGE) > 0
+         lnNR_PAGES += 1
+      endif
+
+      lnMAX_PAGES := iif(lnNR_PAGES < lnMAX_PAGES,lnNR_PAGES,lnMAX_PAGES)
+      if lnGOTO_PAGE == 1
+         lnPAGE_INI := 1                              // Página inicial
+         lnPAGE_FIN := lnMAX_PAGES                    // Página final
+      else
+         if alltrim(WGet('MORE')) == 'Y'              // Visualizar as próximas 10 páginas, se possível
+            lnPAGE_INI := lnGOTO_PAGE
+            lnPAGE_FIN := lnMAX_PAGES+(lnGOTO_PAGE-1)
+            if lnPAGE_FIN > lnNR_PAGES
+               lnPAGE_FIN := lnNR_PAGES
+            endif
+         elseif alltrim(WGet('LESS')) == 'Y'          // Visualizar as 10 páginas anteriores, se possível
+            lnPAGE_INI := lnGOTO_PAGE-lnMAX_PAGES+1
+            lnPAGE_FIN := lnGOTO_PAGE
+         else
+            lnPAGE_INI := WGet('FIRST_PAGE','N')
+            lnPAGE_FIN := WGet('LAST_PAGE','N')
+         endif
+      endif
+
+      aadd(laPAGES,{'PROGRAM_CALL','NR_PAGE'})
+      for ii := lnPAGE_INI to lnPAGE_FIN
+          lcCODE := wic_action('wicaction/mnt.pst.objeto.html?GOTO_PAGE='+alltrim(str(ii)))
+          lcCODE += '&FIRST_PAGE='+alltrim(str(lnPAGE_INI))+'&LAST_PAGE='+alltrim(str(lnPAGE_FIN))
+          if ii == lnPAGE_INI
+             lcCODE += '&LESS=Y'
+          endif
+          if ii == lnPAGE_FIN .and. lnPAGE_FIN < lnNR_PAGES
+             lcCODE += '&MORE=Y'
+          endif
+
+          // Manter a pesquisa do usuário caso ela exista e demais parametros
+          if !empty(fcQUICK_SEARCH)
+             lcCODE += '&QUICK_SEARCH='+fcQUICK_SEARCH
+          endif
+
+          if !empty(fcMSGTYPE)
+             lcCODE += '&MSGTYPE='+fcMSGTYPE
+          endif
+
+          aadd(laPAGES,{lcCODE,alltrim(str(ii))})
+      next ii
+      WPut('ifRESULT',.T.)
+      WPut('PAGES',laPAGES)
+
+      lnLIMIT1 := iif(lnGOTO_PAGE == 1,0,((lnGOTO_PAGE*lnROWS_PAGE)-1)-(lnROWS_PAGE-1))
+      lnLIMIT2 := lnROWS_PAGE
+      laLIMIT  := {lnLIMIT1,lnLIMIT2}
+
+      aadd(laRETURN,{'NR_PAGES',lnNR_PAGES})
+      aadd(laRETURN,{'ROWS_PAGE',lnROWS_PAGE})
+      aadd(laRETURN,{'GOTO_PAGE',lnGOTO_PAGE})
+      aadd(laRETURN,{'LIMIT',laLIMIT})
+   else
+      aadd(laRETURN,{'NR_PAGES' ,0})
+      aadd(laRETURN,{'ROWS_PAGE',0})
+      aadd(laRETURN,{'GOTO_PAGE',0})
+      aadd(laRETURN,{'LIMIT',{}})
+   endif
+return(laRETURN)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

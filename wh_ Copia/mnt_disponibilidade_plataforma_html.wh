@@ -1,0 +1,142 @@
+/*
+
+Project      : gr5
+Program      : mnt.disponibilidade.plataforma.html.wh
+Function     : mnt_disponibilidade_plataforma_html
+Created on   : 12/11/2014 09:24:12
+Descripition : Configuração do Juridico
+
+*/
+
+                          
+    local laFIELDS := structtable(WSet("DB_ACTIVE"),'disponibilidade_plataforma',1,'N')                    
+
+    local lcAction        := Upper(WGet('ACTION')) as String
+    
+    local lcWhere         :='';
+
+    local laRes        := {},;
+          laAUX        := {},; 
+          laRESULT     := {},; 
+          laLINHA_ATUAL:= {},;                     
+          laSAVE       := {} AS Array
+
+    local ii           := 0 AS Int
+
+   local liobj1a := 0 AS Int
+   local liobj1b := 0 AS Int
+   local lcobj1c :='' AS string
+   local liobj2a := 0 AS Int 
+   local liobj2b := 0 AS Int         
+   local ldobj3 as date
+   local ldobj4 as date
+   local lcobj5 :='' as string
+   local lcobj6 :='' as string
+   
+   local lcAUX := '' as string
+
+    WPut('TITLE','Jurídico Plataforma Parametrizações')
+    
+    WPut('ultima_ACTION',Upper(WGet('ACTION')))                             
+
+
+    if lcAction == 'SAVE'
+           
+         aadd(laSAVE,laFIELDS)
+              
+         if WGet('GRAVAR','C')<>''
+            laRESULT := str2array(WGet('GRAVAR','C'),'|')
+            lcAUX    := laRESULT[1]
+            laAUX    := str2array(lcAUX,',')
+         endif 
+        
+        
+         liobj1a :=val(laAUX[1]) 
+         lcobj1c := laAUX[6]  
+         liobj1b :=val(laAUX[2])                   
+         liobj2a :=val(laAUX[3])
+         ldobj3  :=ctod(laAUX[4])
+         ldobj4  :=ctod(laAUX[5])
+
+  
+  *id_plataforma integer NOT NULL,       1
+  *TP_PASTA                              2
+  *id_margem integer NOT NULL,           2
+  *
+  *disp_interna integer NOT NULL,        3
+  *disp_interna_anterior integer,        4
+  *fl_alterado character(1),             5
+  *login_cadastro character varying(20), 6
+  *dt_cadastro date,                     7
+  *dt_limpeza_de date,                   8
+  *dt_limpeza_ate date,                  9
+  *status character(1),                  10
+  *CONSTRAINT pk_disponibilidade_plataforma PRIMARY KEY (id_plataforma , id_margem )
+  
+  
+  
+  
+ 
+         laAUX:={}                
+         aadd(laAUX,liobj1a)
+         aadd(laAUX,lcobj1c)
+         aadd(laAUX,liobj1b)
+         
+         
+         // Glauber 04/12/2014
+         //
+         // O trecho de codigo abaixo é estranho, mas contempla a seguinte regra de negócio:
+         // Caso seja alterado a disponibilidade interna, deve ser armazenado qual era a disponibilidade anterior,
+         // porque a interface batch necessita desta informação.
+         // Porem se no dia ocorrer mais de uma alteração, o que interessa é sempre o valor da primeria alteração.  
+         
+         lcWhere = "TP_PASTA = " + DLAP + lcobj1c + DLAP + " and ID_PLATAFORMA = " + str(liobj1a) + " and ID_MARGEM = " + str(liobj1b)
+
+         if db_select(laFIELDS,'disponibilidade_plataforma',,{lcWhere}) == -1
+            error_sys(db_error())
+         endif
+         laRES := db_fetchall()              
+         
+         if len(laRES) > 1
+         
+            lcobj5 :=laRES[2,11]
+         
+            // Verificar se ocorreu alteração na disponibilidade interna
+            if laRES[2,4] != liobj2a .and. laRES[2,6] != 'S'                
+               lcobj6  := 'S' 
+               liobj2b :=laRES[2,4]
+            else
+               *** mantem como esta   
+               lcobj6  := laRES[2,6]
+               liobj2b := laRES[2,5]                   
+            endif
+         endif              
+                     
+
+         
+         aadd(laAUX,liobj2a)           
+         aadd(laAUX,liobj2b)
+         aadd(laAUX,lcobj6)
+         aadd(laAUX,gcLOGIN)
+         aadd(laAUX,date())
+         aadd(laAUX,ldobj3)
+         aadd(laAUX,ldobj4)
+         aadd(laAUX,lcobj5)
+         
+         
+         aadd(laSAVE,laAUX)      
+         
+         lcWhere = "TP_PASTA = " + DLAP + lcobj1c + DLAP + " and ID_PLATAFORMA = " + str(liobj1a) + " and ID_MARGEM = " + str(liobj1b)
+                         
+         if db_replace(laSAVE,'disponibilidade_plataforma',{lcWhere}) == -1
+            error_sys(db_error())
+         endif         
+   
+        
+    endif
+
+        
+return
+
+
+

@@ -1,0 +1,54 @@
+/*
+
+Project      : gr5
+Program      : sch.keyvendor.html
+Function     : sch_keyvendor_html
+Created on   : 03/06/2016 12:24:29
+Descripition : Pesquisa de Resultado Key Vendor
+
+*/
+
+   local lcNM_FIELD       := '' ,;
+         lcWFIELDS        := '' ,;
+         lcWHERE          := '' ,;
+         lcTABELA         := '' ,;
+         lcFILTER_CONTENT := '' as string
+   local laRES := {} ,;
+         laPUT := {} as array
+   local xx := 0 as int
+
+   lcNM_FIELD       := wGet('NM_FIELD','C')
+   lcWFIELDS        := alltrim(wGet('WFIELDS','C'))
+   lcFILTER_CONTENT := wGet('FILTER_CONTENT')
+
+   lcWHERE := 'RESKEYVENDOR like '+DLAP+'%'+lcFILTER_CONTENT+'%'+DLAP
+   if !empty(lcWFIELDS)
+      laRES := comma2array(lcWFIELDS)
+      if len(laRES) > 0
+         aadd(laPUT,{'RESKEYVENDOR'})
+         for xx:= 1 to len(laRES)
+            if ! empty(alltrim(laRES[xx]))
+               aadd(laPUT,{'<option value='+DLMT+laRES[xx]+DLMT+'>'+laRES[xx]+'</option>'})
+               //lcWHERE += iif(xx > 1, ' and ', '')+' RESKEYVENDOR <>'+DLMT+laRES[xx]+DLMT
+               lcWHERE += ' and RESKEYVENDOR <>'+DLAP+laRES[xx]+DLAP
+            endif
+         next xx
+         wPut('lstSELECTED_FIELDS',laPUT)
+      endif
+   endif
+
+   if db_select({'RESKEYVENDOR'},'reskeyvendor',,{lcWHERE}) = -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 0
+      laPUT := {}
+      aadd(laPUT,{laRES[1,1]})
+      for xx:= 2 to len(laRES)
+         aadd(laPUT,{'<option value="'+laRES[xx,1]+'">'+laRES[xx,1]+'</option>'})
+      next xx
+      wPut('lstALL_FIELDS',laPUT)
+   endif
+   wPut('NM_FIELD',lcNM_FIELD)
+   wPut('FILTER_CONTENT',lcFILTER_CONTENT)
+return

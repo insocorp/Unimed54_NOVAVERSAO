@@ -1,0 +1,345 @@
+/*
+
+Project      : isj_395
+Program      : mnt.risco.html
+Function     : mnt_risco_html
+Created on   : 09/11/2010 - Glauber
+Descripition : 
+
+*/
+
+   local laRESULT          := {} ,;
+         laSAVE            := {} ,;
+         laSAVEAUX         := {} ,;
+         laVALIDA          := {} ,;
+         laCOUNT           := {} ,;
+         laLIMIT           := {} ,;
+         laRES             := {} ,;
+         laPUT             := {} ,;
+         laFIELDS          := {} as array
+
+   local lcACTION          := '' ,;
+         lcPESQ            := '' ,;
+         lcWHERE           := '' as string
+   local lni               := 0,;
+         lnGOTO_PAGE       := 0,;
+         lnMAX_PAGES       := 0,;
+         lnROWS_PAGE       := 0,;
+         lnNR_PAGES        := 0,;
+         lnPAGE_INI        := 0,;
+         lnPAGE_FIN        := 0,;
+         ii                := 0,;
+         lnPOS             := 0  as int
+   local llErro            := .f.
+
+   lcACTION := upper(Wget('ACTION'))
+   
+   laFIELDS := {'TP_PASTA','ESTI_PERDA','ESTI_EXITO','NENH_PERC','PERC_LIVRE','PERC_ACEITO','PERCENTUAL_CALCULAR','FL_RISCO_RATEIO','INDICADORES'}
+   laSAVE   := {{'TP_PASTA','ESTI_PERDA','ESTI_EXITO','NENH_PERC','PERC_LIVRE','PERC_ACEITO','PERCENTUAL_CALCULAR','FL_RISCO_RATEIO','INDICADORES'}}
+   laVALIDA := {'TP_PASTA','ESTI_PERDA'}
+
+   // Carregando o combo de Tipo de Pasta
+   if db_select({'TP_PASTA'},'pasta_config',,{'TP_PASTA<>'+DLAP+'Padrao'+DLAP},{'TP_PASTA'}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 1
+       laPUT := {''}
+      for ii := 2 to len(laRES)
+         aadd(laPUT,laRES[ii,1])
+      next ii
+      WPut('TP_PASTA_OPT',laPUT)
+   endif
+   // Montagem dos combos NENH_PERC e PERC_LIVRE
+   WPut('NENH_PERC_OPT',{'S','N'})
+//   WPut('NENH_PERC.VALUE',{'S','N'})
+   WPut('PERC_LIVRE_OPT',{'S','N'})
+ //  WPut('PERC_LIVRE.VALUE',{'S','N'})
+
+  WPut('FL_RISCO_RATEIO_OPT',{'S','N'})
+  WPut('FL_RISCO_RATEIO.VALUE',{'S','N'})
+  WPut('FL_INDICADORES.VALUE',{'S','N'})
+
+   if lcACTION == 'SEARCH'
+      if ! empty(WGet('TP_PASTA','C'))
+         lcWhere += 'TP_PASTA = '+ DLAP + WGet('TP_PASTA','C') + DLAP
+      endif
+      if ! empty(WGet('ESTI_PERDA','C'))
+         if ! empty(lcWhere)
+            lcWhere += ' and '
+         endif
+         lcWhere += 'ESTI_PERDA = '+ DLAP + WGet('ESTI_PERDA','C') + DLAP
+      endif      
+      if ! empty(WGet('ESTI_EXITO','C'))
+         if ! empty(lcWhere)
+            lcWhere += ' and '
+         endif
+         lcWhere += 'ESTI_EXITO = '+ DLAP + WGet('ESTI_EXITO','C') + DLAP
+      endif      
+
+   elseif lcACTION == 'ALTER'
+          if ! empty(WGet('TP_PASTA','C')) .and. ! empty(WGet('ESTI_PERDA','C'))
+             if db_select(laFIELDS,'risco',,{'TP_PASTA = '+ DLAP + WGet('TP_PASTA','C') + DLAP + ' and ESTI_PERDA = ' + DLAP + WGet('ESTI_PERDA','C')+ DLAP}) == -1
+                error_sys(db_error())
+             endif
+             laRESULT := db_fetchall()
+             if len(laRESULT) > 1
+                db2put(laRESULT)
+             endif
+          endif
+   elseif lcACTION == 'SAVE'
+          for lni := 1 to len(laVALIDA)
+              if empty(WGet(laVALIDA[lni]))
+                 WAlert('O campo '+ lblfscreen(laVALIDA[lni]) + ' é de preenchimento obrigatório.')
+                 Get2Put()
+                 llErro := .t.
+              endif
+          next lni
+          // Segunda validação o campo percentuais aceito não pode conter strings
+          // Glauber 03/12/2010 - retirado a validação a pedido da célia, pois conforme foi explicado pode existir uma estimativa 100% no pedido
+          //                      então as outras estimativas irão ficar com o percentual de risco igual a zero.
+  /*
+          if ! empty(Wget('PERC_ACEITO','C'))
+             laRES := Str2Array(Wget('PERC_ACEITO','C'),',')
+             for lni := 1 to len(laRES)
+                 if Val(laRES[lni]) == 0
+                    WAlert('O campo '+ lblfscreen('PERC_ACEITO') + ' não pode ser igual a zero ou conter uma string no seu conteúdo.')
+                    Get2Put()
+                    llErro := .t.
+                 endif
+             next lni
+          endif
+*/
+          // Glauber 07/12/2010 
+          // Validar se o campo percentuais aceito esta no formato 99/99, que significa o primeiro percentual aceito na digitação da aba pedidos
+          // e o segundo é percentual que realmente sera feito o cálculo do risco calculado.
+          if ! empty(Wget('PERC_ACEITO','C'))
+             laRES  := {}
+             lcPESQ := Wget('PERC_ACEITO','C')
+             lnii   := at(',',lcPESQ)
+             lnPos  := 0
+             while lnii > 0 .and. lnii <= 100
+                   aadd(laRES,substr(lcPESQ, 1,lnii-1))
+                   lnPos  := lnii
+                   lcPESQ := substr(lcPESQ,lnii+1,len(lcPESQ))
+                   lnii   := at(',',lcPESQ)
+             enddo
+             aadd(laRES,lcPESQ)
+             for lnii := 1 to len(laRES)
+                 if at('/',laRES[lnii]) == 0
+                    WAlert('O campo '+ lblfscreen('PERC_ACEITO') + ' esta informado incorretamente. Formato aceito 99/99,99/99...')
+                    Get2Put()
+                    llErro := .t.
+                    exit
+                 endif
+             next lnii
+          endif
+          if ! llErro
+             for lni := 1 to len(laSAVE[1])
+                 aadd(laSAVEAUX,WGet(laSAVE[1,lni]))
+             next lni
+             aadd(laSAVE,laSAVEAUX)
+             if db_replace(laSAVE,'risco',{'TP_PASTA = '+ DLAP + WGet('TP_PASTA','C') + DLAP + ' and ESTI_PERDA = ' + DLAP + WGet('ESTI_PERDA','C')+ DLAP}) == -1
+                error_sys(db_error())
+             endif
+             // Glauber 12/11/2010
+             // Incluir a estimativa de perda na tabela pasta_objeto, para que quando for gerado a estimativa automatica os registros sejam visualizados na grid.
+             if db_replace({{'TP_PASTA','OBJETO','FL_VISIVEL'},{WGet('TP_PASTA','C'),WGet('ESTI_PERDA','C'),''}},'pasta_objeto',{'TP_PASTA = '+ DLAP + WGet('TP_PASTA','C') + DLAP + ' and OBJETO = ' + DLAP + WGet('ESTI_PERDA','C')+ DLAP}) == -1
+                error_sys(db_error())
+             endif
+          endif
+   elseif lcACTION == 'DELETE'
+          if ! empty(WGet('TP_PASTA','C')) .and. ! empty(WGet('ESTI_PERDA','C'))
+             // Glauber 12/11/2010
+             // Caso exista algum pedido com a estimativa na tabela pasta_pedidos, não permitir a exclusão
+             if db_select({'NR_PASTA'},'pasta_pedidos',,{'PEDIDO_PROCESSO='+DLAP+WGet('ESTI_PERDA','C')+DLAP}) = -1
+                error_sys(db_error())
+             endif
+             laRES := db_fetchall()
+             if len(laRES) > 1
+                WAlert('O risco não pode ser excluido, existem pedidos lançado com este risco.')
+                llErro := .t.
+             endif
+             if ! llErro
+                if db_delete('risco','TP_PASTA = '+ DLAP + WGet('TP_PASTA','C') + DLAP + ' and ESTI_PERDA = ' + DLAP + WGet('ESTI_PERDA','C')+ DLAP) == -1
+                   error_sys(db_error())
+                endif
+             endif
+          endif
+   endif
+
+   // Montagem da grid com os dados
+
+/*
+   lnGOTO_PAGE    := WGet('GOTO_PAGE','N')
+   if lnGOTO_PAGE = 0
+      lnGOTO_PAGE := 1
+   endif
+
+   //Contagem de registros e paginação
+   if len(lcWHERE) == 0
+      if db_select({'count(*)'},'risco') == -1
+         error_sys(db_error())
+      endif
+   else
+      if db_select({'count(*)'},'risco',,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+   endif
+
+
+
+      laCOUNT := db_fetchrow()
+      if laCOUNT[1] > 0 //.and. valtype(laLIMIT) == 'U'
+
+         lnMAX_PAGES := iif(val(WSet('MAX_PAGES'))==0,10,val(WSet('MAX_PAGES')))
+         lnROWS_PAGE := iif(val(WSet('ROWS_PAGE'))==0,10,val(WSet('ROWS_PAGE')))
+         if lnROWS_PAGE > laCOUNT[1]
+            lnROWS_PAGE := laCOUNT[1]
+         endif
+         lnNR_PAGES := laCOUNT[1]/lnROWS_PAGE
+
+         if (laCOUNT[1] % lnROWS_PAGE) > 0
+            lnNR_PAGES += 1
+         endif
+
+         lnMAX_PAGES := iif(lnNR_PAGES < lnMAX_PAGES,lnNR_PAGES,lnMAX_PAGES)
+         if lnGOTO_PAGE == 1
+            lnPAGE_INI := 1                              // Página inicial
+            lnPAGE_FIN := lnMAX_PAGES                    // Página final
+         else
+            if alltrim(WGet('MORE')) == 'Y'              // Visualizar as próximas 10 páginas, se possível
+               lnPAGE_INI := lnGOTO_PAGE
+               lnPAGE_FIN := lnMAX_PAGES+(lnGOTO_PAGE-1)
+               if lnPAGE_FIN > lnNR_PAGES
+                  lnPAGE_FIN := lnNR_PAGES
+               endif
+            elseif alltrim(WGet('LESS')) == 'Y'          // Visualizar as 10 páginas anteriores, se possível
+               lnPAGE_INI := lnGOTO_PAGE-lnMAX_PAGES+1
+               lnPAGE_FIN := lnGOTO_PAGE
+            else
+               lnPAGE_INI := WGet('FIRST_PAGE','N')
+               lnPAGE_FIN := WGet('LAST_PAGE','N')
+            endif
+         endif
+
+         aadd(laPAGES,{'PROGRAM_CALL','NR_PAGE'})
+         for ii := lnPAGE_INI to lnPAGE_FIN
+             lcPUT := wic_action('wicaction/mnt.risco.html?ACTION=EXECSEL&GOTO_PAGE='+alltrim(str(ii)))
+             lcPUT += '&FIRST_PAGE='+alltrim(str(lnPAGE_INI))+'&LAST_PAGE='+alltrim(str(lnPAGE_FIN))
+             if ii == lnPAGE_INI
+                lcPUT += '&LESS=Y'
+             endif
+             if ii == lnPAGE_FIN .and. lnPAGE_FIN < lnNR_PAGES
+                lcPUT += '&MORE=Y'
+             endif
+             aadd(laPAGES,{lcPUT,alltrim(str(ii))})
+         next ii
+         WPut('ifRESULT',.T.)
+         WPut('PAGES',laPAGES)
+
+         lnLIMIT1 := iif(lnGOTO_PAGE == 1,0,((lnGOTO_PAGE*lnROWS_PAGE)-1)-(lnROWS_PAGE-1))
+         lnLIMIT2 := lnROWS_PAGE
+         laLIMIT  := {lnLIMIT1,lnLIMIT2}
+      elseif laCOUNT[1] == 0// .and. valtype(laLIMIT) == 'U'
+         WPut('ifEMPTY_RESULTSET',.T.)
+      endif
+//      if db_select(laFIELDS,'risco',,lcWHERE,{'TP_PASTA','ESTI_PERDA'},,,laLIMIT) = -1
+//         error_sys(db_error())
+//      endif
+      if db_select(laFIELDS,'risco',,lcWHERE,{'TP_PASTA','ESTI_PERDA'}) = -1
+         error_sys(db_error())
+      endif
+
+      laRES := db_fetchall()
+
+      if len(laRES) > 1
+         // Exibe resumo da quantidade de registros.
+
+         lcPUT := alltrim(str(lnLIMIT1+1))+'-'
+         if ((len(laRES)-1) < (lnLIMIT2-lnLIMIT1))
+            lcPUT += alltrim(str(len(laRES)-1))
+         elseif lnGOTO_PAGE == lnNR_PAGES
+            lcPUT += alltrim(str(laCOUNT[1]))
+         else
+            lcPUT += alltrim(str(lnLIMIT1+lnROWS_PAGE))
+         endif
+         lcPUT += ' de '+alltrim(str(laCOUNT[1]))
+         if laCOUNT[1] > 1
+            lcPUT := ' Resultados '+lcPUT+' registros'
+         else
+            lcPUT := ' Resultado '+lcPUT+' registro'
+         endif
+         WPut('RESUME_RESULTSET',lcPUT)
+
+         aadd(laRES[1],'(row)')
+         for ii := 2 to len(laRES)
+            aadd(laRES[ii],'(row)'+wic_action('wicaction/mnt.risco.html?'+;
+                                             'TP_PASTA='+laRESULT[lni, db_fetchncol(laRESULT,'TP_PASTA')]+;
+                                             '&ESTI_PERDA='+laRESULT[lni, db_fetchncol(laRESULT,'ESTI_PERDA')]+;
+                                             '&ACTION=ALTER'))
+
+         next ii
+         WPut('GRID_RISCO',grid_create(laRES)) // Gera a Grid Dinâmica.
+      endif 
+*/
+      if ! empty(lcWHERE)
+         if db_select(laFIELDS,'risco',,{lcWHERE},{'TP_PASTA','ESTI_PERDA'}) = -1
+            error_sys(db_error())
+         endif
+      else
+         if db_select(laFIELDS,'risco',,,{'TP_PASTA','ESTI_PERDA'}) = -1
+            error_sys(db_error())
+         endif
+      endif
+      laRES := db_fetchall()
+         aadd(laRES[1],'(row)')
+         for ii := 2 to len(laRES)
+            aadd(laRES[ii],'(row)'+wic_action('wicaction/mnt.risco.html?'+;
+                                             'TP_PASTA='+laRES[ii, db_fetchncol(laRES,'TP_PASTA')]+;
+                                             '&ESTI_PERDA='+laRES[ii, db_fetchncol(laRES,'ESTI_PERDA')]+;
+                                             '&ACTION=ALTER'))
+
+         next ii
+         WPut('GRID_RISCO',grid_create(laRES)) // Gera a Grid Dinâmica.
+
+
+return
+
+
+/*
+
+* TP_PASTA 
+* ESTI_PERDA             Varchar(30)           {Label: Estimativa de perda}  {hlp: Descrição da estimativa de perda}
+  ESTI_EXITO             Varchar(30)           {Label: Estimativa de exito}  {hlp: Descrição da estimativa de exito}
+  NENH_PERC              char(1)               {Label: Nenhum percentual}    {hlp: Nenhum percentual (S/N)}
+  PERC_LIVRE             char(1)               {Label: Percentual livre}     {hlp: Percentual livre (S/N)}
+  PERC_ACEITO            varchar(200)          {Label: Percentuais aceitos}  {hlp: Percentuais aceitos, digitar os valores separado por vírgula}
+  NR_CONTROLE            integer               Valor gerado pela sequencia risco_seq
+
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,274 @@
+/*
+
+Project      : isj_45
+Program      : EbaoPessoa.class
+Function     : EbaoPessoa_class
+Created on   : 15-Apr-2016   18:04:39
+Descripition :
+
+*/
+
+//
+// Glauber - 10/2016
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+*
+* Glauber - 10/2016
+*
+* Classe...........: EbaoPessoa
+*
+* Objetivo.........: Classe que contém o cabeçalho para requisições.
+*
+* Atributos........:
+*
+*    INSTANCE CodPessoa
+*    INSTANCE TipoPessoa
+*    INSTANCE NmFavorecido
+*    INSTANCE SobrenmFavorecido
+*    INSTANCE CnpjCpfFavorecido
+*    INSTANCE DtUltAlteracao
+*    INSTANCE DtNascimento
+*    INSTANCE Cep
+*    INSTANCE TipoLogradouro
+*    INSTANCE Endereco
+*    INSTANCE Numero
+*    INSTANCE Complemento
+*    INSTANCE Bairro
+*    INSTANCE CodCidade
+*    INSTANCE Cidade
+*    INSTANCE Uf
+*    INSTANCE Pais
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD getPessoa(cip)
+*
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS EbaoPessoa
+
+    // Atributos privado
+    
+    INSTANCE CodPessoa
+    INSTANCE TipoPessoa
+    INSTANCE NmFavorecido
+    INSTANCE SobrenmFavorecido
+    INSTANCE CnpjCpfFavorecido
+    INSTANCE DtUltAlteracao
+    INSTANCE DtNascimento
+    INSTANCE Cep
+    INSTANCE TipoLogradouro
+    INSTANCE Endereco
+    INSTANCE Numero
+    INSTANCE Complemento
+    INSTANCE Bairro
+    INSTANCE CodCidade
+    INSTANCE Cidade
+    INSTANCE Uf
+    INSTANCE Pais
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()           CLASS EbaoPessoa
+    PROTOTYPE METHOD Destroy()        CLASS EbaoPessoa
+    PROTOTYPE METHOD getPessoa(cip)   CLASS EbaoPessoa
+
+
+    ACCESS CodPessoa                  CLASS EbaoPessoa RETURN CodPessoa
+    ACCESS TipoPessoa                 CLASS EbaoPessoa RETURN TipoPessoa
+    ACCESS NmFavorecido               CLASS EbaoPessoa RETURN NmFavorecido
+    ACCESS SobrenmFavorecido          CLASS EbaoPessoa RETURN SobrenmFavorecido
+    ACCESS CnpjCpfFavorecido          CLASS EbaoPessoa RETURN CnpjCpfFavorecido
+    ACCESS DtUltAlteracao             CLASS EbaoPessoa RETURN DtUltAlteracao
+    ACCESS DtNascimento               CLASS EbaoPessoa RETURN DtNascimento
+    ACCESS Cep                        CLASS EbaoPessoa RETURN Cep
+    ACCESS TipoLogradouro             CLASS EbaoPessoa RETURN TipoLogradouro
+    ACCESS Endereco                   CLASS EbaoPessoa RETURN Endereco
+    ACCESS Numero                     CLASS EbaoPessoa RETURN Numero
+    ACCESS Complemento                CLASS EbaoPessoa RETURN Complemento
+    ACCESS Bairro                     CLASS EbaoPessoa RETURN Bairro
+    ACCESS CodCidade                  CLASS EbaoPessoa RETURN CodCidade
+    ACCESS Cidade                     CLASS EbaoPessoa RETURN Cidade
+    ACCESS Uf                         CLASS EbaoPessoa RETURN Uf
+    ACCESS Pais                       CLASS EbaoPessoa RETURN Pais
+
+
+/*
+*
+* Glauber - 10/2016
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS EbaoPessoa
+
+
+    self:CodPessoa            := ''
+    self:TipoPessoa           := 1 // 1 = fisica, 2 juridica
+    self:NmFavorecido         := ''
+    self:SobrenmFavorecido    := ''
+    self:CnpjCpfFavorecido    := ''
+    self:DtUltAlteracao       := Ctod('')
+    self:DtNascimento         := Ctod('')
+    self:Cep                  := ''
+    self:TipoLogradouro       := ''
+    self:Endereco             := ''
+    self:Numero               := ''
+    self:Complemento          := ''
+    self:Bairro               := ''
+    self:CodCidade            := ''
+    self:Cidade               := ''
+    self:Uf                   := ''
+    self:Pais                 := ''
+
+
+return(self)
+
+
+/*
+*
+* Glauber - 10/2016
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS EbaoPessoa
+
+    self:CodPessoa            := nil
+    self:TipoPessoa           := nil
+    self:NmFavorecido         := nil
+    self:SobrenmFavorecido    := nil
+    self:CnpjCpfFavorecido    := nil
+    self:DtUltAlteracao       := nil
+    self:DtNascimento         := nil
+    self:Cep                  := nil
+    self:TipoLogradouro       := nil
+    self:Endereco             := nil
+    self:Numero               := nil
+    self:Complemento          := nil
+    self:Bairro               := nil
+    self:CodCidade            := nil
+    self:Cidade               := nil
+    self:Uf                   := nil
+    self:Pais                 := nil
+
+return(nil)
+
+
+/*
+*
+* Glauber - 10/2016
+*
+* Metodo....: getPessoa(cip)
+* Objetivo..: Retornar um objeto pessoa representando uma pessoa na tabela pfpj do Isj.
+*
+* Parâmetros:
+*
+*  CIP......: CIP da passoa a ser pesquisado no pfpj
+*
+* Retorno...:
+*             self
+*
+*/
+
+METHOD getPessoa(cip) CLASS EbaoPessoa
+
+    local laRES    := {},;
+          laFIELDS := {"TIPO_PESSOA = case PFPJ_NATUREZA when 'Juridica' then 2 else 1 end",;
+                       "PFPJ",;
+                       "'' AS SOBRENOME",;
+                       "CNPJ_CPF",;
+                       "DT_CADASTRO",;
+                       "DT_NASCIMENTO",;
+                       "CEP",;
+                       "'' AS TIPOLOGRADOURO",;
+                       "ENDERECO",;
+                       "NR_ENDERECO",;
+                       "EXTRA_ENDERECO",;
+                       "BAIRRO",;
+                       "'' AS CODCIDADE",;
+                       "CIDADE",;
+                       "UF",;
+                       "PAIS"} as ARRAY
+
+    if (Empty(cip))
+        return(self)
+    endif
+
+    if db_select(laFIELDS,'pfpj',,{'CIP='+DLAP + cip + DLAP}) == -1
+       error_sys(db_error())
+    endif
+    
+    laRES := db_fetchall()
+    
+    if len(laRES) > 1
+       self:CodPessoa            := laRES[2,1]
+       self:TipoPessoa           := laRES[2,2]
+       self:NmFavorecido         := laRES[2,3]
+       self:SobrenmFavorecido    := laRES[2,4]
+       self:CnpjCpfFavorecido    := laRES[2,5]
+       self:DtUltAlteracao       := laRES[2,6]
+       self:DtNascimento         := laRES[2,7]
+       self:Cep                  := laRES[2,8]
+       self:TipoLogradouro       := laRES[2,9]
+       self:Endereco             := laRES[2,10]
+       self:Numero               := laRES[2,11]
+       self:Complemento          := laRES[2,12]
+       self:Bairro               := laRES[2,13]
+       self:CodCidade            := laRES[2,14]
+       self:Cidade               := laRES[2,15]
+       self:Uf                   := laRES[2,16]
+       self:Pais                 := laRES[2,17]
+    endif
+
+
+
+
+return(self)
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+

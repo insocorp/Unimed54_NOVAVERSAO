@@ -1,0 +1,429 @@
+/*
+
+Project      : gr5
+Program      : psab.reclamante.html
+Function     : psab_reclamante_html
+Created on   : 29/09/2014 11:20:44
+Descripition : Aba de Reclamantes
+
+*/
+
+   local lcACTION     := '' ,;
+         lcTP_PASTA   := '' ,;
+         lcWHERE      := '' ,;
+         lcTABLE      := '' ,;
+         lcProgram    := 'psab_reclamante_html' ,;
+         lcRelac      := '' ,;
+         lcNR_PASTA   := '' ,;
+         lcNR_CONTROLE := '' as string
+
+   local laRESULT   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laSAVEFILHO:= {} ,;
+         laFIELDS   := {} ,;
+         laLABELS   := {} ,;
+         laSAVE1     := {} ,;
+         laSAVEAUX1 := {} ,;
+         laFIELDS1   := {} ,;
+         laLABELS1   := {} ,;
+         laFOREIGN  := {} ,;
+         laVALIDA   := {} as array
+
+   local ii         := 0 as int
+   local lnAuto     := 0 as int
+   local llReturn   := .f. as logical
+
+   lcACTION     := upper(alltrim(WGet('ACTION','C')))
+   lcNR_PASTA   := WGet('NR_PASTA','C')
+   lcUSUARIO := wSet('LOGIN')
+   Wput('LOGIN',lcUSUARIO)
+   Wput('LOGIN_CADASTRO',lcUSUARIO)
+   Wput('DT_CADASTRO',DATE())
+   lcNR_CONTROLE   := WGet('NR_CONTROLE','C')
+
+
+   lcTP_PASTA    := WGet('TP_PASTA','C')
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   lcTABLE      := 'pasta_reclamante'
+   lcWHERE      := 'pasta_reclamante.NR_PASTA='+lcNR_PASTA
+   laFIELDS     := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS     := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   
+   lcTABLE1      := 'pasta_recl_det'
+   lcWHERE1      := 'pasta_recl_det.NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE = '+lcNR_CONTROLE
+   laFIELDS1     := structtable(WSet("DB_ACTIVE"),lcTABLE1,1,'N')
+   laLABELS1     := structtable(WSet("DB_ACTIVE"),lcTABLE1,11,'N')
+   
+   *** Sonia mandou tirar obrigatoriedade 11/08/2017 11:55
+   ***laVALIDA := {'CARGO','TP_CONTRATO','AREA','TURMA','STATUS_RECLAMANTE','DT_ADMISSAO','DT_DEMISSAO','ULTIMO_SALARIO'}
+   
+   
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+//   AbasPerfil(lcTP_PASTA,laFIELDS)
+   AbasPerfil(lcTP_PASTA,laFIELDS1)
+//debug2(lafields1)
+   if empty(lcNR_PASTA)                                          
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   make_psthead(lcNR_PASTA,lcTP_PASTA) //Cabeçalho
+
+   WPut('AFASTADO.option',{'','Não','Sim'})
+   WPut('AFASTADO.optionvalue',{'','N', 'S'})
+
+   WPut('STATUS_RECLAMANTE.option',{'','Ativo','Inativo'})
+   WPut('STATUS_RECLAMANTE.optionvalue',{'','A', 'I'})
+
+   WPut('ADVERTENCIA.option',{'','Sim','Não'})
+   WPut('ADVERTENCIA.optionvalue',{'','S','N'})
+
+   WPut('SEXO_OPT',{'','Masculino','Feminino'})
+
+   carrega_cbox({{'cod_auxiliar1','COD_AUXILIAR1','Y'}})
+   carrega_cbox({{'cod_auxiliar2','COD_AUXILIAR2','Y'}})
+   carrega_cbox({{'cod_auxiliar3','COD_AUXILIAR3','Y'}})
+   carrega_cbox({{'contrato_tipo','TP_CONTRATO','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+   carrega_cbox({{'empresa_area','AREA','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+   carrega_cbox({{'turma','TURMA','Y'}})
+
+
+
+//Exibe os botões permitidos
+   if gbWAC_CREATE
+      WPut('ifWAC_CREATE',.t.)
+   endif
+   if gbWAC_DELETE
+      WPut('ifWAC_DELETE',.t.)
+   endif
+   if gbWAC_WRITE
+      WPut('ifWAC_WRITE',.t.)
+   endif
+   
+   
+WPut('ifWAC_DELETE',.f.)
+
+
+
+   if empty(lcACTION)
+      lcACTION = 'NEW'
+      WPut('ifRECLAMANTE',.f.)   
+   endif
+ 
+   if lcACTION = 'INCRECLAMANTE'
+      WPut('ifRECLAMANTE',.t.)  
+   endif
+   
+   wPut('TP_PASTA',lcTP_PASTA) 
+   wPut('DT_CADASTRO',date())  
+   wPut('TITLE',lcTP_PASTA+' - Inclusão de Reclamante')
+
+if lcACTION = 'NEW' 
+// .and. gbWAC_CREATE
+
+
+ // contar os registros, se tiver mais que um não permitir inserir mais
+      if db_select(laFIELDS,lcTABLE,,{'NR_PASTA='+lcNR_PASTA}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+          walert('Reclamante já inserido. - Permissão apenas para inserir Contratos') 
+//          WPut('ifRECLAMANTE',.f.)       
+    
+      endif
+   lcLOGIN := wSet('LOGIN')
+   Wput('LOGIN_CADASTRO',lcLOGIN)
+   Wput('DT_CADASTRO',DATE())
+
+   wPut('TITLE','Inclusão de Reclamante - ' + lcNR_PASTA)
+
+elseif lcACTION = 'ALTER' .and. gbWAC_READ
+      mkgedico(lcTABLE,lcNR_PASTA)
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      db2put(db_fetchall())
+ 
+
+elseif lcACTION = 'ALTERCON' 
+      mkgedico(lcTABLE1,lcNR_PASTA)
+
+    /* Carrega Dados da Tabela pasta_det_recl */
+      if db_select({'pasta_recl_det.NR_PASTA',;   
+                    'pasta_recl_det.NR_CONTROLE',;
+                    'pasta_recl_det.TP_CONTRATO',;
+                    'pasta_recl_det.AREA',;
+                    'pasta_recl_det.TURMA',;
+                    'pasta_recl_det.CC_CUSTO',;
+                    'pasta_recl_det.STATUS_RECLAMANTE',;
+                    'pasta_recl_det.DT_ADMISSAO',;
+                    'pasta_recl_det.DT_DEMISSAO',;
+                    'pasta_recl_det.ULTIMO_SALARIO',;
+                    'pasta_recl_det.AFASTADO',;
+                    'pasta_recl_det.ID_TP_AFASTAMENTO',;
+                    'pasta_recl_det.AFASTAMENTO_INICIO',;
+                    'pasta_recl_det.AFASTAMENTO_FIM',;
+                    'pasta_recl_det.ID_TP_DESLIGAMENTO',;
+                    'pasta_recl_det.ADVERTENCIA',;
+                    'pasta_recl_det.ID_CIDADE_RESIDENCIA',;
+                    'pasta_recl_det.ID_LOCAL_CONTRATACAO',;
+                    'pasta_recl_det.ID_CONVENCAO_ACORDO',;
+                    'pasta_recl_det.COD_AUXILIAR1',;
+                    'pasta_recl_det.DT_AUXILIAR1',;
+                    'pasta_recl_det.VL_AUXILIAR1',;
+                    'pasta_recl_det.COD_AUXILIAR2',;
+                    'pasta_recl_det.DT_AUXILIAR2',;
+                    'pasta_recl_det.VL_AUXILIAR2',;
+                    'pasta_recl_det.COD_AUXILIAR3',;
+                    'pasta_recl_det.DT_AUXILIAR3',;
+                    'pasta_recl_det.VL_AUXILIAR3',;
+                    'pasta_recl_det.LOGIN_CADASTRO',;
+                    'pasta_recl_det.DT_CADASTRO',;
+                    'pasta_recl_det.ID_CLASSIFICACAO_DOENCA',;
+                    'pasta_recl_det.CARGO',;
+                    'tipo_afastamento.TP_AFASTAMENTO as TP_AFASTAMENTO',;
+                    'classificacao_doenca.CLASSIFICACAO_DOENCA as CLASSIFICACAO_DOENCA',;
+                    'convencao_acordo.CONVENCAO_ACORDO as CONVENCAO_ACORDO',;
+                    'tipo_desligamento.TP_DESLIGAMENTO as TP_DESLIGAMENTO',;
+                    'cidade.CIDADE AS CIDADE_RESIDENCIA',;
+                    'cid2.CIDADE AS LOCAL_CONTRATACAO'},;
+                    'pasta_recl_det',;
+                    {{2,'tipo_afastamento','tipo_afastamento.ID_TP_AFASTAMENTO=pasta_recl_det.ID_TP_AFASTAMENTO'},;
+{2,'classificacao_doenca','classificacao_doenca.ID_CLASSIFICACAO_DOENCA=pasta_recl_det.ID_CLASSIFICACAO_DOENCA'},;
+{2,'convencao_acordo','convencao_acordo.ID_CONVENCAO_ACORDO=pasta_recl_det.ID_CONVENCAO_ACORDO'},;
+{2,'tipo_desligamento','tipo_desligamento.ID_TP_DESLIGAMENTO=pasta_recl_det.ID_TP_DESLIGAMENTO'},;
+{2,'cidade','cidade.ID_CIDADE=pasta_recl_det.ID_CIDADE_RESIDENCIA'},;
+{2,'cidade cid2','cid2.ID_CIDADE=pasta_recl_det.ID_LOCAL_CONTRATACAO'}},;
+{'pasta_recl_det.NR_CONTROLE = '+lcNR_CONTROLE}) == -1                   
+               error_sys(db_error())
+      endif
+      db2put(db_fetchall())     
+
+
+elseif lcACTION = 'SAVECON' 
+
+     if verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+//debug2(lavalida)
+     init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+          laaux := {}
+                laSAVE1:={{'NR_PASTA',; 
+                          'TP_CONTRATO',;
+                          'CARGO',;
+                          'AREA',;
+                          'TURMA',;
+                          'CC_CUSTO',;
+                          'STATUS_RECLAMANTE',;
+                          'DT_ADMISSAO',;
+                          'DT_DEMISSAO',;
+                          'ULTIMO_SALARIO',;
+                          'AFASTADO',;
+                          'ID_TP_AFASTAMENTO',;
+                          'ID_CLASSIFICACAO_DOENCA',;
+                          'AFASTAMENTO_INICIO',;
+                          'AFASTAMENTO_FIM',;
+                          'ID_TP_DESLIGAMENTO',;
+                          'ADVERTENCIA',;
+                          'ID_CIDADE_RESIDENCIA',;
+                          'ID_LOCAL_CONTRATACAO',;
+                          'ID_CONVENCAO_ACORDO',;
+                          'COD_AUXILIAR1',; 
+                          'DT_AUXILIAR1',;
+                          'VL_AUXILIAR1',;
+                          'COD_AUXILIAR2',;
+                          'DT_AUXILIAR2',;
+                          'VL_AUXILIAR2',;
+                          'COD_AUXILIAR3',;
+                          'DT_AUXILIAR3',;
+                          'VL_AUXILIAR3',;
+                          'LOGIN_CADASTRO',;
+                          'DT_CADASTRO'}}
+                                                                        
+aadd(laSAVE1,{val(lcNR_PASTA),;
+WGet('TP_CONTRATO'),;
+WGet('CARGO'),;
+WGet('AREA'),;
+WGet('TURMA'),;
+WGet('CC_CUSTO'),;
+WGet('STATUS_RECLAMANTE'),;
+WGet('DT_ADMISSAO'),;
+WGet('DT_DEMISSAO'),;
+WGet('ULTIMO_SALARIO'),;
+WGet('AFASTADO'),;
+WGet('ID_TP_AFASTAMENTO'),;
+WGet('ID_CLASSIFICACAO_DOENCA'),;
+WGet('AFASTAMENTO_INICIO'),;
+WGet('AFASTAMENTO_FIM'),;
+WGet('ID_TP_DESLIGAMENTO'),;
+WGet('ADVERTENCIA'),;
+WGet('ID_CIDADE_RESIDENCIA'),;
+WGet('ID_LOCAL_CONTRATACAO'),;
+WGet('ID_CONVENCAO_ACORDO'),;
+WGet('COD_AUXILIAR1'),;
+WGet('DT_AUXILIAR1'),;
+WGet('VL_AUXILIAR1'),;
+wGet('COD_AUXILIAR2'),;
+WGet('DT_AUXILIAR2'),;
+wGet('VL_AUXILIAR2'),;
+WGet('COD_AUXILIAR3'),;
+WGet('DT_AUXILIAR3'),;
+WGet('VL_AUXILIAR3'),;
+lcUSUARIO,;
+date()})
+
+      if db_replace(laSAVE1,lcTABLE1,{lcWHERE1}) == -1
+             error_sys(db_error())
+         endif
+
+      endif
+ 
+ elseif lcACTION = 'SAVEREC' 
+     if verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+         if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+             error_sys(db_error())
+         endif
+      endif    
+   elseif lcACTION = 'DELETEREC' .and. gbWAC_DELETE
+         xlcTPPASTA := lcTP_PASTA
+         if db_delete('pasta_recl_det','pasta_recl_det.NR_PASTA='+lcNR_PASTA) = -1
+            error_sys(db_error())
+         endif
+         if db_delete('pasta_reclamante','pasta_reclamante.NR_PASTA='+lcNR_PASTA) = -1
+            error_sys(db_error())
+         endif
+         lcTP_PASTA := xlcTPPASTA
+   elseif lcACTION = 'DELETECON' .and. gbWAC_DELETE
+/*  WOUT('deleta contrato') -*
+         if db_delete(lcTABLE1,lcWHERE1) = -1
+            error_sys(db_error())
+         endif
+
+   endif
+  if val(lcNR_PASTA) > 0 
+
+      if db_select(laFIELDS,lcTABLE,,{'NR_PASTA='+lcNR_PASTA}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2Put(laRESULT)
+
+        if len(laRESULT) >= 2
+            LCCIP_RECLAMANTE := laRESULT[2,2]
+
+           if db_select({'CIP','PFPJ','FL_SEXO','NR_PIS_PASEP','CNPJ_CPF','DT_NASCIMENTO'},'pfpj',,{'CIP = '+LCCIP_RECLAMANTE}) == -1
+              error_sys(db_error())
+           endif
+           laRES := db_fetchall()
+           if len(laRES) >= 2
+              wPut('CIP_RECLAMANTE_PFPJ',laRES[2,2])
+              wPut('FL_SEXO',laRES[2,3])
+              wPut('NR_PIS_PASEP',laRES[2,4])
+              wPut('CNPJ_CPF',laRES[2,5])
+              wPut('DT_NASCIMENTO',laRES[2,6])
+           endif
+        endif
+
+        if db_select(laFIELDS1,'pasta_recl_det',,{'NR_PASTA='+lcNR_PASTA}) == -1
+           error_sys(db_error())
+        endif
+        laRES1 := db_fetchall()
+
+    
+        if len(laRES1) > 1
+          WPut('lstCONTRATOS',laRES1)
+          
+        endif
+
+        /* Tabelas estrangeiras   */
+
+
+        laFOREIGN := {{'ID_CLASSIFICACAO_DOENCA','ID_CLASSIFICACAO_DOENCA','classificacao_doenca','CLASSIFICACAO_DOENCA'},;
+                      {'ID_CONVENCAO_ACORDO','ID_CONVENCAO_ACORDO','convencao_acordo','CONVENCAO_ACORDO'},;
+                      {'ID_TP_AFASTAMENTO','ID_TP_AFASTAMENTO','tipo_afastamento','TP_AFASTAMENTO'},;
+                      {'ID_TP_DESLIGAMENTO','ID_TP_DESLIGAMENTO','tipo_desligamento','TP_DESLIGAMENTO'},;
+                      {'ID_CIDADE_RESIDENCIA','ID_CIDADE','cidade','CIDADE AS CIDADE_RESIDENCIA'},;
+                      {'CARGO','CARGO','pfpj_cargo','CARGO'},;
+                      {'ID_LOCAL_CONTRATACAO','ID_CIDADE','cidade','CIDADE AS LOCAL_CONTRATACAO'}}
+
+
+         /* Selecionando Relacionamentos */
+         for ii := 1 to len(laFOREIGN)
+            lnPOS := ascan(laRESULT[1],laFOREIGN[ii,1])
+            if lnPOS > 0
+               if valtype(laRESULT[2,lnPOS]) == 'N'
+                  if laRESULT[2,lnPOS] == 0
+                     llAUX := .f.
+                  else
+                     lcAUX := laFOREIGN[ii,2]+'='+str(laRESULT[2,lnPOS])
+                     llAUX := .t.
+                  endif
+               else
+                  if empty(alltrim(laRESULT[2,lnPOS]))
+                     llAUX := .f.
+                  else
+                     lcAUX := laFOREIGN[ii,2]+'='+DLAP+laRESULT[2,lnPOS]+DLAP
+                     llAUX := .t.
+                  endif
+               endif
+
+               if llAUX
+                  if db_select({laFOREIGN[ii,4]},laFOREIGN[ii,3],,{lcAUX}) == -1
+                     error_sys(db_error())
+                  endif
+                  db2Put(db_fetchall())
+               endif
+            endif
+         next ii
+
+     endif
+
+   endif
+
+   pasta_abas(lcTP_PASTA)
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

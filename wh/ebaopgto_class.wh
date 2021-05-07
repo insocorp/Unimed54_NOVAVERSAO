@@ -1,0 +1,537 @@
+//
+// Glauber - 04/2016
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+*
+* Glauber - 10/2016
+*
+* Classe...........: EbaoEfetuarPagamento
+*
+* Objetivo.........: Classe que realiza as operações de pagamento.
+*
+* Atributos........:
+*
+*    EXPORT HeaderRequest
+*    EXPORT NrPasta
+*    EXPORT TpPasta
+*    EXPORT DepositoJudicial
+*    EXPORT Pessoa
+*    EXPORT FormaPgto
+*    EXPORT Banco
+*    EXPORT Agencia
+*    EXPORT Conta
+*    EXPORT DvConta
+*    EXPORT Cobertura
+*    EXPORT SubCobertura
+*    EXPORT TipoPgto
+*    EXPORT TipoLiquidacao
+*    EXPORT DataPgto
+*    EXPORT ValorPgto
+*    EXPORT MsgObservação
+*    EXPORT Retorno
+*
+*
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD Pagar()
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS EbaoEfetuarPagamento
+
+    // Atributos publico
+
+    EXPORT HeaderRequest
+    EXPORT NrPasta
+    EXPORT TpPasta
+    EXPORT DepositoJudicial
+    EXPORT Pessoa
+    EXPORT FormaPgto
+    EXPORT Banco
+    EXPORT Agencia
+    EXPORT Conta
+    EXPORT DvConta
+    EXPORT Cobertura
+    EXPORT SubCobertura
+    EXPORT TipoPgto
+    EXPORT TipoLiquidacao
+    EXPORT DataPgto
+    EXPORT ValorPgto
+    EXPORT MsgObservacao
+    EXPORT Retorno
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()             CLASS EbaoEfetuarPagamento
+    PROTOTYPE METHOD Destroy()          CLASS EbaoEfetuarPagamento
+    PROTOTYPE METHOD Pagar()            CLASS EbaoEfetuarPagamento
+
+
+
+
+/*
+*
+* Glauber - 10/2016
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS EbaoEfetuarPagamento
+
+
+    self:HeaderRequest        := HeaderRequestNew()
+    self:NrPasta              := WGet('NR_PASTA')
+    self:TpPasta              := WGet('TP_PASTA')
+    self:DepositoJudicial     := 'N'
+    self:Pessoa               := EbaoPessoaNew()
+    self:FormaPgto            := 1 // Credito em conta corrente
+    self:Banco                := ''
+    self:Agencia              := ''
+    self:Conta                := ''
+    self:DvConta              := ''
+    self:Cobertura            := ''
+    self:SubCobertura         := ''
+    self:TipoPgto             := 'D' // I = indenização, D = despesa
+    self:TipoLiquidacao       := ''
+    self:DataPgto             := Ctod('')
+    self:ValorPgto            := 0.00
+    self:MsgObservacao        := ''
+    self:Retorno              := RetornoEbaoNew()
+
+
+
+return(self)
+
+
+/*
+*
+* Glauber - 10/2016
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS EbaoEfetuarPagamento
+
+    self:HeaderRequest        := nil
+    self:NrPasta              := nil
+    self:TpPasta              := nil
+    self:DepositoJudicial     := nil
+    self:Pessoa               := nil
+    self:FormaPgto            := nil
+    self:Banco                := nil
+    self:Agencia              := nil
+    self:Conta                := nil
+    self:DvConta              := nil
+    self:Cobertura            := nil
+    self:SubCobertura         := nil
+    self:TipoPgto             := nil
+    self:TipoLiquidacao       := nil
+    self:DataPgto             := nil
+    self:ValorPgto            := nil
+    self:MsgObservacao        := nil
+    self:Retorno              := nil
+
+
+return(nil)
+
+// Gets
+
+
+/*
+*
+* Glauber - 10/2016
+*
+* Metodo....: Pagar()
+* Objetivo..: Envia o pagamento.
+*
+* Parâmetros:
+*
+* Retorno...:
+*    T. Caso a comunicação ocorra com sucesso.
+*
+*/
+
+
+
+METHOD Pagar() CLASS EbaoEfetuarPagamento
+
+
+   local laRES      := {},;
+         laSAVE     := {},;
+         laSAVEAUX  := {} as Array
+
+   local lnPOS      := 0,;
+         lnCODRET   := 0,;
+         lnDESRET   := 0  as Int
+
+   local lcEnv      := '',;
+         lcRet      := '',;
+         lcParser   := '',;
+         lcTmp      := '',;
+         lcErro     := '',;
+         lcRun      := ''  as String
+
+   local llDebug    := .F.
+   local objLog     := EbaoLogNew() AS Object
+
+
+   if ! self:CarregarCfg(5)
+      self:Retorno:RetEbao:CdRetorno := -999
+      self:Retorno:RetEbao:NmRetorno := 'Não existe configuração do eBao para pagamento.'
+      return self:Retorno
+   endif
+
+   if ! self:ValidaChamada()
+      return self:Retorno
+   endif
+
+   // Prepara o envio
+
+   aadd(laRES, {'CD_RAMOSRSN',;
+                'NR_SINISTRO',;
+                'NR_PASTA',;
+                'TP_PASTA',;
+                'DEPOSITO_JUDICIAL',;
+                'CIP',;
+                'TIPO_PESSOA',;
+                'PFPJ',;
+                'PFPJ_SOBRENOME',;
+                'CNPJ_CPF',;
+                'DT_ALTERACAO',;
+                'DT_NASCIMENTO',;
+                'CEP',;
+                'TIPO_LOGRADOURO',;
+                'ENDERECO',;
+                'NR_ENDERECO',;
+                'COMPLEMENTO',;
+                'BAIRRO',;
+                'COD_CIDADE',;
+                'CIDADE',;
+                'UF',;
+                'PAIS',;
+                'FORMA_PAGTO',;
+                'BANCO',;
+                'AGENCIA',;
+                'CONTA',;
+                'DIGITO_CONTA',;
+                'COBERTURA',;
+                'SUB_COBERTURA',;
+                'TIPO_PAGTO',;
+                'TIPO_LIQUIDACAO',;
+                'DT_PAGTO',;
+                'VR_PAGTO',;
+                'OBSERVACAO'})
+
+    aadd(laRES, {self:HeaderRequest:Ramo,;
+                 self:HeaderRequest:SinistroNumero,;
+                 self:NrPasta,;
+                 self:TpPasta,;
+                 self:DepositoJudicial,;
+                 self:Pessoa:CodPessoa,;
+                 self:Pessoa:TipoPessoa,;
+                 self:Pessoa:NmFavorecido,;
+                 self:Pessoa:SobrenmFavorecido,;
+                 self:Pessoa:CnpjCpfFavorecido,;
+                 self:Pessoa:DtUltAlteracao,;
+                 self:Pessoa:DtNascimento,;
+                 self:Pessoa:Cep,;
+                 self:Pessoa:TipoLogradouro,;
+                 self:Pessoa:Endereco,;
+                 self:Pessoa:Numero,;
+                 self:Pessoa:Complemento,;
+                 self:Pessoa:Bairro,;
+                 self:Pessoa:CodCidade,;
+                 self:Pessoa:Cidade,;
+                 self:Pessoa:Uf,;
+                 self:Pessoa:Pais,;
+                 self:FormaPgto,;
+                 self:Banco,;
+                 self:Agencia,;
+                 self:Conta,;
+                 self:DvConta,;
+                 self:Cobertura,;
+                 self:SubCobertura,;
+                 self:TipoPgto,;
+                 self:TipoLiquidacao,;
+                 self:DataPgto,;
+                 Transform(self:ValorPgto, '999999999999999'),;
+                 self:MsgObservacao})
+
+
+
+   lcEnv    := Utils:PathEbao + 'PGTO_' + Wset('LOGIN') +'_'+alltrim(wic_random()) +'.XML'
+   lcRet    := strtran(lcEnv,'.XML','.RET')
+   lcParser := Utils:Parser2Str(self:XmlServico, laRES)
+
+   GravaArquivo(lcEnv,lcParser) // Função presente na func_wic.wh
+
+   // Executa o pedido das informações
+
+   lcRun    := Utils:AppEbao + ' realizarpagamento ' + lcEnv + ' '
+   Utils:ExecutarPlugIn(lcRun,llDebug)
+
+//   lcRet := 'lista.RET'
+
+   // Obter o conteúdo da resposta
+
+   if (! file(lcRet))
+      Walert('Erro ao receber o arquivo de retorno.Arquivo de retorno não existe:'+lcRet)
+      self:Retorno:RetEbao:CdRetorno := -999
+      self:Retorno:RetEbao:NmRetorno := 'Erro ao receber o arquivo de retorno.Arquivo de retorno não existe:'+lcRet
+      return self:Retorno
+   endif
+
+  lcTmp  := GetFileContent(lcRet) // Resgata o conteúdo do arquivo de retorno. Função presente na func_wic.wh
+  laRES  := Utils:StrSerealize(lcTmp)
+
+//debug2(laRES,,30)
+
+  if (len(laRES) < 2)
+      self:Retorno:CdRetorno := -999
+      self:Retorno:NmRetorno := 'Não foi retornado informações do eBao para operação marcar sinistro.'
+      return self:Retorno
+  endif
+
+
+  // Gravar o Log
+
+  objLog:NrControle := 0
+  objLog:Data       := Date()
+  objLog:Hora       := Time()
+  objLog:Login      := WSet('LOGIN')
+  objLog:IdServico  := 0
+  objLog:Requisicao := lcParser
+  objLog:Retorno    := lcTmp
+
+  objLog:Save()
+
+  // Tratar o erro
+
+  lnPOS    := ascan(laRES[1],'CDRETORNO')
+  lnCODRET := lnPOS
+
+  if (lnPOS == 0)
+      Walert('Atenção, ocorreu um erro ao processar o arquivo de retorno: '+lcRet)
+      self:Retorno:CdRetorno := -999
+      self:Retorno:NmRetorno := 'Atenção, ocorreu um erro ao processar o arquivo de retorno: '+lcRet
+      return self:Retorno
+  endif
+
+  if val(laRES[2,lnPOS]) > 0
+     lnPOS    := ascan(laRES[1], 'NMRETORNO')
+     lnDESRET := lnPOS
+     Walert(laRES[2,lnPOS])
+     self:Retorno:CdRetorno := val(laRES[2,lnCODRET])
+     self:Retorno:NmRetorno := laRES[2,lnPOS]
+     return self:Retorno
+  endif
+
+  // Preencher o objeto de retorno
+
+  self:Retorno:CdRetorno    := val(laRES[2,lnCODRET])
+  self:Retorno:NmRetorno    := laRES[2,lnDESRET]
+
+
+return self:Retorno
+
+
+
+
+return .T.
+
+
+
+
+/*
+*
+* Glauber - 10/2016
+*
+* Metodo....: CarregarCfg(pnOPERACAO)
+* Objetivo..: Carrega a configuração corrente de um serviço.
+*
+* Parâmetros:
+*
+*  pnOPERACAO : Operação a ser carregada.
+*
+* Retorno...:
+*             Array com os dados dos Sinistros. Em caso de erro ou não encontado retorna um array vazio.
+*
+*/
+
+METHOD CarregarCfg(pnOPERACAO) CLASS EbaoEfetuarPagamento
+
+    local lnPOS  := 0  as int
+    local lcMSG  := '',;
+          lcSERV := '' as String
+
+
+    if ! Utils:ValidaPathAppEbao()
+       return .F.
+    endif
+
+    Config:ObterConfiguracao() // Recuperar a Configuração corrente
+    Config:ObterServicos()     // Recuperar todos os serviços
+    lcSERV := Alltrim(Config:IdAtualizaReserva)
+
+    if (pnOPERACAO != 5)
+       lcMSG  := 'O serviço para pagamento é inválido.'
+    endif
+
+
+    lnPOS := ascan(Config:ResultSet, {|x| alltrim(x[1]) == lcSERV})
+
+    if (lnPOS == 0)
+       Walert(lcMSG + ' O serviço informado não foi encontrado.')
+       return .F.
+    endif
+    self:XmlServico := Config:ResultSet[lnPOS,3]
+    if (Empty(self:XmlServico))
+       Walert(lcMSG + ' O serviço não contém leiaute de comunicação.')
+       return .F.
+    endif
+
+
+
+return .T.
+
+
+
+
+/*
+*
+* Glauber - 10/2016
+*
+* Metodo....: ValidaChamada
+* Objetivo..: Faz a validação dos campos antes de consumir o webservice.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             .T. Caso esteja válido.
+*
+*/
+
+METHOD ValidaChamada() CLASS EbaoEfetuarPagamento
+
+
+    if (self:NrPasta == 0)
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Número de pasta inválido ou não informado.'
+       return .F.
+    endif
+
+    if Empty(self:DepositoJudicial)
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Flag de depósito judicial inválido ou não informado.'
+       return .F.
+    endif
+
+    if Empty(self:CodPessoa)
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Código de pessoa inválido ou não informado.'
+       return .F.
+    endif
+
+    if self:TipoPessoa > 2 .or. self:TipoPessoa < 1
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Tipo de pessoa inválido ou não informado.'
+       return .F.
+    endif
+
+    if Empty(self:NmFavorecido)
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Nome do favorecido inválido ou não informado.'
+       return .F.
+    endif
+
+    if Empty(self:CnpjCpfFavorecido)
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'CNPJ / CPF do favorecido inválido ou não informado.'
+       return .F.
+    endif
+
+    if Empty(self:Banco)
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Banco inválido ou não informado.'
+       return .F.
+    endif
+
+    if Empty(self:Agencia)
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Agência inválida ou não informado.'
+       return .F.
+    endif
+
+    if Empty(self:Conta)
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Conta inválida ou não informado.'
+       return .F.
+    endif
+
+    if Empty(self:DvConta)
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Digito da conta inválido ou não informado.'
+       return .F.
+    endif
+
+    if Empty(self:Cobertura)
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Tipo de cobertura inválido ou não informado.'
+       return .F.
+    endif
+
+    if Empty(self:TipoPgto)
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Tipo de pagamento inválido ou não informado.'
+       return .F.
+    endif
+
+    if Empty(self:DataPgto)
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Data de pagamento inválido ou não informado.'
+       return .F.
+    endif
+
+    if self:ValorPgto <= 0.00
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Valor de pagamento inválido ou não informado.'
+       return .F.
+    endif
+
+
+return .T.

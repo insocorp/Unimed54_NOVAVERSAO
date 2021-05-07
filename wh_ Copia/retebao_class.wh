@@ -1,0 +1,116 @@
+/*
+
+Project      : isj_45
+Program      : retornoebao.class
+Function     : retornoebao_class
+Created on   : 15-Apr-2016   18:02:13
+Descripition : 
+
+*/
+
+//
+// Glauber - 04/2016
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+*
+* Glauber - 04/2016
+*
+* Classe...........: RetornoEbao
+*
+* Objetivo.........: Classe utilizada para informar o retorno de uma operação.
+*
+* Atributos........:
+*
+*    EXPORT CdRetorno
+*    EXPORT NmRetorno
+*
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS RetornoEbao
+
+    // Atributos publico
+
+    EXPORT CdRetorno
+    EXPORT NmRetorno
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()             CLASS RetornoEbao
+    PROTOTYPE METHOD Destroy()          CLASS RetornoEbao
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS RetornoEbao
+
+
+    self:CdRetorno            := 0
+    self:NmRetorno            := ''
+
+
+
+return(self)
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS RetornoEbao
+
+    self:CdRetorno            := nil
+    self:NmRetorno            := nil
+
+return(nil)
+
+
+
+
+
+

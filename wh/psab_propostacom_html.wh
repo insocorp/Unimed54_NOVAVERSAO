@@ -1,0 +1,259 @@
+/*
+
+Project      : isj_398
+Program      : psab.propostacom.html
+Function     : psab_propostacom_html
+Created on   : 04/07/2012   21:53:45
+Descripition : 
+
+*/
+
+local lcNR_PASTA    := '' ,;
+      lcNR_PROPOSTA := '' ,;
+      lcTABLE       := '' ,;
+      lcWHERE       := '' ,;
+      lcWHERE2      := '' as string
+
+private lcTP_PASTA  := ''  
+private lcACTION    := ''  
+      
+local laRES       := {} ,;
+      laFIELDS    := {} ,;
+      laFIELDS_AUX:= {} ,;
+      laSAVE      := {} ,; 
+      laJOIN      := {} ,;     
+      laRESULTCON := {} as array 
+      
+lcTABLE       := 'proposta_comercial'
+
+
+
+
+
+
+lcACTION      := upper(Wget('ACTION'))
+lcNR_PASTA    := Wget('NR_PASTA','C')
+lcTP_PASTA    := Wget('TP_PASTA','C')
+
+lcNR_PROPOSTA := alltrim(WGet('NR_PROPOSTA','C'))
+
+if empty(lcNR_PROPOSTA)
+   lcNR_PROPOSTA := '0'
+endif
+
+
+wput('NR_PASTA',lcNR_PASTA)
+wput('TP_PASTA',lcTP_PASTA)
+
+*** marca em vermelho campos obrigatorios
+init_reqfield(WSet('_USER_INTERFACE'))
+
+make_psthead(lcNR_PASTA,lcTP_PASTA)
+pasta_abas(lcTP_PASTA)
+
+
+Wput('ifNOVO',.T.)
+Wput('ifSAVE',.F.)
+Wput('ifLOCA',.T.)
+Wput('ifDELE',.F.)
+
+if lcACTION == 'NEW' .and. gbWAC_CREATE
+   Wput('NR_PROPOSTA','New')
+   Wput('NR_PROPOSTA.readonly',.T.)
+   Wput('NR_PROPOSTA.class','winputreadonly')
+   
+   Wput('ifNOVO',.T.)
+   Wput('ifSAVE',.T.)
+   Wput('ifLOCA',.F.)
+   Wput('ifDELE',.F.) 
+   
+elseif lcACTION = 'ALTER' .and. gbWAC_READ
+
+   Wput('ifNOVO',.T.)
+   Wput('ifSAVE',.T.)
+   Wput('ifLOCA',.F.)
+   Wput('ifDELE',.T.) 
+
+   lcWHERE    := 'NR_PASTA = ' + WGet('NR_PASTA','C')  + ' and NR_PROPOSTA = ' + WGet('NR_PROPOSTA','C')
+
+   laJOIN := {{2,'status_proposta','status_proposta.ID_STATUS_PROPOSTA=proposta_comercial.ID_STATUS_PROPOSTA'},;
+              {2,'pfpj','pfpj.CIP=proposta_comercial.CIP_DESTINATARIO'}}
+
+   laFIELDS := {'NR_PASTA',;
+                'NR_PROPOSTA',;     
+                'DT_ENVIO',; 
+                'CIP_DESTINATARIO',;
+                'pfpj.PFPJ as CIP_DESTINATARIO_PFPJ',;     
+                'OBSERVACAO',;
+                'DT_RETORNO',;     
+                'proposta_comercial.ID_STATUS_PROPOSTA',;
+                'status_proposta.STATUS_PROPOSTA'}
+               
+
+   
+   if db_select(laFIELDS,'proposta_comercial',laJOIN,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+
+   Wput('NR_PROPOSTA.readonly',.T.)
+   Wput('NR_PROPOSTA.class','winputreadonly')
+      
+   db2put(laRES) //sobe os dados encontrados para tela
+   
+
+   
+elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+
+    lcWHERE    := 'NR_PASTA = ' + WGet('NR_PASTA','C')  + ' and NR_PROPOSTA = ' + WGet('NR_PROPOSTA','C')
+    
+    psab_logdel(WGet('NR_PASTA','C'),'NR_PROPOSTA',WGet('NR_PROPOSTA','C'),,'Proposta Comercial')
+    
+    if db_delete(lcTABLE,lcWHERE) == -1
+       error_sys(db_error())
+    endif 
+    
+elseif lcACTION == 'SEARCH'
+
+    lcWHERE    := 'NR_PASTA = ' + lcNR_PASTA
+
+    if WGet('NR_PROPOSTA','N')>0
+        lcWHERE    := lcWHERE + ' and NR_PROPOSTA = ' + WGet('NR_PROPOSTA','C') 
+    endif
+
+    if !empty(dtos(WGet('DT_ENVIO','D')))
+        lcWHERE    := lcWHERE + ' and DT_ENVIO = ' + DLAP+dtos(WGet('DT_ENVIO','D'))+DLAP 
+    endif
+    
+    if (WGet('CIP_DESTINATARIO','N'))>0
+        lcWHERE    := lcWHERE + ' and CIP_DESTINATARIO = ' + WGet('CIP_DESTINATARIO','C') 
+    endif    
+      
+    if !empty(WGet('OBSERVACAO','C'))
+        lcWHERE    := lcWHERE + ' and OBSERVACAO = ' + DLAP + WGet('OBSERVACAO','C') + DLAP
+    endif
+    
+    if !empty(dtos(WGet('DT_RETORNO','D')))
+        lcWHERE    := lcWHERE + ' and DT_RETORNO = ' + DLAP+dtos(WGet('DT_RETORNO','D'))+DLAP 
+    endif   
+    
+    if WGet('ID_STATUS_PROPOSTA','N') > 0
+        lcWHERE    := lcWHERE + ' and proposta_comercial.ID_STATUS_PROPOSTA = ' + WGet('ID_STATUS_PROPOSTA','C') 
+    endif
+    
+  
+    busca(lcWHERE) 
+
+      
+  
+elseif lcACTION == 'SAVE'
+
+    llERRO := .f.
+        
+    *** verifica se campos obrigatorios estão com dados
+    if ! verif_reqfield(WSet('_USER_INTERFACE'))
+       llERRO := .t.
+    endif
+
+    if ! llERRO 
+    
+       if upper(wGet('NR_PROPOSTA','C')) == 'NEW'
+          lcNR_PROPOSTA := '0'
+         else
+          lcNR_PROPOSTA := wGet('NR_PROPOSTA','C')
+       endif      
+
+       laFIELDS     := {'NR_PASTA',;     
+                        'DT_ENVIO',; 
+                        'CIP_DESTINATARIO',;     
+                        'OBSERVACAO',;
+                        'DT_RETORNO',;     
+                        'ID_STATUS_PROPOSTA'}
+
+       laFIELDS_AUX := {}
+       for lnXX := 1 to len(laFIELDS)
+            if laFIELDS[lnXX] == 'NR_PROPOSTA'
+               if wGet(laFIELDS[lnXX]) = 'New'
+                  aadd(laFIELDS_AUX,0)  
+                 else
+                  aadd(laFIELDS_AUX,wGet(laFIELDS[lnXX])) 
+               endif    
+              else  
+               aadd(laFIELDS_AUX,wGet(laFIELDS[lnXX]))
+            endif   
+       next lnXX 
+       
+       aadd(laSAVE,laFIELDS)
+       aadd(laSAVE,laFIELDS_AUX)
+       
+
+       lcWHERE    := 'NR_PASTA = ' + lcNR_PASTA + ' and NR_PROPOSTA = ' + lcNR_PROPOSTA
+             
+       psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Proposta Comercial') 
+
+       if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+           error_sys(db_error())
+       endif       
+
+       
+    endif       
+       
+    lcACTION:=''
+     
+endif
+
+if lcACTION<>'SEARCH'
+   *** refaz grid
+   lcWHERE    := 'NR_PASTA = ' + lcNR_PASTA
+   busca(lcWHERE)
+   ***
+endif
+
+return
+
+******************************
+static function busca(fcWHERE)
+******************************          
+local laJOIN    := {} as array
+local laFIELDS2 := {} as array
+
+
+laJOIN := {{2,'status_proposta','status_proposta.ID_STATUS_PROPOSTA=proposta_comercial.ID_STATUS_PROPOSTA'},;
+           {2,'pfpj','pfpj.CIP=proposta_comercial.CIP_DESTINATARIO'}}
+
+laFIELDS2 := {'NR_PASTA',;
+              'NR_PROPOSTA',;     
+              'DT_ENVIO',; 
+              'CIP_DESTINATARIO',;
+              'pfpj.PFPJ',;     
+              'OBSERVACAO',;
+              'DT_RETORNO',;     
+              'proposta_comercial.ID_STATUS_PROPOSTA',;
+              'status_proposta.STATUS_PROPOSTA'}
+
+if db_select(laFIELDS2,'proposta_comercial',laJOIN,{fcWHERE}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+aadd(laRES[1],'(row)')
+for ii := 2 to len(laRES)
+    aadd(laRES[ii],'(row)'+wic_action('wicaction_gr5/psab.propostacom.html'+;
+                                      '?NR_PASTA='+str(laRES[ii,1])+;
+                                      '&NR_PROPOSTA='+str(laRES[ii,2])+;
+                                      '&TP_PASTA='+lcTP_PASTA+; 
+                                      '&ACTION=ALTER'))
+next ii
+
+WPut('GRID_PROPOSTA',grid_create(laRES))
+    
+if lcACTION='SEARCH' .and. len(laRES)=1
+   walert('Lançamento não localizado.')
+endif    
+
+return(nil)
+
+
+
+
+

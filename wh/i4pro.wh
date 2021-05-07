@@ -1,0 +1,3358 @@
+/*
+
+Project      : isj_60
+Program      : topsaude
+Function     : topsaude
+Created on   : 26-Jul-2017   15:31:01
+Descripition :
+
+*/
+
+//
+// Glauber - 04/2016
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+*
+* Glauber - 11/2017
+*
+* Classe...........: I4pService
+*
+* Objetivo.........: Classe com as rotinas de comunicação com Top Saude.
+*
+* Atributos........:
+*
+*
+*
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*
+*    METHOD Init()                                              CLASS I4pService
+*    METHOD Destroy()                                           CLASS I4pService
+*    METHOD Consultar(sinistro)                                 CLASS I4pService
+*    METHOD MarcarJudicial(objsinistro)                         CLASS I4pService
+*    METHOD CriarSinistro(nrpasta,ramo,seguradonumero)          CLASS I4pService // Item 3.3 EF
+*    METHOD EfetuarPagamento(sinistro,ramo)                     CLASS I4pService // Item 3.5 EF
+*    METHOD getCipsConsulta()                                   CLASS I4pService
+*    METHOD getCips2Consulta()                                  CLASS I4pService
+*    METHOD getIdCausa()                                        CLASS I4pService
+*    METHOD Array2Str(faArray)                                  CLASS I4pService
+*    METHOD isEnabled()                                         CLASS I4pService
+*    METHOD MovimentaJudicial(objsinistro)                      CLASS I4pService
+*    METHOD GPedInicial(NrPasta, NrControleSeguro)              CLASS I4pService
+*    METHOD getPedidosInicial(NrPasta)                          CLASS I4pService
+*    METHOD ValoresPadroes(fcNR_PASTA,fcTP_PASTA)               CLASS I4pService
+*    METHOD getTotalReserva(fcNR_SINISTRO)                      CLASS I4pService
+*    METHOD getContrariaParte(fcNR_PASTA)                       CLASS I4pService
+*    METHOD getCobertura(fcNR_PASTA, fcNR_SINISTRO)             CLASS I4pService
+*    METHOD getUf2Code(fcUF)                                    CLASS I4pService
+*    METHOD getPfPjInfo(fcCIP,fcField)                          CLASS I4pService
+*    METHOD getIdSinPasta(fcNR_PASTA, fcNR_SINISTRO)            CLASS I4pService
+*    METHOD getIdProdCobertura(fcNR_PASTA, fcNR_SINISTRO)       CLASS I4pService
+*    METHOD getPastaInfo(fcNR_PASTA, fcNR_SINISTRO)             CLASS I4pService
+*    METHOD NovoPedido(pcNR_PASTA,pcNR_CONTROLE)                CLASS I4pService
+*    METHOD VrPedido(pcNR_PASTA,pcNR_CONTROLE)                  CLASS I4pService
+*    METHOD getLastSeguro(fcNRSEGURO, fcNR_PASTA)               CLASS I4pService
+*    METHOD getLmiSeguro(fcNR_PASTA, fcNR_CONTROLE)             CLASS I4pService
+*    METHOD cloneSinistro(fcNR_PASTA, fcNR_SINISTRO)            CLASS I4pService
+*
+* Classes Ligadas..:
+*
+*    I4proConsultaSinistro, ConfigI4Pro, ServicosI4Pro,I4proMovimentoSinistroJudicial
+*
+*/
+
+
+CLASS I4pService
+
+    INSTANCE objI4proConsultaSinistro
+    INSTANCE pathWS
+    INSTANCE pathTMP
+    INSTANCE CipsConsulta
+    INSTANCE objI4proMovimentoSinistroJudicial
+    INSTANCE IdCausa
+    INSTANCE IdRamos
+
+
+    // Atributos publico
+    EXPORT   Cips2Consulta
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()                                              CLASS I4pService
+    PROTOTYPE METHOD Destroy()                                           CLASS I4pService
+    PROTOTYPE METHOD Consultar(sinistro)                                 CLASS I4pService
+    PROTOTYPE METHOD MarcarJudicial(objsinistro)                         CLASS I4pService
+    PROTOTYPE METHOD CriarSinistro(nrpasta,ramo,seguradonumero)          CLASS I4pService // Item 3.3 EF
+    PROTOTYPE METHOD EfetuarPagamento(sinistro,ramo)                     CLASS I4pService // Item 3.5 EF
+    PROTOTYPE METHOD getCipsConsulta()                                   CLASS I4pService
+    PROTOTYPE METHOD getCips2Consulta()                                  CLASS I4pService
+    PROTOTYPE METHOD getIdCausa()                                        CLASS I4pService
+    PROTOTYPE METHOD Array2Str(faArray)                                  CLASS I4pService
+    PROTOTYPE METHOD isEnabled()                                         CLASS I4pService
+    PROTOTYPE METHOD MovimentaJudicial(objsinistro)                      CLASS I4pService
+    PROTOTYPE METHOD GPedInicial(NrPasta, NrControleSeguro)              CLASS I4pService
+    PROTOTYPE METHOD getPedidosInicial(NrPasta)                          CLASS I4pService
+    PROTOTYPE METHOD ValoresPadroes(fcNR_PASTA,fcTP_PASTA)               CLASS I4pService
+    PROTOTYPE METHOD getTotalReserva(fcNR_SINISTRO)                      CLASS I4pService
+    PROTOTYPE METHOD getContrariaParte(fcNR_PASTA)                       CLASS I4pService
+    PROTOTYPE METHOD getCobertura(fcNR_PASTA, fcNR_SINISTRO)             CLASS I4pService
+    PROTOTYPE METHOD getUf2Code(fcUF)                                    CLASS I4pService
+    PROTOTYPE METHOD getPfPjInfo(fcCIP,fcField)                          CLASS I4pService
+    PROTOTYPE METHOD getIdSinPasta(fcNR_PASTA, fcNR_SINISTRO)            CLASS I4pService
+    PROTOTYPE METHOD getIdProdCobertura(fcNR_PASTA, fcNR_SINISTRO)       CLASS I4pService
+    PROTOTYPE METHOD getPastaInfo(fcNR_PASTA, fcNR_SINISTRO)             CLASS I4pService
+    PROTOTYPE METHOD NovoPedido(pcNR_PASTA,pcNR_CONTROLE)                CLASS I4pService
+    PROTOTYPE METHOD VrPedido(pcNR_PASTA,pcNR_CONTROLE)                  CLASS I4pService
+    PROTOTYPE METHOD getLastSeguro(fcNRSEGURO, fcNR_PASTA)               CLASS I4pService
+    PROTOTYPE METHOD getLmiSeguro(fcNR_PASTA, fcNR_CONTROLE)             CLASS I4pService
+    PROTOTYPE METHOD cloneSinistro(fcNR_PASTA, fcNR_SINISTRO)            CLASS I4pService
+
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS I4pService
+
+    self:pathWS                            := WSet('PATHWSI4PRO')
+    self:pathTMP                           := WSet('_WTEMP')
+    self:objI4proConsultaSinistro          := I4proConsultaSinistroNew()
+    self:CipsConsulta                      := {{'CIP','PFPJ','WFIELD'}}
+    self:Cips2Consulta                     := {{'CIP','PFPJ','WFIELD'}}
+    self:IdCausa                           := {{'CD_CAUSA_SINISTRO','NM_CAUSA_SINISTRO'}}
+    self:IdRamos                           := {{'CD_RAMOSRSN','SEGURORAMO','SEGUROPRODUTO','FL_ATIVO'}}
+    self:objI4proMovimentoSinistroJudicial := I4proMovimentoSinistroJudicialNew()
+
+
+
+return(self)
+
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS I4pService
+
+       self:objI4proConsultaSinistro          := nil
+       self:pathWS                            := nil
+       self:pathTMP                           := nil
+       self:CipsConsulta                      := nil
+       self:Cips2Consulta                     := nil
+       self:IdCausa                           := nil
+       self:IdRamos                           := nil
+       self:objI4proMovimentoSinistroJudicial := nil
+
+return(nil)
+
+
+
+
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: Consultar(sinistro)
+* Objetivo..: Realiza a consulta de um Sinistro I4Pro
+*
+* Parâmetros:
+*
+*  sinistro       : número do sinistro
+*
+*
+*
+* Retorno...:
+*             Objeto do tipo I4proConsultaSinistro
+*
+*/
+
+METHOD Consultar(sinistro) CLASS I4pService
+
+
+    local objConsulta := I4proConsultaSinistroNew() AS Object
+    local objCfg      := ConfigI4ProNew()           AS Object
+    local objService  := ServicosI4ProNew()         AS Object
+    local objEx       := I4proRetornoNew()          AS Object
+
+
+    local lnSeq       := 0                AS Int
+
+    local lcEnv       := ''               AS String
+    local lcRet       := ''               AS String
+    local lcParser    := ''               AS String
+    local lcTmp       := ''               AS String
+    local lcErro      := ''               AS String
+    local llErro      := .F.
+    local laCONF      := {}               AS Array
+    local laRESULT    := {}               AS Array
+
+
+/*
+          objConsulta := self:ValidaPath()
+
+          if (objConsulta:Retorno:CdRetorno != 0)
+            return objConsulta
+          endif
+
+*/
+
+          objCfg := self:RetornaConfWS()
+          objService := self:getXmlService(objCfg:IdConSinistro)
+
+          objConsulta := self:ValidaConf(objCfg,objConsulta)
+
+          if (objConsulta:Retorno:CdRetorno != 0)
+            return objConsulta
+          endif
+
+          if ! empty(sinistro)
+             laRESULT := {{'NR_SINISTRO'},;
+                          {sinistro}}
+          else
+              objConsulta:CdRetorno := -1
+              objConsulta:NmRetorno := 'Não foi informado o número do sinistro para consulta.'
+              return objConsulta
+          endif
+
+          // Consultar os dados do sinsitro
+
+          lcFILE := self:pathTMP + 'I4PCON' + Wset('LOGIN') +'_'+Dtos(Date())+strtran(time(),':','') +'.XML'
+
+          lcEnv  := lcFILE
+
+          lcRet  := StrTran(lcFILE,'.XML', '.RET')
+
+          //lcRet  := 'MOCK3_CONSULTA_SINISTRO.XML'
+
+          lcParser := self:Parser2Str(objService:XmlJson, laRESULT)
+
+          GravaArquivo(lcEnv,lcParser) // Função presente na FuncWic
+
+          // Executa o pedido das informações
+
+          lcRun := WSet('WSAPPNAME') +' ' + lcEnv
+          ! (lcrun)
+
+
+          * // Consultar os dados do sinsitro
+          * lcEnv  := self:pathTMP + 'I4PENV' + Wset('LOGIN') +'_'+Dtos(Date())+strtran(time(),':','') +'.XML'
+          * lcRet  := self:pathTMP + 'I4PRET' + Wset('LOGIN') +'_'+Dtos(Date())+strtran(time(),':','')+ '.XML'
+          * //lcRet  := 'MOCK_CONSULTA_SINISTRO.XML'
+          * lcParser := self:Parser2Str(objService:XmlJson, laRESULT)
+          * GravaArquivo(lcEnv,lcParser) // Função presente na FuncWic
+          * // Executa o pedido das informações
+          * lcRun := self:pathWS + WSet('WSAPPNAME') +' ' + lcEnv
+          * ! (lcrun)
+
+          // Obter o conteúdo da pesquisa
+          if (! file(lcRet))
+             objEx := self:getExceptionWS()
+             objConsulta:Retorno:CdRetorno := objEx:CdRetorno
+             objConsulta:Retorno:NmRetorno := objEx:NmRetorno
+             return objConsulta
+          endif
+
+          lcTMP  := GetFileContent(lcRet) // Presente na func.wic
+          lcERRO := TrataErroWS(lcTMP) // Presente na func.wic
+
+          if ! empty(lcERRO)
+             objConsulta:Retorno:CdRetorno := -1
+             objConsulta:Retorno:NmRetorno := 'ERRO: '+lcERRO
+             return objConsulta
+          endif
+
+          self:Xml2Consulta(lcTMP, objConsulta)
+          self:gravarPfpj(objConsulta)
+          self:gravarStatus(objConsulta)
+          self:gravarCausaSinistro(objConsulta) 
+
+return objConsulta
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: CriarSinistro(nrpasta,ramo,seguradonumero)
+* Objetivo..: Gera um novo Sinistro no TopSaude
+*
+* Parâmetros:
+*
+*  nrpasta        : número da pasta
+*  ramo           : código do ramo
+*  seguradonumero : número da carteirinha do segurado
+*
+* Retorno...:
+*             Objeto do tipo ConsultaTop
+*
+*/
+
+METHOD CriarSinistro(nrpasta,ramo,seguradonumero) CLASS I4pService // Item 3.3 EF
+
+    local objRetorno  := RetornoTopNew()  AS Object
+    local objConsulta := ConsultaTopNew() AS Object
+    local lnSeq       := 0                AS Int
+
+    local lcEnv       := ''               AS String
+    local lcRet       := ''               AS String
+    local lcParser    := ''               AS String
+    local lcTmp       := ''               AS String
+    local lcErro      := ''               AS String
+    local llErro      := .F.
+    local laCONF      := {}               AS Array
+    local laRESULT    := {}               AS Array
+
+
+
+
+          objConsulta := self:ValidaPath()
+
+          if(objConsulta:Retorno:CdRetorno != 0)
+            objRetorno:CdRetorno := objConsulta:Retorno:CdRetorno
+            objRetorno:NmRetorno := objConsulta:Retorno:NmRetorno
+            return objRetorno
+          endif
+
+          laCONF := objEvida:RetornaConfWS()
+
+          objConsulta := self:ValidaConf(objCfg)
+
+          if(objConsulta:Retorno:CdRetorno != 0)
+            objRetorno:CdRetorno := objConsulta:Retorno:CdRetorno
+            objRetorno:NmRetorno := objConsulta:Retorno:NmRetorno
+            return objRetorno
+          endif
+
+          lnSeq := objEvida:getNrSeqInterface()
+
+
+          laRESULT := {{'NR_PASTA','SEGURADO_NUMERO','CD_RAMOSRSN','NR_CONTROLE','DT_PROTOCOLO'},;
+                       {nrpasta, seguradonumero, ramo, alltrim(transform(lnSeq,'999999')),DTOS(DATE())}}
+
+          // Consultar os dados do sinsitro
+
+          lcEnv  := self:pathTMP + 'TOPNEW' + Wset('LOGIN') +'_'+Dtos(Date())+strtran(time(),':','') +'.XML'
+          lcRet  := self:pathTMP + 'TOPRET' + Wset('LOGIN') +'_'+Dtos(Date())+strtran(time(),':','')+ '.XML'
+
+          // Trata o header do resultset antes de enviar o mesmo para o processamento do parser
+          for ii := 1 to len(laRESULT[1])
+              laRESULT[1,ii] := lower(laRESULT[1,ii])
+          next ii
+
+          lcParser := objEvida:Parser2Str(laCONF[2,db_fetchncol(laCONF, 'ID_VINCULAR_TOP')],laRESULT)
+
+          GravaArquivo(lcEnv,lcParser) // Função presente na FuncWic
+
+          // Executa o pedido das informações
+
+          lcRun := self:pathWS + WSet('WSTOPSAUDEAPPNAME')+' '+laCONF[2, db_fetchncol(laCONF,'NOME_WS')]+' ' + lcEnv + ' ' + lcRet
+          ! (lcrun)
+
+          // Aguarda o tempo da resposta
+          inkey(laCONF[2,db_fetchncol(laCONF,'TEMPOESPERA')])
+
+          // Obter o conteúdo da pesquisa
+          if (! file(lcRet))
+             objRetorno:CdRetorno := -1
+             objRetorno:NmRetorno := 'Erro ao receber o arquivo de retorno.Arquivo de retorno não existe:'+lcRet
+             return objRetorno
+          endif
+
+          lcTMP  := GetFileContent(lcRet) // Presente na func.wic
+          lcERRO := TrataErroWS(lcTMP) // Presente na func.wic
+
+          if ! empty(lcERRO)
+             objRetorno:CdRetorno := -1
+             objRetorno:NmRetorno := 'ERRO: '+lcERRO
+             return objRetorno
+          endif
+
+          self:Xml2ConsultaTop(lcTMP, objRetorno)
+
+
+
+return objRetorno
+
+
+
+
+
+
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: EfetuarPagamento(sinistro,ramo)
+* Objetivo..: Realiza um pagamento no TopSaude encerrando o sinistro.
+*
+* Parâmetros:
+*
+*  sinistro       : número do sinistro
+*  ramo           : código do ramo
+*
+* Retorno...:
+*             Objeto do tipo ConsultaTopRetornoTop
+*
+*/
+
+METHOD EfetuarPagamento(sinistro,ramo) CLASS I4pService // Item 3.5 EF
+
+
+    local objRetorno  := RetornoTopNew()  AS Object
+    local objConsulta := ConsultaTopNew() AS Object
+    local lnSeq       := 0                AS Int
+
+    local lcEnv       := ''               AS String
+    local lcRet       := ''               AS String
+    local lcParser    := ''               AS String
+    local lcTmp       := ''               AS String
+    local lcErro      := ''               AS String
+    local llErro      := .F.
+    local laCONF      := {}               AS Array
+    local laRESULT    := {}               AS Array
+
+
+
+
+          objConsulta := self:ValidaPath()
+
+          if(objConsulta:Retorno:CdRetorno != 0)
+            objRetorno:CdRetorno := objConsulta:Retorno:CdRetorno
+            objRetorno:NmRetorno := objConsulta:Retorno:NmRetorno
+            return objRetorno
+          endif
+
+          laCONF := objEvida:RetornaConfWS()
+
+          objConsulta := self:ValidaConf(objCfg)
+
+          if(objConsulta:Retorno:CdRetorno != 0)
+            objRetorno:CdRetorno := objConsulta:Retorno:CdRetorno
+            objRetorno:NmRetorno := objConsulta:Retorno:NmRetorno
+            return objRetorno
+          endif
+
+          lnSeq := objEvida:getNrSeqInterface()
+
+
+          laRESULT := {{'NR_PASTA','SEGURADO_NUMERO','CD_RAMOSRSN','NR_CONTROLE','DT_PROTOCOLO'},;
+                       {nrpasta, seguradonumero, ramo, alltrim(transform(lnSeq,'999999')),DTOS(DATE())}}
+
+          // Consultar os dados do sinsitro
+
+          lcEnv  := self:pathTMP + 'TOPNEW' + Wset('LOGIN') +'_'+Dtos(Date())+strtran(time(),':','') +'.XML'
+          lcRet  := self:pathTMP + 'TOPRET' + Wset('LOGIN') +'_'+Dtos(Date())+strtran(time(),':','')+ '.XML'
+
+          // Trata o header do resultset antes de enviar o mesmo para o processamento do parser
+          for ii := 1 to len(laRESULT[1])
+              laRESULT[1,ii] := lower(laRESULT[1,ii])
+          next ii
+
+          lcParser := objEvida:Parser2Str(laCONF[2,db_fetchncol(laCONF, 'ID_VINCULAR_TOP')],laRESULT)
+
+          GravaArquivo(lcEnv,lcParser) // Função presente na FuncWic
+
+          // Executa o pedido das informações
+
+          lcRun := self:pathWS + WSet('WSTOPSAUDEAPPNAME')+' '+laCONF[2, db_fetchncol(laCONF,'NOME_WS')]+' ' + lcEnv + ' ' + lcRet
+          ! (lcrun)
+
+          // Aguarda o tempo da resposta
+          inkey(laCONF[2,db_fetchncol(laCONF,'TEMPOESPERA')])
+
+          // Obter o conteúdo da pesquisa
+          if (! file(lcRet))
+             objRetorno:CdRetorno := -1
+             objRetorno:NmRetorno := 'Erro ao receber o arquivo de retorno.Arquivo de retorno não existe:'+lcRet
+             return objRetorno
+          endif
+
+          lcTMP  := GetFileContent(lcRet) // Presente na func.wic
+          lcERRO := TrataErroWS(lcTMP) // Presente na func.wic
+
+          if ! empty(lcERRO)
+             objRetorno:CdRetorno := -1
+             objRetorno:NmRetorno := 'ERRO: '+lcERRO
+             return objRetorno
+          endif
+
+          self:Xml2ConsultaTop(lcTMP, objRetorno)
+
+
+
+return objRetorno
+
+
+
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: Xml2Consulta(lcTMP, objConsulta)
+* Objetivo..: Realiza a conversão do xml retornado em objeto FlagShip
+*
+* Parâmetros:
+*
+*  lcTMP      : conteúdo do xml
+*  objConsulta: Objeto do tipo I4proConsultaSinistro para serealização.
+*
+* Retorno...:
+*               Objeto do tipo I4proConsultaSinistro serealizado.
+*
+*/
+
+
+METHOD Xml2Consulta(lcTMP, objConsulta) CLASS I4pService
+    
+    lcTMP:=strtran(lcTMP,'<i4proerp><ConsultaSinistro ',+ chr(32) + chr(13))
+    lcTMP:=strtran(lcTMP,'><Coberturas ',+ chr(32) + chr(13))
+    lcTMP:=strtran(lcTMP,'/></ConsultaSinistro></i4proerp>',+ chr(32) + chr(13))
+    
+    lcTMP:=strtran(lcTMP,'" ', '"' + chr(32) + chr(13))
+    
+    lcTMP:=strtran(lcTMP,'"', '')
+
+    laRETURN:=str2Array(lcTMP, {'=', chr(13)})
+ 
+
+    objConsulta:DtAviso             := self:getTag(laRETURN, 'dt_aviso')
+    objConsulta:DtOcorrencia        := self:getTag(laRETURN, 'dt_ocorrencia')
+    objConsulta:CdApolice           := self:getTag(laRETURN, 'cd_apolice')
+    objConsulta:NrEndosso           := self:getTag(laRETURN, 'nr_endosso')
+    objConsulta:NmEstipulante       := self:getTag(laRETURN, 'nm_estipulante')
+    objConsulta:NmSegurado          := self:getTag(laRETURN, 'nm_segurado')
+    objConsulta:SeguradoNrCnpjCpf   := self:getTag(laRETURN, 'nr_cnpj_cpf_segurado') // 'segurado_nr_cnpj_cpf'
+    objConsulta:NmSinistrado        := self:getTag(laRETURN, 'nm_sinistrado')
+    objConsulta:SinistradoNrCnpjCpf := self:getTag(laRETURN, 'nr_cnpj_cpf_sinistrado') // 'sinistrado_nr_cnpj_cpf'
+    objConsulta:NmCausa             := self:getTag(laRETURN, 'nm_causa')
+    objConsulta:NmMotivo            := self:getTag(laRETURN, 'nm_motivo')
+    objConsulta:NmStatusSinistro    := self:getTag(laRETURN, 'nm_status_sinistro')
+    objConsulta:DvJudicial          := self:getTag(laRETURN, 'dv_judicial')
+    objConsulta:NrPasta             := self:getTag(laRETURN, 'nr_pasta')
+    objConsulta:DtJudicial          := self:getTag(laRETURN, 'dt_judicial')
+    objConsulta:DtCitacao           := self:getTag(laRETURN, 'dt_citacao')
+    objConsulta:IdPessoaAutor       := self:getTag(laRETURN, 'id_pessoa_autor')
+    objConsulta:NmAutor             := self:getTag(laRETURN, 'nm_autor')
+    objConsulta:NrCnpjCpfAutor      := self:getTag(laRETURN, 'nr_cnpj_cpf_autor') 
+    objConsulta:CdUf                := self:getTag(laRETURN, 'cd_uf')
+    objConsulta:NmPerda             := self:getTag(laRETURN, 'nm_perda')
+    objConsulta:VlEconomico         := self:getTag(laRETURN, 'vl_economico')
+    objConsulta:VlAcao              := self:getTag(laRETURN, 'vl_acao')
+    objConsulta:VlPagamento         := self:getTag(laRETURN, 'vl_pagamento')
+    objConsulta:NmStatusPasta       := self:getTag(laRETURN, 'nm_status_pasta')
+    objConsulta:NrProcessoJudicial  := self:getTag(laRETURN, 'nr_processo_judicial')
+    objConsulta:NmReclamante        := self:getTag(laRETURN, 'nm_reclamante')
+    objConsulta:NmMotivoJudicial    := self:getTag(laRETURN, 'nm_motivo_judicial')
+    objConsulta:Coberturas          := self:getCoberturas(laRETURN)
+    
+    objConsulta:Retorno             := I4proRetornoNew()
+    objConsulta:Retorno:CdRetorno := val(self:getTag(laRETURN, 'cd_retorno'))
+    objConsulta:Retorno:NmRetorno := self:getTag(laRETURN, 'nm_retorno')
+
+
+
+return objConsulta
+
+/*
+*
+* Rufino - 01/2018
+*
+* Metodo....: gravarRamo(objCobertura)
+* Objetivo..: Realiza a gravação do ramo
+*
+* Parâmetros:
+*
+*  objConsulta : objeto do tipo I4proCobertura
+*
+* Retorno...: um array no formato {{'CD_RAMOSRSN','SEGURORAMO','SEGUROPRODUTO','FL_ATIVO'},{123,Sinistro1,Carro,S}}
+*
+*
+*/
+
+
+
+METHOD gravarRamo(objCobertura) CLASS I4pService
+
+    local lnTMP  := 0,;
+          ii     := 0  AS Int
+    local laRES  := {},;
+          laRAMO := {} AS Array
+    
+    local objCfg := ConfigI4ProNew()
+
+    objCfg:FindOne() 
+   
+
+    aadd(laRAMO, {objCobertura:NmRamo,objCobertura:NmCobertura,objCobertura:IdProdutoCobertura})
+
+    ii = 1
+
+    if ! Empty(AllTrim(laRAMO[ii,1]))
+ 
+        lcWHERE := "CD_RAMOSRSN=" +  laRAMO[ii,1]
+
+        if db_select({'CD_RAMOSRSN','SEGURORAMO','SEGUROPRODUTO'},'ramosrsn',,{lcWHERE}) == -1
+           error_sys(db_error())
+        endif
+        laRES := db_fetchall()
+        if len(laRES) == 1        
+        
+           if db_insert({{'CD_RAMOSRSN','SEGURORAMO','SEGUROPRODUTO','FL_ATIVO'},;
+                          {laRAMO[ii,1],laRAMO[ii,2],laRAMO[ii,3],'S'}},'ramosrsn') == -1                                 
+                          
+              error_sys(db_error())
+           else
+              AADD(self:IdRamos,{laRAMO[ii,1],laRAMO[ii,2],laRAMO[ii,3],'S'})
+           endif
+        else                 
+           AADD(self:IdRamos,{laRAMO[ii,1],laRAMO[ii,2],laRAMO[ii,3],'S'})
+        endif
+    endif
+
+     
+
+return self
+
+/*
+*
+* Rufino - 01/2018
+*
+* Metodo....: gravarCausaSinistro(objConsulta)
+* Objetivo..: Realiza a gravação da causa do sinistro
+*
+* Parâmetros:
+*
+*  objConsulta : objeto do tipo I4proConsultaSinistro
+*
+* Retorno...: um array no formato {{'CD_CAUSA_SINISTRO','NM_CAUSA_SINISTRO'},{123,Acidente de trabalho}}
+*
+*
+*/
+
+METHOD gravarCausaSinistro(objConsulta) CLASS I4pService
+
+    local lnTMP  := 0,;
+          ii     := 0  AS Int
+    local laRES  := {},;
+          laCAUSA:= {} AS Array
+
+    local laPROXIMO := {}  AS Array
+
+    local objCfg := ConfigI4ProNew()
+
+    objCfg:FindOne()    
+        
+    aadd(laCAUSA, {'',objConsulta:NmCausa})     
+
+    for ii := 1 to len(laCAUSA)
+        if ! Empty(AllTrim(laCAUSA[ii,2]))
+ 
+            lcWHERE := "NM_CAUSA_SINISTRO=" + DLAP + Lat2Char(laCAUSA[ii,2]) + DLAP
+
+            if db_select({'CD_CAUSA_SINISTRO','NM_CAUSA_SINISTRO'},'sinistro_causa',,{ lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+            laRES := db_fetchall()
+            if len(laRES) == 1
+            
+               if db_select({'max(cd_causa_sinistro)+1 as proximo'},'sinistro_causa') == -1
+                  error_sys(db_error())
+               endif
+               laPROXIMO := db_fetchrow()            
+            
+               if db_insert({{'CD_CAUSA_SINISTRO','NM_CAUSA_SINISTRO'},;
+                              {laPROXIMO[1],laCAUSA[ii,2]}},'sinistro_causa') == -1                                 
+                              
+                  error_sys(db_error())
+               else
+                  lnTMP := laPROXIMO[1]
+                  (laCAUSA[ii,1]) := lnTMP
+                  AADD(self:IdCausa,{lnTMP, laCAUSA[ii,2]})
+               endif
+            else
+               AADD(self:IdCausa,{laRES[2,1], laCAUSA[ii,2]})
+            endif
+        endif
+    next ii
+
+return self
+
+/*
+*
+* Rufino - 01/2018
+*
+* Metodo....: gravarStatus(objConsulta)
+* Objetivo..: Realiza a gravação do status do sinistro.
+*
+* Parâmetros:
+*
+*  objConsulta : objeto do tipo I4proConsultaSinistro
+*
+* Retorno...: 
+*
+*
+*/
+
+METHOD gravarStatus(objConsulta) CLASS I4pService
+
+    local lnTMP    := 0,;
+          ii       := 0  AS Int
+    local laRES    := {},;
+          laSTATUS := {} AS Array
+
+    local objCfg := ConfigI4ProNew()
+
+    objCfg:FindOne()                          
+
+    aadd(laSTATUS, {objConsulta:NmStatusSinistro})
+
+    for ii := 1 to len(laSTATUS)
+        if ! Empty(AllTrim(laSTATUS[ii,1]))
+            
+            lcWHERE := "TP_SINISTRO=" + DLAP + Lat2Char(laSTATUS[ii,1]) + DLAP
+            
+            if db_select({'TP_SINISTRO','FL_ATIVO'},'tipo_sinistro',,{ lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+            laRES := db_fetchall()
+            if len(laRES) == 1
+               if db_insert({{'TP_SINISTRO',;
+                              'FL_ATIVO'},;
+                              { Lat2Char(laSTATUS[ii,1]),;
+                              'S'}},'tipo_sinistro') == -1                                
+                              
+                  error_sys(db_error())
+               endif
+            endif
+        endif
+    next ii
+
+return self
+
+
+/*
+*
+* Rufino - 01/2018
+*
+* Metodo....: gravarTpCoseguro(objConsulta)
+* Objetivo..: Realiza a gravação do tipo coseguro.
+*
+* Parâmetros:
+*
+*  objConsulta : objeto do tipo I4proRetSinJud
+*
+* Retorno...: 
+*
+*
+*/
+
+METHOD gravarTpCoseguro(objRetorno) CLASS I4pService
+
+    local lnTMP    := 0,;
+          ii       := 0  AS Int
+    local laRES    := {},;
+          laTPCO := {} AS Array
+
+    local objCfg := ConfigI4ProNew()
+
+    objCfg:FindOne()                          
+
+    aadd(laTPCO, {objRetorno:CdTpCosseguro})
+
+    for ii := 1 to len(laTPCO)
+        if ! Empty(AllTrim(laTPCO[ii,1]))
+            
+            lcWHERE := "TP_COSSEGURO=" + DLAP + Lat2Char(laTPCO[ii,1]) + DLAP
+            
+            if db_select({'TP_COSSEGURO','FL_ATIVO'},'cossegurotipo',,{ lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+            laRES := db_fetchall()
+            if len(laRES) == 1
+               if db_insert({{'TP_COSSEGURO',;
+                              'FL_ATIVO'},;
+                              {laTPCO[ii,1],;
+                              'S'}},'cossegurotipo') == -1                                
+                              
+                  error_sys(db_error())
+               endif
+            endif
+        endif
+    next ii
+
+return self
+
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: gravarPfpj(objConsulta)
+* Objetivo..: Realiza a gravação do segurado caso o mesmo não exista no Isj.
+*
+* Parâmetros:
+*
+*  objConsulta : objeto do tipo I4proConsultaSinistro
+*
+* Retorno...: um array no formato {{'CIP','PFPJ','WFIELD'},{123,Carlos Alberto,CIP_ESTIPULANTE}}
+*
+*
+*/
+
+METHOD gravarPfpj(objConsulta) CLASS I4pService
+
+    local lnTMP  := 0,;
+          ii     := 0  AS Int
+    local laRES  := {},;
+          laPFPJ := {} AS Array
+
+    local objCfg := ConfigI4ProNew()
+
+    objCfg:FindOne()
+
+
+
+    
+    aadd(laPFPJ, {'',                              objConsulta:NmEstipulante, 'EST', 'objConsulta:CipEstipulante',     'CIP_ESTIPULANTE'})
+    aadd(laPFPJ, {objConsulta:SeguradoNrCnpjCpf,   objConsulta:NmSegurado,    'SEG', 'objConsulta:CipSegurado',        'CIP_SEGURADO'})
+    aadd(laPFPJ, {objConsulta:SinistradoNrCnpjCpf, objConsulta:NmSinistrado,  'VIT', 'objConsulta:CipSinistrado',      'CIP_SINISTRADO'})
+    aadd(laPFPJ, {objConsulta:NrCnpjCpfAutor,      objConsulta:NmAutor,       'AUT', 'objConsulta:CipAutor',           'CIP_AUTOR'})
+    aadd(laPFPJ, {'',                              objConsulta:NmReclamante,  'AUT', 'objConsulta:CipReclamente',      'CIP_RECLAMANTE'})
+
+//debug2(laPFPJ,,30)
+
+    for ii := 1 to len(laPFPJ)
+        if ! Empty(AllTrim(laPFPJ[ii,2]))
+            //lcWHERE := iif(Empty(laPFPJ[ii,1]), "PFPJ_CHAR=" + DLAP + Lower(Lat2Char(laPFPJ[ii,2])) + DLAP,  'CNPJ_CPF='+DLAP+laPFPJ[ii,1]+DLAP)
+            lcWHERE := "PFPJ_CHAR=" + DLAP + Lower(Lat2Char(laPFPJ[ii,2])) + DLAP
+            if db_select({'CIP','PFPJ'},'pfpj',,{ lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+            laRES := db_fetchall()
+            if len(laRES) == 1
+               if db_insert({{'PFPJ',;
+                              'PFPJ_CHAR',;
+                              'CNPJ_CPF',;
+                              'PFPJ_TIPOS',;
+                              'PFPJ_NATUREZA',;
+                              'LOGIN_CADASTRO',;
+                              'DT_CADASTRO',;
+                              'DT_ENTRADA',;                             
+                              'FL_APROVADO',;
+                              'DT_APROVACAO',;
+                              'LOGIN_APROVACAO',;
+                              'FL_PFPJ'},;
+                              {laPFPJ[ii,2],;
+                              lower(lat2char(laPFPJ[ii,2])),;
+                              laPFPJ[ii,1],;
+                              laPFPJ[ii,3],;
+                              iif(len(laPFPJ[ii,3]) > 11,'Juridica','Fisica'),;
+                              'I4Pro',;
+                              date(),;
+                              date(),;
+                              'A',;
+                              date(),;
+                              'I4Pro',;
+                              'A'}},'pfpj') == -1
+                              
+                              
+                  error_sys(db_error())
+               else
+                  lnTMP := db_insert_id()
+                  if db_update({{'CIP'},{str(lnTMP)}},'pfpj',{'NR_CONTROLE='+AllTrim(lnTMP)}) == -1
+                     error_sys(db_error())
+                  endif
+                  (laPFPJ[ii,4]) := AllTrim(lnTMP)
+                  AADD(self:CipsConsulta,{AllTrim(lnTMP), laPFPJ[ii,2], laPFPJ[ii,5]})
+               endif
+            else
+               (laPFPJ[ii,4]) := laRES[2,1]
+               AADD(self:CipsConsulta,{laRES[2,1], laPFPJ[ii,2], laPFPJ[ii,5]})
+            endif
+        endif
+    next ii
+
+return self
+
+/*
+*
+* Rufino - 01/2018
+*
+* Metodo....: gravar2Pfpj(objRetorno)
+* Objetivo..: Realiza a gravação dos cips vindos no arquivo de retorno.
+*
+* Parâmetros:
+*
+*  objConsulta : objeto do tipo I4proConsultaSinistro
+*
+* Retorno...: um array no formato {{'CIP','PFPJ','WFIELD'},{123,Carlos Alberto,CIP_ESTIPULANTE}}
+*
+*
+*/
+
+METHOD gravar2Pfpj(objRetorno) CLASS I4pService
+
+    local lnTMP  := 0,;
+          ii     := 0  AS Int
+    local laRES  := {},;
+          laPFPJ := {} AS Array
+
+    local objCfg := ConfigI4ProNew()
+
+    objCfg:FindOne()
+    
+    aadd(laPFPJ, {'', objRetorno:NmLider,    'LID', ''                             ,'CIP_EMPRESA_LIDER'})
+    aadd(laPFPJ, {'', objRetorno:NmCorretor, 'COR', ''                             ,'CIP_CORRETOR'})
+    aadd(laPFPJ, {'', objRetorno:NmCongenere,'CON', 'objRetorno:IdPessoaCongenere' ,'CIP_EMPRESA_CONGENERE'})
+
+    for ii := 1 to len(laPFPJ)
+        if ! Empty(AllTrim(laPFPJ[ii,2]))
+            lcWHERE := "PFPJ_CHAR=" + DLAP + Lower(Lat2Char(laPFPJ[ii,2])) + DLAP
+            if db_select({'CIP','PFPJ'},'pfpj',,{ lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+            laRES := db_fetchall()
+            if len(laRES) == 1
+               if db_insert({{'PFPJ',;
+                              'PFPJ_CHAR',;
+                              'CNPJ_CPF',;
+                              'PFPJ_TIPOS',;
+                              'PFPJ_NATUREZA',;
+                              'LOGIN_CADASTRO',;
+                              'DT_CADASTRO',;
+                              'DT_ENTRADA',;                             
+                              'FL_APROVADO',;
+                              'DT_APROVACAO',;
+                              'LOGIN_APROVACAO',;
+                              'FL_PFPJ'},;
+                              {laPFPJ[ii,2],;
+                              lower(lat2char(laPFPJ[ii,2])),;
+                              laPFPJ[ii,1],;
+                              laPFPJ[ii,3],;
+                              iif(len(laPFPJ[ii,3]) > 11,'Juridica','Fisica'),;
+                              'I4Pro',;
+                              date(),;
+                              date(),;
+                              'A',;
+                              date(),;
+                              'I4Pro',;
+                              'A'}},'pfpj') == -1
+                              
+                              
+                  error_sys(db_error())
+               else
+                  lnTMP := db_insert_id()
+                  if db_update({{'CIP'},{str(lnTMP)}},'pfpj',{'NR_CONTROLE='+AllTrim(lnTMP)}) == -1
+                     error_sys(db_error())
+                  endif
+                  (laPFPJ[ii,4]) := AllTrim(lnTMP)
+                  AADD(self:Cips2Consulta,{AllTrim(lnTMP), laPFPJ[ii,2], laPFPJ[ii,5]})
+               endif
+            else
+               (laPFPJ[ii,4]) := laRES[2,1]
+               AADD(self:Cips2Consulta,{laRES[2,1], laPFPJ[ii,2], laPFPJ[ii,5]})
+            endif
+        endif
+    next ii
+
+return self    
+
+
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: gravaLogSeguro(objConsulta)
+* Objetivo..: Realiza a gravação do log da consulta.
+*
+* Parâmetros:
+*
+*  objConsulta : objeto do tipo ConsultaTop.
+*
+* Retorno...:
+*
+*
+*/
+
+METHOD gravaLogSeguro(objConsulta) CLASS I4pService
+
+
+
+   if db_insert({{'NR_PASTA','NR_SINISTRO','ID_INTEGRACAO','ID_SERVICO','DT_OPERACAO','HR_OPERACAO','FL_ACAOJUD','RETORNO'},;
+                 {WGet('NR_PASTA'), objConsulta:self:SinistroNumero, objConsulta:IdIntegracao,1,date(),time(),objConsulta:StatusSinistro,objConsulta:toString()}},'isjunimedservlog') == -1
+      error_sys(db_error())
+   endif
+
+
+return self
+
+
+
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: getFlSinistro(status)
+* Objetivo..: Retorna a descrição do status do sinistro
+*
+* Parâmetros:
+*
+*  status : status no xml
+*
+* Retorno...:
+*               Descrição do status
+*
+*/
+
+METHOD getFlSinistro(status) CLASS I4pService
+
+      if alltrim(status) == '1' .OR. alltrim(status) == 'L'
+         return 'Liberado'
+      elseif alltrim(status) == '2' .OR. alltrim(status) == 'P'
+             return 'Pendente'
+      elseif alltrim(status) == '3' .OR. alltrim(status) == 'R'
+             return 'Recusado'
+      elseif alltrim(status) == '4' .OR. alltrim(status) == 'A'
+             return 'Liberado Parcial'
+      endif
+
+return ''
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: ValidaPath()
+* Objetivo..: Valida o path e aplicação ponte para comunicação com o WS
+*
+* Parâmetros:
+*
+* Retorno...:
+*               objeto do tipo I4proConsultaSinistro
+*
+*/
+
+METHOD ValidaPath() CLASS I4pService
+
+    local objConsulta := I4proConsultaSinistroNew() AS Object
+
+          if empty(WSet('PATHWSI4PRO'))
+             objConsulta:Retorno:CdRetorno := -1
+             objConsulta:Retorno:NmRetorno := 'Path da aplicação de consumo webservice não configurada no wprofile.'
+          endif
+          self:pathWS := WSet('PATHWSI4PRO')
+          if ! file(self:pathWS+WSet('WSAPPNAME'))
+             objConsulta:Retorno:CdRetorno := -1
+             objConsulta:Retorno:NmRetorno := 'Aplicação de consumo webservice não esta presente no diretório informado no wprofile.'
+          endif
+
+return objConsulta
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: ValidaConf(objCfg,objRet)
+* Objetivo..: Valida a configuração dos xmls da interface
+*
+* Parâmetros: objCfg = Objeto de configuração
+*             objRet = Objeto de Retorno da validação
+*
+* Retorno...:
+*               objeto do tipo ConsultaTop
+*
+*/
+
+METHOD ValidaConf(objCfg,objRet) CLASS I4pService
+
+       if empty(objCfg:TipoPastas)
+          objRet:Retorno:CdRetorno := -1
+          objRet:Retorno:NmRetorno := 'Não foi encontrado configuração de Tipo de Pastas para I4Pro.'
+       endif
+
+       if objCfg:IdConSinistro == 0
+          objRet:Retorno:CdRetorno := -1
+          objRet:Retorno:NmRetorno := 'Não foi encontrado o serviço para consultar sinistro.'
+       endif
+
+       if objCfg:IdMarcarJudicial == 0
+          objRet:Retorno:CdRetorno := -1
+          objRet:Retorno:NmRetorno := 'Não foi encontrado o serviço para marcar o sinistro.'
+       endif
+
+       if objCfg:IdDesmarcarJudicial == 0
+          objRet:Retorno:CdRetorno := -1
+          objRet:Retorno:NmRetorno := 'Não foi encontrado o serviço para desmarcar o sinistro.'
+       endif
+
+       if objCfg:IdAtualizarReserva == 0
+          objRet:Retorno:CdRetorno := -1
+          objRet:Retorno:NmRetorno := 'Não foi encontrado o serviço para atualizar reserva.'
+       endif
+
+       if objCfg:IdRealizarPagamento == 0
+          objRet:Retorno:CdRetorno := -1
+          objRet:Retorno:NmRetorno := 'Não foi encontrado o serviço para realizar pagamento.'
+       endif
+
+       if objCfg:IdConfirmacaoPagamentos == 0
+          objRet:Retorno:CdRetorno := -1
+          objRet:Retorno:NmRetorno := 'Não foi encontrado o serviço para confirmação de pagamentos.'
+       endif
+       
+       if objCfg:IdMovimentoSinistroJudicial == 0
+          objRet:Retorno:CdRetorno := -1
+          objRet:Retorno:NmRetorno := 'Não foi encontrado o serviço para movimento de sinistro judicial.'
+       endif       
+
+
+
+
+/*
+       self:PedidoProcesso          := laRESULT[2,11]
+       self:TpPfpjResseguradora   := laRESULT[2,12]
+       self:TpPfpjCongenere       := laRESULT[2,13]
+       self:TpPfpjBeneficiario    := laRESULT[2,14]
+       self:TpPfpjEstipulante     := laRESULT[2,15]
+       self:TpPfpjSinistrado      := laRESULT[2,16]
+       self:TpPfpjReclamante      := laRESULT[2,17]
+       self:TpPfpjAutor           := laRESULT[2,17]
+*/
+
+
+return objRet
+
+
+
+
+
+
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: RetornaConfWS()
+* Objetivo..: Retorna um objeto com as configurações da interface.
+*
+* Parâmetros:
+*
+* Retorno...:
+*               objeto do tipo ConfigI4Pro
+*
+*/
+
+METHOD RetornaConfWS() CLASS I4pService
+
+       LOCAL objRetorno := ConfigI4ProNew()
+
+             objRetorno:IdEmpresa := 1
+
+return objRetorno:FindOne()
+
+
+
+
+
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: getXmlService(idService)
+* Objetivo..: Retorna um objeto com as informações do Serviço.
+*
+* Parâmetros:
+*
+* Retorno...:
+*               objeto do tipo ConfigI4Pro
+*
+*/
+
+METHOD getXmlService(idService) CLASS I4pService
+
+       LOCAL objRetorno := ServicosI4ProNew()
+
+             objRetorno:IdServico := idService
+
+return objRetorno:FindOne()
+
+
+
+
+
+
+
+
+/*
+* Data......: 25/08/2010 - Glauber
+* Method....: parser2str(<expC1>,<expA1>)
+* Objetivo..: Processa o parser em expC1 com base nos dados de expA1.
+* Parâmetros:
+*    expC1: String a processado o parser.
+*    expA1: Array com os dados no formato laRESULT
+* Retorno...: Retorna uma string com os dados processados
+*
+*
+*/
+
+METHOD Parser2str(pcConteudo,paResult) CLASS I4pService
+
+     local xx := 0 as int
+     local lcResult := '',;
+           lcTmp    := '' as String
+     lcResult := pcConteudo
+     if len(pcConteudo) > 0 .and. len(paResult) > 1
+        for xx := 1 to len(paResult[1])
+            lcTMP := '[' + paResult[1,xx] + ']'
+            lcResult := StrTran(lcResult,lcTMP,alltrim(paResult[2,xx]))
+        next xx
+     endif
+return (lcResult)
+
+
+
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: getTag(xml, tag)
+* Objetivo..: Obtem o conteúdo de uma tag num xml.
+*
+* Parâmetros:
+*
+*    xml :  conteúdo do xml.
+*    tag :  tag a ser extraida.
+*
+* Retorno...:
+*
+*           objeto do tipo PfpjRetornoEvida com as informações
+*/
+
+METHOD getTag(xml, tag) CLASS I4pService
+
+
+    local lcRET   := '',;
+          lcABRE  := '',;
+          lcDADOS := '',; 
+          lcFECHA := '' AS String
+    local POSINI  := 0,;
+          POSFIN  := 0,;
+          lnPOS   := 0,;
+          QTD     := 0 AS Int
+
+          //lcABRE  := '<' + AllTrim(tag) + '>'
+          //lcFECHA := '</' + AllTrim(tag) + '>'
+
+          //POSINI  := AT(lcABRE,xml)
+          //POSFIN  := AT(lcFECHA,xml)
+
+          //if (POSINI > 0 .AND. POSFIN > 0)
+          //   QTD   := POSFIN - (POSINI + len(lcABRE))
+          //   lcRET := substr(xml, (POSINI + len(lcABRE)), QTD)
+          //   lcRET := AllTrim(StrTran(lcRET,lcFECHA,''))
+          //endif
+
+
+          *debug2(tag,,30)
+
+          lnPOS := ascan(xml, {|x| x[1] == tag})
+
+          if lnPOS > 0
+             lcDADOS := strtran(xml[lnPOS,2],'"','')
+             return ALLTRIM(lcDADOS)
+          endif
+return ''       
+//return lcRET
+
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: getCoberturas(lcTMP)
+* Objetivo..: Obtem as coberturas na operação de consulta.
+*
+* Parâmetros:
+*
+*    xml :  conteúdo do xml.
+*
+* Retorno...:
+*
+*           Array do tipo I4proCobertura
+*/
+
+METHOD getCoberturas(xml) CLASS I4pService
+
+
+    local lcTEMP   := '',;
+          lcABRE  := '',;
+          lcFECHA := '' AS String
+    local POSINI  := 0,;
+          POSFIN  := 0,;
+          QTD     := 0 AS Int
+    local laRET   := {} AS ARRAY
+
+          lcABRE  := '<Coberturas>'
+          lcFECHA := '</Coberturas>'
+          POSINI  := AT(lcABRE,xml)
+          POSFIN  := AT(lcFECHA,xml)
+
+          if (POSINI > 0 .AND. POSFIN > 0)
+             QTD   := POSFIN - (POSINI + len(lcABRE))
+             lcTEMP := substr(xml, (POSINI + len(lcABRE)), QTD)
+             lcTEMP := AllTrim(StrTran(lcTEMP,lcFECHA,''))
+          endif
+
+          //laCOBS := self:Str2Vetor(lcTEMP, '</Cobertura>')
+          
+          laRET := {{'NR_RAMO','ID_PRODUTO_COBERTURA','NM_COBERTURA','VL_IS','VL_AVISO','VL_RESERVA'}}
+
+          AADD(laRET, {self:getTagX(xml, 'nr_ramo'),;
+                       self:getTagX(xml, 'id_produto_coberura'),;
+                       self:getTagX(xml, 'nm_cobertura'),;
+                       self:getTagX(xml, 'vl_is'),;
+                       self:getTagX(xml, 'vl_aviso'),;
+                       self:getTagX(xml, 'vl_reserva')})
+
+          objCobertura:= I4proCoberturaNew()
+          objCobertura:NmRamo             := self:getTagX(xml, 'nr_ramo')
+          objCobertura:IdProdutoCobertura := self:getTagX(xml, 'id_produto_coberura')
+          objCobertura:NmCobertura        := alltrim(self:getTag(xml, 'nm_cobertura'))
+          objCobertura:VlIs               := self:getTagX(xml, 'vl_is')
+          objCobertura:VlAviso            := self:getTagX(xml, 'vl_aviso')
+          objCobertura:VlReserva          := self:getTagX(xml, 'vl_reserva')
+
+          self:gravarCobertura(objCobertura)
+          self:gravarRamo(objCobertura)
+
+
+          /*
+          for ii := 1 to len(laCOBS)
+              if ! Empty(laCOBS[ii])
+                  AADD(laRET, {self:getTag(laCOBS[ii], 'nr_ramo'),;
+                               self:getTag(laCOBS[ii], 'id_produto_coberura'),;
+                               self:getTag(laCOBS[ii], 'nm_coberura'),;
+                               0.00,;
+                               self:getTag(laCOBS[ii], 'vl_aviso'),;
+                               self:getTag(laCOBS[ii], 'vl_reserva')})
+
+
+
+                  self:gravarCobertura(objCobertura)
+
+                  if ii == 1 //grava so a primeira
+                     self:gravarRamo(objCobertura)
+                  endif
+
+              endif
+          next ii
+          */
+
+
+
+//wout('<br><b>laRET')
+//debug2(laRET,,100)
+//wout('<br><b>Passou por laRET')
+
+return laRET
+
+/*
+*
+* Rufino - 01/2018
+*
+* Metodo....: getIdCausa()
+* Objetivo..: inclui delimitadores no IDCAUSA.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*
+*           Array do com a id da causa
+*/
+
+
+
+METHOD getIdCausa(delimitadores) CLASS I4pService
+
+    local linha    := 0,;
+          coluna   := 0 AS Int
+    local lcRET := '' AS String
+
+    local delim := iif(Empty(delimitadores), {'|','#'}, delimitadores)
+
+      for linha := 1 to len(self:IdCausa)
+          for coluna := 1 to len(self:IdCausa[linha])
+              lcRET += transform(self:IdCausa[linha,coluna]) + iif(coluna <  len(self:IdCausa[linha]), delim[1], '')
+          next coluna
+          lcRET += delim[2]
+      next linha
+
+
+return lcRET
+
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: getCipsConsulta()
+* Objetivo..: Obtem os envolvido na operação de consulta.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*
+*           Array do com os cips envolvido
+*/
+
+
+
+METHOD getCipsConsulta(delimitadores) CLASS I4pService
+
+    local linha    := 0,;
+          coluna   := 0 AS Int
+    local lcRET := '' AS String
+
+    local delim := iif(Empty(delimitadores), {'|','#'}, delimitadores)
+
+      for linha := 1 to len(self:CipsConsulta)
+          for coluna := 1 to len(self:CipsConsulta[linha])
+              lcRET += transform(self:CipsConsulta[linha,coluna]) + iif(coluna <  len(self:CipsConsulta[linha]), delim[1], '')
+          next coluna
+          lcRET += delim[2]
+      next linha
+
+
+return lcRET
+
+/*
+*
+* Rufino - 01/2018
+*
+* Metodo....: getCips2Consulta(delimitadores)
+* Objetivo..: Obtem os envolvido na operação de consulta.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*
+*           Array do com os cips envolvido
+*/
+
+
+
+METHOD getCips2Consulta(delimitadores) CLASS I4pService
+
+    local linha    := 0,;
+          coluna   := 0 AS Int
+    local lcRET := '' AS String
+
+    local delim := iif(Empty(delimitadores), {'|','#'}, delimitadores)
+
+      for linha := 1 to len(self:Cips2Consulta)
+          for coluna := 1 to len(self:Cips2Consulta[linha])
+              lcRET += transform(self:Cips2Consulta[linha,coluna]) + iif(coluna <  len(self:Cips2Consulta[linha]), delim[1], '')
+          next coluna
+          lcRET += delim[2]
+      next linha
+
+
+return lcRET
+
+
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: Str2Vetor(texto, pesquisa)
+* Objetivo..: Converte um texto em vetor, utilizando como quebra a string definida em pesquisa.
+*
+* Parâmetros:
+*
+* texto     : Texto para conversão
+* pesquisa  : String utilizada para quebra
+*
+* Retorno...:
+*
+*           vetor resultante da conversão.
+*/
+
+METHOD Str2Vetor(texto, pesquisa) CLASS I4pService
+
+
+  local posicao := 0,;
+        atual   := 0
+  local laRET := {}
+
+  posicao := at(pesquisa, texto)
+
+  while (posicao > 0)
+        aadd(laRET, substr(texto, atual, (posicao-1)))
+//wout('<br><b>extraido:'+substr(texto, atual, (posicao-1)))
+        atual   += (posicao + len(pesquisa))
+//wout('<br><b>Posicao:'+transform(posicao))
+        posicao := at(pesquisa, texto, atual)
+
+  enddo
+
+
+
+/*
+<br><b>coberturas:
+          <Cobertura>
+                <nr_ramo>69</nr_ramo>
+                <id_produto_coberura>21</id_produto_coberura>
+                <nm_cobertura>Morte Acidental em Viagem</nm_cobertura>
+                <vl_aviso>="100000.00"</vl_aviso>
+                <vl_reserva>0.00</vl_reserva>
+          </Cobertura>
+*/
+
+return laRET
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: Array2Str(faArray)
+* Objetivo..: Converte um array em texto.
+*
+* Parâmetros:
+*
+* faArray     : Array para conversão
+*
+*
+* Retorno...:
+*
+*           Texto convertido.
+*/
+
+METHOD Array2Str(faArray) CLASS I4pService
+
+    local linha    := 0,;
+          coluna   := 0 AS Int
+    local lcRET := '' AS String
+
+    local delim := iif(Empty(delimitadores), {'|','#'}, delimitadores)
+
+      for linha := 1 to len(faArray)
+          for coluna := 1 to len(faArray[linha])
+              lcRET += transform(faArray[linha,coluna]) + iif(coluna <  len(faArray[linha]), delim[1], '')
+          next coluna
+          lcRET += delim[2]
+      next linha
+
+
+return lcRET
+
+
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: gravarCobertura(objCobertura)
+* Objetivo..: Verifica se existe uma cobertura no Isj e caso não exista innclui.
+*
+* Parâmetros:
+*
+* objCobertura     : Objeto do tipo I4proCobertura
+*
+*
+* Retorno...:
+*
+*           self
+*/
+
+METHOD gravarCobertura(objCobertura) CLASS I4pService
+
+    local laFIELDS := {'LMI_NM_COBERTURA','FL_ATIVO'},;
+          laRES    := {},;
+          laSAVE   := {} AS Array
+          
+    local lcNM:=alltrim(objCobertura:NmCobertura)      
+
+    if db_select(laFIELDS,'lmi_cobertura',,{'LMI_NM_COBERTURA=' + DLAP + lcNM + DLAP}) == -1
+       error_sys(db_error())
+    endif
+
+    laRES := db_fetchall()
+
+    if len(laRES) == 1
+       aadd(laSAVE, laFIELDS)
+       aadd(laSAVE, {lcNM, 'S'})
+       if db_insert(laSAVE, 'lmi_cobertura') == -1
+          error_sys(db_error())
+       endif
+    endif
+
+
+return self
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: MarcarJudicial(objsinistro)
+* Objetivo..: Realiza a marcação do sinistro como judicial
+*
+* Parâmetros:
+*
+*  objsinistro       : objeto do tipo JudMkSinI4pro
+*
+*
+*
+* Retorno...: I4proRetSinJud
+*             
+*
+*/
+
+METHOD MarcarJudicial(objsinistro)  CLASS I4pService
+
+    local objCfg      := ConfigI4ProNew()           AS Object
+    local objService  := ServicosI4ProNew()         AS Object
+    local objMarca    := JudMkSinI4proNew()         AS Object
+    local objRetorno  := I4proRetSinJudNew()        AS Object
+    local objEx       := I4proRetornoNew()          AS Object
+                         
+    local lnSeq       := 0                AS Int
+
+    local lcEnv       := ''               AS String
+    local lcRet       := ''               AS String
+    local lcParser    := ''               AS String
+    local lcTmp       := ''               AS String
+    local lcErro      := ''               AS String
+    local llErro      := .F.
+    local laCONF      := {}               AS Array
+    local laRESULT    := {}               AS Array
+    
+          objCfg := self:RetornaConfWS()
+          objService := self:getXmlService(objCfg:IdMarcarJudicial)
+
+          
+          laRESULT := {{'NR_SINISTRO','NR_PASTA','DT_AVISO','CIP_AUTOR','PFPJ_AUTOR','CNPJ_CPF_AUTOR','UF','NM_PERDA','VL_ESTIMADO','VL_ACAO','VL_PREMIO_PAGO','NR_PROCESSO_JUDICIAL','CIP_RECLAMANTE_PFPJ','MOTIVO','CD_RAMOSRSN','SEGUROPRODUTO','SEGURORAMO'},;
+                       {objsinistro:NrSinistro,objsinistro:NrPasta,objsinistro:DtCitacao,objsinistro:IdPessoaAutor,objsinistro:NmAutor,objsinistro:NrCnpjCpfAutor,objsinistro:CdUf,objsinistro:NmPerda,objsinistro:VlEconomico,objsinistro:VlAcao,objsinistro:VlPagamento,objsinistro:NrProcessoJudicial,objsinistro:NmReclamante,objsinistro:IdMotivoJudicial,objsinistro:NmRamo,objsinistro:IdProdutoCobertura,objsinistro:NmCobertura}}
+
+          // Marcar sinsitro
+
+          lcEnv  := self:pathTMP + 'I4PMARJUD' + Wset('LOGIN') +'_'+Dtos(Date())+strtran(time(),':','') +'.XML'
+          lcRet  := StrTran(lcEnv,'.XML', '.RET')
+
+//          lcRet  := 'I4RENVraphaeltc_20180220170734.RET'
+
+          lcParser := self:Parser2Str(objService:XmlJson, laRESULT)
+
+          GravaArquivo(lcEnv,lcParser) // Função presente na FuncWic
+
+          // Executa o pedido das informações
+
+          ***lcRun := self:pathWS + WSet('WSAPPNAME') +' ' + lcEnv
+          lcRun := WSet('WSAPPNAME') +' ' + lcEnv
+          ! (lcrun)
+
+
+          // Obter o conteúdo da pesquisa
+          if (! file(lcRet))
+             objEx := self:getExceptionWS()
+             objRetorno:Retorno:CdRetorno := objEx:CdRetorno
+             objRetorno:Retorno:NmRetorno := objEx:NmRetorno
+             return objRetorno
+          endif
+
+          lcTMP  := GetFileContent(lcRet) // Presente na func.wic
+          lcERRO := TrataErroWS(lcTMP) // Presente na func.wic
+
+          if ! empty(lcERRO)
+             objRetorno:Retorno:CdRetorno := -1
+             objRetorno:Retorno:NmRetorno := 'ERRO: '+lcERRO
+             return objRetorno
+          endif
+
+          objRetorno := self:Xml2leRet(lcTMP)
+
+
+
+return objRetorno
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: isEnabled()
+* Objetivo..: Retorna .T. caso a interface esteja habilitada para uso.
+*
+* Parâmetros:
+*
+*
+*
+*
+* Retorno...:
+*
+*           .T. ou .F.
+*/
+
+METHOD isEnabled()  CLASS I4pService
+
+//  <I4PROATIVO>true</I4PROATIVO>
+
+
+return Wset('I4PROATIVO') == 'true'
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: Xml2Marca(lcTMP, objMarcacao)
+* Objetivo..: Realiza a conversão do xml retornado em objeto FlagShip
+*
+* Parâmetros:
+*
+*  lcTMP      : conteúdo do xml
+*  objConsulta: Objeto do tipo I4proRetSinJud para serealização.
+*
+* Retorno...:
+*               Objeto do tipo I4proRetSinJud serealizado.
+*
+*/
+
+
+METHOD Xml2Marca(lcTMP, objMarca) CLASS I4pService
+
+    *** abaixo dados que devem ser lidos do arquivo grande XML busca pela tag no arquivo
+    
+
+    objMarca:NrSinistro          := self:getTag(lcTMP, 'nr_sinistro')
+    objMarca:NrPasta             := self:getTag(lcTMP, 'nr_pasta')
+    objMarca:DtCitacao           := self:getTag(lcTMP, 'dt_citacao')
+    objMarca:IdPessoaAutor       := self:getTag(lcTMP, 'id_pessoa_autor')
+    objMarca:NmAutor             := self:getTag(lcTMP, 'nm_autor')
+    objMarca:NrCnpjCpfAutor      := self:getTag(lcTMP, 'nr_cnpj_cpf_autor')
+    objMarca:CdUf                := self:getTag(lcTMP, 'cd_uf')
+    objMarca:NmPerda             := self:getTag(lcTMP, 'nm_perda')
+    objMarca:VlEconomico         := self:getTag(lcTMP, 'vl_economico')
+    objMarca:VlAcao              := self:getTag(lcTMP, 'vl_acao')
+    objMarca:VlPagamento         := self:getTag(lcTMP, 'vl_pagamento')
+    objMarca:NrProcessoJudicial  := self:getTag(lcTMP, 'nr_processo_judicial')
+    objMarca:NmReclamante        := self:getTag(lcTMP, 'nm_reclamante')
+    objMarca:IdMotivoJudicial    := self:getTag(lcTMP, 'id_motivo_judicial')
+
+    *objMarca:Coberturas          := self:getCoberturas(lcTMP)
+
+    objMarca:Retorno           := I4proRetornoNew()
+    objMarca:Retorno:CdRetorno := val(self:getTag(lcTMP, 'cd_retorno'))
+    objMarca:Retorno:NmRetorno := self:getTag(lcTMP, 'nm_retorno')
+
+
+
+return objMarca
+
+/*
+*
+* Glauber - 01/2018
+*
+* Metodo....: Xml2leRet(lcTMP)
+* Objetivo..: Realiza a conversão do xml retornado em objeto FlagShip
+*
+* Parâmetros:
+*
+*  lcTMP      : conteúdo do xml
+*  objConsulta: Objeto do tipo I4proRetSinJud para serealização.
+*
+* Retorno...:
+*               Objeto do tipo I4proRetSinJud serealizado.
+*
+*/
+
+
+METHOD Xml2leRet(lcTMP) CLASS I4pService
+
+    local objRetorno  := I4proRetSinJudNew()        AS Object
+    local laTMP1      := {} as array
+    local laTMP2      := {} as array
+    local laTMP3      := {} as array
+    local laTMP4      := {} as array
+    local laAUX       := {} as array
+    
+    local lcTMP1 :='' as string
+    local lcTMP2 :='' as string
+    local lcTMP3 :='' as string
+    local lcTMP4 :='' as string
+    local lcARQ  :='' as string
+    
+    local part1  :=0 as int
+    local part2  :=0 as int    
+    local part3  :=0 as int 
+    local part4  :=0 as int 
+    local part5  :=0 as int
+    local part6  :=0 as int
+    
+    
+    part2 := at('/><SinistroJudicialBeneficiarios',lcTMP)
+    lcARQ:=substr(lcTMP,1,part2) 
+    
+    part1 := at('><SinistroJudicialCoberturas',lcARQ)
+    lcTMP1:=substr(lcARQ,1,part1)
+    lcTMP1:=strtran(lcTMP1,'<i4proerp><SinistroJudicial ','')
+    lcTMP1:=strtran(lcTMP1,'" ', '"' + chr(32) + chr(13))
+    lcTMP1:=strtran(lcTMP1,'"', '')
+    
+    laTMP1:=str2Array(lcTMP1, {'=', chr(13)})    
+    
+    *debug2(laTMP1)
+    
+    lcTMP2:=substr(lcARQ,part1,part2)
+    lcTMP2:=strtran(lcTMP2,'><SinistroJudicialCoberturas ','')
+    lcTMP2:=strtran(lcTMP2,'/','')
+    lcTMP2:=strtran(lcTMP2,'" ', '"' + chr(32) + chr(13))
+    lcTMP2:=strtran(lcTMP2,'"', '')
+    laTMP2:=str2Array(lcTMP2, {'=', chr(13)})    
+    
+    *debug2(laTMP1,,20)     
+    *debug2(laTMP2,,20)
+
+    part3 := at('/><SinistroJudicialResseguro ',lcTMP)
+    lcARQ:=substr(lcTMP,1,part3)  
+
+    
+    part4 := at('/><SinistroJudicialCosseguro ',lcARQ)
+    lcTMP3:=substr(lcARQ,part4,part3)     
+    lcTMP3:=strtran(lcTMP3,'/><SinistroJudicialCosseguro ','')
+    lcTMP3:=strtran(lcTMP3,'/','')
+    lcTMP3:=strtran(lcTMP3,'" ', '"' + chr(32) + chr(13))
+    lcTMP3:=strtran(lcTMP3,'"', '')
+    laTMP3:=str2Array(lcTMP3, {'=', chr(13)})     
+
+    *debug2(laTMP3,,20)
+    
+
+    part5 := at('<SinistroJudicialResseguro ',lcTMP)
+    lcARQ := substr(lcTMP,part5,len(lcTMP)) 
+    part6 := at('/><SinistroJudicialResseguro ',lcARQ) 
+    lcTMP4 := substr(lcARQ,1,part6)
+    lcTMP4:=strtran(lcTMP4,'<SinistroJudicialResseguro ','')
+    lcTMP4:=strtran(lcTMP4,'/','')
+    lcTMP4:=strtran(lcTMP4,'" ', '"' + chr(32) + chr(13))
+    lcTMP4:=strtran(lcTMP4,'"', '')
+    laTMP4:=str2Array(lcTMP4, {'=', chr(13)})    
+                 
+    *debug2(lcTMP4,,50000)
+
+
+
+    
+    
+    *** abaixo dados que devem ser lidos do arquivo grande XML busca pela tag no arquivo
+
+objRetorno:NrSinistro                  := self:getTag(laTMP1, 'nr_sinistro')
+objRetorno:DtAviso                     := self:getTag(laTMP1, 'dt_aviso')    
+objRetorno:DtOcorrencia                := self:getTag(laTMP1, 'dt_ocorrencia')    
+objRetorno:NmStatusSinistro            := self:getTag(laTMP1, 'nm_status_sinistro')    
+objRetorno:IdSinPasta                  := self:getTag(laTMP1, 'id_sin_pasta')
+objRetorno:NrPasta                     := self:getTag(laTMP1, 'nr_pasta')    
+objRetorno:NrProcessoJudicial          := self:getTag(laTMP1, 'nr_processo_judicial')    
+objRetorno:IdTpMotivo                  := self:getTag(laTMP1, 'id_tp_motivo')   
+objRetorno:NmMotivoJudicial            := self:getTag(laTMP1, 'nm_motivo_judicial')   
+objRetorno:DtJudicial                  := self:getTag(laTMP1, 'dt_judicial')    
+objRetorno:DtCitacao                   := self:getTag(laTMP1, 'dt_citacao')    
+objRetorno:IdPessoaAutor               := self:getTag(laTMP1, 'id_pessoa_autor')    
+objRetorno:NmAutor                     := self:getTag(laTMP1, 'nm_autor')    
+objRetorno:NrCnpjCpfAutor              := self:getTag(laTMP1, 'nr_cnpj_cpf_autor')   
+objRetorno:NmReclamante                := self:getTag(laTMP1, 'nm_reclamante')    
+objRetorno:NmStatusPasta               := self:getTag(laTMP1, 'nm_status_pasta')    
+objRetorno:CdUf                        := self:getTag(laTMP1, 'cd_uf')    
+objRetorno:NmPerda                     := self:getTag(laTMP1, 'nm_perda')    
+objRetorno:VlEconomico                 := self:getTag(laTMP1, 'vl_economico')    
+objRetorno:VlAcao                      := self:getTag(laTMP1, 'vl_acao')    
+objRetorno:NmSegurado                  := self:getTag(laTMP1, 'nm_segurado')    
+objRetorno:SeguradoNrCnpjCpf           := self:getTag(laTMP1, 'segurado_nr_cnpj_cpf')    
+objRetorno:NmSinistrado                := self:getTag(laTMP1, 'nm_sinistrado')    
+objRetorno:SinistradoNrCnpjCpf         := self:getTag(laTMP1, 'sinistrado_nr_cnpj_cpf')    
+objRetorno:CdApolice                   := self:getTag(laTMP1, 'cd_apolice')   
+objRetorno:NrEndosso                   := self:getTag(laTMP1, 'nr_endosso')    
+objRetorno:CdProposta                  := self:getTag(laTMP1, 'cd_proposta')    
+objRetorno:NrCertificado               := self:getTag(laTMP1, 'nr_certificado')    
+objRetorno:DtEmissaoApolice            := self:getTag(laTMP1, 'dt_emissao_apolice')    
+objRetorno:DtEmissaoEndosso            := self:getTag(laTMP1, 'dt_emissao_endosso')    
+objRetorno:VigenciaDtInicio            := self:getTag(laTMP1, 'vigencia_dt_inicio')    
+objRetorno:DtFimVigencia               := self:getTag(laTMP1, 'dt_fim_vigencia')    
+objRetorno:EndossoDtinicioVigencia     := self:getTag(laTMP1, 'endosso_dt_inicio_vigencia')    
+objRetorno:DtFimVigenciaEndosso        := self:getTag(laTMP1, 'dt_fim_vigencia_endosso')    
+objRetorno:VlPremio                    := self:getTag(laTMP1, 'vl_premio')    
+objRetorno:NmEstipulante               := self:getTag(laTMP1, 'nm_estipulante')    
+objRetorno:NmEnderecoEstipulante       := self:getTag(laTMP1, 'nm_endereço_estipulante')    
+objRetorno:NmCepCidadeUfEstipulante    := self:getTag(laTMP1, 'nm_cep_cidade_uf_estipulante')    
+objRetorno:NmSubEstipulante            := self:getTag(laTMP1, 'nm_sub_estipulante')    
+objRetorno:NmEnderecoSubEstipulante    := self:getTag(laTMP1, 'nm_endereço_sub_estipulante')    
+objRetorno:NmCepCidadeUfSubEstipulante := self:getTag(laTMP1, 'nm_cep_cidade_uf_sub_estipulante')  
+objRetorno:NmCorretor                  := self:getTag(laTMP1, 'nm_corretor')    
+objRetorno:NmCausa                     := self:getTag(laTMP1, 'nm_causa')    
+objRetorno:NmMotivoCausa               := self:getTag(laTMP1, 'nm_motivo_causa')    
+objRetorno:DtDemissao                  := self:getTag(laTMP1, 'dt_demissao')    
+objRetorno:DtAfastamento               := self:getTag(laTMP1, 'dt_afastamento')    
+objRetorno:IdFollowup                  := self:getTag(laTMP1, 'id_followup')    
+objRetorno:DtFollowup                  := self:getTag(laTMP1, 'dt_followup')    
+objRetorno:DsFollouwp                  := self:getTag(laTMP1, 'ds_follouwp')   
+
+objRetorno:Retorno                     := I4proRetornoNew()  
+objRetorno:Retorno:CdRetorno           := val(self:getTag(laTMP1, 'cd_retorno'))
+objRetorno:Retorno:NmRetorno           := self:getTag(laTMP1, 'nm_retorno')
+
+objRetorno:DvCosseguro                 := self:getTag(laTMP3, 'dv_cosseguro')
+objRetorno:CdTpCosseguro               := self:getTag(laTMP3, 'cd_tp_cosseguro')
+objRetorno:NmLider                     := self:getTag(laTMP3, 'nm_lider')
+objRetorno:NmCongenere                 := self:getTag(laTMP3, 'nm_congenere')
+objRetorno:PcCosseguro                 := self:getTag(laTMP3, 'pc_cosseguro')
+
+
+objRetorno:DvResseguro                 := self:getTag(laTMP4, 'dv_resseguro')
+objRetorno:NmResseguradora             := self:getTag(laTMP4, 'nm_resseguradora')
+objRetorno:PcResseguro                 := self:getTag(laTMP4, 'pc_resseguro')
+objRetorno:VlIsResseguro               := self:getTag(laTMP4, 'vl_is_resseguro')
+
+
+return objRetorno
+
+
+
+
+
+
+/*
+*
+* Rufino - 11/2017
+*
+* Metodo....: MovimentaJudicial(objsinistro)
+* Objetivo..: Envia movimentação de sinistro para I4Pro
+*
+* Parâmetros:
+*
+*  objsinistro       : objeto do tipo I4proMovimentoSinistroJudicial
+*
+*
+*
+* Retorno...: I4proRetSinJud
+*             
+*
+*/
+
+METHOD MovimentaJudicial(objsinistro)  CLASS I4pService
+
+    local objCfg      := ConfigI4ProNew()                     AS Object
+    local objService  := ServicosI4ProNew()                   AS Object
+    local objMovi     := I4proMovimentoSinistroJudicialNew()  AS Object
+    local objRetorno  := I4proRetSinJudNew()                  AS Object
+    local objEx       := I4proRetornoNew()                    AS Object
+
+    local lnSeq       := 0                AS Int
+
+    local lcEnv       := ''               AS String
+    local lcRet       := ''               AS String
+    local lcParser    := ''               AS String
+    local lcTmp       := ''               AS String
+    local lcErro      := ''               AS String
+    local llErro      := .F.
+    local laCONF      := {}               AS Array
+    local laRESULT    := {}               AS Array 
+    local laFIELDS    := {}               AS Array 
+    local laDADOS     := {}               AS Array
+    
+    
+    
+    
+          objCfg := self:RetornaConfWS()
+          objService := self:getXmlService(objCfg:IdMovimentoSinistroJudicial)
+
+
+
+
+          laFIELDS :={'NR_SINISTRO',;
+                      'NR_SINISTRO_IRB',;
+                      'NR_PASTA',;
+                      'CD_EVENTO',;
+                      'NM_EVENTO',;
+                      'FL_PASTA',;
+                      'NR_PROCESSO',;
+                      'NM_RECLAMANTE',;
+                      'NM_PERDA',;
+                      'VL_ECONOMICO',;
+                      'VL_ACAO',;
+                      'DT_OPERACAO',;
+                      'VL_RESERVA_FINAL',;
+                      'LMI_COD_COBERTURA',;
+                      'VL_OPERACAO',;
+                      'VL_JUROS',;
+                      'VL_CORRECAO',;
+                      'VL_MULTA',;
+                      'OCOR_PEDIDO',;
+                      'ID_TP_MOTIVO',;
+                      'DT_CANCELAMENTO',;
+                      'ID_TP_MOTIVO_CANCELAMENTO',;
+                      'NM_MOTIVO_CANCELAMENTO',;
+                      'DV_GERA_CARTA',;
+                      'DV_SUCUMBENCIA',;
+                      'DV_TRIBUTA',;
+                      'DV_NAO_GERA_PAGAMENTO',;
+                      'NM_LINHA_DIGITAVEL',;
+                      'DV_DEPOSITO_JUDICIAL'}
+
+
+          laDADOS  := {objsinistro:NrSinistro,;
+                       objsinistro:IdSinPasta,;
+                       objsinistro:NrPasta,;
+                       objsinistro:CdEvento,;
+                       objsinistro:NmEvento,;
+                       objsinistro:NmStatusPasta,;
+                       objsinistro:NrProcessoJudicial,;
+                       objsinistro:NmReclamante,;
+                       objsinistro:NmPerda,;
+                       objsinistro:VlEconomico,;
+                       objsinistro:VlAcao,;
+                       objsinistro:DtOperacao,;
+                       objsinistro:VlReservaFinal,;
+                       objsinistro:IdProdutoCobertura,;
+                       objsinistro:VlOperacao,;
+                       objsinistro:VlJuros,;
+                       objsinistro:VlCorrecao,;
+                       objsinistro:VlMulta,;
+                       objsinistro:NmObs,;
+                       objsinistro:IdTpMotivo,;
+                       objsinistro:DtCancelamento,;
+                       objsinistro:IdTpMotivoCancelamento,;
+                       objsinistro:NmMotivoCancelamento,;
+                       objsinistro:DvGeraCarta,;
+                       objsinistro:DvSucumbencia,;
+                       objsinistro:DvTributa,;
+                       objsinistro:DvNaoGeraPagamento,;
+                       objsinistro:NmLinhaDigitavel,;
+                       objsinistro:DvDepositoJudicial}
+
+
+
+          aadd(laRESULT,laFIELDS)
+          aadd(laRESULT,laDADOS)
+
+
+          // Consultar os dados do sinsitro
+
+          lcEnv  := self:pathTMP + 'I4PATURES' + Wset('LOGIN') +'_'+Dtos(Date())+strtran(time(),':','') +'.XML'
+
+          lcRet  := StrTran(lcEnv,'.XML', '.RET')
+
+          //lcRet  := 'MOCK_RET_MOVIMENTO_SINISTRO.XML'
+
+          lcParser := self:Parser2Str(objService:XmlJson, laRESULT)
+
+          //debug2(laRESULT)
+
+          GravaArquivo(lcEnv,lcParser) // Função presente na FuncWic
+
+          // Executa o pedido das informações
+
+          ***lcRun := self:pathWS + WSet('WSAPPNAME') +' ' + lcEnv
+          lcRun := WSet('WSAPPNAME') +' ' + lcEnv
+          ! (lcrun)
+
+
+          // Obter o conteúdo da pesquisa
+          if (! file(lcRet))
+             objEx := self:getExceptionWS()
+             objsinistro:Retorno:CdRetorno := objEx:CdRetorno
+             objsinistro:Retorno:NmRetorno := objEx:NmRetorno
+             return objsinistro
+          endif
+
+          lcTMP  := GetFileContent(lcRet) // Presente na func.wic
+          lcERRO := TrataErroWS(lcTMP) // Presente na func.wic
+          
+
+
+          if ! empty(lcERRO)
+             objsinistro:Retorno:CdRetorno := -1
+             objsinistro:Retorno:NmRetorno := 'ERRO: '+lcERRO
+             return objsinistro
+          endif
+
+          *debug2(objsinistro:toString(),,10000)
+
+//           objsinistro := self:Xml2Movi(lcTMP,objsinistro)
+
+             objsinistro:Retorno:CdRetorno := 0
+             objsinistro:Retorno:NmRetorno := ''
+
+
+return objsinistro
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: Xml2Movi(lcTMP,objsinistro)
+* Objetivo..: Realiza a conversão do xml retornado em objeto FlagShip
+*
+* Parâmetros:
+*
+*  lcTMP      : conteúdo do xml
+*  objConsulta: Objeto do tipo I4proRetSinJud para serealização.
+*
+* Retorno...:
+*               Objeto do tipo I4proRetSinJud serealizado.
+*
+*/
+
+
+METHOD Xml2Movi(lcTMP,objsinistro) CLASS I4pService
+
+    *** abaixo dados que devem ser lidos do arquivo grande XML busca pela tag no arquivo
+
+    objsinistro:NrSinistro          := self:getTag(lcTMP, 'nr_sinistro')
+
+
+    *objsinistro:Coberturas          := self:getCoberturas(lcTMP)
+
+    objsinistro:Retorno             := I4proRetornoNew()
+    objsinistro:Retorno:CdRetorno   := val(self:getTag(lcTMP, 'cd_retorno'))
+    objsinistro:Retorno:NmRetorno   := self:getTag(lcTMP, 'nm_retorno')
+
+return objsinistro
+
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: GPedInicial(NrPasta, NrControleSeguro)
+* Objetivo..: Gera o pedido inicial de r$ 0.01 por seguro.
+*
+* Parâmetros:
+*
+*
+*    NrPasta            N·mero da Pasta
+*    NrControleSeguro   N·mero de controle do seguro
+*
+*
+* Retorno...:
+*
+*
+*/
+
+METHOD GPedInicial(NrPasta, NrControleSeguro) CLASS I4pService
+
+
+
+   local lcWHERE  := '',;
+         lcNrPasta := AllTrim(NrPasta) AS String
+   local laFIELDS := {'count(*) AS QTD'}  AS Array
+   local laJOIN   := {{2,'pasta_seguro','pasta_seguro.NR_CONTROLE = pasta_pedidos.NR_CONTROLE_SEGURO'}},;
+         laRES    := {},;
+         laRES2   := {},;
+         laRES3   := {},;
+         laPADRAO := {} AS ARRAY
+   
+   local lcPED    := 'Pedido Inicial I4Pro' AS String
+   
+   local lnNR_CONTROLE  := 0 AS Int
+
+         //if (NrPasta == nil .OR. NrControleSeguro == nil ) .OR. (NrPasta == 0 .OR. NrControleSeguro == 0 )
+         //    return
+         //endif
+         
+         
+         if db_select({'PC_RISCO'},'exito_riscoperda',,{'PC_RISCO_CALCULO=100'}) == -1
+             error_sys(db_error())
+         endif
+
+         laRES3 := db_fetchall()         
+
+         lcWHERE := 'pasta_pedidos.NR_PASTA = ' + lcNrPasta + ' AND pasta_pedidos.NR_CONTROLE_SEGURO = ' + AllTrim(NrControleSeguro) + ' AND pasta_pedidos.PEDIDO_PROCESSO = ' + DLAP + lcPED + DLAP
+         
+         // Garante que um pedido inicial não seja gerado mais de uma vez para a mesma pasta / seguro
+
+
+         if db_select(laFIELDS,'pasta_pedidos',laJOIN,{lcWHERE}) == -1
+             error_sys(db_error())
+         endif
+
+         laRES := db_fetchall()
+
+         if laRES[2,1] > 0
+            return
+         endif
+
+
+         laSAVE := {{'NR_PASTA',;
+                     'PEDIDO_PROCESSO',;
+                     'NR_CONTROLE_SEGURO',;
+                     'DT_RISCO',;
+                     'VL_RISCO',;
+                     'VL_RISCO_CALC',;
+                     'VL_CORRECAO',;
+                     'VL_JUROS',;                                         
+                     'PC_RISCO',;
+                     'DT_MOVTO_PED',;
+                     'FL_INTERFACEGEM',;
+                     'FL_CALCULO'},;
+                     {NrPasta,; // NR_PASTA
+                     lcPED ,; // PEDIDO_PROCESSO
+                     NrControleSeguro,; // NR_CONTROLE_SEGURO
+                     date(),;        // DT_RISCO
+                     0.01,;          // VL_RISCO
+                     0.01,;          // VL_RISCO_CALC
+                     0.00,;          // VL_CORRECAO
+                     0.00,;          // VL_JUROS
+                     laRES3[2,1],;   // PC_RISCO
+                     date(),;        // DT_MOVTO_PED
+                     '2',;           // FL_INTERFACEGEM
+                     'N'}}           // FL_CALCULO
+            
+            //wout("pedidos")
+            //debug2(laSAVE,,20)
+            
+            
+            if db_insert(laSAVE,'pasta_pedidos') == -1
+               error_sys(db_error())
+            endif
+            
+            if db_select({'max(NR_CONTROLE)'},'pasta_pedidos') == -1
+	             error_sys(db_error())
+    	      endif             
+            laRES2     := db_fetchrow()
+
+            lnNR_CONTROLE:= laRES2[1]          
+            
+
+            laPADRAO := self:ValoresPadroes(lcNrPasta,WGet('TP_PASTA','C'))
+
+            if len(laPADRAO) > 1
+                laSAVE := {{'NR_PASTA',;
+                        'NR_CONTROLE',;
+                        'PEDIDO_PROCESSO',;
+                        'NR_CONTROLE_SEGURO',;
+                        'VL_RISCO',;
+                        'PC_RISCO',;
+                        'VL_RISCO_CALC',;
+                        'VL_CORRECAO',;
+                        'VL_JUROS',;
+                        'DT_RISCO',;
+                        'FL_CALCULO',;
+                        'DT_MOVTO_PED',;
+                        'COMENTARIOS_PED',;
+                        'OCOR_PEDIDO',;
+                        'TX_EXPEDIENTE'},;
+                        {lcNrPasta,;
+                        lnNR_CONTROLE,;
+                        lcPED,;
+                        NrControleSeguro,;
+                        0.01,;
+                        laRES3[2,1],;
+                        0.01,;
+                        0.00,;
+                        0.00,;
+                        laPADRAO[2],;
+                        'N',;
+                        laPADRAO[1],;
+                        laPADRAO[3],;
+                        laPADRAO[3],;
+                        ''}}
+            else
+                laSAVE := {{'NR_PASTA',;
+                        'NR_CONTROLE',;
+                        'PEDIDO_PROCESSO',;
+                        'NR_CONTROLE_SEGURO',;
+                        'VL_RISCO',;
+                        'PC_RISCO',;
+                        'VL_RISCO_CALC',;
+                        'VL_CORRECAO',;
+                        'VL_JUROS',;
+                        'DT_RISCO',;
+                        'FL_CALCULO',;
+                        'DT_MOVTO_PED',;
+                        'COMENTARIOS_PED',;
+                        'OCOR_PEDIDO',;
+                        'TX_EXPEDIENTE'},;
+                        {lcNrPasta,;
+                        lnNR_CONTROLE,;
+                        lcPED,;
+                        NrControleSeguro,;
+                        0.00,;
+                        laRES3[2,1],;
+                        0.00,;
+                        0.00,;
+                        0.00,;
+                        DATE(),;
+                        'N',;
+                        DATE(),;
+                        '',;
+                        laPADRAO[3],;
+                        ''}}
+            endif
+
+            xcont(laSAVE,lcNrPasta,WGet('TP_PASTA','C'))
+            
+            laSAVE := {{'NR_PASTA',;
+                        'NR_CONTROLE',;
+                        'PEDIDO_PROCESSO',;
+                        'DT_MOVTO_PED',;
+                        'DT_RISCO',;
+                        'VL_RISCO',;
+                        'VL_RISCO_CALC',;
+                        'VL_CORRECAO',;
+                        'VL_JUROS',;                        
+                        'PC_RISCO',;
+                        'FL_INTERFACEGEM',;
+                        'FL_CALCULO',;
+                        'OCOR_PEDIDO',;
+                        'DT_ALTERACAO',;
+                        'HR_ALTERACAO',;
+                        'LOGIN_CADASTRO'},;
+                        {NrPasta,;
+                        lnNR_CONTROLE,;
+                        lcPED,;
+                        date(),;
+                        date(),;
+                        0.01,;
+                        0.01,;
+                        0.00,;
+                        0.00,;
+                        laRES3[2,1],;
+                        '2',;
+                        'N',;
+                        laPADRAO[3],;
+                        date(),;
+                        time(),;
+                        'I4Pro'}}
+                        
+            //wout("detal pedidos")
+            //debug2(laSAVE,,20)             
+                        
+                        
+            if db_insert(laSAVE,'pasta_detal_pedidos') == -1
+               error_sys(db_error())
+            endif
+
+
+
+return
+
+/*
+*
+* Glauber - 11/2017
+*
+* Metodo....: getPedidosInicial(NrPasta)
+* Objetivo..: Retornar uma array com os campos NR_PASTA, NR_CONTROLE_SEGURO, NR_CONTROLE, PEDIDO_PROCESSO
+.
+*
+* Parâmetros:
+*
+*
+*    NrPasta   N·mero da pasta
+*
+* Retorno...:
+*
+*           array com os campos NR_PASTA, NR_CONTROLE_SEGURO, NR_CONTROLE, PEDIDO_PROCESSO
+*/
+
+METHOD getPedidosInicial(NrPasta)  CLASS I4pService
+
+
+   local laFIELDS  := {'pasta_pedidos.NR_PASTA',;
+                       'pasta_pedidos.NR_CONTROLE_SEGURO',;
+                       'pasta_pedidos.NR_CONTROLE',;
+                       'pasta_pedidos.PEDIDO_PROCESSO',;
+                       'pasta_seguro.NR_SINISTRO',;
+                       'pasta_seguro.CD_RAMOSRSN'}  AS Array
+   local laJOIN    := {{0,'pasta_seguro','pasta_seguro.NR_PASTA = pasta_pedidos.NR_PASTA  AND  pasta_seguro.NR_CONTROLE = pasta_pedidos.NR_CONTROLE_SEGURO'}} AS Array
+
+
+   local lcWHERE   :=  'pasta_seguro.NR_PASTA = ' + AllTrim(NrPasta)
+
+   if db_select(laFIELDS,'pasta_pedidos',laJOIN,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+
+return db_fetchall()
+
+
+
+/*
+*
+* Glauber - 01/2018
+*
+* Metodo....: getNRCONTROLE(NrPasta)
+* Objetivo..: Retornar uma array com os campos NR_PASTA, NR_CONTROLE_SEGURO, NR_CONTROLE, PEDIDO_PROCESSO
+.
+*
+* Parâmetros:
+*
+*
+*    NrPasta   N·mero da pasta
+*
+* Retorno...:
+*
+*           array com os campos NR_PASTA, NR_CONTROLE_SEGURO, NR_CONTROLE, PEDIDO_PROCESSO
+*/
+
+METHOD getNRCONTROLE(NrPasta)  CLASS I4pService
+
+
+   local laFIELDS  := {'pasta_seguro.NR_CONTROLE',;
+                       'pasta_seguro.NR_SINISTRO',;
+                       'pasta_seguro.CD_RAMOSRSN'}  AS Array
+
+   local lcWHERE   :=  'pasta_seguro.NR_PASTA = ' + AllTrim(NrPasta)
+
+   if db_select(laFIELDS,'pasta_seguro',,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+
+return db_fetchall()
+
+
+
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: ValoresPadroes(fcNR_PASTA, fcTP_PASTA)
+* Objetivo..: Alimentar os campos DT_MOVTO_PED, DT_RISCO, OCOR_PEDIDO com valores padr§es
+*
+* Parâmetros:
+*
+*
+*    fcNR_PASTA         N·mero da Pasta
+*    fcTP_PASTA         Tipo da Pasta
+*
+* Retorno...:
+*
+*
+*/
+
+METHOD METHOD ValoresPadroes(fcNR_PASTA,fcTP_PASTA) CLASS I4pService
+
+   local laRESULT      := {},;
+         laRESULT_OCOR := {},;
+         laRETORNO     := {} as array
+
+   if db_select({'DT_RISCO_CONF','OCOR_PEDIDO_INICIO'},'pasta_config',,{'TP_PASTA = '+DLAP+fcTP_PASTA+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT_OCOR:=db_fetchrow()
+
+   if empty(laRESULT_OCOR[2]) .OR. laRESULT_OCOR[2] == ''
+      walert('A parametrizaþÒo dos Pedidos para esta Pasta \n ainda nÒo foi realizada')
+      return(laRETORNO)
+   else
+      if len(laRESULT_OCOR) > 0
+         if !empty(laRESULT_OCOR[1])
+            if db_select({laRESULT_OCOR[1]},'pasta',,{'NR_PASTA = '+fcNR_PASTA}) == -1
+               error_sys(db_error())
+            endif
+            laRESULT:=db_fetchrow()
+            if len(laRESULT) > 0
+               laRETORNO := {date(),laRESULT[1],laRESULT_OCOR[2]}
+            else
+               walert('A parametrizaþÒo dos Pedidos para esta Pasta \n ainda nÒo foi realizada')
+            endif
+         else
+            laRETORNO := {date(),'',laRESULT_OCOR[2]}
+         endif
+      else
+         walert('A parametrizaþÒo dos Pedidos para esta Pasta \n ainda nÒo foi realizada')
+      endif
+   endif
+return(laRETORNO)
+
+
+/*
+*
+* Glauber - 02/2018
+*
+* Metodo....: getExceptionWS()
+* Objetivo..: Recuperar o erro de execução ocorrido ao consumir o webservice
+*
+* Parâmetros:
+*
+*
+*
+* Retorno...:
+*
+*     Objeto do tipo I4proRetorno
+*/
+
+METHOD METHOD getExceptionWS() CLASS I4pService
+
+   local objRet := I4proRetornoNew() AS Object
+
+   objRet:CdRetorno = -999
+   objRet:NmRetorno = "Não foi possível capturar o erro de execução."
+
+   if (file("isji4probridged.err"))
+      objRet:NmRetorno = GetFileContent("isji4probridged.err")
+   endif
+
+
+
+return(objRet)
+
+
+
+
+
+
+
+
+/*
+*
+* Glauber - 02/2018
+*
+* Metodo....: getTotalReserva()
+* Objetivo..: Retornar o total da reserva por Sinistro.
+*
+* Parâmetros:
+*
+* fcNR_SINISTRO  Número do sinistro
+*
+* Retorno...:
+*
+*     Valor total da reserva.
+*/
+
+METHOD getTotalReserva(fcNR_SINISTRO) CLASS I4pService
+
+   local lnTotal   := 0.00 AS Numeric
+   local laRES     := {},;
+         laFIELDS  := {},;
+         laJOIN    := {},;
+         laWHERE   := {}   AS Array
+
+
+   laFIELDS := {'SUM(pasta_detal_pedidos.VL_JUROS+pasta_detal_pedidos.VL_CORRECAO+pasta_detal_pedidos.VL_RISCO_CALC) AS VL_RESERVA_FINAL'}
+   laJOIN   := {{0,'pasta_pedidos','(pasta_pedidos.NR_PASTA = pasta_detal_pedidos.NR_PASTA  AND  pasta_pedidos.NR_CONTROLE = pasta_detal_pedidos.NR_CONTROLE)'},;
+                {0,'pasta_seguro','(pasta_pedidos.NR_CONTROLE_SEGURO = pasta_seguro.NR_CONTROLE)'}}
+   laWHERE  := {'pasta_seguro.NR_SINISTRO=' + DLAP + fcNR_SINISTRO + DLAP}
+
+   if db_select(laFIELDS,'pasta_detal_pedidos',laJOIN,laWHERE,{'pasta_seguro.NR_SINISTRO'},,{'pasta_seguro.NR_SINISTRO'}) == -1
+      error_sys(db_error())
+   endif
+   laRES   := db_fetchall()
+   lnTotal := iif(len(laRES) > 1, laRES[2,1], 0.00)
+
+
+return lnTotal
+
+
+/*
+*
+* Glauber - 03/2018
+*
+* Metodo....: NovoPedido()
+* Objetivo..: Retornar .T. caso o pedido seja novo e não tenha movimentação.
+*
+* Parâmetros:
+*
+* pcNR_PASTA    Número da pasta
+* pcNR_CONTROLE Numero de controle do pedido
+*
+* Retorno...:
+*
+*     Retornar .T. caso o pedido seja novo e não tenha movimentação.
+*/
+
+METHOD NovoPedido(pcNR_PASTA,pcNR_CONTROLE) CLASS I4pService
+
+
+   local laRES     := {},;
+         laFIELDS  := {},;
+         laWHERE   := {}   AS Array
+
+
+   laFIELDS := {'count(*) AS QTD'}
+   laWHERE  := {'NR_PASTA = ' + pcNR_PASTA + ' AND NR_CONTROLE = ' + pcNR_CONTROLE}
+
+   if db_select(laFIELDS,'pasta_detal_pedidos',,laWHERE) == -1
+      error_sys(db_error())
+   endif
+   laRES   := db_fetchall()
+
+return (laRES[2,1] == 0)
+
+
+/*
+*
+* Glauber - 03/2018
+*
+* Metodo....: VrPedido()
+* Objetivo..: Retornar o Valor do pedido corrente.
+*
+* Parâmetros:
+*
+* pcNR_PASTA    Número da pasta
+* pcNR_CONTROLE Numero de controle do pedido
+*
+* Retorno...:
+*
+*     Retornar Valor do pedido.
+*/
+
+METHOD VrPedido(pcNR_PASTA,pcNR_CONTROLE) CLASS I4pService
+
+
+   local laRES     := {},;
+         laFIELDS  := {},;
+         laWHERE   := {}   AS Array
+
+
+   laFIELDS := {'VL_RISCO_CALC'}
+   laWHERE  := {'NR_PASTA = ' + pcNR_PASTA + ' AND NR_CONTROLE = ' + pcNR_CONTROLE}
+
+   if db_select(laFIELDS,'pasta_pedidos',,laWHERE) == -1
+      error_sys(db_error())
+   endif
+   laRES   := db_fetchall()
+
+return laRES[2,1]
+
+
+
+
+
+
+/*
+*
+* Glauber - 02/2018
+*
+* Metodo....: getContrariaParte(fcNR_PASTA)
+* Objetivo..: Retornar a parte contraria de uma pasta.
+*
+* Parâmetros:
+*
+* fcNR_PASTA Número da pasta
+*
+* Retorno...:
+*
+*     Valor total da reserva.
+*/
+
+
+METHOD getContrariaParte(fcNR_PASTA) CLASS I4pService
+
+   local laRES := {} AS Array
+   local lcRET := '' AS String
+
+      if db_select({'PFPJ'},'pasta_pfpj_parte_contraria',,{'pasta_pfpj_parte_contraria.NR_PASTA = ' + fcNR_PASTA}) == -1
+          error_sys(db_error())
+      endif
+      laRES := db_fetchrow()
+
+      lcRET := iif(len(laRES) > 0, laRES[1], '')
+
+return lcRET
+
+
+
+
+/*
+*
+* Glauber - 02/2018
+*
+* Metodo....: getCobertura()
+* Objetivo..: Retornar a cobertura parte contraria de uma pasta.
+*
+* Parâmetros:
+*
+* fcNR_PASTA Número da pasta
+* fcNR_SINISTRO Número do Sinistro
+*
+* Retorno...:
+*
+*     Valor total da reserva.
+*/
+
+METHOD getCobertura(fcNR_PASTA, fcNR_SINISTRO) CLASS I4pService
+
+
+   local laRES   := {},;
+         laWHERE := {},;
+         laJOIN  := {} AS Array
+   local lcRET   := '' AS String
+
+      laJOIN     := {{0,'pasta_seguro_lmi','(pasta_seguro_lmi.NR_PASTA = pasta_seguro.NR_PASTA  AND  pasta_seguro_lmi.NR_CONTROLE = pasta_seguro.NR_CONTROLE)'}}
+
+      laWHERE    := {'pasta_seguro.NR_PASTA=' + fcNR_PASTA +'  AND  NR_SINISTRO=' + DLAP + fcNR_SINISTRO + DLAP}
+
+      if db_select({'pasta_seguro_lmi.LMI_COD_COBERTURA AS ID_PRODUTO_COBERTURA'},'pasta_seguro',laJOIN, laWHERE) == -1
+          error_sys(db_error())
+      endif
+      laRES := db_fetchrow()
+
+      lcRET := iif(len(laRES) > 0, AllTrim(laRES[1]), '')
+
+
+
+return lcRET
+
+
+
+
+/*
+*
+* Glauber - 02/2018
+*
+* Metodo....: getIdProdCobertura()
+* Objetivo..: Retornar o ID da cobertura.
+*
+* Parâmetros:
+*
+* fcNR_PASTA Número da pasta
+* fcNR_SINISTRO Número do Sinistro
+*
+* Retorno...:
+*
+*     ID da cobertura.
+*/
+
+METHOD getIdProdCobertura(fcNR_PASTA, fcNR_SINISTRO) CLASS I4pService
+
+
+   local laRES   := {},;
+         laWHERE := {},;
+         laJOIN  := {} AS Array
+   local lcRET   := '' AS String
+
+      laJOIN     := {{0,'ramosrsn','(pasta_seguro.CD_RAMOSRSN = ramosrsn.CD_RAMOSRSN)'}}
+
+      laWHERE    := {'pasta_seguro.NR_PASTA=' + fcNR_PASTA +'  AND  pasta_seguro.NR_SINISTRO=' + DLAP + fcNR_SINISTRO + DLAP}
+
+      if db_select({'ramosrsn.SEGUROPRODUTO'},'pasta_seguro',laJOIN, laWHERE) == -1
+          error_sys(db_error())
+      endif
+      laRES := db_fetchrow()
+
+      lcRET := iif(len(laRES) > 0, AllTrim(laRES[1]), '')
+
+/*
+      homologacao_prudential51=# select * from ramosrsn;
+      cd_ramosrsn |           seguroramo           | seguroproduto | seguroprofit  | fl_ativo
+     -------------+--------------------------------+---------------+---------------+----------
+      90          | VG                             | VG            | Vida em Grupo | S
+      93          | INVALIDEZ FUNCIONAL PERMANENTE | 155           |               | S
+      82          | MORTE ACIDENTAL          &#x09 | 33            |               | S
+     (3 rows)
+     
+*/
+
+return lcRET
+
+
+
+/*
+*
+* Glauber - 02/2018
+*
+* Metodo....: getPastaInfo()
+* Objetivo..: Retornar informa??es da pasta.
+*
+* Par?metros:
+*
+* fcNR_PASTA N?mero da pasta
+* fcNR_SINISTRO N?mero do Sinistro
+*
+* Retorno...:
+*
+*     ID da cobertura.
+*/
+
+METHOD getPastaInfo(fcNR_PASTA, fcNR_SINISTRO) CLASS I4pService
+
+
+   local laFIELDS := {},;
+         laWHERE  := {},;
+         laJOIN   := {} AS Array
+
+
+
+      laFIELDS   := {'pasta.FL_PASTA',;
+                    'pasta.NR_PROCESSO','coalesce(pasta.VL_RISCO,0.00,pasta.VL_RISCO) AS VL_RISCO',;
+                    'coalesce(pasta.VL_ACAO,0.00,pasta.VL_ACAO) AS VL_ACAO',;
+                    'pasta.DT_CITACAO',;
+                    'upper(LAT2CHAR(exito_riscoperda.RISCOPERDA)) AS NM_PERDA',;
+                    'pasta_seguro.NR_SINISTRO_FENASEG AS SEGUROPRODUTO',;
+                    'pasta_seguro.NR_SINISTRO_IRB AS ID_SIN_PASTA',;
+                    'pasta_pfpj_parte_contraria.PFPJ AS PFPJ_RECLAMANTE'}
+//                    'ramosrsn.SEGUROPRODUTO',;
+      laJOIN     := {{2,'pasta_seguro',              'pasta_seguro.NR_PASTA = pasta.NR_PASTA'},;
+                     {2,'exito_riscoperda',          'pasta.PC_RISCO = exito_riscoperda.PC_RISCO'},;
+                     {2,'ramosrsn',                  '(pasta_seguro.CD_RAMOSRSN = ramosrsn.CD_RAMOSRSN)'},;
+                     {2,'pasta_pfpj_parte_contraria','pasta_pfpj_parte_contraria.NR_PASTA = pasta.NR_PASTA'}}
+
+
+
+
+      if (fcNR_SINISTRO != nil)
+         laWHERE    := {'pasta_seguro.NR_PASTA=' + AllTrim(fcNR_PASTA) +'  AND  pasta_seguro.NR_SINISTRO=' + DLAP + AllTrim(fcNR_SINISTRO) + DLAP}
+      else
+         laWHERE    := {'pasta.NR_PASTA=' + AllTrim(fcNR_PASTA)}
+      endif   
+
+
+      if db_select(laFIELDS,'pasta',laJOIN, laWHERE) == -1
+          error_sys(db_error())
+      endif
+
+
+
+return  db_fetchall()
+
+
+
+
+
+/*
+*
+* Glauber - 02/2018
+*
+* Metodo....: getIdSinPasta()
+* Objetivo..: Retornar o IdSinPasta de um sinistro.
+*
+* Parâmetros:
+*
+* fcNR_PASTA Número da pasta
+* fcNR_SINISTRO Número do Sinistro
+*
+* Retorno...:
+*
+*     IdSinPasta.
+*/
+
+METHOD getIdSinPasta(fcNR_PASTA, fcNR_SINISTRO) CLASS I4pService
+
+
+   local laRES   := {},;
+         laWHERE := {} AS Array
+   local lcRET   := '' AS String
+
+
+
+      laWHERE    := {'pasta_seguro.NR_PASTA=' + fcNR_PASTA +'  AND  pasta_seguro.NR_SINISTRO=' + DLAP + fcNR_SINISTRO + DLAP}
+
+      if db_select({'pasta_seguro.NR_SINISTRO_IRB'},'pasta_seguro',, laWHERE) == -1
+          error_sys(db_error())
+      endif
+      laRES := db_fetchrow()
+
+      lcRET := iif(len(laRES) > 0, AllTrim(laRES[1]), '')
+
+
+
+return lcRET
+
+
+
+
+
+/*
+*
+* Glauber - 02/2018
+*
+* Metodo....: getUf2Code()
+* Objetivo..: Retornar o código do estado.
+*
+* Parâmetros:
+*
+* fcUF Sigla do Estado
+* 
+*
+* Retorno...:
+*
+*     Código do Estado.
+*/
+
+METHOD getUf2Code(fcUF)  CLASS I4pService
+
+    local lcRET   := '' AS String
+    local laUFS   := {{ 'SP' , '1'},;
+                      { 'RJ' , '2'},;
+                      { 'MS' , '3'},;
+                      { 'MA' , '4'},;
+                      { 'TO' , '5'},;
+                      { 'RO' , '6'},;
+                      { 'RN' , '7'},;
+                      { 'AL' , '8'},;
+                      { 'SE' , '9'},;
+                      { 'AM' , '10'},;
+                      { 'SC' , '11'},;
+                      { 'PI' , '12'},;
+                      { 'BA' , '13'},;
+                      { 'PE' , '14'},;
+                      { 'DF' , '15'},;
+                      { 'CE' , '16'},;
+                      { 'MG' , '17'},;
+                      { 'PB' , '18'},;
+                      { 'PR' , '19'},;
+                      { 'PA' , '20'},;
+                      { 'ES' , '21'},;
+                      { 'GO' , '22'},;
+                      { 'RS' , '23'},;
+                      { 'MT' , '24'},;
+                      { 'AP' , '25'},;
+                      { 'RR' , '26'},;
+                      { 'AC' , '27'}} AS ARRAY
+    local lnPOS   := 0 AS int
+
+    lnPOS := ascan(laUFS, {|x| x[1] == upper(fcUF)})
+
+    lcRET := iif(lnPOS > 0, laUFS[lnPOS,2], '')
+
+return lcRET
+
+
+
+/*
+*
+* Glauber - 02/2018
+*
+* Metodo....: getPfPjInfo()
+* Objetivo..: Retornar informação de uma pessoa.
+*
+* Parâmetros:
+*
+* fcCIP Número do CIP
+* fcField Nome do campo para retorno.
+* 
+*
+* Retorno...:
+*
+*     Conteúdo do campo.
+*/
+
+METHOD getPfPjInfo(fcCIP,fcField)  CLASS I4pService
+
+
+local laRES    := {},;
+      laFIELDS := {},;
+      laWHERE  := {} AS Array
+local lcRET    := '' AS String
+local lnPOS    := 0
+
+
+      laFIELDS := structtable(WSet("DB_ACTIVE"),'pfpj',1,'A')
+
+      laWHERE  := {'CIP=' + DLAP + fcCIP + DLAP +'  OR  PFPJ=' + DLAP + fcCIP + DLAP}
+
+      if db_select(laFIELDS,'pfpj',, laWHERE) == -1
+         error_sys(db_error())
+      endif
+      
+      laRES := db_fetchall()
+
+      if (len(laRES) > 1   )
+         lnPOS := ascan(laRES[1],Upper(fcField))
+         if lnPOS > 0
+            lcRET := laRES[2,lnPOS]
+         endif
+      endif        
+
+return lcRET
+
+
+
+/*
+*
+* Glauber - 03/2018
+*
+* Metodo....: getLastSeguro()
+* Objetivo..: Retornar as informações do seguro que foi cadastrado na pasta.
+*
+* Parâmetros:
+*
+* fcNRSEGURO Número do Seguro
+* fcNR_PASTA Número da pasta atual.
+*
+*
+*
+* Retorno...:
+*
+*     Array Flagship com o resultset.
+*/
+
+METHOD getLastSeguro(fcNRSEGURO, fcNR_PASTA)  CLASS I4pService
+
+
+local laRES    := {},;
+      laFIELDS := {},;
+      laWHERE  := {} AS Array
+
+
+      laFIELDS := structtable(WSet("DB_ACTIVE"),'pasta_seguro',1,'A')
+
+      laWHERE  := {'NR_PASTA<>' + fcNR_PASTA + '  AND  NR_SEGURO = ' + DLAP + fcNRSEGURO + DLAP }
+
+      if db_select(laFIELDS,'pasta_seguro',, laWHERE, {'NR_PASTA DESC'}) == -1
+         error_sys(db_error())
+      endif
+
+return db_fetchall()
+
+
+
+
+/*
+*
+* Glauber - 03/2018
+*
+* Metodo....: getLmiSeguro()
+* Objetivo..: Retornar as coberturasque foi cadastrado numa pasta.
+*
+* Parâmetros:
+*
+*
+* fcNR_PASTA Número da pasta.
+* fcNRSEGURO Número do Controle do Seguro
+*
+*
+*
+* Retorno...:
+*
+*     Array Flagship com o resultset.
+*/
+
+METHOD getLmiSeguro(fcNR_PASTA, fcNR_CONTROLE)  CLASS I4pService
+
+
+local laRES    := {},;
+      laFIELDS := {},;
+      laWHERE  := {} AS Array
+
+
+      laFIELDS := structtable(WSet("DB_ACTIVE"),'pasta_seguro_lmi',1,'A')
+
+      laWHERE  := {'NR_PASTA=' + fcNR_PASTA + '  AND  NR_CONTROLE= ' + DLAP + fcNR_CONTROLE + DLAP }
+
+      if db_select(laFIELDS,'pasta_seguro_lmi',, laWHERE, {'NR_PASTA DESC'}) == -1
+         error_sys(db_error())
+      endif
+
+return db_fetchall()
+
+
+
+
+
+
+/*
+*
+* Glauber - 03/2018
+*
+* Metodo....: cloneSinistro()
+* Objetivo..: Verifica se um sinistro já existe em alguma pasta e replica seus dados para a pasta atual.
+*
+* Parâmetros:
+*
+*
+* fcNR_PASTA Número da pasta atual.
+* fcNR_SINISTRO Número do Sinistro.
+*
+*
+*
+* Retorno...:
+*
+*     .T. Caso exista e tenha sido clonado com sucesso.
+*/
+
+METHOD cloneSinistro(fcNR_PASTA, fcNR_SINISTRO)  CLASS I4pService
+
+
+local llEXISTE := .F.
+
+local lnID     :=  0,;
+      lnPOS    :=  0,;
+      lnPSTORI := 0,;
+      lnSINANT :=  0  AS INT
+
+
+local laRES    := {},;
+      laFIELDS := {},;
+      laWHERE  := {} AS Array
+
+
+      laFIELDS := structtable(WSet("DB_ACTIVE"),'pasta_seguro',1,'A')
+      laWHERE  := {'pasta_seguro.NR_PASTA <>' + fcNR_PASTA +'  AND  pasta_seguro.NR_SINISTRO=' + DLAP + fcNR_SINISTRO + DLAP}
+
+      if db_select(laFIELDS,'pasta_seguro',, laWHERE, {'NR_PASTA DESC'},,,{1}) == -1
+          error_sys(db_error())
+      endif
+
+      laRES := db_fetchall()
+
+      if len(laRES) > 1
+         llEXISTE := .T.
+
+         lnPSTORI := laRES[2, db_fetchncol(laRES,"NR_PASTA")]
+
+         laRES[2, db_fetchncol(laRES,"NR_PASTA")] := val(fcNR_PASTA)
+
+         // Remover o nr_controle antes de salvar
+
+         lnPOS    := ascan(laRES[1],"NR_CONTROLE")
+         lnSINANT := laRES[2, lnPOS]
+/*
+         if (lnPOS > 0)
+            lnSINANT := laRES[2, lnPOS]
+             adel(laRES[1],lnPOS)
+             adel(laRES[2],lnPOS)
+             asize(laRES[1],len(laRES[1])-1)
+             asize(laRES[2],len(laRES[2])-1)
+         endif
+*/
+         // Gravar os dados do seguro
+
+         if db_insert(laRES,'pasta_seguro') == -1
+            error_sys(db_error())
+         endif
+
+         lnID := db_insert_id()
+
+         // Grava os dados do Segurado
+
+         laFIELDS := structtable(WSet("DB_ACTIVE"),'pasta_seguro_segurado',1,'A')
+         laWHERE  := {'NR_PASTA='+AllTrim(lnPSTORI) + ' and NR_CONTROLE=' + AllTrim(lnSINANT) }
+
+         if db_select(laFIELDS,'pasta_seguro_segurado',, laWHERE) == -1
+              error_sys(db_error())
+         endif
+         laRES := db_fetchall()
+
+         if len(laRES) > 1
+
+             laRES[2, db_fetchncol(laRES,"NR_PASTA")] := val(fcNR_PASTA)
+
+             lnPOS := ascan(laRES[1],"NR_CONTROLE")
+
+             if (lnPOS > 0)
+                for ii := 2 to len(laRES)
+                    laRES[ii,lnPOS] := lnID
+                next ii
+             endif
+
+             if db_insert(laRES,'pasta_seguro_segurado') == -1
+                error_sys(db_error())
+             endif
+         endif
+
+
+         // Grava os dados do LMI
+
+         laFIELDS := structtable(WSet("DB_ACTIVE"),'pasta_seguro_lmi',1,'A')
+         laWHERE  := {'NR_PASTA='+AllTrim(lnPSTORI) + ' and NR_CONTROLE=' + AllTrim(lnSINANT) }
+
+         if db_select(laFIELDS,'pasta_seguro_lmi',, laWHERE) == -1
+              error_sys(db_error())
+         endif
+         laRES := db_fetchall()
+
+         if len(laRES) > 1
+            laRES[2, db_fetchncol(laRES,"NR_PASTA")] := val(fcNR_PASTA)
+            lnPOS := ascan(laRES[1],"NR_CONTROLE")
+
+             if (lnPOS > 0)
+                for ii := 2 to len(laRES)
+                    laRES[ii,lnPOS] := lnID
+                next ii
+             endif
+
+             if db_insert(laRES,'pasta_seguro_lmi') == -1
+                error_sys(db_error())
+             endif
+         endif
+
+
+         // Grava os dados do Beneficiarios
+
+         laFIELDS := structtable(WSet("DB_ACTIVE"),'pasta_seguro_beneficiario',1,'A')
+         laWHERE  := {'NR_PASTA='+AllTrim(lnPSTORI) + ' and NR_CONTROLE=' + AllTrim(lnSINANT) }
+
+         if db_select(laFIELDS,'pasta_seguro_beneficiario',, laWHERE) == -1
+              error_sys(db_error())
+         endif
+         laRES := db_fetchall()
+
+         if len(laRES) > 1
+
+            laRES[2, db_fetchncol(laRES,"NR_PASTA")] := val(fcNR_PASTA)
+            lnPOS := ascan(laRES[1],"NR_CONTROLE")
+
+             if (lnPOS > 0)
+                for ii := 2 to len(laRES)
+                    laRES[ii,lnPOS] := lnID
+                next ii
+             endif
+
+             if db_insert(laRES,'pasta_seguro_beneficiario') == -1
+                error_sys(db_error())
+             endif
+         endif
+
+
+         // Grava os dados das Vitimas
+
+         laFIELDS := structtable(WSet("DB_ACTIVE"),'pasta_seguro_vitima',1,'A')
+         laWHERE  := {'NR_PASTA='+AllTrim(lnPSTORI)+ ' and NR_CONTROLE=' + AllTrim(lnSINANT) }
+
+         if db_select(laFIELDS,'pasta_seguro_vitima',, laWHERE) == -1
+              error_sys(db_error())
+         endif
+         laRES := db_fetchall()
+
+         if len(laRES) > 1
+
+            laRES[2, db_fetchncol(laRES,"NR_PASTA")] := val(fcNR_PASTA)
+
+             lnPOS := ascan(laRES[1],"NR_CONTROLE")
+
+             if (lnPOS > 0)
+                for ii := 2 to len(laRES)
+                    laRES[ii,lnPOS] := lnID
+                next ii
+             endif
+
+             if db_insert(laRES,'pasta_seguro_vitima') == -1
+                error_sys(db_error())
+             endif
+         endif
+
+         // Grava os dados do endereço do imóvel
+
+         laFIELDS := structtable(WSet("DB_ACTIVE"),'pasta_seguro_endereco_imovel',1,'A')
+         laWHERE  := {'NR_PASTA='+AllTrim(lnPSTORI) + ' and NR_CONTROLE=' + AllTrim(lnSINANT) }
+
+         if db_select(laFIELDS,'pasta_seguro_endereco_imovel',, laWHERE) == -1
+              error_sys(db_error())
+         endif
+         laRES := db_fetchall()
+
+         if len(laRES) > 1
+         
+            laRES[2, db_fetchncol(laRES,"NR_PASTA")] := val(fcNR_PASTA)
+
+             lnPOS := ascan(laRES[1],"NR_CONTROLE")
+
+             if (lnPOS > 0)
+                for ii := 2 to len(laRES)
+                    laRES[ii,lnPOS] := lnID
+                next ii
+             endif
+
+             if db_insert(laRES,'pasta_seguro_endereco_imovel') == -1
+                error_sys(db_error())
+             endif
+         endif
+
+
+
+      endif
+
+
+
+return lnID
+
+
+
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: getTag(xml, tag)
+* Objetivo..: Obtem o conteúdo de uma tag num xml.
+*
+* Parâmetros:
+*
+*    xml :  conteúdo do xml.
+*    tag :  tag a ser extraida.
+*
+* Retorno...:
+*
+*           objeto do tipo PfpjRetornoEvida com as informações
+*/
+
+METHOD getTagX(xml, tag) CLASS I4pService
+
+
+    local lcRET   := '',;
+          lcABRE  := '',;
+          lcFECHA := '' AS String
+    local POSINI  := 0,;
+          POSFIN  := 0,;
+          QTD     := 0 AS Int
+
+          lcABRE  := '<' + AllTrim(tag) + '>'
+          lcFECHA := '</' + AllTrim(tag) + '>'
+          POSINI  := AT(lcABRE,xml)
+          POSFIN  := AT(lcFECHA,xml)
+
+          if (POSINI > 0 .AND. POSFIN > 0)
+             QTD   := POSFIN - (POSINI + len(lcABRE))
+             lcRET := substr(xml, (POSINI + len(lcABRE)), QTD)
+             lcRET := AllTrim(StrTran(lcRET,lcFECHA,''))
+          endif
+
+
+return lcRET
+

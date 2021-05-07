@@ -1,0 +1,77 @@
+/*
+
+Project      : gr5
+Program      : mnt.comarca.html
+Function     : mnt_comarca_html
+Created on   : 08-Dec-2004   11:23:07
+Descripition :
+
+*/
+
+
+laPARAM := {{'COMARCA',''     ,'*'},;
+            {'FL_ATIVO','',},;
+            {'ACTION'       ,'ALTER',   }}
+
+laINPUT_OBJ := { {'COMARCA'   ,0,'N','Y',  },;
+                 {,           , ,   ,   ,  },;
+                 {'REGIAO'    ,1,   ,'N',"loadcbox_build('regiao','regiao',.t.)"},;
+                 { , , , , },;
+                 {'SUB_REGIAO',0,'N','N',  },;
+                 { , , , , },;
+                 {'UF'    ,1,   ,'N',"loadcbox_build('estados','uf',.t.)"} ,;
+                 { , , , , },;
+                 {'FL_ATIVO',1,,'Y','{"S","I","D"}' }}
+
+laSELECT := {'COMARCA','REGIAO','SUB_REGIAO','UF','FL_ATIVO'}
+
+
+/*
+
+
+AssDoc(100, 'Trabalhista', '71', 'docassinado', 'docorigem', 'novoandamento', 'testeglauber', 'teste glauber', 'novoandamento', 'teste glauebr')
+return
+
+
+*/
+
+
+
+xbp2('comarca_regiao',;                                                 //Tabela alvo
+    ,;                                                                  //Joins
+    ,;                                                                  //Where
+    {'COMARCA'},;                                                       //Order by
+    ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+    ,;                                                                  //Group by
+    ,;                                                                  //Limit
+    ,;                                                                  //Banco de Dados
+    2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+    'gr5',;                                                             //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                                           //Programa chamador
+    laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+    ,;                                                                  //Parâmetros para os botões das linhas do grid
+    'mnt.comarca.html',;                                                //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+    ,;                                                                  //Retorno java (nil) - usado apenas para Search
+    ,;                                                                  //Campos usados na pesquisa rápida
+    ,;                                                                  //Campos Ocultos
+    laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+    laSELECT,;                                                          //Campos exibidos no grid
+    laSELECT)                                                           //Campos usados no select
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

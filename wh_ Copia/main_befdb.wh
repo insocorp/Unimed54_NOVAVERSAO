@@ -1,0 +1,195 @@
+/*
+Project      : gr5
+Program      : main.befdb
+Function     : main_befdb
+Created on   : 15-Dec-2003   14:43:48
+Descripition : Source to include before database connection
+*/
+
+   set exact on //definido como on para evitar problemas com ascan() e outras comparacoes
+
+   local lnRet := -1
+   local lcMacAddr := ""
+   local lcLIC_XML := '' as string
+   local laLIC := {} as array
+   local lnLIC := 0 as int
+   local lcCHAVE := '' as string
+
+   if gmPAGE = 'xxx'
+      pgsinit()
+      //sybinit()
+      mysinit()
+      wfvsltc()
+      wfitrfila()
+      wfmktask()
+      xrb3()
+   endif
+
+   if empty(WSet('_DECIMAL_SEPARATOR'))
+      WSet('_DECIMAL_SEPARATOR',',')
+   endif
+
+/*
+   lnRet := getmacaddr(@lcMacAddr)
+   if upper(wSet('MACADDRESS')) != upper(lcMacAddr)
+      error_sys('Falha na validação da Licensa de uso : '+lcMacAddr)
+   endif
+*/
+/*
+   if dtos(date()) > "20051231"
+      error_sys('Date : Falha na validação da Licença de uso')
+   endif
+*/
+
+   gmLANGUAGE   := 'pt_BR'
+   //WPut ('WIC_ACTION',WGet('SCRIPT_NAME'))
+   WPut('WIC_COMPONENT_DB',wSet('_WIC_COMPONENT')+'/logo')
+   //WPut ('WIC_COMPONENT_DB','/gr5/'+WSet("DB_ACTIVE"))
+
+   /* Controle de Licensa */
+   lcCHAVE := chr(106)+chr(101)+chr(115)+chr(117)+chr(115)+chr(101)+chr(97)+chr(99)+chr(109)+chr(104)+chr(104)+chr(97)+chr(108)+chr(118)+chr(101)+chr(42)
+
+   if ! empty(pPARM3)
+      lcLIC_XML := freaddecrypt(strtran(pPARM3,'\','/')+'/gr5.lic',lcCHAVE)
+   else
+      lcLIC_XML := freaddecrypt('gr5.lic',lcCHAVE)
+   endif
+
+   if ! empty(alltrim(lcLIC_XML))
+      laLIC     := xml2array(lcLIC_XML)
+      if len(laLIC) > 0
+         for lnLIC := 1 to len(laLIC)
+            WSet(laLIC[lnLIC,1],laLIC[lnLIC,2])
+         next lnLIC
+      endif
+   else
+      error_sys('Falha na validação da Licença de uso.')
+   endif
+
+   /* Meta tag */
+   WPut('WICHEAD','<meta name="owner" content="www.INSO.com.br - GR5 licenciado para '+WSet('NM_EMPRESA')+' - '+WSet('CNPJ')+' - NS:'+WSet('NR_SERIE')+'">')
+
+   /* Tamanho textarea */
+   if val(WSet('TEXTROWS')) == 0
+      WPut('TEXTROWS',6)
+   else
+      WPut('TEXTROWS',WSet('TEXTROWS'))
+   endif
+
+   /* wiccolor */
+   WPut('wiccolor.body_bg','FFFFFF')
+   WPut('wiccolor.body_font','000000')
+   WPut('wiccolor.wscrollbar_face','408095')
+   WPut('wiccolor.wscrollbar_track','306070')
+   WPut('wiccolor.wscrollbar_3dlight','8EBECE')
+   WPut('wiccolor.wscrollbar_arrow','FFFFFF')
+   WPut('wiccolor.wscrollbar_darkshadow','8EBECE')
+   WPut('wiccolor.wscrollbar_highlight','408095')
+   WPut('wiccolor.wscrollbar_shadow','408095')
+   WPut('wiccolor.wtitle_border_top','8EBECE')
+   WPut('wiccolor.wtitle_border_bottom','666666')
+   WPut('wiccolor.wtitle_bg','408095')
+   WPut('wiccolor.wtitle_font','FFFFFF')
+   WPut('wiccolor.wmenubutton_font','FFFFFF')
+   WPut('wiccolor.wmenubutton_border','8EBECE')
+   WPut('wiccolor.wmenubuttonhover_font','FFFFFF')
+   WPut('wiccolor.wmenubuttonhover_border','8EBECE')
+   WPut('wiccolor.wmenubutton_bg','408095')
+   WPut('wiccolor.wmenupop_bg','FFFFFF')
+   WPut('wiccolor.wmenupopbutton_border','FFFFFF')
+   WPut('wiccolor.wmenupopbutton_font','000000')
+   WPut('wiccolor.wmenupopbuttonover_border','408095')
+   WPut('wiccolor.wmenupopbuttonover_bg','8EBECE')
+   WPut('wiccolor.wmenupopbuttonover_font','333333')
+   WPut('wiccolor.woption_bg','8EBECE')
+   WPut('wiccolor.winput_border','CCCCCC')
+   WPut('wiccolor.winput_bg','FFFFFF')
+   WPut('wiccolor.winput_font','444444')
+   WPut('wiccolor.winputreadonly_border','CCCCCC')
+   WPut('wiccolor.winputreadonly_bg','E1E1E1')
+   WPut('wiccolor.winputreadonly_font','333333')
+   WPut('wiccolor.wbutton_font','000000')
+   WPut('wiccolor.wbutton_bg','8EBECE')
+   WPut('wiccolor.wbutton_border','306070')
+   WPut('wiccolor.wbuttondisabled_font','333333')
+   WPut('wiccolor.wbuttondisabled_bg','CCCCCC')
+   WPut('wiccolor.wbuttondisabled_border','666666')
+   WPut('wiccolor.alink','333333')
+   WPut('wiccolor.ahover','FF3300')
+   WPut('wiccolor.wgridheader_bg','306070')
+   WPut('wiccolor.wgridheader_font','FFFFFF')
+   WPut('wiccolor.wgridrow_bg','F1F1F1')
+   WPut('wiccolor.wgridrow_font','000000')
+   WPut('wiccolor.wgridrowlight_bg','FFCC99')
+   WPut('wiccolor.wgridrowlight_font','000000')
+   WPut('wiccolor.wgridfoot_bg','CCCCCC')
+   WPut('wiccolor.wgridfoot_font','000000')
+   WPut('wiccolor.wgridbutton_font','000000')
+   WPut('wiccolor.wgridbutton_bg','E1E1E1')
+   WPut('wiccolor.wgridbutton_border','CCCCCC')
+   WPut('wiccolor.wfieldset_font','000000')
+   WPut('wiccolor.wfieldset_border','CCCCCC')
+   WPut('wiccolor.wlegend_font','333333')
+   WPut('wiccolor.wlegend_border','CCCCCC')
+   WPut('wiccolor.wlegend_bg','FFFFFF')
+   WPut('wiccolor.wcal_border','333333')
+   WPut('wiccolor.wcal_bg','FFFFFF')
+   WPut('wiccolor.wcal_mes_bg','306070')
+   WPut('wiccolor.wcal_mes_font','FFFFFF')
+   WPut('wiccolor.wcal_semana_bg','408095')
+   WPut('wiccolor.wcal_semana_font','FFFFFF')
+   WPut('wiccolor.wcal_dia_border','FFFFFF')
+   WPut('wiccolor.wcal_dia_bg','FFFFFF')
+   WPut('wiccolor.wcal_dia_font','000000')
+   WPut('wiccolor.wcal_diaover_border','408095')
+   WPut('wiccolor.wcal_diaover_bg','8EBECE')
+   WPut('wiccolor.wcal_diaover_font','333333')
+   WPut('wiccolor.wcal_button_font','000000')
+   WPut('wiccolor.wcal_button_bg','8EBECE')
+   WPut('wiccolor.wcal_button_border','306070')
+   WPut('wiccolor.fr_menubar_bg','306070')
+   WPut('wiccolor.fr_menubar_border','333333')
+   WPut('wiccolor.fr_title_bordertop','8EBECE')
+   WPut('wiccolor.fr_title_borderbottom','666666')
+   WPut('wiccolor.fr_title_bg','408095')
+   WPut('wiccolor.fr_title_font','FFFFFF')
+   WPut('wiccolor.fr_menubutton_font','FFFFFF')
+   WPut('wiccolor.fr_menubutton_border','8EBECE')
+   WPut('wiccolor.fr_menubutton_over_font','FFFFFF')
+   WPut('wiccolor.fr_menubutton_over_border','8EBECE')
+   WPut('wiccolor.fr_menubutton_over_bg','408095')
+   WPut('wiccolor.fr_shortbutton_font','FFFFFF')
+   WPut('wiccolor.fr_shortbutton_border','8EBECE')
+   WPut('wiccolor.fr_shortbutton_bg','397386')
+   WPut('wiccolor.fr_shortbuttonhover_font','FFFFFF')
+   WPut('wiccolor.fr_shortbuttonhover_border','8EBECE')
+   WPut('wiccolor.fr_shortbuttonhover_bg','408095')
+   WPut('wiccolor.link_logout','FFFFFF')
+   WPut('wiccolor.div_quickpst_border','8EBECE')
+   WPut('wiccolor.div_quickpst_bg','408095')
+   WPut('wiccolor.lgbody_bg','316173')
+   WPut('wiccolor.lgtexto_font','999999')
+   WPut('wiccolor.lgtextologin_font','333333')
+   WPut('wiccolor.lgwinput_border','CCCCCC')
+   WPut('wiccolor.lgwinput_font','333333')
+   WPut('wiccolor.lgwbutton_border','FFFFFF')
+   WPut('wiccolor.lgwbutton_font','FFFFFF')
+   WPut('wiccolor.lgwbutton_bg','316173')
+   WPut('wiccolor.lgversao','FF9900')
+   WPut('wiccolor.lgversao2','999999')
+   WPut('wiccolor.whelpfontcolor','000000')
+   WPut('wiccolor.whelpbg','FFFDE5')
+   WPut('wiccolor.whelp_nm_help','000CA9')
+   WPut('wiccolor.aba_inativa_border','8EBECE')
+   WPut('wiccolor.aba_inativa_font','FFFFFF')
+   WPut('wiccolor.aba_ativa_bg','408095')
+   WPut('wiccolor.aba_ativa_border','8EBECE')
+   WPut('wiccolor.aba_ativa_font','FFFFFF')
+   WPut('wiccolor.aba_over','408095')
+   WPut('wiccolor.aba_bg','306070')
+
+
+
+
+
+

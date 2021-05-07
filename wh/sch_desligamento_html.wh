@@ -1,0 +1,41 @@
+/*
+
+Project      : gr5
+Program      : sch.desligamento.html
+Function     : sch_desligamento_html
+Created on   : 06/10/2014 15:59:53
+Descripition : Busca de tipos de desligamentos
+
+*/
+
+   local laFIELDS       := {},;
+         laJAVA         := {},;
+         laQUICK_SEARCH := {} as array
+
+   laFIELDS       := {'ID_TP_DESLIGAMENTO','TP_DESLIGAMENTO'}
+   laJAVA         :=  {'mntform',{{'ID_TP_DESLIGAMENTO','ID_TP_DESLIGAMENTO'},{'TP_DESLIGAMENTO','TP_DESLIGAMENTO'}}}
+   laQUICK_SEARCH := {'TP_DESLIGAMENTO'}
+   laWHERE        := {'FL_ATIVO <> '+DLAP+'I'+DLAP}
+
+   xbp2('tipo_desligamento',;                                                                       //Tabela Alvo
+        ,;                                                                                    //Join
+        laWHERE,;                                                                             //Where
+        laFIELDS,;                                                                            //Order by
+        'A',;                                                                                 //Sort [A]-Ascendente [D]-Descentende
+        ,;                                                                                    //Group by
+        ,;                                                                                    //Limit
+        ,;                                                                                    //Banco de Dados
+        3,;                                                                                   //Modo de funcionamento [1]-Listagem/Form para manutenção [2]-Listagem e Manutenção [3]-Search
+        'gr5',;                                                                               //Modulo do programa chamador
+        WSet('_USER_INTERFACE'),;                                                             //Programa chamador
+        ,;                                                                                    //Parametros para linhas clicáveis
+        ,;                                                                                    //Botoes (nil)
+        'desligamento.mnt.html',;                                                                   //Programa chamado pelos links (linhas clicáveis)
+        'gr5',;                                                                               //Módulo do programa chamado pelos links
+        laJAVA,;                                                                              //Retorno java (nil) - usado apenas no search
+        laQUICK_SEARCH,;                                                                      //Campos usados na pesquisa rápida
+        ,;                                                           //Campos ocultos. Usado apenas em manutenções    ***
+        ,;                                                                                    //Campos da área de manutenção/entrada de dados  ***
+        laFIELDS,;                                                                            //Campos mostratos no grid
+        laFIELDS)                                                                             //Campos usados no select
+return

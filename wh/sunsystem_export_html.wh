@@ -1,0 +1,464 @@
+/*
+Project      : ISJ 3.9.2
+Program      : sunsystem_export.html
+Function     : sunsystem_export_html
+Created on   : 01-junho-2009 Alvaro
+Descripition : Interface Contabil (SunSystem)
+
+*/
+
+    WSet('_USER_INTERFACE','none.wic')
+
+    local lcXML     := '' ,;
+          lcTABLE   := '' ,;
+          lcRAMO    := '' ,;
+          lcWHERE   := '' ,;
+          lcLeg     := '' as string
+          
+    local ii        := 0 ,;
+          zz        := 0 ,;
+          hh        := 0 ,;
+          lnHAND    := 0 ,;
+          lnVALOR   := 0 ,;
+          lnHAND1   := 0 as int
+    
+    local laXML     := {},;
+          laXML3    := {},;
+          laXML4    := {},;
+          laFIELDS  := {},;
+          laRESULT  := {},;
+          laJOIN    := {},;
+          laLOG     := {},;
+          laEmp     := {} as array
+
+    local lcmonta := '' ,;
+          lcTIPO  := '' as string
+    
+    local lcCREDITO      := '',;
+          lcDEBITO       := '',;
+          lcEMPRESA      := '',;
+          lcCCUSTO       := '',;
+          lcCODVERBA     := '',;
+          lcBENEFICIARIO := '' as string
+
+   // variáveis para gravação da execução do batch
+   local  lcStatus    := '3' ,;
+          lcHORAINI   := time() ,;
+          lcTABLEINT  := 'seq_interfaces' as string
+
+   local  laWHEREINT  := {} ,;
+          laFIELDSINT := {} ,;
+          laRES_INT   := {} ,;
+          laSAVEINT   := {} as array
+
+   local  lnSEQ       := 0 as int
+
+   local  ldDIAINI    := date() as date
+
+
+    lcTABLE := 'mvt_contabil'
+  
+    laJOIN := {{2,'pasta_pedidos'            , 'pasta_pedidos.nr_pasta                = mvt_contabil.wpkey_num' },;
+               {2,'pfpj'                     , 'pfpj.nr_controle                      = mvt_contabil.wpkey_num2'},;
+               {2,'pasta_seguro'             , 'pasta_seguro.nr_pasta                 = mvt_contabil.wpkey_num AND pasta_seguro.nr_controle = mvt_contabil.wpkey_num2'},;
+               {2,'pasta_seguro_beneficiario', 'pasta_seguro_beneficiario.NR_CONTROLE = mvt_contabil.wpkey_num2'}}
+ 
+    laFIELDS := {'DISTINCT mvt_contabil.CD_PLCT_CREDITO' ,;
+                 'mvt_contabil.CD_PLCT_DEBITO'  ,;
+                 'mvt_contabil.VL_LANCAMENTO'   ,;
+                 'mvt_contabil.DT_LANCAMENTO'   ,;
+                 'mvt_contabil.HISTORICO'       ,;
+                 'mvt_contabil.FL_CONTABILIZADO',;
+                 'mvt_contabil.WPKEY_NUM', ;
+                 'mvt_contabil.NR_CONTROLE',;
+                 'pasta_seguro.CD_RAMOSRSN',;
+                 'pfpj.CD_LEGADO',;
+                 'pasta_seguro.CD_CCUSTO',;
+                 'pasta_seguro_beneficiario.CIP_BENEFICIARIO'}
+
+// Buscando os Dados contábeis a serem exportados.
+    lcWHERE := ' ( mvt_contabil.FL_CONTABILIZADO='+DLMT+'N'+DLMT+' OR mvt_contabil.FL_CONTABILIZADO IS NULL )'
+    //lcWHERE += ' AND (RTRIM(LTRIM(mvt_contabil.CD_PLCT_CREDITO)) IS NOT NULL'
+    //lcWHERE += '  OR RTRIM(LTRIM(mvt_contabil.CD_PLCT_DEBITO))  IS NOT NULL)'
+    lcWHERE += " AND (RTRIM(LTRIM(mvt_contabil.CD_PLCT_CREDITO)) <> '' OR RTRIM(LTRIM(mvt_contabil.CD_PLCT_DEBITO)) <> '')"
+    lcWHERE += ' AND mvt_contabil.WTABLE ='+DLMT+'pasta'+DLMT
+    lcWHERE += ' AND mvt_contabil.WTABLE2='+DLMT+'pasta_seguro'+DLMT
+
+// Filtra somente os não(N) contabilizados.
+  if db_select(laFIELDS,lcTABLE,laJOIN,{lcwhere},{'pfpj.CD_LEGADO'}) == -1
+       db_error()
+   endif
+   laRESULT := db_fetchall()
+
+   if len(laRESULT) > 1
+
+      hh := 0
+      laEmp := {}
+      lcLeg := ''
+
+      for ii := 2 to len(laRESULT)
+      
+         if lcLeg != laRESULT[ii,db_fetchncol(laRESULT,'CD_LEGADO')]
+         
+            aadd(laEMP,laRESULT[ii,db_fetchncol(laRESULT,'CD_LEGADO')])
+            lcLeg := laRESULT[ii,db_fetchncol(laRESULT,'CD_LEGADO')]
+            
+            //wout('Empresa........: '+lcLeg)
+         endif
+      next ii
+
+      //wout(" ")
+      //wout('Array Principal: ' + str(len(laRESULT)))
+      //wout(" ")
+      
+      lcWHERE := ''
+      
+      FOR hh := 1 to len(laEMP)
+
+          //wout('Array Empresa..: ' + laEMP[hh])
+
+          monta := ''
+          laXML := {}
+
+          for ii := 2 to len(laRESULT)
+
+              if laEMP[hh] != laRESULT[ii,db_fetchncol(laRESULT,'CD_LEGADO')]
+                 Loop
+              endif
+
+              //if empty(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'CD_PLCT_CREDITO')])) .and. ; // apenas para teste
+              //   empty(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'CD_PLCT_DEBITO' )]))         // no postgre
+              //   loop
+              //endif
+
+              lcTIPO         := ''
+              lnvalor        := laRESULT[ii,db_fetchncol(laRESULT,'VL_LANCAMENTO')]
+              lcCREDITO      := laRESULT[ii,db_fetchncol(laRESULT,'CD_PLCT_CREDITO')]
+              lcDEBITO       := laRESULT[ii,db_fetchncol(laRESULT,'CD_PLCT_DEBITO')]
+
+              lcRAMO         := laRESULT[ii,db_fetchncol(laRESULT,'CD_RAMOSRSN')]
+              If Len(lcRamo) == 0
+                 lcramo := Space(03)
+              Endif
+              lcEMPRESA      := laRESULT[ii,db_fetchncol(laRESULT,'CD_LEGADO')]
+              lcCCUSTO       := laRESULT[ii,db_fetchncol(laRESULT,'CD_CCUSTO')]
+              lcBENEFICIARIO := laRESULT[ii,db_fetchncol(laRESULT,'CIP_BENEFICIARIO')]
+              lcCODVERBA     := '0000000'
+
+              if lcCREDITO == '2261100006' // cofins oper seguro
+                 if lcEMPRESA == '021' // MAPFRE Vera Cruz Vida e Previdencia S.A.
+                    lcCREDITO := '2261100000'
+                 endif
+                 if lcEMPRESA == '022' // MARES - MAPFRE Riscos Especiais Seguradora S.A.
+                    lcCREDITO := '2261100009'
+                 endif
+              endif
+              if lcDEBITO == '3551212000' // cofins sobre oper financ
+                 if lcEMPRESA == '021' // MAPFRE Vera Cruz Vida e Previdencia S.A.
+                    lcDEBITO := '3551210001'
+                 endif
+              endif
+              if lcCREDITO == '2261100007' // atual. monet. e juros cofins
+                 if lcEMPRESA == '021' // MAPFRE Vera Cruz Vida e Previdencia S.A.
+                    lcCREDITO := '2261100005'
+                 endif
+              endif
+              if lcCREDITO == '2261100011' // pis sobre oper seguro e financ
+                 if lcEMPRESA == '021' // MAPFRE Vera Cruz Vida e Previdencia S.A.
+                    lcCREDITO := '2261100008'
+                 endif
+                 if lcEMPRESA == '022' // MARES - MAPFRE Riscos Especiais Seguradora S.A.
+                    lcCREDITO := '2261100003'
+                 endif
+              endif
+              if lcDEBITO == '3551212000' // pis sobre oper seguro
+                 if lcEMPRESA == '022' // Mapfre - Riscos especiais Seguradora S.A.
+                    lcDEBITO := '3629510000'
+                 endif
+              endif
+              if lcDEBITO == '3551222000' // pis sobre oper financ
+                 if lcEMPRESA == '021' // MAPFRE Vera Cruz Vida e Previdencia S.A.
+                    lcDEBITO := '3551220001'
+                 endif
+              endif
+              if lcCREDITO == '2261100012' // atual. monet. e juros pis
+                 if lcEMPRESA == '021' // MAPFRE Vera Cruz Vida e Previdencia S.A.
+                    lcCREDITO := '2261100008'
+                 endif
+              endif
+              if lcCREDITO == '2261100003' // inss s/ vale transporte
+                 if lcEMPRESA == '021' // MAPFRE Vera Cruz Vida e Previdencia S.A.
+                    lcCREDITO := '2261100006'
+                 endif
+              endif
+              if lcDEBITO == '3511330001' // Contingencias trabalhistas
+                 if lcEMPRESA == '016' // Nossa Caixa Vida e Previdência S.A. .or. lcEMPRESA == '026' // Vida Seguradora
+                    lcDEBITO := '3511330000'
+                 endif
+              endif
+              if lcCREDITO == '2262100000' // Contingencias trabalhistas
+                 if lcEMPRESA == '026' // Vida Seguradora
+                    lcCREDITO := '2263100000'
+                 endif
+              endif
+              if lcDEBITO == '3142913000' // Contingencias civeis
+                 if lcEMPRESA == '026' // Vida Seguradora
+                    lcDEBITO := '3152913000'
+                 endif
+              endif
+              if lcCREDITO == '2263100000' // Contingencias civeis
+                 if lcEMPRESA == '026' // Vida Seguradora
+                    lcCREDITO := '2284100000'
+                 endif
+              endif
+
+              /* Teste de estorno
+              if lcDEBITO == '2261100006' // cofins oper seguro
+                 if lcEMPRESA == '021' // MAPFRE Vera Cruz Vida e Previdencia S.A.
+                    lcDEBITO := '2261100000'
+                 endif
+                 if lcEMPRESA == '022' // MARES - MAPFRE Riscos Especiais Seguradora S.A.
+                    lcCREDITO := '2261100009'
+                 endif
+              endif
+              if lcCREDITO == '3551212000' // cofins sobre oper financ
+                 if lcEMPRESA == '021' // MAPFRE Vera Cruz Vida e Previdencia S.A.
+                    lcCREDITO := '3551210001'
+                 endif
+              endif
+              if lcDEBITO == '2261100007' // atual. monet. e juros cofins
+                 if lcEMPRESA == '021' // MAPFRE Vera Cruz Vida e Previdencia S.A.
+                    lcDEBITO := '2261100005'
+                 endif
+              endif
+              if lcDEBITO == '2261100011' // pis sobre oper seguro e financ
+                 if lcEMPRESA == '021' // MAPFRE Vera Cruz Vida e Previdencia S.A.
+                    lcDEBITO := '2261100008'
+                 endif
+                 if lcEMPRESA == '022' // MARES - MAPFRE Riscos Especiais Seguradora S.A.
+                    lcDEBITO := '2261100003'
+                 endif
+              endif
+              if lcCREDITO == '3551212000' // pis sobre oper seguro
+                 if lcEMPRESA == '022' // Mapfre - Riscos especiais Seguradora S.A.
+                    lcCREDITO := '3629510000'
+                 endif
+              endif
+              if lcCREDITO == '3551222000' // pis sobre oper financ
+                 if lcEMPRESA == '021' // MAPFRE Vera Cruz Vida e Previdencia S.A.
+                    lcCREDITO := '3551220001'
+                 endif
+              endif
+              if lcDEBITO == '2261100012' // atual. monet. e juros pis
+                 if lcEMPRESA == '021' // MAPFRE Vera Cruz Vida e Previdencia S.A.
+                    lcDEBITO := '2261100008'
+                 endif
+              endif
+              if lcDEBITO == '2261100003' // inss s/ vale transporte
+                 if lcEMPRESA == '021' // MAPFRE Vera Cruz Vida e Previdencia S.A.
+                    lcDEBITO := '2261100006'
+                 endif
+              endif
+              if lcCREDITO == '3511330001' // Contingencias trabalhistas
+                 if lcEMPRESA == '016' // Nossa Caixa Vida e Previdência S.A. .or. lcEMPRESA == '026' // Vida Seguradora
+                    lcCREDITO := '3511330000'
+                 endif
+              endif
+              if lcDEBITO == '2262100000' // Contingencias trabalhistas
+                 if lcEMPRESA == '026' // Vida Seguradora
+                    lcDEBITO := '2263100000'
+                 endif
+              endif
+              if lcCREDITO == '3142913000' // Contingencias civeis
+                 if lcEMPRESA == '026' // Vida Seguradora
+                    lcCREDITO := '3152913000'
+                 endif
+              endif
+              if lcDEBITO == '2263100000' // Contingencias civeis
+                 if lcEMPRESA == '026' // Vida Seguradora
+                    lcDEBITO := '2284100000'
+                 endif
+              endif
+              // fim teste de estorno
+              */
+
+              if lnvalor > 0
+                 monta := lcCREDITO // mvt_contabil - Codigo conta contabil CREDITO
+                 if len(lcCREDITO) < 10
+                    monta += Space(10 - len(lcCREDITO))
+                 endif
+                 lcTIPO := 'C'
+              else
+                 monta := lcDEBITO // mvt_contabil - Codigo conta contabil CREDITO
+                 if len(lcDEBITO) < 10
+                    monta += Space(10 - len(lcDEBITO))
+                 endif
+                 lcTIPO := 'D'
+              endif
+
+              /* // teste de estorno
+              if lnvalor > 0
+                 monta := lcDEBITO // mvt_contabil - Codigo conta contabil DEBITO
+                 if len(lcDEBITO) < 10
+                    monta += Space(10 - len(lcDEBITO))
+                 endif
+                 lcTIPO := 'D'
+              else
+                 monta := lcCREDITO // mvt_contabil - Codigo conta contabil CREDITO
+                 if len(lcCREDITO) < 10
+                    monta += Space(10 - len(lcCREDITO))
+                 endif
+                 lcTIPO := 'C'
+              endif
+              // fim teste de estorno
+              */
+
+              monta += space(5) //FILLER
+              monta += substr(dtos(laRESULT[ii,db_fetchncol(laRESULT,'DT_LANCAMENTO')]),1,4)+'0' //Periodo Contabil
+              monta += substr(dtos(laRESULT[ii,db_fetchncol(laRESULT,'DT_LANCAMENTO')]),5,2)     //periodocontabil
+              monta += dtos(laRESULT[ii,db_fetchncol(laRESULT,'DT_LANCAMENTO')])                 //data transacao
+              monta += space(2)                                                                  //Filler
+              monta += 'L'                                                                       //Tipo Registro
+              monta += space(7)                                                                  //Numero Lote
+              monta += space(7)                                                                  //numero Linha
+              lnvalor := laRESULT[ii,db_fetchncol(laRESULT,'VL_LANCAMENTO')]
+              if lcTIPO == 'C'
+                 monta += substr(strzero(laRESULT[ii,db_fetchncol(laRESULT,'VL_LANCAMENTO')],19,3),1,15)  //valor transacao
+                 monta += substr(strzero(laRESULT[ii,db_fetchncol(laRESULT,'VL_LANCAMENTO')],19,3),17,3)  //valor transacao
+              else
+                 lnvalor := laRESULT[ii,db_fetchncol(laRESULT,'VL_LANCAMENTO')]*-1
+                 monta += substr(strzero(lnvalor,19,3),1,15)  //valor transacao
+                 monta += substr(strzero(lnvalor,19,3),17,3)  //valor transacao
+              endif
+              monta += lcTIPO                                                                    //Debito Credito
+              MONTA += SPACE(1)                                                                  //alocacao
+              MONTA += SPACE(5)                                                                  //Classecontabil
+              MONTA += SPACE(5)                                                                  //Origem lancamentos
+              MONTA += SPACE(10)                                                                 //referencia
+              MONTA += SPACE(5)                                                                  //FILLER
+              MONTA += laRESULT[ii,db_fetchncol(laRESULT,'HISTORICO')]              //Historico
+              if len(laRESULT[ii,db_fetchncol(laRESULT,'HISTORICO')]) < 25
+                 MONTA += space(25 - len(laRESULT[ii,db_fetchncol(laRESULT,'HISTORICO')]))
+              endif
+              MONTA += SPACE(8)
+              MONTA += SPACE(7)
+              MONTA += SPACE(8)
+              MONTA += SPACE(6)
+              MONTA += '000000000'
+              MONTA += '00000000'
+              MONTA += '0000000'
+              MONTA += SPACE(1)
+              MONTA += SPACE(10)
+              MONTA += SPACE(5)
+              MONTA += SPACE(5)
+              MONTA += '000000000000000000'
+              MONTA += '000000000000000000'
+              MONTA += SPACE(1)
+              MONTA += SPACE(13)
+              if lcTIPO = 'D' // tcode´s
+                 if lcRAMO == '011' .or. lcRAMO == '041' .or. lcRAMO == '067' .or. lcRAMO == '071' .or. lcRAMO == '073' .or. lcRAMO == '096'
+                    MONTA += SPACE(13)+'01' // t0 grupo do ramo (2) (D  )
+                 elseif val(lcramo) >= 14 .or. val(lcramo) <= 18
+                    MONTA += SPACE(13)+'01' // t0 grupo do ramo (2) (D  )
+                 elseif lcramo == '034' .or. lcramo == '072' .or. lcramo == '074'
+                        MONTA += SPACE(13)+'02' // t0 grupo do ramo (2) (D  )
+                 elseif lcramo == '010' .or. lcramo == '051' .or. lcramo == '078'
+                        MONTA += SPACE(13)+'03' // t0 grupo do ramo (2) (D  )
+                 elseif lcramo == '033' .or. lcramo == '035' .or. lcramo == '037' .or. lcramo == '057'
+                        MONTA += SPACE(13)+'04' // t0 grupo do ramo (2) (D  )
+                 elseif lcramo == '020' .or. lcramo == '023' .or. lcramo == '024' .or. lcramo == '025' .or. lcramo == '031' .or. lcramo == '044' .or. lcramo == '053' .or. lcramo == '088' .or. lcramo == '089'
+                        MONTA += SPACE(13)+'05' // t0 grupo do ramo (2) (D  )
+                 elseif lcramo == '021' .or. lcramo == '022' .or. lcramo == '027' .or. lcramo == '032' .or. lcramo == '038' .or. lcramo == '052' .or. lcramo == '054' .or. lcramo == '055' .or. lcramo == '056' .or. lcramo == '058'
+                        MONTA += SPACE(13)+'06' // t0 grupo do ramo (2) (D  )
+                 elseif lcramo == '039' .or. lcramo == '040' .or. lcramo == '045' .or. lcramo == '046' .or. lcramo == '047' .or. lcramo == '050'
+                        MONTA += SPACE(13)+'07' // t0 grupo do ramo (2) (D  )
+                 elseif lcramo == '019' .or. lcramo == '059' .or. lcramo == '060' .or. lcramo == '070'
+                        MONTA += SPACE(13)+'08' // t0 grupo do ramo (2) (D  )
+                 elseif lcramo == '036' .or.lcramo == '069' .or.lcramo == '077' .or.lcramo == '080' .or.lcramo == '081' .or.lcramo == '082' .or.lcramo == '090' .or. lcramo == '091' .or. lcramo == '092' .or. lcramo == '093' .or. lcramo == '094'
+                        MONTA += SPACE(13)+'09' // t0 grupo do ramo (2) (D  )
+                 elseif lcramo == '066' .or. lcramo == '068'
+                        MONTA += SPACE(13)+'10' // t0 grupo do ramo (2) (D  )
+                 elseif lcramo == '001' .or. lcramo == '002' .or. lcramo == '003' .or. lcramo == '004' .or. lcramo == '005' .or. lcramo == '006' .or. lcramo == '007' .or. lcramo == '008' .or. lcramo == '009' .or. lcramo == '030' .or. lcramo == '062' .or. lcramo == '063' .or. lcramo == '064'
+                        MONTA += SPACE(13)+'11' // t0 grupo do ramo (2) (D  )
+                 elseif lcramo == '079' .or. lcramo == '099'
+                        MONTA += SPACE(13)+'12' // t0 grupo do ramo (2) (D  )
+                 elseif lcramo == '000'
+                        MONTA += SPACE(13)+'00' // t0 grupo do ramo (2) (D  )
+                 endif
+              else
+                 MONTA += SPACE(15) // t0 grupo do ramo (2) (D  )
+              endif
+              MONTA += SPACE(07)+lcCCUSTO // t1 agencia = centro de custo (8) (D/C)
+              MONTA += SPACE(15) // t2 vazio
+              MONTA += SPACE(15) // t3 vazio
+              MONTA += SPACE(13)+'25' // t4 agencia Mapfre = atividade FIXO 25 (D/C)
+              MONTA += SUBSTR(lcBENEFICIARIO,1,5) // t5 beneficiario (15) (D/C)
+              if lcTIPO == 'D'
+                 MONTA += SPACE(08)+lcCODVERBA // t6 codigo da verba (7) (D  )
+              else
+                 MONTA += SPACE(15) // t6 codigo da verba (7) (D  )
+              endif
+              MONTA += SPACE(15) // t7 vazio
+              if lcTIPO == 'D'
+                 MONTA += SPACE(12)+lcRAMO // t8 ramo (3) (D  )
+              else
+                 MONTA += SPACE(15) // t8 ramo (3) (D  )
+              endif
+              MONTA += SPACE(15) // t9 vazio
+              MONTA += dtos(date())
+
+              aadd(laXML, monta)
+
+              monta := lcCREDITO := lcDEBITO := ''
+
+              if len(lcWHERE) > 0
+                 lcWHERE += ', '
+              endif
+              
+              lcWHERE += alltrim(str(laRESULT[ii,db_fetchncol(laRESULT,'NR_CONTROLE')]))
+          next ii
+
+          //wout('Empresa..: ' + laEMP[hh] + ' Total: ' + str(len(laXML)))
+
+          lcfilelog := 'MAPFRE_SUN_TESTE_' + laEMP[hh] + '_' + dtos(date()) + '.txt'  //'/MAPFRE_SUN_TESTE'+dtos(date())+'.txt' alterar
+
+          lnHAND1 := fcreate(lcFILELOG, 0)
+          if lnHAND1 > 0
+            for ii := 1 to len(laXML)
+               if !dispmess(laXML[ii], lnHAND1 , 0, 0)
+                  return(nil)
+               endif
+            next ii
+            fclose(lnHAND1)
+            lcStatus := '1'  //Atualiza seq_interfaces - processo ok
+          else
+             wout("Problemas na criação do arquivo: "+lcFILELOG)
+             lcStatus := '2'  //Atualiza seq_interfaces - erro no processo
+          endif
+
+        NEXT hh
+        
+        // Fazendo o Update nos registros de movimento contabil
+        lcWHERE := 'mvt_contabil.NR_CONTROLE in (' + lcWHERE + ')'
+        if db_update({{"FL_CONTABILIZADO"},{'N'}},'mvt_contabil',{lcWHERE}) == -1
+           qout("Erro Update -> "+db_error())
+      	endif
+      	wout(lcwhere)
+   endif
+
+   //Atualizar Interfaces - seq_interfaces
+
+   laFIELDSINT := structtable(WSet("DB_ACTIVE"),lcTABLEINT,1,'N')
+   laWHEREINT  := {"PROGRAM = 'sunsystem_export_html'"}
+   if db_select(laFIELDSINT, lcTABLEINT,,laWHEREINT) == -1
+      error_sys(db_error())
+   endif
+   laRES_INT := db_fetchrow()
+   lnSEQ     := laRES_INT[2] + 1
+   aadd(laSAVEINT,laFIELDSINT)
+   aadd(laSAVEINT,{laRES_INT[1],lnSEQ, ldDIAINI, lcHORAINI, date(), time(), lcStatus})
+   if db_replace(laSAVEINT,lcTABLEINT,laWHEREINT) == -1
+      error_sys(db_error())
+   endif
+
+return

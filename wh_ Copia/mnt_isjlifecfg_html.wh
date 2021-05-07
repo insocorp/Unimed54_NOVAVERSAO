@@ -1,0 +1,61 @@
+/*
+
+Project      : isj_44
+Program      : mnt.isjlifecfg.html
+Function     : mnt_isjlifecfg_html
+Created on   : 07-Apr-2015   11:48:32
+Descripition :
+
+*/
+
+   local laRESULT   := {},;
+         laSAVE     := {},;
+         laSAVEAUX  := {},;
+         laPUT      := {} as array
+
+   local lcWHERE    := '',;
+         lcTABLE    := '',;
+         lcPROCURA  := '',;
+         lcACTION   := ''  as string
+   local xx         := 0 as numeric
+
+
+   lcTABLE   := 'isjlifecfg'
+   laFIELDS  := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laVALIDA  := aclone(laFIELDS)
+   lcACTION  := alltrim(upper(WGet('ACTION')))
+
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+   if lcACTION == 'SAVE'
+      if verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+           for xx := 1 to len(laFIELDS)
+               aadd(laSAVEAUX,WGet(laFIELDS[xx]))
+           next xx
+           aadd(laSAVE,laFIELDS)
+           aadd(laSAVE,laSAVEAUX)
+           lcWHERE := 'USUARIO=' + DLAP + WGet('USUARIO') + DLAP
+           if db_replace(laSAVE,lcTABLE,{lcWHERE},) == -1
+              error_sys(db_error())
+           endif
+      endif
+   endif
+
+   if db_select(laFIELDS,lcTABLE,,,,,,{0,1}) == -1
+       error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      db2put(laRESULT)
+   endif
+
+return
+
+
+
+
+
+
+
+
+

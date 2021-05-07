@@ -1,0 +1,103 @@
+/*
+
+Project      : gr5
+Program      : grpman.mnt.html
+Function     : grpman_mnt_html
+Created on   : 05-Mar-2007   09:56:56
+Descripition :
+
+*/
+
+   local laRESULT   := {} ,;
+         laFIELDS   := {} ,;
+         laJOIN     := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} as array
+   local lcACTION   := '',;
+         lcWHERE    := '',;
+         lcWGID     := '',;
+         lcWGROUP   := '',;
+         lcCURSOR   := '',;
+         lcACTIONBP := '' as string
+   local lnII       := 0 as numeric
+   local lnXX       := 0 as int
+
+   lcACTION   := upper(Wget('ACTION','C'))
+   //lcACTIONBP := upper(Wget('ACTIONBP','C'))
+   lcWHERE    := 'acgroup.wgid <>' + Wget('WGID','C')
+   laJOIN     := {{2,'acgroup_manage','acgroup_manage.WGID_ALLOW=acgroup.WGID and acgroup_manage.WGID='+Wget('WGID','C')}}
+   laFIELDS   := {'acgroup.WGID','acgroup.WGROUP','acgroup_manage.WGID_ALLOW'}
+   lcWGID     := Wget('WGID','C')
+   lcWGROUP   := Wget('WGROUP')
+
+   // Caso o usuario venha da grid clicando no botão novo fazer critica e retornar
+
+   if empty(lcACTION) .or. lcACTION == 'NEW'
+      Walert('Por favor, selecione um perfil na grid.')
+      grpman_lst_html()
+      return
+   endif
+
+   if lcACTION == 'SAVE'
+
+      // Primeiramente apagar os registros existentes
+
+      lcWHERE := 'WGID =' + Wget('WGID','C')
+      if db_delete('acgroup_manage',lcWHERE) = -1
+         error_sys(db_error())
+      endif
+      lnII := 1
+      while Wget('WGROUP_VAR'+alltrim(transform(lnII,'99999')),'B')
+            if val(Wget('WGID_ALLOW_VAR'+alltrim(transform(lnII,'99999')))) > 0
+               laSAVE := {{'WGID','WGID_ALLOW'}}
+               aadd(laSAVE,{Wget('WGID'),;
+                            Wget('WGID_ALLOW_VAR'+alltrim(transform(lnII,'99999')))})
+
+               lcWHERE := 'WGID = ' + Wget('WGID','C') + ' and '
+               lcWHERE += 'WGID_ALLOW = ' + Wget('WGID_ALLOW_VAR'+alltrim(transform(lnII,'99999')))
+               if db_replace(laSAVE,'acgroup_manage',{lcWHERE}) == -1
+                  error_sys(db_error())
+               endif
+            endif
+            ++lnII
+      enddo
+   endif
+
+   lcWHERE    := 'acgroup.wgid <>' + Wget('WGID','C')
+   laJOIN     := {{2,'acgroup_manage','acgroup_manage.WGID_ALLOW=acgroup.WGID and acgroup_manage.WGID='+Wget('WGID','C')}}
+   laFIELDS   := {'acgroup.WGID','acgroup.WGROUP','acgroup_manage.WGID_ALLOW'}
+   lcWGID     := Wget('WGID','C')
+   lcWGROUP   := Wget('WGROUP')
+
+   //if db_select(laFIELDS,'acgroup',laJOIN,{lcWHERE},{'acgroup.WGROUP'}) == -1
+   //   error_sys(db_error())
+   //endif
+
+   if db_select(laFIELDS,'acgroup',laJOIN,,{'acgroup.WGROUP'}) == -1
+      error_sys(db_error())
+   endif
+
+
+
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      lnXX := 1
+      aadd(laRESULT[1],'WGID_ALLOW_VAR')
+      aadd(laRESULT[1],'WGROUP_VAR')
+      for lnII := 2 to len(laRESULT)
+          lcCURSOR := alltrim(str(lnXX))
+          aadd(laRESULT[lnII],'WGID_ALLOW_VAR'+lcCURSOR)
+          aadd(laRESULT[lnII],'WGROUP_VAR'+alltrim(str(lnXX)))
+          WPut('WGID_ALLOW_VAR'+lcCURSOR+'_OPT', laRESULT[lnII,ascan(laRESULT[1],'WGID')])
+          WPut('WGID_ALLOW_VAR'+lcCURSOR,        laRESULT[lnII,ascan(laRESULT[1],'WGID_ALLOW')])
+          WPut('WGROUP_VAR'    +alltrim(str(lnXX)),        laRESULT[lnII,ascan(laRESULT[1],'WGROUP')])
+          ++lnXX
+      next lnII
+   endif
+   Wput('lstPERFIL',laRESULT)
+   Wput('WGID',lcWGID)
+   Wput('WGROUP',lcWGROUP)
+
+
+return
+

@@ -1,0 +1,294 @@
+/*
+Project      : isj_395b
+Program      : sch.estimativas.html
+Function     : sch_estimativas_html
+Created on   : 17/11/2010 16:51:58 - Glauber
+Descripition : 
+*/
+
+
+local lcBUFFER        :='' ,;
+      lcFILE          :='' ,;
+      latxt           :='' ,;
+      lcPATH_WPROFILE :='' ,;
+      lcLINE          :='' ,;
+      lcNR_SINISTRO   :='' ,;
+      lcCD_RAMOSRSN   :='' ,;
+      lcTable         :='' ,;
+      lcTMP           :='' ,;
+      lcCPF           :='' ,;
+      lcPFPJ          :='' ,;
+      lcACTION        :='' ,;
+      lcdimesao       :='' as string
+
+local cch := ' '
+local liLEN  := 0 ,;
+      lnHAND := 0 ,;
+      lnII   := 0 ,;
+      lnSeq  := 0 ,;
+      lnPOS  := 0 as int
+      
+local laWSET     := {} ,;
+      laCONT     := {} ,;
+      laLOG      := {} ,;
+      laDIMENSAO := {} ,;
+      laFields   := {} ,; 
+      laTMP      := {} ,;
+      laFROMTO   := {},;
+      laSEQ      := {},;
+      laRES      := {},;
+      laPEDIDO   := {},;
+      laCARGA    := {},;
+      laWPUT     := {} as array
+ 
+local lnid_integracao := 0 ,;
+      lntp_integracao := 0 ,;
+      lnnr_sequencia  := 0       
+local ii              := 0,;
+      xx              := 0,;
+      zz              := 0 as int
+local llErro := .f.
+
+// Faz os wgets e wput necessário para manter os valores dos campos hiden
+
+   laWPUT := {'NR_PASTA','TP_PASTA','NR_CONTROLE','NR_SINISTRO','ACTION'}
+
+   for ii := 1 to len(laWPUT)
+       aadd(laTMP,WGet(laWPUT[ii]))
+   next ii
+   for ii := 1 to len(laWPUT)
+       WPut(laWPUT[ii],laTMP[ii])
+//       wout(laWPUT[ii])
+//       wout(':')
+//       wout(iif(valtype(laTMP[ii])=='N',str(laTMP[ii]),laTMP[ii]))
+   next ii
+//wout(debug2(latmp),,100)   
+/*
+   lcNR_SINISTRO := WGET('NR_SINISTRO','C')
+   lcACTION      := WGET('ACTION','C')
+
+   WPUT('NR_SINISTRO',lcNR_SINISTRO)
+*/
+// Resgatando os dados do pedido pai
+
+    laPEDIDO := {{'NR_PASTA',;
+                  'NR_CONTROLE',;
+                 'PEDIDO_PROCESSO',;
+                 'NR_CONTROLE_SEGURO',;
+                 'VL_RISCO',;
+                 'PC_RISCO',;
+                 'VL_RISCO_CALC',;
+                 'DT_RISCO',;
+                 'FL_CALCULO',;
+                 'DT_MOVTO_PED',;
+                 'COMENTARIOS_PED',;
+                 'OCOR_PEDIDO',;
+                 'TP_EXPEDIENTE',;
+                 'FL_INTERFACEWEB',;
+                 'FL_INTERFACEGEM',;
+                 'NR_PEDIDO_ORIGEM',;
+                 'NR_PEDIDO_ORIGEM',;
+                 'PC_RISCOESTIMADO',;
+                 'VL_RISCOESTIMADO'}}
+   laTMP := {}
+   for ii := 1 to len(laPEDIDO[1])
+       aadd(laTMP,Wget(laPEDIDO[1,ii]))
+   next ii
+   aadd(laPEDIDO,laTMP)
+//   debug2(laPEDIDO,,20)
+   //
+   // Verifica se ja existem pedidos filhos cadastrado com base no pedido origem.
+   // Caso exista eu ja tenho o resultset para montar o wicdo
+   //
+
+   if db_select(laPEDIDO[1],'pasta_pedidos',,{'NR_PASTA = '+ str(laPEDIDO[2,db_fetchncol(laPEDIDO,'NR_PASTA')]) + ' and NR_PEDIDO_ORIGEM = ' +str(laPEDIDO[2,db_fetchncol(laPEDIDO,'NR_CONTROLE')])}) = -1
+      error_sys(db_error())
+   endif
+   laTMP := db_fetchall()
+   if len(laTMP) == 1 // Caso não tenha estimativa gerada eu chamo a função que faz a geração das estimativas
+      GeraEstimativa(laPEDIDO,WGet('TP_PASTA'))
+      // Pego novamente o resultset com os pedidos gerados
+      if db_select(laPEDIDO[1],'pasta_pedidos',,{'NR_PASTA = '+ str(laPEDIDO[2,db_fetchncol(laPEDIDO,'NR_PASTA')]) + ' and NR_PEDIDO_ORIGEM = ' +str(laPEDIDO[2,db_fetchncol(laPEDIDO,'NR_CONTROLE')])}) = -1
+          error_sys(db_error())
+      endif
+      laTMP := db_fetchall()
+   endif 
+
+//   debug2(laTMP,,20)
+
+   // Começo a montar o wicdo. Inserção das colunas VAR_
+
+   for ii := 1 to len(laPEDIDO[1])
+       aadd(laTMP[1],'VAR_'+laPEDIDO[1,ii])
+   next ii
+   // Segunda parte do wicdo, inserção dos wput
+   for ii := 2 to len(laTMP)
+       lcNR_ROW := alltrim(str(ii))
+       for xx := 1 to len(laPEDIDO[1]) 
+           WPut('VAR_'+laPEDIDO[1,xx]+'_'+lcNR_ROW,laTMP[ii,xx])
+           wout('WPUT:'+'VAR_'+laPEDIDO[1,xx]+'_'+lcNR_ROW)
+           wout('-VALOR:'+alltrim(laTMP[ii,xx]))
+           aadd(laTMP[ii],'VAR_'+laTMP[1,xx]+'_'+lcNR_ROW)
+       next xx
+       // Terceira parte do wicdo, adicionar os VAR_ na linha de dados
+       //for zz := 1 to len(laTMP[1])
+//           aadd(laTMP[ii],'VAR_'+laTMP[1,zz]+'_'+lcNR_ROW)
+      // next zz
+   next ii
+   debug2(laTMP,,30)
+   WPut('lstESTIMATIVAS',laTMP)
+
+    
+
+if lcACTION == 'DETALHAR'
+       
+endif
+        
+return
+        
+
+
+
+/*
+* Data......: 12/11/2010 - Glauber
+* Function..: GeraEstimativa(paPedido, pcTp_Pasta)
+* Objetivo..: Gera a estimativa de risco automaticamente na tabela pasta_pedidos.
+* Parâmetros:
+*  paPedido  : Array com os dados do pedido original a ser gerado
+*  pcTp_pasta: Tipo de pasta
+* Retorno...: Nada
+*/
+
+
+Static Function GeraEstimativa(paPedido, pcTp_Pasta)
+
+  local laRes    := {},;
+        laFields := {},;
+        laAUX    := {},;
+        laSave   := {} as array
+  local llErro   := .f.
+  local ii       := 0,;
+        xx       := 0 as int
+  local lcWHERE  := '' as string
+
+   laFields := {'TP_PASTA', 'ESTI_PERDA', 'ESTI_EXITO', 'NENH_PERC', 'PERC_LIVRE', 'PERC_ACEITO'}
+
+   if db_select({'GERA_EST_AUT'},'pasta_config',,{'TP_PASTA = '+DLAP+pcTp_Pasta+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRes := db_fetchrow() 
+   if len(laRes) == 0
+      llErro := .t.
+   endif
+   if ! llErro
+      if laRes[1] == "S"
+         
+         if db_select(laFields,'risco',,{'TP_PASTA = '+DLAP+pcTp_Pasta+DLAP}) == -1
+            error_sys(db_error())
+         endif
+         laRes := db_fetchall()
+         // montar o array para inserir os pedidos das estimativas
+         if len(laRes) > 1
+            for xx := 2 to len(paPedido)
+                for ii :=  2 to len(laRes)
+                   laSAVE      := {{'NR_PASTA',;
+                                    'PEDIDO_PROCESSO',;
+                                    'NR_CONTROLE_SEGURO',;
+                                    'VL_RISCO',;
+                                    'PC_RISCO',;
+                                    'VL_RISCO_CALC',;
+                                    'DT_RISCO',;
+                                    'FL_CALCULO',;
+                                    'DT_MOVTO_PED',;
+                                    'COMENTARIOS_PED',;
+                                    'OCOR_PEDIDO',;
+                                    'TP_EXPEDIENTE',;
+                                    'FL_INTERFACEWEB',;
+                                    'FL_INTERFACEGEM',;
+                                    'NR_PEDIDO_ORIGEM'}}           
+                   aadd(laSAVE, {paPEDIDO[xx,db_fetchncol(paPEDIDO,'NR_PASTA')],;                                
+                                 laRes[ii,db_fetchncol(laRes,'ESTI_PERDA')],;
+                                 paPEDIDO[xx,db_fetchncol(paPEDIDO,'NR_CONTROLE_SEGURO')],;
+                                 0,;
+                                 0,;
+                                 0,;
+                                 paPEDIDO[xx,db_fetchncol(paPEDIDO,'DT_RISCO')],;
+                                 paPEDIDO[xx,db_fetchncol(paPEDIDO,'FL_CALCULO')],;
+                                 paPEDIDO[xx,db_fetchncol(paPEDIDO,'DT_MOVTO_PED')],;
+                                 paPEDIDO[xx,db_fetchncol(paPEDIDO,'COMENTARIOS_PED')],;
+                                 paPEDIDO[xx,db_fetchncol(paPEDIDO,'OCOR_PEDIDO')],;
+                                 paPEDIDO[xx,db_fetchncol(paPEDIDO,'TP_EXPEDIENTE')],;
+                                 paPEDIDO[xx,db_fetchncol(paPEDIDO,'FL_INTERFACEWEB')],;
+                                 paPEDIDO[xx,db_fetchncol(paPEDIDO,'FL_INTERFACEGEM')],;
+                                 paPEDIDO[xx,db_fetchncol(paPEDIDO,'NR_CONTROLE')]})
+                   // Gravar os pedidos
+                   lcWHERE := 'NR_PASTA='+str(paPEDIDO[xx,db_fetchncol(paPEDIDO,'NR_PASTA')])+;
+                              ' and NR_PEDIDO_ORIGEM = ' + str(paPEDIDO[xx,db_fetchncol(paPEDIDO,'NR_CONTROLE')]) +;
+                              ' and PEDIDO_PROCESSO = ' + DLAP +laRes[ii,db_fetchncol(laRes,'ESTI_PERDA')] + DLAP
+
+                      // 
+                      // Glauber 17/11/2010
+                      // Deve ser verificado primeiramente se a estimativa que esta sendo inserida na tabela pasta_pedidos esta cadastrado na tabela 
+                      // pasta_objeto.
+                      //  
+// select risco.tp_pasta,risco.esti_perda,pasta_objeto.objeto from risco left join pasta_objeto on (pasta_objeto.tp_pasta = risco.tp_pasta and pasta_objeto.objeto = risco.esti_perda) where pasta_objeto.objeto is not null or pasta_objeto.objeto <> '';
+// select * from pasta_pedidos where nr_pasta = 3885 and pedido_processo not in('Possível','Provavel','Remoto');
+// select risco.tp_pasta,risco.esti_perda from risco where esti_perda in('Taxa')
+//
+                      if db_select({'TP_PASTA'},'pasta_objeto',,;
+                                   {'TP_PASTA = '+DLAP +pcTp_Pasta+DLAP + ' and OBJETO = ' +DLAP +laRes[ii,db_fetchncol(laRes,'ESTI_PERDA')] + DLAP}) = -1
+                         error_sys(db_error())
+                      endif
+                      laAUX := db_fetchall()
+                      if len(laAUX) > 1
+                         if db_replace(laSAVE,'pasta_pedidos',{lcWHERE} ) == -1
+                            error_sys(db_error())
+                         endif
+                      endif
+//                   endif
+/*
+                   lnNR_CONTROLE := db_insert_id()
+                   // Salvar o detalhe do pedido
+
+                   laAUX := {{'NR_PASTA','NR_CONTROLE','PEDIDO_PROCESSO','DT_MOVTO_PED', 'DT_RISCO','VL_RISCO','VL_RISCO_CALC','PC_RISCO'}}
+                   aadd(laAUX,{laSAVE[2,db_fetchncol(laSAVE,'NR_PASTA')],;
+                               lnNR_CONTROLE,;
+                               laSAVE[2,db_fetchncol(laSAVE,'PEDIDO_PROCESSO')],;  
+                               date(),;
+                               laSAVE[2,db_fetchncol(laSAVE,'DT_RISCO')],;  
+                               laSAVE[2,db_fetchncol(laSAVE,'VL_RISCO')],;
+                               laSAVE[2,db_fetchncol(laSAVE,'VL_RISCO_CALC')],;
+                               laSAVE[2,db_fetchncol(laSAVE,'PC_RISCO')]})        
+                   // Gravar o detalhe do pedidos
+                   if db_replace(laSAVE,'pasta_pedidos',laWHERE) == -1
+                      error_sys(db_error())
+                   endif
+*/
+               next ii
+            next xx
+         endif
+      endif
+   endif
+
+
+return
+    
+    
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

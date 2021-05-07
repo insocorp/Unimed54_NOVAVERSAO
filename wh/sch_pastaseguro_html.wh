@@ -1,0 +1,52 @@
+/*
+
+Project      : gr5
+Program      : sch.pastaseguro.html
+Function     : sch_pastaseguro_html
+Created on   : 16-Mar-2007   16:17:28
+Descripition :
+
+*/
+
+   local laFIELDS       := {},;
+         laJAVA         := {},;
+         laQUICK_SEARCH := {},;
+         laWHERE        := {},;
+         laINPUT_HIDDEN := {} as array
+
+
+
+   laFIELDS       := structtable(WSet('DB_ACTIVE'),'pasta_seguro',1,'N')
+   laINPUT_HIDDEN := {{'NR_PASTA',Wget('NR_PASTA','C')}}
+   laJAVA         := {'mntform',{{'NR_SINISTRO','NR_SINISTRO'}}}
+   laQUICK_SEARCH := {'NR_SINISTRO'}
+   laWHERE        := {'NR_PASTA = '+Wget('NR_PASTA','C')}
+
+
+   xbp('pasta_seguro',;            //Tabela Alvo
+       ,;                          //Join
+       laWHERE,;                   //Where
+       ,;                          //Order by
+       ,;                          //Sort [A]-Ascendente [D]-Descentende
+       ,;                          //Group by
+       ,;                          //Limit
+       ,;                          //Banco de Dados
+       3,;                         //Modo de funcionamento [1]-Listagem/Form para manutenção [2]-Listagem e Manutenção [3]-Search
+       'gr5',;                     //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;   //Programa chamador
+       ,;                          //Parametros para linhas clicáveis
+       ,;                          //Botoes (nil)
+       'sch.pastaseguro.html',;       //Programa chamado pelos links (linhas clicáveis)
+       'gr5',;                     //Módulo do programa chamado pelos links
+       laJAVA,;                    //Retorno java (nil) - usado apenas no search
+       laQUICK_SEARCH,;            //Campos usados na pesquisa rápida
+       laINPUT_HIDDEN,;            //Campos ocultos. Usado apenas em manutenções    ***
+       ,;                          //Campos da área de manutenção/entrada de dados  ***
+       laFIELDS,;                  //Campos mostratos no grid
+       laFIELDS)                   //Campos usados no select
+return
+
+
+
+
+//       //'psab.despesa.html',;       //Programa chamado pelos links (linhas clicáveis)

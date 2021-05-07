@@ -1,0 +1,236 @@
+/*
+
+Project      : gr5
+Program      : pst.aditivo.contrato.html
+Function     : pst_aditivo_contrato_html
+Created on   : 26-Feb-2003   17:51:21
+Descripition : Popup de pasta para cadastro de Contrato Aditivo
+
+*/
+
+   local lcACTION      := '',;
+         lcWHERE       := '',;
+         lcTABLE       := '',;
+         lcProgram     := 'pst_aditivo_contrato_html' ,;
+         lcTP_PASTA    := '',;
+         lcNR_PASTA    := '',;
+         lcNR_CONTRATO := '' as string
+         
+   local laRESULT      := {} ,;
+         laSAVE        := {} ,;
+         laSAVE_AUX    := {} ,;
+         laFIELDS      := {} ,;
+         laLABELS      := {} ,;
+         laVALIDA      := {} as array
+   local ii := 0 as int
+
+   lcACTION      := upper(alltrim(WGet('ACTION','C')))
+   lcTP_PASTA    := wGet('TP_PASTA','C')
+   lcNR_PASTA    := alltrim(WGet('NR_PASTA','C'))
+   lcNR_CONTRATO := alltrim(WGet('NR_CONTRATO_ADITIVO','C'))
+   lcTABLE       := 'pasta_contrato_aditivo'
+   lcWHERE       := 'pasta_contrato_aditivo.NR_PASTA = '+lcNR_PASTA+' and pasta_contrato_aditivo.NR_CONTRATO_ADITIVO ='+DLAP+lcNR_CONTRATO+DLAP
+   laFIELDS      := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS      := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   laVALIDA      := {'NR_CONTRATO_ADITIVO'}
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+  
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+
+   // Glauber 06/01/2011
+   AbasPerfil(lcTP_PASTA,laFIELDS)
+
+
+      
+   *** sonia 13/10/2016 15:11:24 - customização prudential
+   if db_select({'FL_FCPA'},'pasta_config',,{'TP_PASTA='+DLAP+lcTP_PASTA+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   IF len(laresult) > 1
+      if laRESULT[2,1] = 'S'
+         Wput('ifFCPA',.t.)
+      else 
+         Wput('ifFCPA',.f.)  
+      endif
+   endif
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   make_psthead(lcNR_PASTA,lcTP_PASTA) //Cabeçalho
+
+   WPut('TP_PASTA',lcTP_PASTA)
+   WPut('LOGIN',gcLOGIN)
+   WPut('FL_JULGADO.option','S')
+   WPut('MUDANCA_FCPA.option',{'','Sim','Não'})
+   WPut('MUDANCA_FCPA.optionvalue',{'','S','N'})
+   WPut('MUDANCA_VENDOR.option',{'','Sim','Não'})
+   WPut('MUDANCA_VENDOR.optionvalue',{'','S','N'})
+   
+   carrega_cbox({{'tipo_aditivo','TP_ADITIVO','Y'},;
+                 {'tipo_remessa','TP_REMESSA','Y'},;
+                 {'vigencia','VIGENCIA','Y'},;
+                 {'contrato_conclusao','CONTRATO_CONCLUSAO','Y'}})
+
+//------------  Verificando relacionamento    -----------------------------------
+
+   lcRelac:=verifica_relacionamento(lcNR_PASTA, lcTp_pasta)
+
+//------------ Verificando se Aba pode ser alterada  ------------------------
+
+   if lcRelac = 'F' .or. lcRelac = 'P'
+      llReturn:=Ver_ABA(lcTP_PASTA, lcProgram)
+     
+   endif         
+   if lcRelac = 'F' .and. llReturn  
+      walert('Somente Para Consulta - Pasta Pertence a Litsconsorte')
+
+   elseif lcACTION = 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2Put(laRESULT)
+         
+         amkgedico(lcTABLE,lcNR_PASTA,lcNR_CONTRATO)
+         
+         /*
+         * Formato do array laFOREIGN
+         * {{<tabela>, <Coluna do Banco de dados>, <Nome do Campo na interface>, <Condição Where>, <Vazio?> }}
+         */
+         laFOREIGN := {{'pfpj','PFPJ','CIP_CONSELHEIRO_PFPJ','CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_CONSELHEIRO')]+DLAP, empty(laRESULT[2,db_fetchncol(laRESULT,'CIP_CONSELHEIRO')])},;
+                       {'pfpj','PFPJ','CIP_SOLICITANTE_PFPJ','CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_SOLICITANTE')]+DLAP, empty(laRESULT[2,db_fetchncol(laRESULT,'CIP_SOLICITANTE')])},;
+                       {'pfpj','PFPJ','CIP_ADVOGADO_INTERNO_PFPJ','CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_ADVOGADO_INTERNO')]+DLAP, empty(laRESULT[2,db_fetchncol(laRESULT,'CIP_ADVOGADO_INTERNO')])},;
+                       {'moeda','NM_MOEDA','NM_MOEDA','CD_MOEDA='+str(laRESULT[2,db_fetchncol(laRESULT,'CD_MOEDA')]),laRESULT[2,db_fetchncol(laRESULT,'CD_MOEDA')]==0}}
+
+         for ii := 1 to len(laFOREIGN)
+            if ! laFOREIGN[ii,5]
+               if db_select({laFOREIGN[ii,2]+' as '+laFOREIGN[ii,3]},laFOREIGN[ii,1],,{laFOREIGN[ii,4]}) == -1
+                  error_sys(db_error())
+               endif
+               db2Put(db_fetchall())
+            endif
+         next ii
+         
+         WPUT('NR_CONTRATO_ADITIVO.readonly',.T.)
+         WPUT('NR_CONTRATO_ADITIVO.class','winputreadonly')         
+        
+      endif
+
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+      if verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+//--------------------Qdo for gravar  db_update/db_replace/Db_insert
+         if lcRelac = '' .or. lcRelac = 'P' .or. (lcRelac = 'F' .and. llReturn = .f.)      // se .f. posso alterar atraves do filho
+            psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Aditivo')
+            if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+               error_sys(db_error())
+            endif
+            if lcRelac = 'P' .and. llReturn 
+               laFilho:=Montar_filho(lcNR_PASTA,lcTp_pasta)
+               if len(laFilho) > 0
+                  for ii :=1 to len(lafilho)
+                      lcWHEREp := 'pasta_contrato_aditivo.NR_PASTA = '+str(lafilho[ii])+' and pasta_contrato_aditivo.NR_CONTRATO_ADITIVO ='+DLAP+lcNR_CONTRATO+DLAP
+                      laSave[2,1]:=lafilho[ii]
+                      if db_replace(laSAVE,lcTABLE,{lcWHEREp}) = -1
+                         error_sys(db_error())
+                      endif
+                  next ii
+               endif   
+            endif
+         endif
+      endif
+
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+      if !empty(lcNR_PASTA) .and. !empty(lcNR_CONTRATO)
+//---------------------   Excluindo de Aditivo -----------------------------------------------
+        if lcRelac = '' .or. lcRelac = 'P' .or. (lcRelac = 'F' .and. llReturn = .f.)      // se .f. posso alterar atraves do filho
+           psab_logdel(lcNR_PASTA,'NR_CONTRATO_ADITIVO',lcNR_CONTRATO,,'Aditivo')
+           if db_delete(lcTABLE,lcWHERE) == -1
+              error_sys(db_error())
+           endif
+//-----------  Excluindo vínculo de andamentos  ------------------------------
+// correção Sonia - 25/04/2018 08:29:23 - solicitante Celia
+
+           laFIELDSAND := {'NR_PASTA','NR_ANDAMENTO','NR_CONTRATO_ADITIVO','VINCULO'}
+           lcTABLEAND := 'pasta_andamento'
+           laSAVEAND  := {'NR_CONTRATO_ADITIVO','VINCULO'}
+           aadd(laSAVEAND,{'',''})
+           lcWHEREAND :=  'NR_PASTA = ' + lcNR_PASTA + ' and ' + 'NR_CONTRATO_ADITIVO = '+DLAP+lcNR_CONTRATO+DLAP
+           if db_select(laFIELDSAND,lcTABLEAND,,{lcWHEREAND}) == -1
+              error_sys(db_error())
+           endif
+           laRESULTAND := db_fetchall()
+           if len(laRESULTAND) > 1
+           for ii := 2 to len(laRESULTAND)
+
+               laLOG := {{'NR_PASTA',     'LOGIN',      'WFIELD', 'CONTEUDO_ANTERIOR','CONTEUDO_NOVO',    'DT_ALTERACAO','HR_ALTERACAO','LOCAL_ALTERACAO'},;
+                {val(lcNR_PASTA),WSet('LOGIN'),'NR_CONTRATO_ADITIVO',lcNR_CONTRATO,'',date(),        time(),       'Aba Aditivo'},;
+                {val(lcNR_PASTA),WSet('LOGIN'),'VINCULO','Aditivo : '+DLAP+lcNR_CONTRATO+DLAP,'',date(),        time(),       'Aba Aditivo'}}
+
+           next ii
+
+           if db_update({{'NR_CONTRATO_ADITIVO','VINCULO'},{'',''}},'pasta_andamento',{lcWHEREAND}) = -1
+              error_sys(db_error())
+           endif
+
+           if db_insert(laLOG,'pasta_log_altera') == -1
+              error_sys(db_error())
+           endif
+
+
+           endif
+           if lcRelac = 'P' .and. llReturn 
+              laFilho:=Montar_filho(lcNR_PASTA, lcTp_pasta)
+              if len(laFilho) > 0
+//---------excluindo Aditivo ------------------------------------------------
+                 for ii :=1 to len(lafilho)
+                     lcWHEREp := 'pasta_contrato_aditivo.NR_PASTA = '+str(lafilho[ii])+' and pasta_contrato_aditivo.NR_CONTRATO_ADITIVO ='+DLAP+lcNR_CONTRATO+DLAP
+                     if db_delete(lcTABLE, lcWherep) == -1
+                         error_sys(db_error())
+                     endif
+                 next ii
+              endif   
+           endif
+        endif
+      endif
+   endif
+   //lista_aditivo(lcNR_PASTA)
+
+   if db_select({'pasta_contrato_aditivo.NR_CONTRATO_ADITIVO',;
+                 'pasta_contrato_aditivo.TP_ADITIVO',;
+                 'pasta_contrato_aditivo.CIP_CONSELHEIRO',;
+                 'pfpj.PFPJ',;
+                 'pasta_contrato_aditivo.VIGENCIA',;
+                 'pasta_contrato_aditivo.DT_VIGENCIA_INI',;
+                 'pasta_contrato_aditivo.DT_VIGENCIA_FIN',;
+                 'pasta_contrato_aditivo.LOGIN'},;
+                 'pasta_contrato_aditivo',;
+                {{2,'pfpj','pfpj.CIP=pasta_contrato_aditivo.CIP_CONSELHEIRO'}},;
+                {'NR_PASTA='+lcNR_PASTA},{'NR_CONTRATO_ADITIVO'}) == -1
+//                 'pasta_contrato_aditivo.OBJETO',;
+
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      aadd(laRESULT[1],'(row)')
+      for ii := 2 to len(laRESULT)
+         aadd(laRESULT[ii],'(row)'+wic_action('wicaction/pst.aditivo.contrato.html?'+;
+                                              'TP_PASTA='+lcTP_PASTA+;
+                                              '&NR_PASTA='+lcNR_PASTA+;
+                                              '&NR_CONTRATO_ADITIVO='+laRESULT[ii, db_fetchncol(laRESULT,'NR_CONTRATO_ADITIVO')]+;
+                                              '&ACTION=ALTER'))
+      next ii
+      WPut('GRID_ADITIVO',grid_create(laRESULT))
+   endif
+   pasta_abas(lcTP_PASTA)
+return

@@ -1,0 +1,53 @@
+/*
+
+Project      : gr5
+Program      : webmail.wic
+Function     : webmail_wic
+Created on   : 18-Nov-2002   19:38:51
+Descripition : webmail
+
+*/
+
+local laRESULT := {}  as array
+local lcWMUSERNAME   := '' ,;
+      lcWMPASSWORD   := '' ,;
+      lcWMSERVERTYPE := '' ,;
+      lcWMPOP3SERVER := '' ,;
+      lcWMSMTPSERVER := '' as string
+
+   if db_select({'WMUSERNAME','WMPASSWORD','WMSERVERTYPE','WMPOP3SERVER','WMSMTPSERVER'},'acuser',,;
+                {'LOGIN='+DLMT+gcLOGIN+DLMT}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchrow()
+   if len(laRESULT) > 0
+      lcWMUSERNAME    := laRESULT[1]
+      lcWMPASSWORD    := laRESULT[2]
+      lcWMSERVERTYPE  := laRESULT[3]
+      lcWMPOP3SERVER  := laRESULT[4]
+      lcWMSMTPSERVER  := laRESULT[5]
+   endif
+   if empty(lcWMSERVERTYPE) .or. empty(lcWMPOP3SERVER) .or. empty(lcWMSMTPSERVER)
+      if db_select({'WMSERVERTYPE','WMPOP3SERVER','WMSMTPSERVER'},'empresa_usuaria') == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+        if empty(lcWMSERVERTYPE)
+           lcWMSERVERTYPE  := laRESULT[1]
+        endif
+        if empty(lcWMPOP3SERVER)
+           lcWMPOP3SERVER  := laRESULT[2]
+        endif
+        if empty(lcWMSMTPSERVER)
+           lcWMSMTPSERVER  := laRESULT[3]
+        endif
+      endif
+   endif
+   wPut("WMACTION",substr(WGet('SCRIPT_NAME'),1,rat('/',WGet('SCRIPT_NAME'))-1)+'/webmail')
+   wPut("WMUSERNAME",lcWMUSERNAME)
+   wPut("WMPASSWORD",lcWMPASSWORD)
+   wPut("WMSERVERTYPE",lcWMSERVERTYPE)
+   wPut("WMPOP3SERVER",lcWMPOP3SERVER)
+   wPut("WMSMTPSERVER",lcWMSMTPSERVER)
+return

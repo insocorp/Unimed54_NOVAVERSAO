@@ -1,0 +1,279 @@
+/*
+
+Project      : gr5
+Program      : mnt.schedule.filtros.html
+Function     : mnt_schedule_filtros_html
+Created on   : 23/03/2017 17:14:12
+Descripition : Cadastro de filtros para schedule de relatórios
+
+*/
+
+    local laSAVE        := {},;
+         laSAVE_AUX    := {},;
+         laFIELDS      := {} as array
+
+
+    local laOPT           := {},;
+          laOBRIGA        := {},;
+          laOPTVAL        := {} as Array
+
+    local lcAction        := Upper(WGet('ACTION')) as String
+    local lcWhere         := '' as String
+
+    local ii              := 0 as Int
+
+    local llErro          := .F.
+
+    local obj             := ScheduleFiltrosNew() as Object
+
+
+
+    WPut('title','Cadastro de filtros para schedule de relatórios')
+
+
+    laFIELDS := {'PK_RBSCHEDULEFILTER','RBSCHEDULE','RBMODULE','RBFILTER','RBFTVALUE1','RBFTVALUE2'}
+
+    laOBRIGA := {'PK_RBSCHEDULEFILTER','RBSCHEDULE','RBMODULE','RBFILTER','RBFTVALUE1'}
+    init_reqfield(WSet('_USER_INTERFACE'),laOBRIGA)
+
+    *** 'RBFTVALUE1' utiliza classe 'obrigatextarea' no html para deixar o contorno em vermelho
+
+    if (Empty(lcACTION))
+       Wput('PK_RBSCHEDULEFILTER','New')
+    endif
+
+    // Carga dos combos
+    busrep()
+
+    if lcACTION == 'ALTER'
+
+       get2put()
+
+       for ii := 1 to len(laFIELDS)
+           WPut(laFIELDS[ii],WGet(laFIELDS[ii]))
+
+           if laFIELDS[ii] == 'RBSCHEDULE'
+               WPut("VAR_RBSCHEDULE",WGet(laFIELDS[ii]))
+               WPut("RBSCHEDULE",WGet('REPORT','C'))
+           endif
+           if laFIELDS[ii] == 'RBMODULE'
+               WPut("VAR_RBMODULE",WGet(laFIELDS[ii]))
+           endif
+           if laFIELDS[ii] == 'RBFILTER'
+               WPut("VAR_RBFILTER",WGet(laFIELDS[ii]))
+           endif
+
+       next ii
+
+    elseif lcACTION == 'DELETE'
+
+           obj:pk_rbschedulefilter     := WGet('PK_RBSCHEDULEFILTER','C')
+
+           obj:Apagar()
+
+           Wput('PK_RBSCHEDULEFILTER','New')
+
+    elseif lcACTION == 'SAVE'
+//wout('<br><b>save:'+WGet('NOME_AGENDAMENTO','C'))
+           obj:pk_rbschedulefilter := WGet('PK_RBSCHEDULEFILTER','C')
+           obj:rbschedule          := getIdSchedule(WGet('NOME_AGENDAMENTO','C')) // Função no final deste programa
+           obj:rbmodule            := WGet('RBMODULE','C')
+           obj:rbfilter            := WGet('RBFILTER','C')
+           obj:rbftvalue1          := WGet('RBFTVALUE1','C')
+           obj:rbftvalue2          := WGet('RBFTVALUE2','C')
+
+           obj:Salvar()
+
+           Wput('PK_RBSCHEDULEFILTER','New')
+
+    endif
+
+   GridPaginada()
+
+return
+
+
+/*
+* Glauber - 12/2014
+*
+* Function..: GridPaginada()
+* Objetivo..: Monta a grid paginada com os dados.
+* Parâmetros:
+*
+*
+* Retorno...:
+*
+*
+*
+*/
+
+Static Function GridPaginada()
+
+
+    local lcTable         := 'rbschedulefilter' as String
+
+    local laRESULT        := {},;
+          laPAGINAS       := {},;
+          laLIMIT         := {}  as Array
+
+    local lnCOUNT         := 0 as Int
+
+
+    laFIELDS := {'PK_RBSCHEDULEFILTER','RBSCHEDULE','RBMODULE','RBFILTER','RBFTVALUE1','RBFTVALUE2'}
+
+
+    local laFIELDS        := {lcTable+'.PK_RBSCHEDULEFILTER',;
+                              lcTable+'.RBSCHEDULE',;
+                              'rbschedule.NOME_AGENDAMENTO',;
+                              'report.REPORT as VARREP',;
+                              'report.NM_REPORT as REPORT',;
+                              lcTable+'.RBMODULE',;
+                              lcTABLE+'.RBFILTER',;
+                              lcTABLE+'.RBFTVALUE1',;
+                              lcTABLE+'.RBFTVALUE2'} as Array
+
+    local laORDER         := {lcTable+'.RBSCHEDULE',lcTABLE+'.RBMODULE'}
+
+    local laJoin          := {{2,'rbschedule','rbschedule.PK_RBSCHEDULE=rbschedulefilter.RBSCHEDULE'},;
+                              {2,'report','report.REPORT=rbschedule.REPORT'}}
+
+    local lcCODE          := '' as String
+
+    local xx              := 0,;
+          ii              := 0 as Int
+
+
+    local pcFILTRO        := '' as String
+    local lcWHERE         := '' as String
+
+   // Rotina para executar paginação
+
+   if db_select({'count(*)'},lcTable) == -1
+      db_error()
+   endif
+   laRESULT  := db_fetchall()
+   lnCOUNT   := laRESULT[2,1]
+   if lnCOUNT > 0
+      laPAGINAS := paginacao(lnCOUNT,'','','mnt.schedule.filtros.html')
+      laLIMIT   := param_fetch(laPAGINAS,'LIMIT')
+      if empty(pcFILTRO)
+          if db_select(laFIELDS,lcTABLE,laJOIN,,laORDER,,,laLIMIT) == -1
+            error_sys(db_error())
+         endif
+      else
+          if db_select(laFIELDS,lcTABLE,laJOIN,{pcFILTRO},laORDER,,,laLIMIT) == -1
+             error_sys(db_error())
+          endif
+      endif
+      laRESULT := db_fetchall()
+      //Resumo da pesquisa
+       lcCODE := alltrim(str(laLIMIT[1]+1))+'-'
+       if ((len(laRESULT)-1) < (laLIMIT[2]-laLIMIT[1]))
+          lcCODE += alltrim(str(len(laRESULT)-1))
+       elseif param_fetch(laPAGINAS,'GOTO_PAGE') == param_fetch(laPAGINAS,'NR_PAGES') //lnNR_PAGES
+          lcCODE += alltrim(str(lnCOUNT))
+       else
+          lcCODE += alltrim(str(laLIMIT[1]+param_fetch(laPAGINAS,'ROWS_PAGE')))
+       endif
+       lcCODE += ' de '+alltrim(str(lnCOUNT))
+       if lnCOUNT > 1
+          lcCODE := ' Resultados '+lcCODE+' registros'
+       else
+          lcCODE := ' Resultado '+lcCODE+' registro'
+       endif
+       wput('RESUME_RESULTSET',lcCODE)
+
+      if len(laRESULT) > 0
+         aadd(laRESULT[1],'(row)')
+         for ii := 2 to len(laRESULT)
+            aadd(laRESULT[ii],'(row)'+wic_action('wicaction/mnt.schedule.filtros.html?ACTION=ALTER'+;
+                                                 '&PK_RBSCHEDULEFILTER='+str(laRESULT[ii,ascan(laRESULT[1],'PK_RBSCHEDULEFILTER')]) +;
+                                                 '&RBSCHEDULE='+str(laRESULT[ii,ascan(laRESULT[1],'RBSCHEDULE')]) +;
+                                                 '&REPORT='+Alltrim(laRESULT[ii,ascan(laRESULT[1],'VARREP')]) +;
+                                                 '&RBMODULE='+Alltrim(laRESULT[ii,ascan(laRESULT[1],'RBMODULE')]) +;
+                                                 '&RBFILTER='+Alltrim(laRESULT[ii,ascan(laRESULT[1],'RBFILTER')]) +;
+                                                 '&RBFTVALUE1='+Alltrim(laRESULT[ii,ascan(laRESULT[1],'RBFTVALUE1')]) +;
+                                                 '&RBFTVALUE2='+Alltrim(laRESULT[ii,ascan(laRESULT[1],'RBFTVALUE2')])))
+
+         next ii
+
+         *** retira da array para nao aparecer na grid
+         lnPos := ascan(laRESULT[1],'VARREP')
+         if lnPos > 0
+            for ii := 1 to len(laRESULT)
+               adel(laRESULT[ii],lnPOS)
+               asize(laRESULT[ii],len(laRESULT[ii])-1)
+            next ii
+         endif
+
+         WPut('GRID_LABEL',grid_create(laRESULT))
+      endif
+   endif
+
+
+
+return(nil)
+
+************************
+Static function busrep()
+************************
+
+   local laRESULT  := {},;
+         laOPT     := {},;
+         laJOIN    := {},;
+         faEMPTY   := {'',''},;
+         laOPTVAL  := {} as Array
+   local ii        := 0 as Int
+
+   aadd(laJOIN,{2,'report','report.REPORT=rbschedule.REPORT'})
+
+//   if db_select({'rbschedule.NOME_AGENDAMENTO','report.NM_REPORT'},'RBSCHEDULE',laJOIN,,{'report.NM_REPORT'}) == -1
+   if db_select({'rbschedule.REPORT','rbschedule.NOME_AGENDAMENTO'},'RBSCHEDULE',laJOIN,,{'report.NM_REPORT'}) == -1
+      error_sys(db_error())
+   endif
+
+   laRESULT := db_fetchall()
+
+   if len(laRESULT) > 1
+      if (len(faEMPTY) == 2)
+          aadd(laOPT,faEMPTY[1])
+          aadd(laOPTVAL,faEMPTY[2])
+      endif
+
+      for ii := 2 to len(laRESULT)
+          aadd(laOPT,laRESULT[ii,1])
+          aadd(laOPTVAL,laRESULT[ii,2])
+      next ii
+
+      WPut('RBSCHEDULE' + '.optionvalue',laOPT)
+      WPut('RBSCHEDULE' + '.option',laOPTVAL)
+
+
+   endif
+
+return
+
+
+
+Static Function getIdSchedule(pcRBSCHEDULE)
+
+   local laRESULT  := {},;
+         laOPT     := {},;
+         laJOIN    := {},;
+         faEMPTY   := {'',''},;
+         laOPTVAL  := {} as Array
+
+//wout('<br><b>pcRBSCHEDULE:'+pcRBSCHEDULE)
+
+       if (Empty(pcRBSCHEDULE))
+          return 0
+       endif
+
+
+   if db_select({'rbschedule.PK_RBSCHEDULE'},'RBSCHEDULE',,{'NOME_AGENDAMENTO='+DLAP +pcRBSCHEDULE + DLAP}) == -1
+      error_sys(db_error())
+   endif
+
+   laRESULT := db_fetchall()
+
+   return iif (len(laRESULT) > 1, laRESULT[2,1], 0)

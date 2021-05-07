@@ -1,0 +1,763 @@
+/*
+
+Project      : gr5
+Program      : mnt.acuser.html
+Function     : mnt_acuser_html
+Created on   : 04-Jun-2003   13:55:22
+Descripition : Controle de Acesso - Manutenção de Usuários
+
+*/
+
+
+   local lcWUID           := '' ,;
+         lcWGID           := '' ,;
+         lcWHERE          := '' ,;
+         lcTABLE          := '' ,;
+         lcFIELDS         := '' ,;
+         lcVALIDA         := '' ,;
+         lcPASSWD         := '' ,;
+         lcACTION         := '' ,;
+         lcITEM           := '' ,;
+         lcLOGIN_AUTO     := 'N',;
+         lcSENHA_TMP      := '' ,;
+         lcVALIDA_SENHA   := 'N',;
+         lcHTML_FUCONTENT := '' ,;
+         lcWMESSAGE       := '' ,;
+         lcTB_ACGROUP     := '' ,;
+         lcTB_ACUSER      := '' ,;
+         lcWICDO_NAME     := '' as string
+
+   local laFIELDS         := {},;
+         laLABELS         := {},;
+         laRESULT         := {},;
+         laRES            := {},;
+         laSAVE           := {},;
+         laSAVE_AUX       := {},;
+         laVALIDA         := {},;
+         laFIND_REC       := {},;
+         laWICDO          := {},;
+         laFUCONTENT      := {},;
+         laPSW_DIASSEMANA := {},;
+         laWGID           := {},;
+         laWGROUP         := {} as array
+
+   local llERRO := .F. as logical
+
+   local iiF             := 0 ,;
+         ii              := 0 ,;
+         xx              := 0 ,;
+         lnWUID          := 0 ,;
+         lnPSW_DIAMAXIMO := 0 as int
+
+//   local objCifra := Sha512ServiceNew()
+
+   lcACTION := upper(alltrim(WGet('ACTION','C')))
+   lcWUID   := alltrim(WGet('WUID','C'))
+   if lcWUID == 'New'
+      lcWUID := '0' //É atribuido '0' para que o where não fique sem condição de pesquisa
+   endif
+   lcWGID   := alltrim(WGet('WGID','C'))
+   if empty(lcWGID)
+      lcWGID := '0'
+   endif
+
+   WPut('_WGID',lcWGID) //Solução Provisória
+   WPut('WGID',lcWGID) //Solução Provisória
+   WPut('TITLE','Perfil de Acesso - Usuários')
+
+   lcPASSWD := alltrim(WGet('PASSWD','C'))
+   lcWHERE  := 'WUID='+lcWUID
+   lcTABLE  := 'acuser'
+
+   laFIELDS := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+   laLABELS := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'A')
+
+   lnPOS := ascan(laFIELDS,'PASSWD')
+   if lnPOS > 0 //Removendo campo PASSWD
+      adel(laFIELDS,lnPOS)
+      asize(laFIELDS, len(laFIELDS)-1)
+      adel(laLABELS,lnPOS)
+      asize(laLABELS, len(laFIELDS)-1)
+   endif
+
+   if WSet('FL_LOGIN_ALIAS') != 'ENABLE'
+      lnPOS := ascan(laFIELDS,'LOGIN_ALIAS')
+      if lnPOS > 0
+         adel(laFIELDS,lnPOS)
+         asize(laFIELDS,len(laFIELDS)-1)
+         adel(laLABELS,lnPOS)
+         asize(laLABELS,len(laLABELS)-1)
+      endif
+   endif
+
+   laFUWHERE       := {'Igual', 'Diferente','Intervalo','Maior','Menor','Contendo','Não Contendo'}
+
+   /* Relacionamentos que devem ser validados
+   * Formato do array abaixo
+   * 1 - Tabela
+   * 2 - Campo para captura da informação no HTML - WGet()
+   * 3 - Campo para montagem da cláusula WHERE usada em old_db_findrec()
+   * 4 - Parte do label a exibir em caso de erro, está inf. e capturado do Wictrix
+   */
+   laFIND_REC := {{'acgroup','WGID','WGID',laLABELS[ascan(laFIELDS,'WGID')]}}
+
+   WPut('DT_CADASTRO',date())
+   WPut('LOGIN_CADASTRO',WSet('LOGIN'))
+   WPut('DT_VALIDADE_PSW',date()-1)
+   WPut('FL_USER.option','Y')
+   WPut('FL_PWD.option','Y')
+
+   //Dias da semana
+   WPut('PSW_DIASSEMANA1.option','Y')
+   WPut('PSW_DIASSEMANA2.option','Y')
+   WPut('PSW_DIASSEMANA3.option','Y')
+   WPut('PSW_DIASSEMANA4.option','Y')
+   WPut('PSW_DIASSEMANA5.option','Y')
+   WPut('PSW_DIASSEMANA6.option','Y')
+   WPut('PSW_DIASSEMANA7.option','Y')
+
+   WPut('FL_AD_INTEGRA.option','Y')
+   
+   //Combo WPORTAL
+   carrega_cbox({{'wportal','WPORTAL','Y'}})
+
+   /* Combo Perfil */
+   if ! empty(grpman_where('acgroup'))
+      if db_select({'WGID','WGROUP'},'acgroup',,{grpman_where('acgroup')},{'WGROUP'}) = -1
+         error_sys(db_error())
+      endif
+   else
+      if db_select({'WGID','WGROUP'},'acgroup',,,{'WGROUP'}) = -1
+         error_sys(db_error())
+      endif
+   endif
+
+   //if db_select({'WGID','WGROUP'},'acgroup',,iif(! empty(grpman_where('acgroup')),{grpman_where('acgroup')}),{'WGROUP'}) = -1
+   //   error_sys(db_error())
+   //endif
+   laRES := db_fetchall()
+   if len(laRES) > 1
+      aadd(laWGID,'0')
+      aadd(laWGROUP,'')
+      for ii := 2 to len(laRES)
+         aadd(laWGID,alltrim(str(laRES[ii,1])))
+         aadd(laWGROUP,laRES[ii,2])
+      next ii
+      WPut('_WGID.option',laWGROUP)
+      WPut('_WGID.optionvalue',laWGID)
+   endif
+
+   if val(lcWUID) > 0
+      mkgedico(lcTABLE,lcWUID)
+   endif
+
+   if lcACTION == 'CG_PERFIL'
+      Get2Put()
+      if alltrim(lcWUID) == '0'
+         WPut('WUID','New')
+      endif
+      WPut('_WGID',lcWGID)
+   endif
+
+   // Pre-seleciona os campos PSW_DIASSEMANA conforme o Perfil do Usuario --------------------------
+   if db_select({'WGID',;
+                 'WGROUP',;
+                 'PSWG_DIASSEMANA',;
+                 'PSWG_HR_INICIO',;
+                 'PSWG_HR_FIM',;
+                 'PSW_DIAMAXIMO',;
+                 'FL_LOGIN_AUTO'},;
+                 'acgroup',,;
+                 {'WGID='+lcWGID}) = -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 1
+      /* Verifica se o login é automatico e deixa o campo login read-only */
+      if WGet('WUID','N') ==  0
+         if laRES[2,ascan(laRES[1],'FL_LOGIN_AUTO')] == 'Y'
+            WPut('LOGIN.class','winputreadonly')
+            WPut('LOGIN.readonly',.t.)
+            lcLOGIN_AUTO := 'Y'
+         endif
+      endif
+      WPut('WGROUP',laRES[2,db_fetchncol(laRES,'WGROUP')])
+      WPut('PSW_HR_INICIO',laRES[2,db_fetchncol(laRES,'PSWG_HR_INICIO')])
+      WPut('PSW_HR_FIM',laRES[2,db_fetchncol(laRES,'PSWG_HR_FIM')])
+      WPut('PSW_DIAMAXIMO',laRES[2,db_fetchncol(laRES,'PSW_DIAMAXIMO')])
+
+      lnPSW_DIAMAXIMO  := laRES[2,db_fetchncol(laRES,'PSW_DIAMAXIMO')]
+      if lcACTION != 'ALTER'
+         laPSW_DIASSEMANA := str2array(laRES[2,db_fetchncol(laRES,'PSWG_DIASSEMANA')],',')
+         if len(laPSW_DIASSEMANA) > 0
+            //for ii := 1 to len(laPSW_DIASSEMANA)
+            //   WPut('PSW_DIASSEMANA'+laPSW_DIASSEMANA[ii],'Y')
+            //next ii
+            for ii := 1 to 7
+               lcITEM := alltrim(str(ii))
+               if ascan(laPSW_DIASSEMANA,lcITEM) > 0
+                  WPut('PSW_DIASSEMANA'+lcITEM,'Y')
+               else
+                  WPut('PSW_DIASSEMANA'+lcITEM,'')
+               endif
+            next ii
+         endif
+      endif
+   endif
+
+   /* Exibindo Política de Senha */
+   if db_select({'PSW_QTDMIN','PSW_QTDMAX','PSW_QTDMINCHAR','PSW_QTDMINNUM','PSW_PICT','FL_PWDRULE'},'acgroup',,{'WGID = '+str(WSet('WGID'))}) == -1
+      puterror('acprglogin: ('+alltrim(str(procline()))+') - '+db_error())
+      return(-1)
+   endif
+
+   laRES := db_fetchrow()
+
+   if upper(laRES[6]) <> 'Y'
+      if db_select({'PSW_QTDMIN',;
+                 'PSW_QTDMAX',;
+                 'PSW_QTDMINCHAR',;
+                 'PSW_QTDMINNUM',;
+                 'PSW_PICT'},'empresa_usuaria',,{'CD_EMPRESA = '+DLAP+'1'+DLAP}) == -1
+         puterror('acprglogin: ('+alltrim(str(procline()))+') - '+db_error())
+         return(-1)
+      endif
+      // lendo cada linha do select
+      laRES := db_fetchrow()
+   endif
+
+/*
+   if db_select({'PSW_QTDMIN',;
+                 'PSW_QTDMAX',;
+                 'PSW_QTDMINCHAR',;
+                 'PSW_QTDMINNUM',;
+                 'PSW_PICT'},'empresa_usuaria',,{'CD_EMPRESA='+DLAP+'1'+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchrow()
+*/
+   if len(laRES) > 0
+      lcWMESSAGE := '<b>Formato da Senha</b><br>'
+      lcWMESSAGE += '&nbsp;&nbsp;Mínimo '+alltrim(str(laRES[1]))+', máximo '+alltrim(str(laRES[2]))+' caracteres.<br>'
+      lcWMESSAGE += '&nbsp;&nbsp;Mínimo '+alltrim(str(laRES[3]))+' letras.<br>'
+      lcWMESSAGE += '&nbsp;&nbsp;Mínimo '+alltrim(str(laRES[4]))+' números.<br>'
+      if ! empty(alltrim(laRES[5]))
+         lcWMESSAGE += '&nbsp;&nbsp;Máscara de senha: '+laRES[5]
+      endif
+      WPut('MENSPSWD',lcWMESSAGE)
+   endif
+
+   /* Campos obrigatórios
+   * Formato do array abaixo
+   * 1 - Campo para captura da informação no HTML - WGet()
+   * 2 - Parte do label a exibir em caso de erro, está inf. e capturado do Wictrix
+   */
+   laVALIDA   := {{'WGID',laLABELS[ascan(laFIELDS,'WGID')]},;
+                  {'WPORTAL',laLABELS[ascan(laFIELDS,'WPORTAL')]},;
+                  {'CIP',laLABELS[ascan(laFIELDS,'CIP')]},;
+                  {'CIP_EMPRESA',laLABELS[ascan(laFIELDS,'CIP_EMPRESA')]},;
+                  {'DT_VALIDADE_PSW',laLABELS[ascan(laFIELDS,'DT_VALIDADE_PSW')]}}
+
+   if WGet('WUID','N') == 0 .or. lcACTION == 'NEW'
+      aadd(laVALIDA,{'PASSWD',lblfscreen('PASSWD')})
+   endif
+
+   if WSet('FL_LOGIN_ALIAS') == 'ENABLE'
+      aadd(laVALIDA, {'LOGIN_ALIAS',laLABELS[ascan(laFIELDS,'LOGIN_ALIAS')]})
+      Wput('ifLOGIN_ALIAS',.T.)
+   endif
+
+   if val(lcWUID) > 0
+      WPut('LOGIN.class','winputreadonly')
+      WPut('LOGIN.readonly',.t.)
+   else
+      if lcLOGIN_AUTO != 'Y'
+         aadd(laVALIDA,{'LOGIN',laLABELS[ascan(laFIELDS,'LOGIN')]})
+      endif
+   endif
+
+   for ii := 1 to len(laVALIDA)
+      *WPut(laVALIDA[ii,1]+'.label.style.color','#FF0000')
+      *WPut(laVALIDA[ii,1]+'.label.style.font-weight','bold')
+       WPut(laVALIDA[ii,1]+'.style.border','2px solid red')
+   next ii
+
+   *WPut('WGROUP.label.style.color','#FF0000')
+   *WPut('WGROUP.label.style.font-weight','bold')
+   WPut('WGROUP.style.border','2px solid red')
+
+   if lcACTION = 'NEW' .and. gbWAC_CREATE
+      WPut('WTIME_OUT','00:24:00')
+      WPut('WTIME_TASK','00:05:00')
+      WPut('WUID','New')
+   elseif lcACTION = 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2Put(laRESULT)
+
+         // Selecionaos checkboxes correpondentes aos dias da semana --------------------------
+         laPSW_DIASSEMANA := str2array(laRESULT[2,db_fetchncol(laRESULT,'PSW_DIASSEMANA')],',')
+         if len(laPSW_DIASSEMANA) > 0
+            for ii := 1 to len(laPSW_DIASSEMANA)
+               WPut('PSW_DIASSEMANA'+laPSW_DIASSEMANA[ii],'Y')
+            next ii
+         endif
+
+         // Descrição do grupo em que o usuário está inserido
+         if db_select({'WGROUP'},'acgroup',,{'WGID='+alltrim(str(laRESULT[2,ascan(laFIELDS,'WGID')]))}) == -1
+            error_sys(db_error())
+         endif
+         laRES := db_fetchrow()
+         if len(laRES) > 0
+            WPut('WGROUP',laRES[1])
+         endif
+
+         // Campos CIP
+         if db_select({'PFPJ'},'pfpj',,{'CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP')]+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laRES := db_fetchrow()
+         if len(laRES) > 0
+            WPut('CIP_PFPJ',laRES[1])
+         endif
+
+         if db_select({'PFPJ'},'pfpj',,{'CIP='+DLAP+laRESULT[2,db_fetchncol(laRESULT,'CIP_EMPRESA')]+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laRES := db_fetchrow()
+         if len(laRES) > 0
+            WPut('CIP_EMPRESA_PFPJ',laRES[1])
+         endif
+
+      endif
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+      // Verifica se o login atende a política de segurança
+      if WGet('WUID','N') ==  0
+         if lcLOGIN_AUTO == 'N'
+            if chknewlogin(val(lcWGID),wget('CIP'),lower(wget('LOGIN'))) == .f.
+               WAlert('O Login não atende a política de segurança !')
+               get2put()
+               llERRO := .t.
+            endif
+         endif
+      endif
+
+      if ! llERRO
+         /* Verifica Quantidade máxima de usuários */
+         if WGet('WUID','N') == 0
+            //inclusão
+            if db_select({'count(*)'},;
+                         'acuser',,;
+                         {'FL_USER<>'+DLAP+'Y'+DLAP+;
+                          ' or FL_USER is null'+;
+                          ' or FL_USER='+DLAP+'N'+DLAP}) == -1
+               error_sys(db_error())
+            endif
+            laRES := db_fetchrow()
+            if len(laRES) > 0
+               if laRES[1] >= val(WSet('NR_LICENCAS'))
+                  walert('Número máximo de usuários permitidos excedeu!')
+                  get2Put()
+                  llERRO := .t.
+               endif
+            endif
+         else
+            //alteração
+            if empty(alltrim(WGet('FL_USER','C')))
+               if db_select({'count(*)'},;
+                            'acuser',,;
+                            {'FL_USER <> '+DLAP+'Y'+DLAP+' or FL_USER is null',;
+                             'LOGIN <> '+DLAP+WGet('LOGIN','C')+DLAP}) == -1
+                  error_sys(db_error())
+               endif
+               laRES := db_fetchrow()
+               if len(laRES) > 0
+                  if laRES[1] >= val(WSet('NR_LICENCAS'))
+                     walert('Número máximo de usuários permitidos excedeu!')
+                     get2Put()
+                     llERRO := .t.
+                  endif
+               endif
+            endif
+         endif
+      endif
+
+      /* Valida Perfil */
+      if ! llERRO
+         // Validar Relacionamentos
+         for ii := 1 to len(laFIND_REC)
+             lcVALIDA := alltrim(WGet(laFIND_REC[ii,2],'C'))
+             if val(lcVALIDA) <> 0 .and. ! empty(lcVALIDA)
+                //if len(old_db_findrec(laFIND_REC[ii,1],laFIND_REC[ii,3]+'='+DLAP+lcVALIDA+DLAP)) = 0
+                if len(db_findrec({laFIND_REC[ii,3]},laFIND_REC[ii,1],laFIND_REC[ii,3]+'='+lcVALIDA)) = 0
+                   walert(laFIND_REC[ii,4]+' é inválido(a) ou não pode ser encontrado(a)!')
+                   get2Put()
+                   if alltrim(lcWUID) == '0'
+                      WPut('WUID','New')
+                   endif
+                   WPut('_WGID',lcWGID)
+                   llERRO := .T.
+                endif
+             endif
+         next ii
+      endif
+
+      /* Valida Perfil */
+      if ! llERRO
+         if alltrim(lcWGID) == '0' .or. empty(alltrim(lcWGID))
+            walert('Selecione um Perfil')
+            get2Put()
+            if alltrim(lcWUID) == '0'
+               WPut('WUID','New')
+            endif
+            WPut('_WGID',lcWGID)
+            llERRO := .T.
+         endif
+      endif
+
+      /* Validação dos campos */
+      if ! llERRO
+         for ii := 1 to len(laVALIDA)
+             lcVALIDA := alltrim(WGet(laVALIDA[ii,1],'C'))
+             if len(lcVALIDA) = 0
+                walert(laVALIDA[ii,2]+' é um campo obrigatório!')
+                get2Put()
+                if alltrim(lcWUID) == '0'
+                   WPut('WUID','New')
+                endif
+                WPut('_WGID',lcWGID)
+                llERRO := .T.
+                exit
+             endif
+         next ii
+      endif
+
+      /* Unicidade de LOGIN */
+      if ! llERRO
+         if len(db_findrec({'LOGIN'},'acuser','WUID<>'+DLAP+lcWUID+DLAP+' and LOGIN='+DLAP+lower(WGet('LOGIN','C'))+DLAP)) > 0
+            walert('Usuário já Cadastrado')
+            get2Put()
+            if alltrim(lcWUID) == '0'
+               WPut('WUID','New')
+            endif
+            WPut('_WGID',lcWGID)
+            llERRO := .T.
+         endif
+      endif
+
+      /* Unicidade de Apelido p/ Acesso */
+
+      if WSet('FL_LOGIN_ALIAS') == 'ENABLE'
+         if ! llERRO
+            if len(db_findrec({'LOGIN'},'acuser','WUID<>'+DLAP+lcWUID+DLAP+' and LOGIN_ALIAS='+DLAP+WGet('LOGIN_ALIAS','C')+DLAP)) > 0
+               walert('Apelido para Acesso já Cadastrado')
+               get2Put()
+               if alltrim(lcWUID) == '0'
+                  WPut('WUID','New')
+               endif
+               WPut('_WGID',lcWGID)
+               llERRO := .T.
+            endif
+         endif
+      endif
+
+      /* Unicidade de CIP */
+      if ! llERRO
+         if len(db_findrec({'CIP'},'acuser','WUID<>'+DLAP+lcWUID+DLAP+' and CIP='+WGet('CIP','C'))) > 0
+            walert('CIP já Cadastrado')
+            get2Put()
+            if alltrim(lcWUID) == '0'
+               WPut('WUID','New')
+            endif
+            WPut('_WGID',lcWGID)
+            llERRO := .T.
+         endif
+      endif
+
+      /* Validação dos Filtros */
+      if ! llERRO
+         ii     := 1
+         lcITEM := alltrim(str(ii))
+         lcVAR  := 'VAR_WTABLE_'+lcITEM
+         do while WGet(lcVAR,'B')
+            if WGet('VAR_FUCONTENT_'+lcITEM,'B')
+               if empty(alltrim(WGet('VAR_FUCONTENT_'+lcITEM,'C')))
+                  walert('O conteúdo do filtro para visualização é um campo obrigatório!')
+                  get2Put()
+                  if alltrim(lcWUID) == '0'
+                     WPut('WUID','New')
+                  endif
+                  WPut('_WGID',lcWGID)
+                  llERRO := .T.
+                  exit
+               endif
+            endif
+            ii++
+            lcITEM := alltrim(str(ii))
+            lcVAR  := 'VAR_WTABLE_'+lcITEM
+         enddo
+
+         if !llERRO
+            ii     := 1
+            lcITEM := alltrim(str(ii))
+            lcVAR  := 'VAR_WTABLE_REPLACE_'+lcITEM
+            do while WGet(lcVAR,'B')
+               if WGet('VAR_FUCONTENT_REPLACE_'+lcITEM,'B')
+                  if empty(alltrim(WGet('VAR_FUCONTENT_REPLACE_'+lcITEM,'C')))
+                     walert('O conteúdo do filtro para inclusão/alteração é um campo obrigatório!')
+                     get2Put()
+                     if alltrim(lcWUID) == '0'
+                        WPut('WUID','New')
+                     endif
+                     WPut('_WGID',lcWGID)
+                     llERRO := .T.
+                     exit
+                  endif
+               endif
+               ii++
+               lcITEM := alltrim(str(ii))
+               lcVAR  := 'VAR_WTABLE_REPLACE_'+lcITEM
+            enddo
+         endif
+      endif
+
+      /* Validaçao do [Prazo de Validade da Senha] */
+      if ! llERRO
+         ldDT_VALIDADE_PSW := WGet('DT_VALIDADE_PSW','D')
+         if ldDT_VALIDADE_PSW > (date() + lnPSW_DIAMAXIMO)
+            walert('O '+lblfscreen('DT_VALIDADE_PSW')+' não pode ser maior que ['+dtoc((date() + lnPSW_DIAMAXIMO))+'] conforme definido no Perfil!')
+            get2Put()
+            if alltrim(lcWUID) == '0'
+               WPut('WUID','New')
+            endif
+            WPut('_WGID',lcWGID)
+            llERRO := .T.
+         endif
+      endif
+
+      /* Política de senha */
+      if ! empty(lcPASSWD)
+         if chknewpasswd(lower(WGet('LOGIN')),lcPASSWD) == -1
+            walert('Nova Senha informada, não atende politica de segurança!')
+            get2Put()
+            WPut('PASSWD','')
+            if alltrim(lcWUID) == '0'
+               WPut('WUID','New')
+            endif
+            llERRO := .t.
+         endif
+      endif
+
+      /* Gravando Usuario */
+      if ! llERRO
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            if laFIELDS[ii] == 'LOGIN'
+               if lcLOGIN_AUTO == 'Y' .and. WGet('WUID','N') ==  0
+                  if ! empty(lower(mklogin(val(lcWGID),wget('CIP'))))
+                     aadd(laSAVE_AUX,lower(mklogin(val(lcWGID),wget('CIP'))))
+                     WAlert('O login deste usuário é '+lower(mklogin(val(lcWGID),wget('CIP'))))
+                  else
+                     WAlert('Máscara de login esta vazia, inclusão do usuário não realizada.')
+                     llERRO := .T.
+                  endif
+               else
+                  aadd(laSAVE_AUX,lower(WGet(laFIELDS[ii])))
+               endif
+            elseif laFIELDS[ii] == 'PSW_DIASSEMANA'
+               laPSW_DIASSEMANA := {}
+               for xx := 1 to 7
+                  lcITEM := alltrim(str(xx))
+                  if WGet('PSW_DIASSEMANA'+lcITEM,'C') == 'Y'
+                     aadd(laPSW_DIASSEMANA,lcITEM)
+                  endif
+               next xx
+               aadd(laSAVE_AUX,iif(len(laPSW_DIASSEMANA) > 0,array2str(laPSW_DIASSEMANA,','),''))
+            elseif laFIELDS[ii] == 'DT_CADASTRO'
+               if empty(WGet(laFIELDS[ii],'C'))
+                  aadd(laSAVE_AUX,date())
+               else
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+               endif
+            elseif laFIELDS[ii] == 'LOGIN_CADASTRO'
+               if empty(WGet(laFIELDS[ii],'C'))
+                  aadd(laSAVE_AUX,WSet('LOGIN'))
+               else
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+               endif
+            elseif laFIELDS[ii] == 'LOGIN'
+               aadd(laSAVE_AUX,lower(WGet(laFIELDS[ii])))
+            else
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+            endif
+         next
+
+         if ! llERRO
+            aadd(laSAVE,laSAVE_AUX)
+            if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+
+            if WGet('WUID') == 0 .or. empty(WGet('WUID'))
+               lnWUID := db_insert_id()
+            else
+               lnWUID := WGet('WUID')
+            endif
+
+            /* Salvando a Senha */
+            if ! empty(lcPASSWD)
+               lcPASSWD := wencrypt(lcPASSWD,chr(106)+chr(101)+chr(115)+chr(117)+chr(115)+chr(101)+chr(97)+chr(99)+chr(109)+chr(104)+chr(104)+chr(97)+chr(108)+chr(118)+chr(101)+chr(42))
+               wstr2hex(lcPASSWD,@lcPASSWD)
+               //
+               // Glauber 10/2017 - Tratamento do campo senha_mobile    (retirado)
+               //
+                  if db_update({{'PASSWD'},{lcPASSWD}},'acuser',{'LOGIN='+DLAP+WGet('LOGIN','C')+DLAP}) == -1
+                      error_sys(db_error())
+                  endif 
+               if db_insert({{'LOGIN','DT_PASSWD','HR_PASSWD','PASSWD'},;
+                             {WGet('LOGIN'), date(), time(), lcPASSWD}},'acuser_passwdlog') == -1
+                  error_sys(db_error())
+               endif
+            endif
+            
+            /* Apaga tabela profilewenv */
+            if db_delete('profilewenv','LOGIN='+DLAP+WGet('LOGIN','C')+DLAP) = -1
+               error_sys(db_error())
+            endif
+
+            /* Limpa os Filtros de Usuário existentes */
+            if db_delete('acuser_filter',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+
+            if db_delete('acuser_filter_replace',lcWHERE) = -1
+               error_sys(db_error())
+            endif
+
+            /* Grava novos Filtros de Usuário */
+            for iiF := 1 to 2
+               ii     := 1
+               lcITEM := alltrim(str(ii))
+               lcVAR  := 'VAR_WTABLE_'+iif(iiF==2,'REPLACE_','')+lcITEM
+               laSAVE := {{'WUID','WTABLE','WFIELD','FUCONTENT'}}
+               do while WGet(lcVAR,'B')
+                  if WGet('VAR_FUCONTENT_'+iif(iiF==2,'REPLACE_','')+lcITEM,'B')
+                     aadd(laSAVE,{lnWUID,;
+                                  WGet('VAR_WTABLE_'+iif(iiF==2,'REPLACE_','')+lcITEM,'C'),;
+                                  WGet('VAR_WFIELD_'+iif(iiF==2,'REPLACE_','')+lcITEM,'C'),;
+                                  WGet('VAR_FUCONTENT_'+iif(iiF==2,'REPLACE_','')+lcITEM,'C')})
+                  endif
+                  ii++
+                  lcITEM := alltrim(str(ii))
+                  lcVAR  := 'VAR_WTABLE_'+iif(iiF==2,'REPLACE_','')+lcITEM
+               enddo
+
+               if len(laSAVE) > 1
+                  if db_insert(laSAVE,iif(iiF==1,'acuser_filter','acuser_filter_replace')) = -1
+                    error_sys(db_error())
+                  endif
+               endif
+            next iiF
+            lst_acuser_html()
+            return
+         endif
+      endif
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+      /* Apaga tabela profilewenv */
+      if db_delete('profilewenv','LOGIN='+DLAP+WGet('LOGIN','C')+DLAP) = -1
+         error_sys(db_error())
+      endif
+
+      lst_acuser_html()
+      return
+   endif
+
+   /* Gera a Grid de Filtros */
+   for iiF := 1 to 2
+      if iiF == 1                                  // Filtros para visualização
+         lcTB_ACGROUP := 'acgroup_filter'
+         lcTB_ACUSER  := 'acuser_filter'
+         lcWICDO_NAME := 'lstFILTER'
+      else                                        // Filtros para inclusão/alteração
+         lcTB_ACGROUP := 'acgroup_filter_replace'
+         lcTB_ACUSER  := 'acuser_filter_replace'
+         lcWICDO_NAME := 'lstFILTER_REPLACE'
+      endif
+
+      //if db_select(structtable(WSet("DB_ACTIVE"),'acgroup_filter',1,'A'),'acgroup_filter',,{'WGID='+lcWGID}) = -1
+      if db_select(structtable(WSet("DB_ACTIVE"),lcTB_ACGROUP,1,'A'),lcTB_ACGROUP,,{'WGID='+lcWGID}) = -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+
+      if ! empty(lcWUID)
+         //if db_select({'WTABLE','WFIELD','FUCONTENT'},'acuser_filter',,{'WUID='+lcWUID}) = -1
+         if db_select({'WTABLE','WFIELD','FUCONTENT'},lcTB_ACUSER,,{'WUID='+lcWUID}) = -1
+            error_sys(db_error())
+         endif
+         laFUCONTENT := db_fetchall()
+      endif
+      if iiF == 1
+         laWICDO := {{'VAR_WTABLE',;
+                      'VAR_WFIELD'}}
+      else
+         laWICDO := {{'VAR_WTABLE_REPLACE',;
+                      'VAR_WFIELD_REPLACE'}}
+      endif
+      aadd(laWICDO[1],'HTML_FUCONTENT')
+      aadd(laWICDO[1],'WTABLE')
+      aadd(laWICDO[1],'WFIELD')
+      aadd(laWICDO[1],'FUWHERE')
+      aadd(laWICDO[1],'FUCONTENT')
+
+      for ii := 2 to len(laRES)
+         lcITEM := alltrim(str(ii-1))
+         if empty(laRES[ii,db_fetchncol(laRES,'FUCONTENT')])
+            lcHTML_FUCONTENT := '<input type="text" name="VAR_FUCONTENT_'+iif(iiF==2,'REPLACE_','')+lcITEM+'" wicinput class="winput" size="50">'
+         else
+            lcHTML_FUCONTENT := '<wicfield name="FUCONTENT">'
+         endif
+         aadd(laWICDO,{'VAR_WTABLE_'+iif(iiF==2,'REPLACE_','')+lcITEM,;
+                       'VAR_WFIELD_'+iif(iiF==2,'REPLACE_','')+lcITEM,;
+                       lcHTML_FUCONTENT,;
+                       laRES[ii,db_fetchncol(laRES,'WTABLE')],;
+                       laRES[ii,db_fetchncol(laRES,'WFIELD')],;
+                       laFUWHERE[val(laRES[ii,db_fetchncol(laRES,'FUWHERE')])],;
+                       laRES[ii,db_fetchncol(laRES,'FUCONTENT')]})
+
+         WPut('VAR_WTABLE_'+iif(iiF==2,'REPLACE_','')+lcITEM,laRES[ii,db_fetchncol(laRES,'WTABLE')])
+         WPut('VAR_WFIELD_'+iif(iiF==2,'REPLACE_','')+lcITEM,laRES[ii,db_fetchncol(laRES,'WFIELD')])
+
+         if len(laFUCONTENT) > 1
+            for xx := 2 to len(laFUCONTENT)
+               if laFUCONTENT[xx,1] == laRES[ii,db_fetchncol(laRES,'WTABLE')] .and. ;
+                  laFUCONTENT[xx,2] == laRES[ii,db_fetchncol(laRES,'WFIELD')]
+                  WPut('VAR_FUCONTENT_'+iif(iiF==2,'REPLACE_','')+lcITEM,laFUCONTENT[xx,3])
+               endif
+            next xx
+         endif
+      next ii
+      WPut(lcWICDO_NAME,laWICDO)
+   next iiF
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

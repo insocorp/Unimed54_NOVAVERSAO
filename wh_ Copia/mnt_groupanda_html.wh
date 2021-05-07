@@ -1,0 +1,99 @@
+/*
+
+Project      : gr5
+Program      : mnt.groupanda.html
+Function     : mnt_groupanda_html
+Created on   : 13/03/2015 17:51:10
+Descripition :
+
+*/
+
+   local lcACTION     := '' ,;
+         lcWHERE      := '' ,;
+         lcTABLE      := '' ,;
+         lcVALIDA     := '' ,;
+         lcWORKGROUP  := '' as string
+   local laRESULT   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laFIELDS   := {} ,;
+         laLABELS   := {} ,;
+         laVALIDA   := {} as array
+   local ii := 0 as int
+   local llERRO := .f. as logical
+
+   WPut('TITLE','Grupos para Andamentos')
+
+   lcACTION    := upper(WGet('ACTION'))
+   lcTABLE     := 'groupanda'
+   lcWORKGROUP := WGet('WORKGROUP','C')
+   lcWHERE     := 'WORKGROUP='+DLAP+lcWORKGROUP+DLAP
+   laFIELDS    := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+   laLABELS    := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'A')
+
+   /* Campos obrigatórios
+   * Formato do array abaixo
+   * 1 - Campo para captura da informação no HTML - WGet()
+   * 2 - Parte do label a exibir em caso de erro, está inf. e capturado do Wictrix
+   */
+   laVALIDA := {{'WORKGROUP',laLABELS[ascan(laFIELDS,'WORKGROUP')]}}
+
+   if lcACTION = 'ALTER' .and. gbWAC_READ
+      WPut('WORKGROUP.readonly',.t.)
+      WPut('WORKGROUP.class','winputreadonly')
+
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      db2put(laRESULT)
+      wPut('TITLE','Alteração do Grupo de Andamentos: '+laRESULT[2,db_fetchncol(laRESULT,'WORKGROUP')])
+      wPut('ifALTER',.T.)
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+      for ii := 1 to len(laVALIDA)
+          lcVALIDA := alltrim(WGet(laVALIDA[ii,1],'C'))
+          if len(lcVALIDA) = 0 .or. lcVALIDA == '0'
+             walert(laVALIDA[ii,2]+' é um campo obrigatório!')
+             get2Put()
+             llERRO := .t.
+          endif
+      next ii
+      if ! llERRO
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            aadd(laSAVE_AUX,WGet (laFIELDS[ii]))
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+         if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+            error_sys(db_error())
+         endif
+      endif
+
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+      if db_delete(lcTABLE,lcWHERE) = -1
+         error_sys(db_error())
+      endif
+   endif
+
+   if db_select({'WORKGROUP','LOGIN_RESP','LOGINS_PART'},lcTABLE) = -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+
+   if len(laRES) > 0
+      **aadd(laRES[1],'(row)')
+      **for ii := 2 to len(laRES)
+      **   aadd(laRES[ii],'(row)'+wic_action('wicaction/mnt.groupanda.html'+;
+      **                                     '?ACTION=ALTER'+;
+      **                                     '&WORKGROUP='+laRES[ii,db_fetchncol(laRES,'WORKGROUP')]))
+      **next ii
+      ***WPut('GRID_WORKGROUP',grid_create(laRES))
+
+      WPut('GRID_WORKGROUP',laRES)
+
+   endif
+return
+
+
+
+

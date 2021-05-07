@@ -1,0 +1,379 @@
+/*
+
+Project      : gr5
+Program      : atualiza_sinistro_isj.html
+Function     : atualiza_sinistro_isj_html
+Created on   : 01/06/2009 10:20:01 - Valdimari Martins
+Descripition : Atualização de Sinistros no ISJ
+               Interface Mapfre
+*/
+   local lcWHERE_EXP      := '' ,;
+         lcWHERE_SINISTRO := '' as string
+   
+   local laSAVE            := {} ,;
+         laFIELDS_EXP      := {} ,;
+         laFIELDS_RESERVA  := {} ,;        
+         laRES_EXP_EXTERNO := {} ,;
+         laRES_ISJ_EXP     := {} as array
+
+   //----------- Abrindo base Tronweb
+   lcWHERE := 'NUM_PASTA_JUI_VCR is not null '
+   laFIELDS_EXP     := {'NUM_EXP','NUM_SINI','TP_EXP','NUM_PASTA_JUI_VCR'}
+   laFIELDS_RESERVA := {'NUM_SINI'} 
+
+   if db_select(laFIELDS_EXP,'a7009165_vcr',,{lcWHERE}) == -1
+      db_rollback() 
+      error_sys(db_error())
+   endif
+   laRES_EXP_EXTERNO := db_fetchall()
+   
+   if len(laRES_EXP_EXTERNO) > 1
+      db_begin() 
+      for ii := 2 to len(laRES_EXP_EXTERNO)
+         lcNR_PASTA := str(laRES_EXP_EXTERNO[ii,db_fetchncol(laRES_EXP_EXTERNO,'NUM_PASTA_JUI_VCR')])
+         //------------ Buscar EXPEDIENTE no ISJ 
+         lcWHERE_EXP := 'NR_EXPEDIENTE = '+laRES_EXP_EXTERNO[ii,db_fetchncol(laRES_EXP_EXTERNO,'NUM_EXP')]+; 
+                             ' and TP_EXPEDIENTE = '+laRES_EXP_EXTERNO[ii,db_fetchncol(laRES_EXP_EXTERNO,'TP_EXP')] 
+         if db_select({'NR_PASTA','NR_CONTROLE','NR_SINISTRO','TP_EXPEDIENTE'},'pasta_seguro',,{lcWHERE_EXP}) == -1
+            db_rollback() 
+            error_sys(db_error())
+         endif
+         laRES_ISJ_EXP := db_fetchall()
+         if len(laRES_ISJ_EXP) == 0
+            lcWHERE_SINISTRO := 'NR_PASTA ='+laRES_EXP_EXTERNO[ii,db_fetchncol(laRES_EXP_EXTERNO,'NUM_PASTA_JUI_VCR')]
+            if db_select({'NR_PASTA'},'pasta',,{lcWHERE_SINISTRO}) == -1
+               db_rollback() 
+               error_sys(db_error())
+            endif
+            laRES_PST_ISJ := db_fetchall()
+            if len(laRES_PST_ISJ) == 0            
+               //---------- Enviar para Expedientes Pendentes
+               laSAVE := {{'NR_PENDENTE','NR_EXPEDIENTE','TP_EXPEDIENTE','NR_SINISTRO','NR_PASTA_JUI'}}
+               aadd(laSAVE,{0,;
+                            laRES_EXP_EXTERNO[ii,db_fetchncol(laRES_EXP_EXTERNO,'NUM_EXP')],;
+                            laRES_EXP_EXTERNO[ii,db_fetchncol(laRES_EXP_EXTERNO,'TP_EXP')],;
+                            laRES_EXP_EXTERNO[ii,db_fetchncol(laRES_EXP_EXTERNO,'NUM_SINI')],;
+                            lcNR_PASTA})
+                            
+               if db_insert(laSAVE,'expedientes_pendentes') == -1
+                  db_rollback() 
+                  error_sys(db_error())
+               endif
+               loop
+            else
+               //---------- Incluir Sinistro
+               laFIELDS_SINISTRO := {'NUM_POLIZA','FEC_VIG_INI_VCR','FEC_VIG_FIM_VCR','NOM_ASEG_VCR',;
+                                     'NUM_SINI','FEC_SINI','NOM_CAUSA_SINI_VCR','MCA_EST_SINI_VCR',;
+                                     'MCA_SISTEMAS_VCR'}
+               lcWHERE_SIN_EXT   := 'NUM_SINI = '+laRES_EXP_EXTERNO[ii,db_fetchncol(laRES_EXP_EXTERNO,'NUM_SINI')]
+               if db_select(laFIELDS_SINISTRO,'A7009164_vcr',,{lcWHERE_SIN_EXT}) == -1
+                  db_rollback() 
+                  error_sys(db_error())
+               endif
+               laRES_SIN_EXT   := db_fetchall()
+               lcWHERE_SIN     := 'NR_PASTA = '+lcNR_PASTA+' and NR_SINISTRO = '+alltrim(str(laRES_SIN_EXT[ii,db_fetchncol(laRES_SIN_EXT,'NUM_SINI')]))+;
+                                  'and NR_EXPEDIENTE = '+laRES_EXP_EXTERNO[ii,db_fetchncol(laRES_EXP_EXTERNO,'NUM_EXP')]  
+               laSAVE_SINISTRO := {{'NR_PASTA','NR_CONTROLE','NR_SINISTRO','NR_APOLICE','CIP_SEGURADO',;
+                                    'FL_SINISTRO','TP_SINISTRO','DT_VIGENCIA_INI','DT_VIGENCIA_FIN',;
+                                    'NR_EXPEDIENTE','TP_EXPEDIENTE','DT_SINISTRO','DT_CADASTRO','LOGIN_CADASTRO'}}
+               if db_select({'NR_SINISTRO'},'pasta_seguro',,{lcWHERE_SIN}) == -1
+                  db_rollback() 
+                  error_sys(db_error())
+               endif
+               laRES_SIN_ISJ := db_fetchrow()
+               if len(laRES_SIN_ISJ) == 0
+                  aadd(laSAVE_SINISTRO,{lcNR_PASTA,;
+                                        0,;
+                                        alltrim(str(laRES_SIN_EXT[ii,db_fetchncol(laRES_SIN_EXT,'NUM_SINI')])),;
+                                        laRES_SIN_EXT[ii,db_fetchncol(laRES_SIN_EXT,'NUM_POLIZA')],;
+                                        incluir_cip_pfpj(alltrim(laRES_SIN_EXT[ii,db_fetchncol(laRES_SIN_EXT,'NOM_ASEG_VCR')]),'SEG'),;
+                                        laRES_SIN_EXT[ii,db_fetchncol(laRES_SIN_EXT,'NUM_POLIZA')],;
+                                        '',;
+                                        '',;
+                                        laRES_SIN_EXT[ii,db_fetchncol(laRES_SIN_EXT,'FEC_VIG_INI_VCR')],;
+                                        laRES_SIN_EXT[ii,db_fetchncol(laRES_SIN_EXT,'FEC_VIG_FIM_VCR')],;
+                                        laRES_EXP_EXTERNO[ii,db_fetchncol(laRES_EXP_EXTERNO,'NUM_EXP')],;
+                                        laRES_EXP_EXTERNO[ii,db_fetchncol(laRES_EXP_EXTERNO,'TP_EXP')],;
+                                        laRES_SIN_EXT[ii,db_fetchncol(laRES_SIN_EXT,'FEC_INI')],;
+                                        date(),;
+                                        'inso'})
+               endif                         
+               if len(laSAVE_SINISTRO) > 1
+                  if db_insert(laSAVE_SINISTRO,'pasta_seguro') == -1
+                     db_rollback() 
+                     error_sys(db_error())
+                  endif
+               endif   
+            endif           
+         endif
+         if len(laRES_ISJ_EXP) > 0 .or. len(laRES_PST_ISJ) > 0
+            if db_select({'NR_PASTA','NR_CONTROLE','NR_SINISTRO','TP_EXPEDIENTE'},'pasta_seguro',,{lcWHERE_EXP}) == -1
+               db_rollback() 
+               error_sys(db_error())
+            endif
+            laRES_ISJ_EXP := db_fetchall()
+            for jj := 2 to len(laRES_ISJ_EXP)
+               //---------- Importar Pedidos
+               lcWHERE_PEDIDOS := 'NR_PASTA ='+laRES_ISJ_EXP[ii,db_fetchncol(laRES_ISJ_EXP,'NR_PASTA')]+;
+                                  ' and NR_CONTROLE_SEGURO = '+laRES_ISJ_EXP[ii,db_fetchncol(laRES_ISJ_EXP,'NR_CONTROLE')]+; 
+                                  ' and TP_EXPEDIENTE = '+laRES_ISJ_EXP[ii,db_fetchncol(laRES_ISJ_EXP,'TP_EXP')] 
+
+               if db_select({'NR_CONTROLE'},'pasta_pedidos',,{lcWHERE_PEDIDOS}) == -1
+                  db_rollback() 
+                  error_sys(db_error()) 
+               endif
+               laRES_PEDIDO := db_fetchrow()
+            
+               if laRES_PEDIDO == 0
+                  //----------- Buscar tipo da pasta atual
+                  lcWHERE_PASTA := 'NR_PASTA = '+lcNR_PASTA
+                  if db_select({'TP_PASTA'},'pasta',,{lcWHERE_PASTA}) == -1
+                     db_rollback()
+                     error_sys(db_error())
+                  endif
+                  laRES_PASTA   := db_fetchrow()
+                  lcTP_PASTA    := laRES_PASTA[1]
+                  lcWHERE_PASTA := 'TP_PASTA = '+lcTP_PASTA
+                  if db_select({'OCOR_PEDIDO_INICIO'},'pasta_config',,{lcWHERE_PASTA}) == -1
+                     db_rollback()
+                     error_sys(db_error())
+                  endif
+                  laRES_PASTA       := db_fetchrow()
+                  lcOCOR_PED_INICIO := laRES_PASTA[1]
+                  lcWHERE_RESERVA   := 'NUM_SINI = '+laRES_EXP_EXTERNO[ii,db_fetchncol(laRES_SIN_EXT,'NUM_SINI')]
+                  if db_select({'NUM_SINI','NUM_EXP','COD_COB','COD_MON','IMP_VAL','IMP_LIQ','FEC_PROCESO'},;
+                                'A7009167_vcr',,{lcWHERE_RESERVA}) == -1
+                     db_rollback()
+                     error_sys(db_error())
+                  endif
+                  laRES_RESERVA := db_fetchall()
+                  if laRES_RESERVA > 1
+                     lcSAVE_DETAL    := {{'NR_DETAL','NR_PASTA','NR_CONTROLE','PEDIDO_PROCESSO','DT_MOVTO_PED',;
+                                          'DT_RISCO','VL_RISCO','VL_RISCO_CALC','PC_RISCO','VL_CORRECAO','VL_JUROS',;
+                                          'FL_CALCULO','COMENTARIOS_PED','OCOR_PEDIDO','DT_ALTERACAO','HR_ALTERACAO',;
+                                          'LOGIN_CADASTRO'}}
+                     for rr := 2 to len(laRES_RESERVA)
+                        lcWHERE_COB := 'COD_COB = '+str(laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'COD_COB')])
+                        if db_select({'NOM_COB'},'A7009168_vcr',,{lcWHERE_COB}) == -1
+                           db_rollback()
+                           error_sys(db_error())
+                        endif
+                        laRES_COB := db_fetchrow()
+                        lcOBJETO  := incluir_objeto(laRES_COB[1])
+                        if len(laRES_COB) == 0
+                           loop
+                        endif      
+                        /*---------- Testar a Moeda registrada na Reserva.
+                                     1 - 
+                                     2 - 
+                                     3 - 
+                        */
+                        lnMOEDA := laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'COD_MON')]
+                        lcMOEDA := ''
+                        if lnMOEDA == 2
+                           lcMOEDA := 'US$'
+                        elseif lnMOEDA == 3
+                           lcMOEDA := 'FAJ'
+                        endif    
+                        //---------- Qdo moeda for diferente de Real (R$)                                                  
+                        if lnMOEDA <> 1
+                           if db_select({'CD_INDICE'},'indice_reajuste',,{'NM_INDICE = '+lcMOEDA}) == -1
+                              db_rollback()
+                              error_sys(db_error())
+                           endif
+                           laRES_COTACAO := db_fetchrow()
+                           if db_select({'VL_INDICE'},'mvt_indice_diario',,{'CD_INDICE='+str(laRES_COTACAO[1])+' and DT_REF='+dtos(date())}) == -1
+                              db_rollback()
+                              error_sys(db_error())
+                           endif   
+                           laRES_COTACAO  := db_fetchrow()
+                           lnCOTACAO      := laRES_COTACAO[1]
+                           lcMOEDA        := ' - ('+lcMOEDA+')'
+                           lcSAVE_PEDIDOS := {{'NR_PASTA','NR_CONTROLE','PEDIDO_PROCESSO','NR_CONTROLE_SEGURO',;
+                                               'DT_RISCO','VL_RISCO','VL_RISCO_CALC','PC_RISCO','VL_CORRECAO',;
+                                               'VL_JUROS','FL_CALCULO','DT_MOVTO_PED','COMENTARIOS_PED',;
+                                               'OCOR_PEDIDO','TP_EXPEDIENTE'}}
+                           aadd(laSAVE_PEDIDOS,{lcNR_PASTA,;
+                                                0,;
+                                                lcOBJETO+lcMOEDA,;
+                                                laRES_ISJ_EXP[jj,db_fetchncol(laRES_ISJ_EXP,'NR_CONTROLE')],;
+                                                laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'FEC_PROCESO')],;
+                                                laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'IMP_VAL')],;
+                                                laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'IMP_VAL')],;
+                                                100,;
+                                                0,;
+                                                0,;
+                                                'S',;
+                                                date(),;
+                                                '',;
+                                                '',;                                                                                                                                
+                                                laRES_EXP_EXTERNO[ii,db_fetchncol(laRES_ISJ_EXP,'TP_EXPEDIENTE')]})                                            
+                           if db_insert(laSAVE_PEDIDOS,'pasta_pedidos') == -1
+                              db_rollback()
+                              error_sys(db_error())
+                           endif
+                           lnNR_PEDIDO := db_insert_id()
+                           aadd(laSAVE_DETAL,{0,;
+                                              lcNR_PASTA,;
+                                              lnNR_PEDIDO,;
+                                              lcOBJETO+lcMOEDA,;
+                                              date(),;
+                                              laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'FEC_PROCESO')],;
+                                              laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'IMP_VAL')],;
+                                              laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'IMP_VAL')],;
+                                              100,;
+                                              0,;
+                                              0,;
+                                              'S',;
+                                              lcOCOR_PED_INICIO+', via interface',;                                                                                                                                
+                                              lcOCOR_PED_INICIO,;
+                                              date(),;
+                                              substr(time(),1,8),;
+                                              'inso'})                                                                                                                                
+                        endif
+                        lcSAVE_PEDIDOS := {{'NR_PASTA','NR_CONTROLE','PEDIDO_PROCESSO','NR_CONTROLE_SEGURO',;
+                                            'DT_RISCO','VL_RISCO','VL_RISCO_CALC','PC_RISCO','VL_CORRECAO',;
+                                            'VL_JUROS','FL_CALCULO','DT_MOVTO_PED','COMENTARIOS_PED',;
+                                            'OCOR_PEDIDO','TP_EXPEDIENTE'}}
+                        aadd(laSAVE_PEDIDOS,{lcNR_PASTA,;
+                                             0,;
+                                             lcOBJETO,;
+                                             laRES_ISJ_EXP[jj,db_fetchncol(laRES_ISJ_EXP,'NR_CONTROLE')],;
+                                             laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'DT_MOVTO_PED')],;
+                                             laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'IMP_VAL')]*iif(lnMOEDA=1,1,lnCOTACAO),;
+                                             laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'IMP_VAL')]*iif(lnMOEDA=1,1,lnCOTACAO),;
+                                             100,;
+                                             0,;
+                                             0,;
+                                             'S',;
+                                             date(),;
+                                             '',;
+                                             '',;                                                                                                                                
+                                             '',;
+                                             laRES_EXP_EXTERNO[ii,db_fetchncol(laRES_ISJ_EXP,'TP_EXPEDIENTE')]})
+                        if db_insert(laSAVE_PEDIDOS,'pasta_pedidos') == -1
+                           db_rollback()
+                           error_sys(db_error())
+                        endif
+                        lnNR_PEDIDO := db_insert_id()
+                        aadd(laSAVE_DETAL,{0,;
+                                           lcNR_PASTA,;
+                                           lnNR_PEDIDO,;
+                                           lcOBJETO+lcMOEDA,;
+                                           date(),;
+                                           laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'FEC_PROCESO')],;
+                                           laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'IMP_VAL')]*iif(lnMOEDA=1,1,lnCOTACAO),;
+                                           laRES_RESERVA[rr,db_fetchncol(laRES_RESERVA,'IMP_VAL')]*iif(lnMOEDA=1,1,lnCOTACAO),;
+                                           100,;
+                                           0,;
+                                           0,;
+                                           'S',;
+                                           lcOCOR_PED_INICIO+', via interface',;                                                                                                                                
+                                           lcOCOR_PED_INICIO,;
+                                           date(),;
+                                           substr(time(),1,8),;
+                                           'inso'})                                                                                                                                
+                     next rr   
+                     if len(laSAVE_DETAL) > 1 
+                        if db_insert(laSAVE_DETAL,'pasta_detal_pedidos') == -1
+                           db_rollback()
+                           error_sys(db_error())
+                        endif
+                     endif
+                  endif          
+               endif   
+               
+               //---------- Importar Depósitos
+               if db_select() == -1
+                  db_rollback() 
+                  error_sys(db_error())                  
+               endif              
+            next jj
+         endif      
+      next ii   
+      db_commit()  
+   endif
+return(nil)
+         
+
+/*
+* Function..: incluir_cip_pfpj(fcVAL, fcTIPO, fnHAND1)
+* Objetivo..: Solicita o numero do cip da tabela pfpj
+* Parâmetros: fcVAL   valor do pfpj.PFPJ
+              fcTIPO
+* Retorno...: CIP de fcVAL recebido
+*/
+Static Function incluir_cip_pfpj(fcVAL, fcTIPO)
+
+   local lcVAL     := '' as string
+   local laFIELDS  := {'CIP','NR_CONTROLE'}                                     // colunas a serem geradas no select
+   local laWHERE   := {'PFPJ like '+DLAP+'%'+alltrim(fcVAL)+'%'+DLAP} as array  // clausula where para solicitacao de dados ao SNT
+   local lcTABLE   := 'pfpj'                                                    // tabela a serem consultada
+   local lcINSERT  := 'insert into ' + lcTABLE + ' (PFPJ, PFPJ_TIPO) VALUES (' as string
+   local lcUPDATE  := 'update ' + lcTABLE + ' set CIP = ' as string
+   local lnRET     := 0 as int
+   local laDATA    := {} as array
+
+   if db_select(laFIELDS,lcTABLE,,laWHERE) == -1
+      wout('Problemas em db_select. ProcLine: '+alltrim(str(procline()))+' ProcName: '+ProcName())
+      wout('Erro Select -> '+db_error())
+   endif
+   laDATA := db_fetchrow()
+   if len(laDATA) > 0
+      lcVAL := laDATA[1]
+      if db_select({'PFPJ_TIPOS'},'pfpj',,{'CIP = '+DLAP+lcVAL+DLAP}) == -1
+         db_rollback()
+         error_sys(db_error())
+      endif
+      laRES_PFPJ := db_fetchrow()
+      if ascan(laRES_PFPJ,fcTIPO) <= 0
+         laRES_PFPJ[1] += fcTIPO
+         laSAVE_PFPJ := {{'PFPJ_TIPOS'}}
+         aadd(laSAVE_PFPJ,laRES_PFPJ[1])
+         if db_update(laSAVE_PFPJ,'pfpj',{'CIP = '+DLAP+lcVAL+DLAP}) == -1
+            db_rollback()
+            error_sys(db_error())
+         endif
+      endif         
+   else
+      lcINSERT += DLAP+ alltrim(fcVAL)+DLAP+','+DLAP+fcTIPO+DLAP+')'
+      if db_insert({{'PFPJ','PFPJ_TIPO','PFPJ_TIPOS','LOGIN_CADASTRO','DT_CADASTRO'},;
+         {alltrim(fcVAL),fcTIPO,fcTIPO,'inso',dtos(date())}},lcTABLE) == -1
+         wout('Erro Insert -> '+db_error())
+         wout('Ultimo Comando -> '+wset('_LASTSQL'))
+         lcVAL := ''
+      else
+         if db_select(laFIELDS, lcTABLE, ,laWHERE) == -1
+            wout('Erro Select -> '+db_error())
+            wout('Ultimo Comando -> '+wset('_LASTSQL'))
+         endif
+         // lendo cada linha do select
+         laDATA := db_fetchrow()
+         if len(laDATA) > 0
+            lcVAL    := strzero(laDATA[2],6,0)
+            lcUPDATE += DLAP+lcVAL+DLAP+' '
+            lcUPDATE += 'WHERE NR_CONTROLE = ' + alltrim(str(laDATA[2]))
+            if db_update( { {'CIP'}, {lcVAL} },lcTABLE,{'nr_controle = ' + alltrim( str( laDATA[2] ) ) } ) == -1
+               wout('Problemas na atualizacao da tabela PFPJ')
+               wout('Erro Update -> '+db_error())
+               wout('Ultimo Comando -> ' + wset('_LASTSQL'))
+               lcVAL := ''
+            endif
+         else
+            wout('Problemas na leitura da tabela PFPJ')
+            lcVAL := ''
+         endif
+      endif
+   endif
+return (lcVAL)
+
+
+/*
+* Function..: incluir_objeto(fcVAL)
+* Objetivo..: Solicita um objeto
+* Parâmetros: fcVAL
+* Retorno...: Objeto no fcVAL
+*/
+Static Function incluir_objeto(fcVAL)
+   
+return(lcVAL)         

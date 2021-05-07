@@ -1,0 +1,83 @@
+/*
+
+Project      : gr5
+Program      : sch.tb_fields.html
+Function     : sch_tb_fields_html
+Created on   : 04-Oct-2004   09:28:18
+Descripition : 
+
+*/
+
+   local lcACTION  := '',;
+         lcWTABLE  := '',;
+         lcCHECK   := '',;
+         lcITEM    := '',;
+         lcVAR     := '',;
+         lcWSCRIPT := '',;
+         lcWHERE   := '' as string
+   local laRES := {} ,;
+         laPUT := {} as array
+   local ii := 0 ,;
+         xx := 0 as int
+
+   lcACTION := WGet('ACTION','C')
+   lcWTABLE := WGet('WTABLE','C')
+   WPut('WTABLE',lcWTABLE)
+
+   if lcACTION == 'EXECSEL'
+      xx     := 0
+      ii     := 1
+      lcITEM := alltrim(ii)
+      lcVAR  := 'VAR_WFIELD_'+lcITEM
+      do while WGet(lcVAR,'B')
+         if WGet('VAR_CHECK_'+lcITEM,'C') == 'Y'
+            if xx > 0
+               lcCHECK += ','
+            endif
+            lcCHECK += lcWTABLE+'.'+WGet(lcVAR,'C')
+            xx ++
+         endif
+         ii ++
+         lcITEM := alltrim(ii)
+         lcVAR  := 'VAR_WFIELD_'+lcITEM
+      enddo
+      lcWSCRIPT := 'if (opener.document.mntform.FUCONTENT.value.length == 0)'+CRLF
+      lcWSCRIPT += '   opener.document.mntform.FUCONTENT.value = "'+lcCHECK+'"'+CRLF
+      lcWSCRIPT += 'else'+CRLF
+      lcWSCRIPT += '   opener.document.mntform.FUCONTENT.value += ",'+lcCHECK+'";'+CRLF
+      WPut('WSCRIPT',lcWSCRIPT)
+      WSet('_USER_INTERFACE','close.wic')
+   else
+      if db_select({'WFIELDS'},'wtable',,{'WTABLE='+DLAP+lcWTABLE+DLAP}) = -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchrow()
+      if len(laRES) > 0
+         laPUT := str2array(laRES[1],',')
+         for ii :=1 to len(laPUT)
+            if ii > 1
+               lcWHERE += ' or '
+            endif
+            lcWHERE += 'WFIELD='+DLAP+laPUT[ii]+DLAP
+         next ii
+
+         if db_select({'*'},'wfield',,{lcWHERE}) = -1
+            error_sys()
+         endif
+         laRES := db_fetchall()
+         aadd(laRES[1],'VAR_WFIELD')
+         aadd(laRES[1],'VAR_CHECK')
+         for ii := 2 to len(laRES)
+            lcITEM := alltrim(ii-1)
+            aadd(laRES[ii],'VAR_WFIELD_'+lcITEM)
+            aadd(laRES[ii],'VAR_CHECK_'+lcITEM)
+
+            WPut('VAR_WFIELD_'+lcITEM,laRES[ii,db_fetchncol(laRES,'WFIELD')])
+            WPut('VAR_CHECK_'+lcITEM+'_OPT','Y')
+         next ii
+         WPut('lstWFIELD',laRES)
+      else
+         walert('Tabela inválida!')
+         WSet('_USER_INTERFACE','close.wic')
+      endif
+   endif

@@ -1,0 +1,81 @@
+/*
+
+Project      : gr5
+Program      : mnt.cli2.html
+Function     : mnt_cli2_html
+Created on   : 09-Sep-2004   16:45:43
+Descripition : Teste do Make MNT
+
+*/
+
+laPARAM := {{'NR_CONTROLE',''     ,'*'},;
+            {'NM_FANTASIA',''     ,   },;
+            {'ACTION'     ,'ALTER',   }}
+
+laBUTTON := {{'Excluir',{{'NR_CONTROLE','','*'},{'NM_FANTASIA','',},{'ACTION','DELETE',}}, ,,},;
+             {'Alterar',{{'NR_CONTROLE','',   },{'NM_FANTASIA','',},{'ACTION','ALTER' ,}},2,,}}
+
+laBTN_LST := {{'Pasta'  ,'Localizar Pastas' ,'Pasta'  ,wic_action('wicaction_work/lst.pasta.html')},;
+              {'Pessoas','Localizar Pessoas','Pessoas',wic_action('wicaction_work/pfpj.lst.html')},;
+              {'Novo Compromisso','Criar novo compromisso','Novo compromisso',wic_action('wicaction_workflow/mnt.tc.html?TP_TC=C&action=new')}}
+
+laBTN_MNT := {{'Novo','Novo','Novo registro',wic_action('wicaction_work/mnt.cli2.html?actionbp=new')}}
+
+laINPUT_HIDDEN := {{'NOME'     ,'Marcos'},;
+                   {'DESCRICAO','Programador'}}
+
+laINPUT_OBJ := {{'NR_CONTROLE'      ,0,'Y',   ,"'New'"                   },;
+                {                   , ,   ,   ,                          },;
+                {'PFPJ'             ,0,   ,'Y',                          },;
+                {'NM_FANTASIA'      ,0,   ,'Y',                          },;
+                {'ENDERECO'         ,0,   ,   ,                          },;
+                {'NR_ENDERECO'      ,0,   ,   ,                          },;
+                {'BAIRRO'           ,0,   ,   ,                          },;
+                {'CIDADE'           ,1,   ,   ,"loadcbox_build('comarca_regiao','COMARCA',.T.)"},;
+                {'UF'               ,1,   ,   ,"uf()"                    },;
+                {'DT_ENTRADA'       ,0,   ,   ,"date()"                  },;
+                {'DT_CADASTRO'      ,0,   ,   ,"date()"                  },;
+                {'PFPJ_ATIVIDADE'   ,1,   ,   ,"loadcbox_build('pfpj_atividade','PFPJ_ATIVIDADE',.T.)"},;
+                {'PFPJ_NATUREZA'    ,1,   ,   ,"{'','Fisica','Juridica'}"},;
+                {'EXTRA'            ,4,   ,   ,                          }}
+
+laSELECT := {'NR_CONTROLE',;
+             'PFPJ',;
+             'NM_FANTASIA',;
+             'ENDERECO',;
+             'NR_ENDERECO',;
+             'BAIRRO',;
+             'CIDADE',;
+             'UF',;
+             'DT_ENTRADA',;
+             'DT_CADASTRO',;
+             'PFPJ_ATIVIDADE',;
+             'PFPJ_NATUREZA',;
+             'EXTRA'}
+
+xbp('pfpj',;                                                             //Tabela alvo
+    ,;                                                                   //Joins
+    ,;                                                                   //Where
+    ,;                                                                   //Order by
+    ,;                                                                   //Sort [A]-Ascendente [D]-Descentende
+    ,;                                                                   //Group by
+    ,;                                                                   //Limit
+    ,;                                                                   //Banco de Dados
+    1,;                                                                  //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search, 4-Listagem
+    'work',;                                                             //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                                            //Programa chamador
+    laPARAM,;                                                            //Parametros das linhas clicaveis do grid
+    laBUTTON,;                                                           //Parâmetros para os botões das linhas do grid
+    'mnt.cli2.html',;                                                    //Programa que os links/botoes do grid deverao chamar
+    'work',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+    ,;                                                                   //Retorno java (nil) - usado apenas para Search
+    ,;                                                                   //Campos usados na pesquisa rápida
+    laINPUT_HIDDEN,;                                                     //Campos Ocultos
+    laINPUT_OBJ,;                                                        //Campos da área de manutenção/entrada de dados
+    {'NR_CONTROLE','NM_CLIENTE','NM_FANTASIA','CNPJ_CPF','DT_ENTRADA'},; //Campos exibidos no grid
+    laSELECT,;                                                           //Campos usados no select
+    laBTN_LST,;                                                          //Botões a serem criados no form de listagem
+    laBTN_MNT)                                                           //Botões a serem criados no form de manutenção
+return
+
+

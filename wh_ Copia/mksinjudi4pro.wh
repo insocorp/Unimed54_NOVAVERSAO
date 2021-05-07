@@ -1,0 +1,201 @@
+
+//
+// Glauber - 10/2017
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Classe...........: JudMkSinI4pro
+*
+* Objetivo.........: Classe que espelha um sinistro marcado como judicial.
+*
+* Atributos........:
+*
+*    EXPORT NrSinistro
+*    EXPORT NrPasta
+*    EXPORT DtCitacao
+*    EXPORT IdPessoaAutor
+*    EXPORT NmAutor
+*    EXPORT NrCnpjCpfAutor
+*    EXPORT CdUf
+*    EXPORT NmPerda
+*    EXPORT VlEconomico
+*    EXPORT VlAcao
+*    EXPORT VlPagamento
+*    EXPORT NrProcessoJudicial
+*    EXPORT NmReclamante
+*    EXPORT IdMotivoJudicial
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD toString()
+*
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS JudMkSinI4pro
+
+    // Atributos publico
+
+    EXPORT NrSinistro           
+    EXPORT NrPasta                                      
+    EXPORT DtCitacao                                    
+    EXPORT IdPessoaAutor                                
+    EXPORT NmAutor                                      
+    EXPORT NrCnpjCpfAutor                               
+    EXPORT CdUf                                         
+    EXPORT NmPerda                                      
+    EXPORT VlEconomico                                  
+    EXPORT VlAcao                                       
+    EXPORT VlPagamento                                  
+    EXPORT NrProcessoJudicial                           
+    EXPORT NmReclamante                                 
+    EXPORT IdMotivoJudicial                             
+    EXPORT Retorno      
+    
+    EXPORT NmRamo
+    EXPORT IdProdutoCobertura
+    EXPORT NmCobertura
+    
+    
+    
+                                    
+          
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()                          CLASS JudMkSinI4pro
+    PROTOTYPE METHOD Destroy()                       CLASS JudMkSinI4pro
+    PROTOTYPE METHOD toString()                      CLASS JudMkSinI4pro
+
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS JudMkSinI4pro
+
+    self:NrSinistro         := ''                      
+    self:NrPasta            := 0                      
+    self:DtCitacao          := ''                      
+    self:IdPessoaAutor      := ''                      
+    self:NmAutor            := ''                      
+    self:NrCnpjCpfAutor     := ''                      
+    self:CdUf               := ''                      
+    self:NmPerda            := ''                      
+    self:VlEconomico        := 0.00                    
+    self:VlAcao             := 0.00                    
+    self:VlPagamento        := 0.00                    
+    self:NrProcessoJudicial := ''                      
+    self:NmReclamante       := ''                      
+    self:IdMotivoJudicial   := ''                      
+    self:Retorno            := I4proRetornoNew()
+    self:NmRamo             := ''
+    self:IdProdutoCobertura := ''
+    self:NmCobertura        := ''
+
+
+return(self)
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS JudMkSinI4pro
+
+    self:NrSinistro         := nil              
+    self:NrPasta            := nil              
+    self:DtCitacao          := nil              
+    self:IdPessoaAutor      := nil              
+    self:NmAutor            := nil              
+    self:NrCnpjCpfAutor     := nil              
+    self:CdUf               := nil              
+    self:NmPerda            := nil              
+    self:VlEconomico        := nil              
+    self:VlAcao             := nil              
+    self:VlPagamento        := nil              
+    self:NrProcessoJudicial := nil              
+    self:NmReclamante       := nil              
+    self:IdMotivoJudicial   := nil              
+    self:Retorno            := nil               
+    self:NmRamo             := nil
+    self:IdProdutoCobertura := nil
+    self:NmCobertura        := nil          
+
+return(nil)
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: toString()
+* Objetivo..: Retornar uma String com a representação do Objeto.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             String
+*
+*/
+
+METHOD toString() CLASS JudMkSinI4pro
+
+return    'JudMkSinI4pro [NrSinistro=' +  Transform(self:NrSinistro) +;
+          ', NrPasta=' + Transform(self:NrPasta) +;
+          ', DtCitacao=' + Transform(self:DtCitacao) +;                                            
+          ', IdPessoaAutor=' + Transform(self:IdPessoaAutor) +;                                    
+          ', NmAutor=' + Transform(self:NmAutor) +;                                                
+          ', NrCnpjCpfAutor=' + Transform(self:NrCnpjCpfAutor) +;                                  
+          ', CdUf=' + Transform(self:CdUf) +;                                                      
+          ', NmPerda=' + Transform(self:NmPerda) +;                                                
+          ', VlEconomico=' + Transform(self:VlEconomico) +;                                        
+          ', VlAcao=' + Transform(self:VlAcao) +;                                                  
+          ', VlPagamento=' + Transform(self:VlPagamento) +;                                        
+          ', NrProcessoJudicial=' + Transform(self:NrProcessoJudicial) +;                          
+          ', NmReclamante=' + Transform(self:NmReclamante) +;                                      
+          ', IdMotivoJudicial=' + Transform(self:IdMotivoJudicial) +;  
+          ', NmRamo=' + Transform(self:NmRamo) +;
+          ', IdProdutoCobertura=' + Transform(self:IdProdutoCobertura) +;
+          ', NmCobertura=' + Transform(self:NmCobertura) +;        
+          ']'          

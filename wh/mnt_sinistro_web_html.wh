@@ -1,0 +1,685 @@
+/*
+Project      : isj_390
+Program      : mnt.sinistro_web.html
+Function     : mnt_sinistro_web_html
+Created on   : 23-Jan-2009   15:18:04
+Descripition : 
+*/
+
+
+local lcBUFFER        :='' ,;
+      lcFILE          :='' ,;
+      latxt           :='' ,;
+      lcPATH_WPROFILE :='' ,;
+      lcLINE          :='' ,;
+      lcNR_SINISTRO   :='' ,;
+      lcCD_RAMOSRSN   :='' ,;
+      lcTable         :='' ,;
+      lcTMP           :='' ,;
+      lcCPF           :='' ,;
+      lcPFPJ          :='' ,;
+      lcACTION        :='' ,;
+      lcdimesao       :='' as string
+
+local cch := ' '
+local liLEN  := 0 ,;
+      lnHAND := 0 ,;
+      lnII   := 0 ,;
+      lnSeq  := 0 ,;
+      lnPOS  := 0 as int
+
+local laWSET     := {} ,;
+      laCONT     := {} ,;
+      laLOG      := {} ,;
+      laDIMENSAO := {} ,;
+      lcFields   := {} ,;
+      laTMP      := {} ,;
+      laFROMTO   := {},;
+      laSEQ      := {},;
+      laRES      := {},;
+      laCARGA    := {} as array
+
+local lnid_integracao := 0 ,;
+      lntp_integracao := 0 ,;
+      lnnr_sequencia  := 0
+local llErro := .f.,;
+      llDebug := .f.
+
+// Simular o consumo do webservice
+
+
+
+lcTABLE        := 'seq_interfaces'
+laFIELDS       := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+lcwhere        := 'PROGRAM='+DLAP+'mnt_sinistro_web_html'+DLAP
+if db_select({'nr_sequencia + 1 as nr_sequencia' },lctable,,{lcwhere}) == -1
+   error_sys(db_error())
+endif
+laSeq := db_fetchrow()
+lnSeq := laSeq[1]
+// Atualiza o valor da sequencia na tabela
+if db_update({{'NR_SEQUENCIA'},{lnSeq}},lcTABLE,{lcWhere}) == -1
+   error_sys(db_error())
+endif
+
+lcNR_SINISTRO := WGET('NR_SINISTRO','C')
+lcCD_RAMOSRSN := WGET('CD_RAMOSRSN','C')
+lcACTION      := WGET('ACTION','C')
+lnID_INTEGRACAO := 100
+lnTP_INTEGRACAO := 0
+
+WPUT('NR_SINISTRO',lcNR_SINISTRO)
+WPUT('CD_RAMOSRSN',lcCD_RAMOSRSN)
+WPUT('ID_INTEGRACAO',lnSeq)
+WPUT('TP_INTEGRACAO',lNTP_INTEGRACAO)
+
+if lcACTION == 'CONSULTAR'
+   llDebug := iif(upper(WSet('WSDEBUG'))=='ENABLED',.t.,.f.)
+   //
+   // Glauber 01/02/2015 - Pasta 6277
+   //
+   if (VerifSinistro(WGet('NR_PASTA'), lcNR_SINISTRO))
+      return
+   endif
+
+   if ( ! llDebug)
+
+         if empty(WSet('PATHWSUNIMED'))
+             WAlert('Path da aplicação de consumo webservice não configurada no wprofile')
+            llErro := .t.
+         endif
+         if ! llErro
+            lcPath := WSet('PATHWSUNIMED')
+            if ! file(lcPath+WSet('WSAPPNAME'))
+               WAlert('Aplicação de consumo webservice não esta presente no diretório informado no wprofile')
+               llErro := .t.
+            endif
+         endif
+         laCONF := RetornaConfWS()
+         if len(laCONF) > 0
+
+      //      laRESULT := {{'NR_SINISTRO','CD_RAMOSRSN','NR_CONTROLE'},;
+      //                   {'770500001','93','1'}}
+
+            laRESULT := {{'NR_SINISTRO','CD_RAMOSRSN','NR_CONTROLE'},;
+                         {lcNR_SINISTRO, lcCD_RAMOSRSN, alltrim(transform(lnSeq,'999999'))}}
+            // Consultar os dados do sinsitro
+            lcEnv  := lcPath + 'ENV' + Wset('LOGIN') +'_'+Dtos(Date())+strtran(time(),':','') +'.XML'
+            lcRet  := lcPath + 'RET' + Wset('LOGIN') +'_'+Dtos(Date())+strtran(time(),':','')+ '.XML'
+            // Trata o header do resultset antes de enviar o mesmo para o processamento do parser
+            for ii := 1 to len(laRESULT[1])
+                laRESULT[1,ii] := lower(laRESULT[1,ii])
+            next ii
+
+            lcParser := Parser2Str(laCONF[2,1],laRESULT) // Função presente na func_wic.wh
+            if llDebug
+              wout('<BR> Gravando arquivo de envio:'+lcENV+'</BR>')
+            endif
+            GravaArquivo(lcEnv,lcParser) // Função estatica neste programa que grava o xml
+
+            // Executa o pedido das informações
+            //lcRun := lcPath + 'InsoUnimedWsConsumer.exe IntegracaoIsj ' + lcEnv + ' ' + lcRet
+            lcRun := lcPath + WSet('WSAPPNAME')+' '+laCONF[2,7]+' ' + lcEnv + ' ' + lcRet
+            if llDebug
+               lcRun += ' > LOGWS.LOG'
+            endif
+            if llDebug
+              wout('<BR> Executando a aplicação:'+lcRun+'</BR>')
+            endif
+            ! (lcrun)
+
+            // Aguarda o tempo da resposta
+            inkey(laCONF[2,6])
+            // Obter o conteúdo da pesquisa
+            if (! file(lcRet))
+               Walert('Erro ao receber o arquivo de retorno.Arquivo de retorno não existe:'+lcRet)
+               wout('<BR> Arquivo de retorno não encontrado:'+lcRet+'</BR>')
+               llErro := .t.
+            endif
+            lcTMP  := GetFileContent(lcRet) // Resgata o conteúdo do arquivo de retorno
+            lcERRO := TrataErroWS(lcTMP) // Verifica se no conteúdo do retorno contém algum erro.
+            if ! empty(lcERRO)
+                WAlert('ATENÇÃO: '+lcERRO)
+                llErro := .t.
+                // Glauber 29/03/2012
+                // Conforme solicitado pelo Kleberney, quando ocorrer algum erro limpar o conteúdo do campo nr_sinistro e cd_ramosrsn
+                // não gerando o error_sys
+                WPut('NR_SINISTRO','')
+                WPut('CD_RAMOSRSN','')
+      //          error_sys('Conteúdo do retorno: '+lcTMP)
+            endif
+            if ! llErro
+               lcTMP := strtran(lcTMP,'<sinistro>','')
+               lcTMP := strtran(lcTMP,'</sinistro>','')
+               laTMP := str2array(lcTMP,{'<','/>'})
+
+               // Processa o conteúdo do xml para montar o array do WPut
+               // Setar o campo fl_statusinterface sempre como 3
+               aadd(laWSET,{'FL_STATUSINTERFACE','3'})
+               for lnII := 1 to (len(laTMP)-1)
+                 if ! empty(laTMP[lnII,2])
+                   lcTMP := substr(laTMP[lnII,2],(at('="',laTMP[lnII,2])+2), len(laTMP[lnII,2])-1)
+                   lcTMP := strtran(lcTMP,'"','')
+                   lcLABEL := Upper(substr(laTMP[lnII,2],1,at('="',laTMP[lnII,2])-1))
+                   if lnII == 1
+                      aadd(laWset,{'NR_SINISTRO',lcTMP})
+                   elseif lnII == 2 // ID_INTEGRACAO
+                      aadd(laWset,{'ID_INTEGRACAO',lcTMP})
+                   elseif lnII == 3 // TP_INTEGRACAO
+                      aadd(laWset,{'TP_INTEGRACAO',lcTMP})
+                   elseif lnII == 4 // RAMO
+                      // Glauber 05/04/2011
+                      // Erro Intermitente no ie
+                      //aadd(laWset,{'CD_RAMOSRSN',lcTMP})
+                   elseif lnII == 5 // STATUS_SINISTRO
+                      // Glauber 11/01/2011
+                      // Conforme solicitado pela Roberta fazer um de/para com os seguintes valores:
+                      //
+                      // 1 -> Liberado
+                      // 2 -> Pendente
+                      // 3 -> Recusado
+                      // 4 -> Liberado Parcial
+                      //
+                      // aadd(laWset,{'FL_SINISTRO',lcTMP})
+                      if alltrim(lcTMP) == '1'
+                         aadd(laWset,{'FL_SINISTRO','Liberado'})
+                      elseif alltrim(lcTMP) == '2'
+                             aadd(laWset,{'FL_SINISTRO','Pendente'})
+                      elseif alltrim(lcTMP) == '3'
+                             aadd(laWset,{'FL_SINISTRO','Recusado'})
+                      elseif alltrim(lcTMP) == '4'
+                             aadd(laWset,{'FL_SINISTRO','Liberado Parcial'})
+                      endif
+                   elseif lnII == 6 // PAGTO_PENDENTES
+                      aadd(laWset,{'PAGTO_PENDENTES',lcTMP})
+                   elseif lnII == 7 // PAGTO_AGENDADOS
+                      aadd(laWset,{'PAGTO_AGENDADOS',lcTMP})
+                   elseif lnII == 8 // TP_SINISTRO
+                      // Glauber 09/03/2011
+                      // Fazer outro de/para conforme solicitado pela Unimed
+                      // Segue abaixo a tabela
+                      // 11 Vida em Grupo
+                      // 12 Acidentes Pessoais
+                      // 13 SERIT
+                      // 14 Benefícios
+                      // 15 Assistências
+                      // 16 Serit Modular
+                      // 17 Proteção Familiar
+                      // 18 Prestamista
+                      // 19 VG com Serit atrelado
+                      // 20 Proteção Financeira
+                      if lcTMP == '11'
+                         aadd(laWset,{'TP_SINISTRO','Vida em Grupo'})
+                      elseif lcTMP == '12'
+                         aadd(laWset,{'TP_SINISTRO','Acidentes Pessoais'})
+                      elseif lcTMP == '13'
+                         aadd(laWset,{'TP_SINISTRO','SERIT'})
+                      elseif lcTMP == '14'
+                         aadd(laWset,{'TP_SINISTRO','Benefícios'})
+                      elseif lcTMP == '15'
+                         aadd(laWset,{'TP_SINISTRO','Assistências'})
+                      elseif lcTMP == '16'
+                         aadd(laWset,{'TP_SINISTRO','Serit Modular'})
+                      elseif lcTMP == '17'
+                         aadd(laWset,{'TP_SINISTRO','Proteção Familiar'})
+                      elseif lcTMP == '18'
+                         aadd(laWset,{'TP_SINISTRO','Prestamista'})
+                      elseif lcTMP == '19'
+                         aadd(laWset,{'TP_SINISTRO','VG com Serit atrelado'})
+                      elseif lcTMP == '20'
+                         aadd(laWset,{'TP_SINISTRO','Proteção Financeira'})
+                         //aadd(laWset,{'TP_SINISTRO',lcTMP})
+                      endif
+
+
+                      if db_select({'TP_SINISTRO'},'tipo_sinistro',,{'TP_SINISTRO='+DLAP+laWset[len(laWset),2]+DLAP}) == -1
+                         error_sys(db_error())
+                      endif
+
+
+
+                   elseif lnII == 9 // UF
+                      aadd(laWset,{'UF',lcTMP})
+                   elseif lnII == 10 // CNPJ_CPF
+                      aadd(laWset,{'CNPJ_CPF',lcTMP})
+                      lcCPF := lcTMP
+                   elseif lnII == 11 // NOME_SEGURADO
+                      aadd(laWset,{'NOME_SEGURADO',lcTMP})
+                      lcPFPJ := lcTMP
+                   elseif lnII == 12 // DATA_SINISTRO
+                      aadd(laWset,{'DT_SINISTRO',CTOD(substr(lcTMP,7,2)+'/' + substr(lcTMP,5,2)+'/' +substr(lcTMP,1,4)) })
+                   elseif lnII == 13 // DATA_BAIXA
+                      aadd(laWset,{'DT_BAIXA',CTOD(substr(lcTMP,7,2)+'/' + substr(lcTMP,5,2)+'/' +substr(lcTMP,1,4)) })
+                   elseif lnII == 14 // NR_APOLICE
+                      aadd(laWset,{'NR_APOLICE',lcTMP})
+                   elseif lnII == 15 // STATUS_APOLICE
+                      aadd(laWset,{'FL_APOLICE',lcTMP})
+                   elseif lnII == 16 // NR_PROPOSTA
+                      aadd(laWset,{'NR_PROPOSTA',lcTMP})
+                   elseif lnII == 17 // DATA_CONTRATACAO
+                      aadd(laWset,{'DT_CONTRATACAO',CTOD(substr(lcTMP,7,2)+'/' + substr(lcTMP,5,2)+'/' +substr(lcTMP,1,4))})
+                   elseif lnII == 18 // VALOR_PREMIO_PAGO
+                      lcTMP := strtran(lcTMP,'.','')
+                      lcTMP := strtran(lcTMP,',','.')
+                      aadd(laWset,{'VL_PREMIO_PAGO',val(lcTMP)})
+                   elseif lnII == 19 // DATA_PAGTO_PREMIO
+                      aadd(laWset,{'DATA_PAGTO_PREMIO',CTOD(substr(lcTMP,7,2)+'/' + substr(lcTMP,5,2)+'/' +substr(lcTMP,1,4))})
+                   elseif lnII == 20 // DATA_AVISO
+                      aadd(laWset,{'DT_AVISO',CTOD(substr(lcTMP,7,2)+'/' + substr(lcTMP,5,2)+'/' +substr(lcTMP,1,4))})
+                   elseif lnII == 21 // NR_ENDOSSO
+                      aadd(laWset,{'NR_ENDOSSO',lcTMP})
+                   elseif lnII == 22 // CD_CORRETOR
+                      aadd(laWset,{'CD_CORRETOR',lcTMP})
+                   elseif lnII == 23 // CD_ESTIPULANTE
+                      aadd(laWset,{'CD_ESTIPULANTE',lcTMP})
+                   elseif lnII == 24 // FL_COSSEGURO
+                      aadd(laWset,{'FL_COSSEGURO',lcTMP})
+                   elseif lnII == 25 // NR_COSSEGURO_ORDEM
+                      aadd(laWset,{'NR_COSSEGURO_ORDEM',lcTMP})
+                   elseif lnII == 26 // PC_COSSEGURO
+                      aadd(laWset,{'PC_COSSEGURO',val(lcTMP)})
+                   elseif lnII == 27 // CNPJ_CONGENERE
+                      aadd(laWset,{'CNPJ_CONGENERE',lcTMP})
+                   elseif lnII == 28 // NR_COBERTURA
+                      aadd(laWset,{'NR_COBERTURA',lcTMP})
+                   elseif lnII == 29 // NM_LMI_COBERTURA
+                      aadd(laWset,{'NM_LMI_COBERTURA',lcTMP})
+                   elseif lnII == 30 // VL_LMI
+                      aadd(laWset,{'VL_LMI',lcTMP})
+                   elseif lnII == 31 // VL_SINISTRADO
+                      lcTMP := strtran(lcTMP,'.','')
+                      lcTMP := strtran(lcTMP,',','.')
+                      aadd(laWset,{'VL_SINISTRADO',val(lcTMP)})
+// Glauber 03/07/2017 - Fase II Evida
+                   elseif lnII == 32 // ID_PRODUTO_COBERTURA
+                      aadd(laWset,{'ID_PRODUTO_COBERTURA',lcTMP})
+                   elseif lnII == 33 // ID_ENDOSSO
+                      aadd(laWset,{'ID_ENDOSSO',lcTMP})
+                   elseif lnII == 34 // COB_BASEADA_DIARIAS
+                      aadd(laWset,{'COB_BASEADA_DIARIAS',lcTMP})
+                   elseif lnII == 35 // COB_BASEADA_PARCELAS
+                      aadd(laWset,{'COB_BASEADA_PARCELAS',lcTMP})
+
+                   endif
+                 endif
+               next lnII
+
+               //debug2(laTMP,,30)
+               // Atualiza a tela com os valores retornados
+               for lnII := 1 to len(laWset)
+                   Wput(laWset[lnII,1],laWset[lnII,2])
+               next lnII
+               // Pesquisa o segurado na tabela pfpj
+               if ! empty(lcCPF)
+
+                  if db_select({'CIP','PFPJ'},'pfpj',,{'CNPJ_CPF='+DLAP+lcCPF+DLAP}) == -1
+                     error_sys(db_error())
+                  endif
+                  laRES := db_fetchall()
+                  if len(laRES) > 1
+                     WPUT('CIP_SEGURADO',laRES[2,1])
+                     WPUT('PFPJ',laRES[2,2])
+                  else
+                     if db_insert({{'PFPJ',;
+                                    'PFPJ_CHAR',;
+                                    'CNPJ_CPF',;
+                                    'PFPJ_TIPOS',;
+                                    'PFPJ_NATUREZA',;
+                                    'LOGIN_CADASTRO',;
+                                    'DT_CADASTRO',;
+                                    'DT_ENTRADA'},;
+                                    {lcPFPJ,;
+                                    lower(lat2char(lcPFPJ)),;
+                                    lcCPF,;
+                                    'SEG',;
+                                    iif(len(lcCPF) > 11,'Juridica','Fisica'),;
+                                    'webservice',;
+                                    date(),;
+                                    date()}},'pfpj') == -1
+                        error_sys(db_error())
+                     else
+                        lnTMP := db_insert_id()
+                        if db_update({{'CIP'},{str(lnTMP)}},'pfpj',{'CNPJ_CPF='+DLAP+lcCPF+DLAP}) == -1
+                           error_sys(db_error())
+                        endif
+                        WPUT('CIP_SEGURADO',alltrim(str(lnTMP)))
+                        WPUT('PFPJ',lcPFPJ)
+                     endif
+                  endif
+               endif
+               // Grava o log com o resultado da consulta
+               GravaLogSeguro(laWset) // Geracao do registro de log com os dados de retorno da consulta
+            endif
+         endif
+   else
+        TesteSan()
+        GravaLogSeguro(laWSet)
+   endif
+endif
+
+return
+
+
+/*
+* Data......: 02/09/2010 - Glauber
+* Function..: GravaLogSeguro()
+* Objetivo..: Grava os dados do seguro na tabela de log.
+* Parâmetros:
+* Retorno...: nada
+*/
+
+Static Function GravaLogSeguro(paWSet)
+
+   local laSAVE   := {},;
+         laTMP    := {},;
+         laFROMTO := {} as array
+   local lnii     := 0  as int
+   local lcTMP    := '' as string
+
+   laFROMTO := {{'NR_PASTA','NR_PASTA',''},;
+                {'NR_CONTROLE','NR_CONTROLE',''},;
+                {'CD_MOEDA','CD_MOEDA',''},;
+                {'SINISTRO_NUMERO','NR_SINISTRO',''},;
+                {'ID_INTEGRACAO','NR_SINISTRO',''},;
+                {'TP_INTEGRACAO','NR_SINISTRO',''},;
+                {'CD_RAMOSRSN','CD_RAMOSRSN',''},;
+                {'FL_SINISTRO','FL_SINISTRO',''},;
+                {'PAGTO_PENDENTES','PAGTO_PENDENTES',''},;
+                {'PAGTO_AGENDADOS','PAGTO_AGENDADOS',''},;
+                {'TP_SINISTRO','TP_SINISTRO',''},;
+                {'UF','UF',''},;
+                {'CNPJ_CPF','CIP_SEGURADO',''},;
+                {'NOME_SEGURADO','PFPJ',''},;
+                {'DATA_SINISTRO','DT_SINISTRO', ''},;
+                {'DATA_BAIXA','DT_BAIXA', ''},;
+                {'NR_APOLICE','PFPJ',''},;
+                {'STATUS_APOLICE','FL_APOLICE',''},;
+                {'NR_PROPOSTA','NR_PROPOSTA',''},;
+                {'DATA_CONTRATACAO','DT_CONTRATACAO',''},;
+                {'VALOR_PREMIO_PAGO','VL_PREMIO_PAGO',''},;
+                {'DATA_PAGTO_PREMIO','DT_PAGTO_PREMIO',''},;
+                {'DATA_AVISO','DT_AVISO',''},;
+                {'NR_ENDOSSO','NR_ENDOSSO',''},;
+                {'CD_CORRETOR','CD_CORRETOR',''},;
+                {'CD_ESTIPULANTE','CIP_ESTIPULANTE',''},;
+                {'FL_COSSEGURO','FL_COSSEGURO',''},;
+                {'NR_COSSEGURO_ORDEM','',''},;
+                {'PC_COSSEGURO','FL_COSSEGURO',''},;
+                {'CNPJ_CONGENERE','',''},;
+                {'NR_COBERTURA','',''},;
+                {'NM_LMI_COBERTURA','NM_LMI_COBERTURA1',''},;
+                {'VL_LMI','VL_LMI1',''}}
+   lcTMP := '                Retorno da Consulta Webservice' + CRLF
+   lcTMP := '--------------------------------------------------------------------------' +CRLF
+   // Preencher o fromto com os dados da tela
+   for lnii := 1 to len(paWSet)
+       if paWSet[lnii,1] == 'CD_MOEDA'
+          paWSet[lnii,2] := 1
+       else   
+          //laFROMTO[lnii,3] := WGet(laFROMTO[lnii,1],wmd_fieldtype(laFROMTO[lnii,2]))
+       endif
+       //aadd(laTMP,laFROMTO[lnii,2])
+       lcTMP += lblfscreen(paWSet[lnii,1]) + ': ' 
+       if valtype(paWSet[lnii,2]) == 'N'
+          lcTMP += str(paWSet[lnii,2]) + CRLF
+       elseif valtype(paWSet[lnii,2]) == 'D' 
+          lcTMP += dtoc(paWSet[lnii,2]) + CRLF
+       else           
+          lcTMP += paWSet[lnii,2] + CRLF
+       endif   
+   next lnii
+   lcTMP += '--------------------------------------------------------------------------' +CRLF
+   //aadd(laSAVE,laTMP)
+   //laTMP := {}
+  // for lnii := 1 to len(laFROMTO)
+  //     aadd(laTMP,laFROMTO[lnii,3])
+ //  next lnii
+   //aadd(laSAVE,laTMP)
+   // Grava o log   
+   if db_insert({{'NR_PASTA','NR_SINISTRO','ID_INTEGRACAO','ID_SERVICO','DT_OPERACAO','HR_OPERACAO','FL_ACAOJUD','RETORNO'},;
+                 {WGet('NR_PASTA'),WGet('NR_SINISTRO'),paWSet[2,2],1,date(),time(),laFROMTO[8,3],lcTMP}},'isjunimedservlog') == -1
+      error_sys(db_error())   
+   endif   
+return
+
+
+/*
+* Data......: 26/08/2010 - Glauber
+* Function..: Xml2Array(pcArquivo)
+* Objetivo..: Abre o arquivo informado em pcArquivo, processa as tags xml, retornando um array de duas colunas onde a primeira é o nome da tag e a segunda o conteudo
+*             da mesma.
+* Parâmetros:
+*  pcArquivo: Nome do arquivo a ser processado
+* Retorno...: Array com o conteúdo do xml processado
+*/
+
+Static Function Xml2Array(pcArquivo)
+
+   local lcAbreTag := '<',;
+         lcIniCont := '"=',;
+         lcFinCont1 := '">' + chr(10),;
+         lcFinCont2 := '"/>' + chr(10),;
+         lcBuffer   := '' as string
+   local lnHandle   := 0,;
+         lnTam      := 0  as int
+   local laBuffer   := {}  as Array
+   lnHandle := fopen(pcArquivo,0)
+   if lnHandle < 0 .or. ferror() > 0
+      error_sys('Erro ao abrir o arquivo:' + pcArquivo + '.Codigo do erro:' + str(ferror()))
+      llErro := .t.
+   endif
+   // Posiciona o ponteiro do arquivo no final do mesmo a fim de obter o tamanho do arquivo para fazer a devida alocação de memória para leitura
+   lnTam := Fseek(lnHandle,0,2)
+   // Aloca a memória, este procedimento é obrigatório, pois senão alocar o espaço do buffer o conteúdo retornado por fread é o tamanho da variável de memória.
+   lcBuffer := space(lnTam)
+   // Posiciona novamente no começo do arquivo para efetivar a leitura
+   Fseek(lnHandle,0,0)
+   // Fazendo a leitura do conteúdo
+   Fread(lnHandle,@lcBuffer,lnTam)
+   // Fechando o arquivo
+   Fclose(lnHandle)
+  // Faz o tratamento do campo sinistro_numero, pois é o único que não vem com />
+  lcBuffer := strtran(lcBuffer,'">','"/>')
+  laBuffer := str2array(lcBuffer,{'=','/>'})
+  debug2(laBuffer,,80)
+  // outra idéia minha
+  /*
+  lcBuffer := strtran(lcBuffer,'<','{")
+  lcBuffer := strtran(lcBuffer,'="',','"')
+  lcBuffer := strtran(lcBuffer,'">',',',')
+  */  
+  // Depois dos tratamentos agora é só processar o de/para
+return(laBuffer)
+
+    
+Static Function TesteSan()
+
+
+local laWset := {} as array
+local ii := 0 as int
+
+
+   aadd(laWset,{'NR_SINISTRO','123456'})
+   aadd(laWset,{'ID_INTEGRACAO',1})
+   aadd(laWset,{'TP_INTEGRACAO',2})
+   aadd(laWset,{'CD_RAMOSRSN','1009100'})
+   aadd(laWset,{'FL_SINISTRO','Liberado'})
+   aadd(laWset,{'PAGTO_PENDENTES','N'})
+   aadd(laWset,{'PAGTO_AGENDADOS','N'})
+   aadd(laWset,{'TP_SINISTRO','SERIT'})
+   aadd(laWset,{'UF','SP'})
+   aadd(laWset,{'CNPJ_CPF','123.456.789-00'})
+   aadd(laWset,{'NOME_SEGURADO','MANOEL JOAQUIM'})
+   aadd(laWset,{'DT_SINISTRO','30/11/2010' })
+   aadd(laWset,{'DT_BAIXA','30/11/2010' })
+   aadd(laWset,{'NR_APOLICE','123456'})
+   aadd(laWset,{'FL_APOLICE','Ativa'})
+   aadd(laWset,{'NR_PROPOSTA','456'})
+   aadd(laWset,{'DT_CONTRATACAO','30/11/2010'})
+   aadd(laWset,{'VL_PREMIO_PAGO',123.45})
+   aadd(laWset,{'DATA_PAGTO_PREMIO','30/11/2010'})
+   aadd(laWset,{'DT_AVISO','30/11/2010'})
+   aadd(laWset,{'NR_ENDOSSO','789'})
+   aadd(laWset,{'CD_CORRETOR','2'})
+   aadd(laWset,{'CD_ESTIPULANTE','3'})
+   aadd(laWset,{'FL_COSSEGURO','N'})
+   aadd(laWset,{'NR_COSSEGURO_ORDEM','0'})
+   aadd(laWset,{'PC_COSSEGURO',0})
+   aadd(laWset,{'CNPJ_CONGENERE','123.456.789-00'})
+   aadd(laWset,{'NR_COBERTURA','123'})
+   aadd(laWset,{'NM_LMI_COBERTURA','COBERTURA ABC'})
+   aadd(laWset,{'VL_LMI',10})
+   aadd(laWset,{'VL_SINISTRADO',500})
+   aadd(laWset,{'CIP_SEGURADO','10'})
+   aadd(laWset,{'PFPJ','TESTE INSO'})
+
+   for ii := 1 to len(laWset)
+       wput(laWset[ii,1],laWset[ii,2])
+   next ii
+return
+    
+    
+    
+
+
+
+
+
+/*
+* Data......: 02/2016 - Glauber
+* Function..: VerifSinistro(pSINISTRO)
+* Objetivo..: Verifica a existencia do sinistro em alguma pasta do Isj.
+* Parâmetros:
+*
+* pNR_PASTA    : Número da Pasta.
+* pSINISTRO    : Número do Sinistro.
+*
+* Retorno...: .T. Caso exista.
+*/
+
+Function VerifSinistro(pNR_PASTA, pSINISTRO)
+
+
+    local llRET    := .F.
+
+    local ii       := 0,;
+          lnPOS    := 0 as int
+
+    local laFIELDS := {},;
+          laDEPARA := {},;
+          laJOIN   := {},;
+          laRESULT := {} as Array
+
+    local lcWHERE  := 'pasta_seguro.NR_PASTA != ' + ALLTRIM(pNR_PASTA) + ' AND pasta_seguro.NR_SINISTRO = ' + DLAP + alltrim(pSINISTRO) + DLAP
+
+
+
+
+             laDEPARA       := {{'NR_PASTA','NR_PASTA',''},;
+                                {'NR_CONTROLE','NR_CONTROLE',''},;
+                                {'CD_MOEDA','CD_MOEDA',''},;
+                                {'SINISTRO_NUMERO','NR_SINISTRO',''},;
+                                {'CD_RAMOSRSN','CD_RAMOSRSN',''},;
+                                {'FL_SINISTRO','FL_SINISTRO',''},;
+                                {'TP_SINISTRO','TP_SINISTRO',''},;
+                                {'UF','UF',''},;
+                                {'CNPJ_CPF','CNPJ_CPF',''},;
+                                {'NOME_SEGURADO','PFPJ',''},;
+                                {'DT_SINISTRO','DT_SINISTRO', ''},;
+                                {'DT_BAIXA','DT_BAIXA', ''},;
+                                {'NR_APOLICE','NR_APOLICE',''},;
+                                {'FL_APOLICE','FL_APOLICE',''},;
+                                {'NR_PROPOSTA','NR_PROPOSTA',''},;
+                                {'DT_CONTRATACAO','DT_CONTRATACAO',''},;
+                                {'VL_PREMIO_PAGO','VL_PREMIO_PAGO',''},;
+                                {'DATA_PAGTO_PREMIO','DT_PAGTO_PREMIO',''},;
+                                {'DT_AVISO','DT_AVISO',''},;
+                                {'NR_ENDOSSO','NR_ENDOSSO',''},;
+                                {'CD_CORRETOR','CD_CORRETOR',''},;
+                                {'CD_ESTIPULANTE','CIP_ESTIPULANTE',''},;
+                                {'FL_COSSEGURO','FL_COSSEGURO',''},;
+                                {'NR_COSSEGURO_ORDEM','',''},;
+                                {'PC_COSSEGURO','PC_COSSEGURO',''},;
+                                {'CNPJ_CONGENERE','',''},;
+                                {'NR_COBERTURA','',''},;
+                                {'NM_LMI_COBERTURA','LMI_NM_COBERTURA',''},;
+                                {'VL_LMI','LMI_VL',''},;
+                                {'VL_SINISTRADO','LMI_VL_SINISTRADO',''}}
+
+
+
+          laFIELDS := {'pasta_seguro.NR_PASTA,' +;
+                       'pasta_seguro.NR_CONTROLE,' +;
+                       'pasta_seguro.CD_MOEDA,' +;
+                       'pasta_seguro.NR_SINISTRO,' +;
+                       'pasta_seguro.CD_RAMOSRSN,' +;
+                       'pasta_seguro.FL_SINISTRO,' +;
+                       'pasta_seguro.TP_SINISTRO,' +;
+                       'pasta_seguro.UF,' +;
+                       'pasta_seguro_segurado.CIP_SEGURADO,' +;
+                       'pfpj.PFPJ AS PFPJ,' +;
+                       'pfpj.CNPJ_CPF,' +;
+                       'pasta_seguro.DT_SINISTRO,' +;
+                       'pasta_seguro.DT_BAIXA,' +;
+                       'pasta_seguro.NR_APOLICE,' +;
+                       'pasta_seguro.FL_APOLICE,' +;
+                       'pasta_seguro.NR_PROPOSTA,' +;
+                       'pasta_seguro.DT_CONTRATACAO,' +;
+                       'pasta_seguro.VL_PREMIO_PAGO,' +;
+                       'pasta_seguro.DT_PAGTO_PREMIO,' +;
+                       'pasta_seguro.DT_AVISO,' +;
+                       'pasta_seguro.NR_ENDOSSO,' +;
+                       'pasta_seguro.CD_CORRETOR,' +;
+                       'pasta_seguro.CIP_ESTIPULANTE,' +;
+                       'pasta_seguro.FL_COSSEGURO,' +;
+                       'pasta_seguro.PC_COSSEGURO,' +;
+                       'pasta_seguro_lmi.LMI_NM_COBERTURA AS NM_LMI_COBERTURA,' +;
+                       'pasta_seguro_lmi.LMI_VL AS VL_LMI,' +;
+                       'pasta_seguro_lmi.LMI_VL_SINISTRADO AS VL_SINISTRADO' }
+
+         AADD(laJOIN, {2,'PASTA_SEGURO_SEGURADO','pasta_seguro_segurado.NR_PASTA = pasta_seguro.NR_PASTA AND pasta_seguro_segurado.NR_CONTROLE = pasta_seguro.NR_CONTROLE '})
+         AADD(laJOIN, {2,'PASTA_SEGURO_LMI','pasta_seguro_lmi.NR_PASTA = pasta_seguro.NR_PASTA AND pasta_seguro_lmi.NR_CONTROLE = pasta_seguro.NR_CONTROLE '})
+         AADD(laJOIN, {2,'PFPJ','pfpj.CIP = pasta_seguro_segurado.CIP_SEGURADO '})
+         AADD(laJOIN, {2,'PFPJ PFPJ_FILIAL','pfpj_filial.CIP = pasta_seguro.CIP_FILIAL '})
+
+         if db_select(laFIELDS,'PASTA_SEGURO', laJOIN, {lcWHERE}, {'pasta_seguro.NR_CONTROLE '},'D',,{0,1}) == -1
+            error_sys(db_error())
+         endif
+
+         laRESULT := db_fetchall()
+
+         if (len(laRESULT) > 1)
+             llRET := .T.
+
+//             aadd(laWSET,{'FL_STATUSINTERFACE','3'})
+
+//             for ii := 1 to len(laDEPARA)
+//                 if ! Empty(laDEPARA[ii,2])
+//                    lnPOS := ascan(laRESULT[1],laDEPARA[ii,2])
+//                    if (lnPOS > 0)
+//                       WPut(laDEPARA[ii,1],laRESULT[2,lnPOS])
+//                    endif
+//                 endif
+//                next ii
+               for ii := 1 to len(laRESULT[1])
+                   WPut(laRESULT[1,ii],laRESULT[2,ii])
+                   if (laRESULT[1,ii] == 'PFPJ')
+                       WPut('CIP_SEGURADO_PFPJ',laRESULT[2,ii])
+                       WPut('NOME_SEGURADO',laRESULT[2,ii])
+                   endif
+
+               next ii
+
+
+
+         endif
+
+
+
+
+return llRET
+
+
+
+
+

@@ -1,0 +1,74 @@
+/*
+
+Project      : gr5
+Program      : sch.cidade.html
+Function     : sch_cidade_html
+Created on   : 07/10/2014 09:29:16
+Descripition : Busca de cidade
+
+*/
+
+   local laFIELDS       := {},;
+         laJAVA         := {},;
+         laORDER        := {},;
+         laINPUT_HIDDEN := {},; 
+         laQUICK_SEARCH := {} as array  
+         
+   local lcNM_FLD  := WGet('NM_FIELD','C'),;
+         lcNM_FLD2 := WGet('NM_FIELD2','C') as string 
+         
+   if empty(lcNM_FLD)
+      lcNM_FLD := 'ID_CIDADE'
+   endif
+
+   if empty(lcNM_FLD2)
+      lcNM_FLD2 := 'CIDADE'
+   endif         
+         
+         
+                     
+   
+   laFIELDS       := {'ID_CIDADE','CIDADE'}
+   
+   laJAVA         := {'mntform',{{lcNM_FLD,'ID_CIDADE'},{lcNM_FLD2,'CIDADE'}}}  
+
+   * ABAIXO FUNCIONA
+   *laJAVA         := {'mntform',{{'ID_CIDADE_RESIDENCIA','ID_CIDADE'},;
+   *                             {'CIDADE_RESIDENCIA','CIDADE'}}} 
+                                 
+                                 
+   
+   
+   
+   laQUICK_SEARCH := {'CIDADE'}
+   laWHERE        := {'FL_ATIVO <> '+DLAP+'I'+DLAP}
+   laORDER        := {'CIDADE'}
+                                                                                       
+   xbp2('cidade',;                                                                            //Tabela Alvo
+        ,;                                                                                    //Join
+        laWHERE,;                                                                             //Where
+        laORDER,;                                                                             //Order by
+        'A',;                                                                                 //Sort [A]-Ascendente [D]-Descentende
+        ,;                                                                                    //Group by
+        ,;                                                                                    //Limit
+        ,;                                                                                    //Banco de Dados
+        3,;                                                                                   //Modo de funcionamento [1]-Listagem/Form para manutenção [2]-Listagem e Manutenção [3]-Search
+        'gr5',;                                                                               //Modulo do programa chamador
+        WSet('_USER_INTERFACE'),;                                                             //Programa chamador
+        ,;                                                                                    //Parametros para linhas clicáveis
+        ,;                                                                                    //Botoes (nil)
+        'cidade.mnt.html',;                                                                   //Programa chamado pelos links (linhas clicáveis)
+        'gr5',;                                                                               //Módulo do programa chamado pelos links
+        laJAVA,;                                                                              //Retorno java (nil) - usado apenas no search
+        laQUICK_SEARCH,;                                                                      //Campos usados na pesquisa rápida
+        {{'NM_FIELD',lcNM_FLD},{'NM_FIELD2',lcNM_FLD2}},;                                     //Campos ocultos. Usado apenas em manutenções    ***
+        ,;                                                                                    //Campos da área de manutenção/entrada de dados  ***
+        laFIELDS,;                                                                            //Campos mostratos no grid
+        laFIELDS)                                                                             //Campos usados no select
+return
+
+
+
+
+
+

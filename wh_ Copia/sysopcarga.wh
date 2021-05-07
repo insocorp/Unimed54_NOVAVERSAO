@@ -1,0 +1,363 @@
+/*
+
+Project      : gr5
+Program      : sysopcarga
+Function     : sysopcarga
+Created on   : 14-Jun-2005   14:56:35
+Descripition : Integração com Sistema de recuperação de ativos
+
+*/
+
+   local laRes1   := {} ,;
+         laRes2   := {} ,;
+	 laRes3   := {} ,;
+         laRes4   := {} ,;
+	 laRESULT := {} ,;
+         laFIELDS1:= {} ,;
+         laFIELDS2:= {} ,;
+         laFIELDS3:= {} ,;
+         laFIELDS4:= {} ,;
+	 laSAVE1  := {} ,;
+	 laSAVE2  := {} ,;
+	 laSAVE3  := {} ,;
+	 laSAVE4  := {} ,;
+	 laWHERE  := {} as array
+   local lcWHERE  := '' ,;
+         lcWHERE1 := '' ,;
+         lcINSTANCIA := '' ,;
+	 lcDBACTIVE  := '' as string
+   local ii       := 0  ,;
+         lnREG    := 0  ,;
+	 lnPASTA  := 0  ,;
+	 lnPOS    := 0  as int
+   /*---------------------------------------------------------------------
+                         Conectar no banco  SYSOPEN
+   ---------------------------------------------------------------------*/
+
+   lcINSTANCIA := wset('INSTANCE_GR5')
+   lcDBACTIVE  := wset('DB_ACTIVE')
+   db_disconnect(lcDBACTIVE)
+
+   pub_var() // inicializa as variaveis publicas
+
+   WSet('_PROJECT'  ,'sysopen')  // open DB project
+   WSet('_WF_STATUS','DISABLE')  //Desabilita o WF
+
+   gaDBS := {'SYSOPEN'}
+   db_active('SYSOPEN')
+   db_init('SYSOPEN')
+
+   // conexao com o banco e dados
+   if db_connect('SYSOPEN',;
+                 'SYSOPEN',;
+                 WSet('HOST_GR5'),;
+                 WSet('PORT_GR5'),;
+                 WSet('USER_GR5'),;
+                 WSet('PASS_GR5')) != 0
+      qout('db_connect -> ' + db_error())
+      return
+   endif
+
+   qout('Conectado no banco auxiliar SYSOPEN')
+   qout('Erro de conecção ?  -> '+db_error())
+
+   /* ---------------------------------------------------------------------------
+                 Selecionando os dados da tabela tbl_clientes_jur
+   ----------------------------------------------------------------------------*/
+   lcWHERE   := 'DAT_IMPORT is NULL '//or DAT_IMPORT = '+DLAP+DLAP
+   laFIELDS1 := {'COD_CREDOR'     , 'DES_REGIS'      , 'DES_CPF'        , 'NOM_CLIEN'      , 'DAT_NASCI',;
+                 'DES_ENDER_RESID', 'DES_NUMER_RESID', 'DES_COMPL_RESID', 'DES_BAIRR_RESID', 'DES_CIDAD_RESID',;
+		 'DES_ESTAD_RESID', 'DES_CEP_RESID'  , 'IND_ESTAD_CIVIL', 'DES_EMAIL'}
+
+   if db_select(laFIELDS1,'tbl_clientes_jur',,{lcWHERE} ) == -1
+      qout("Ultimo Comando -> " + wset("_LASTSQL"))
+      qout( "Erro: " + db_error())
+   endif
+   laRES1 := db_fetchall()
+
+   if len(laRES1) > 1
+      lcWHERE1 :=  '( cod_credor = '+DLAP+laRES1[2,1]+DLAP +' and des_regis = '+DLAP+laRES1[2,2]+DLAP+')'
+      for ii := 3 to len(laRES1)
+          lcWHERE1 +=  ' or ( cod_credor = '+DLAP+laRES1[ii,1]+DLAP +' and des_regis = '+DLAP+laRES1[ii,2]+DLAP+')'
+      next ii
+      if db_update({{"DAT_IMPORT"},{date()}},'tbl_clientes_jur',{lcWHERE1}) == -1 
+         qout("Erro Update -> "+db_error())
+         qout("Ultimo Comando -> " + wset("_LASTSQL"))
+      endif
+   endif
+   /* ---------------------------------------------------------------------------
+               Selecionando os dados da tabela tbl_contratos_jur
+    ---------------------------------------------------------------------------*/
+   laFIELDS2 := {'COD_CREDOR', 'DES_REGIS'      , 'COD_PRODUT', 'DES_CONTR' , 'VAL_COMPR',;
+                 'VAL_ENTRA' , 'DAT_INICI_CONTR', 'QTD_PREST' , 'COD_MOEDA' , 'VAL_TAXA_CONTR',;
+                 'DAT_NEGAT' , 'DAT_REABI'      , 'DAT_INCON' , 'IND_SITUA' , 'DES_BEM'}
+
+   if db_select(laFIELDS2,'tbl_contratos_jur',,{lcWHERE} ) == -1 
+      qout("Ultimo Comando -> " + wset("_LASTSQL"))
+      qout( "Erro: " + db_error())
+   endif
+   laRES2 := db_fetchall()
+   if len(laRES2) > 1
+      lcWHERE1 :=  '( COD_CREDOR = '+DLAP+laRES2[2,1]+DLAP+' and DES_REGIS = '+DLAP+laRES2[2,2]+DLAP+;
+                ' and COD_PRODUT = '+DLAP+laRES2[2,3]+DLAP+' and DES_CONTR = '+DLAP+laRES2[2,4]+DLAP+')'
+      for ii := 3 to len(laRES2)
+          lcWHERE1 +=  ' or ( COD_CREDOR = '+DLAP+laRES2[ii,1]+DLAP+' and DES_REGIS = '+DLAP+laRES2[ii,2]+DLAP+;
+                       ' and COD_PRODUT = ' +DLAP+laRES2[ii,3]+DLAP+' and DES_CONTR = '+DLAP+laRES2[ii,4]+DLAP+')'
+      next ii
+      if db_update({{"DAT_IMPORT"},{date()}},'tbl_contratos_jur',{lcWHERE1}) == -1 
+         qout("Erro Update -> "+db_error())
+         qout("Ultimo Comando -> " + wset("_LASTSQL"))
+      endif
+   endif
+   /* ---------------------------------------------------------------------------
+               Selecionando os dados da tabela tbl_Prestacoes_jur
+    ---------------------------------------------------------------------------*/
+   laFIELDS3 := {'COD_CREDOR', 'DES_REGIS', 'COD_PRODUT', 'DES_CONTR', 'DAT_VENCI', 'NUM_PREST',;
+                 'DAt_CORRE' , 'VAL_PRINC', 'VAL_CORRE' , 'VAL_MINIM', 'IND_AJUIZ', 'NUM_NOTIF',;
+                 'DAT_EMISS_NOTIF'}
+   if db_select(laFIELDS3,'tbl_Prestacoes_jur',,{lcWHERE} ) == -1 
+      qout("Ultimo Comando -> " + wset("_LASTSQL"))
+      qout( "Erro: " + db_error())
+   endif
+   laRES3 := db_fetchall()
+   if len(laRES3) > 1
+      lcWHERE1 :=  '( COD_CREDOR = '+DLAP+laRES3[2,1]+DLAP+' and DES_REGIS = '+DLAP+laRES3[2,2]+DLAP+;
+                ' and COD_PRODUT = '+DLAP+laRES3[2,3]+DLAP+' and DES_CONTR = '+DLAP+laRES3[2,4]+DLAP+;
+		' and DAT_VENCI  = '+DLAP+laRES3[2,5]+DLAP+')'
+      for ii := 3 to len(laRES3)
+         lcWHERE1 +=  ' or ( COD_CREDOR = '+DLAP+laRES3[ii,1]+DLAP+' and DES_REGIS = '+DLAP+laRES3[ii,2]+DLAP+;
+                       ' and COD_PRODUT = '+DLAP+laRES3[ii,3]+DLAP+' and DES_CONTR = '+DLAP+laRES3[ii,4]+DLAP+;
+		       ' and DAT_VENCI  = '+DLAP+laRES3[ii,5]+DLAP+')'
+      next ii
+      if db_update({{"DAT_IMPORT"},{date()}},'tbl_Prestacoes_jur',{lcWHERE1}) == -1 
+         qout("Erro Update -> "+db_error())
+         qout("Ultimo Comando -> " + wset("_LASTSQL"))
+      endif
+   endif
+   /* ---------------------------------------------------------------------------
+                 Selecionando os dados da tabela tbl_ocorrencias_jur
+   ----------------------------------------------------------------------------*/
+   laFIELDS4 := {'COD_CREDOR', 'DES_REGIS', 'DAT_ATUAL' , 'COD_HISTO',;
+                 'COD_OPERA' , 'IND_MONIT', 'DES_COMPL_HISTO'}
+   if db_select(laFIELDS4,'tbl_ocorrencias_jur',,{lcWHERE} ) == -1 
+      qout("Ultimo Comando -> " + wset("_LASTSQL"))
+      qout( "Erro: " + db_error())
+   endif
+   laRES4 := db_fetchall()
+   if len(laRES4) > 1         // faz o update em DAT_IMPORT = date()
+      lcWHERE1 :=  '( COD_CREDOR = '+DLAP+laRES4[2,1]+DLAP+' and DES_REGIS = '+DLAP+laRES4[2,2]+DLAP+;
+		' and DAT_ATUAL = ' +DLAP+laRES4[2,3]+DLAP+')'
+      for ii := 3 to len(laRES4)
+         lcWHERE1 +=  ' or ( COD_CREDOR = '+DLAP+laRES4[ii,1]+DLAP+' and DES_REGIS = '+DLAP+laRES4[ii,2]+DLAP+;
+		       ' and DAT_ATUAL  = '+DLAP+laRES4[ii,3]+DLAP+')'
+      next ii
+      if db_update({{"DAT_IMPORT"},{date()}},'tbl_ocorrencias_jur',{lcWHERE1}) == -1 
+         qout("Erro Update -> "+db_error())
+         qout("Ultimo Comando -> " + wset("_LASTSQL"))
+      endif
+   endif
+
+
+   /*------------------------------------------------------------------------
+                    Reconectar no banco  GR5 / GR5Developer
+   ------------------------------------------------------------------------*/
+   db_disconnect('SYSOPEN')
+   gaDBS := {'GR5'}
+   wset('DB_GR5',lcDBACTIVE)
+   wset('INSTANCE_GR5',lcINSTANCIA)
+   wset('DB_ACTIVE',lcDBACTIVE)
+   db_active(lcDBACTIVE)
+   db_init(lcDBACTIVE)
+   if db_connect('GR5',;
+           WSet("INSTANCE_GR5"),;
+           WSet("HOST_GR5"),;
+           WSet("PORT_GR5"),;
+           WSet("USER_GR5"),;
+           WSet("PASS_GR5")) != 0
+      error_sys("db_connect -> "+db_error('GR5'))
+   endif
+
+   qout('Conectado no banco principal GR5')
+   qout(db_error('GR5'))
+
+   // Atualizando a tabela PFPJ
+   if len(laRES1) > 1
+      // campos da tabela PFPJ a serem atualizados
+      aadd(laSAVE1, {'CIP','CNPJ_CPF','PFPJ', 'DT_NASCIMENTO','ENDERECO','NR_ENDERECO','EXTRA_ENDERECO',;
+                     'BAIRRO','CIDADE','UF','CEP','ESTADO_CIVIL','EMAIL' })
+      for ii := 2 to len(laRES1)
+          aadd(laSAVE1, {laRES1[ii,1]+laRES1[ii,2],; // 1  cod_credor + des_regis = CIP
+	                 laRES1[ii,3] ,;             // 2  des_cpf                = CNPJ_CPF
+		         laRES1[ii,4] ,;             // 3  nom_clien              = PFPJ
+			 substr(laRES1[ii,5],1,10),; // 4  dat_nasci              = DT_NASCIMENTO
+			 laRES1[ii,6] ,;             // 5  des_ender_resid        = ENDERECO
+                         laRES1[ii,7] ,;             // 6  des_numer_resid        = NR_ENDERECO
+                         laRES1[ii,8] ,;             // 7  des_compl_resid        = EXTRA_ENDERECO
+                         laRES1[ii,9] ,;             // 8  des_bairr_resid        = BAIRRO
+			 laRES1[ii,10] ,;            // 9  des_cidad_resid        = CIDADE
+			 laRES1[ii,11] ,;            // 10 des_estad_resid        = UF
+			 laRES1[ii,12] ,;            // 11 des_cep_resid          = CEP
+			 laRES1[ii,13] ,;            // 12 ind_estad_civil        = ESTADO_CIVIL
+			 laRES1[ii,14] })            // 13 des_email              = EMAIL
+	  aadd(laWHERE, 'CIP = '+DLAP+alltrim(laRES1[ii,1]+laRES1[ii,2])+DLAP)       // cod_credor + des_regis = CIP
+      next ii
+      if len(laSAVE1) > 1
+         // fazer o insert / update na tabela relacionada
+	 if db_replace(laSAVE1,'pfpj',laWHERE) == -1 
+	    qout('Problemas na atualizacao dos arquivos na tabela PFPJ.')
+            qout("Ultimo Comando -> " + wset("_LASTSQL"))
+	    qout( "Erro: " + db_error())
+         endif
+      endif
+   endif
+   /* ---------------------------------------------------------------------------
+                 Atualizando tabela  RA_CONTRATO de tbl_contratos_jur
+   ----------------------------------------------------------------------------*/
+   if len(laRES2) > 1
+         aadd(laSAVE2, {'NR_PASTA'    ,'RA_CD_PRODUTO','NR_CONTRATO'     ,'VL_COMPRA','VL_ENTRADA',;
+                        'DT_CONTRATO' ,'QTD_PRESTACAO','NM_MOEDA'        ,'PC_JUROS' ,'DT_NEGATIVA',;
+                        'DT_REABILITA','FL_SERASA'    ,'NM_BEMFINANCIADO'})
+	 aadd(laRES2[1],'NR_PASTA')
+	 if db_select({'TP_PASTA'},'pasta_config',,{'LAYOUT_PASTA = '+DLAP+'RecAtivos'+DLAP} ) == -1 
+            qout("Ultimo Comando -> " + wset("_LASTSQL"))
+            qout( "Erro: " + db_error())
+         endif
+         laRESULT := db_fetchrow()
+         for ii := 2 to len(laRES2)
+	     laSAVE := {}
+	     aadd(laSAVE,{'FL_PASTA','TP_PASTA','CIP_DEVEDOR','CIP_EMPRESA','DT_CADASTRO'})
+             aadd(laSAVE,{'Ativa',laRESULT[1],laRES2[ii,1]+laRES2[ii,2],laRES2[ii,1],dtos(date())})
+             // gravar o tipo de pasta
+	     if db_insert(laSAVE,'pasta') == -1 
+	        qout('Problemas na atualizacao dos arquivos na tabela Pasta.')
+                qout("Ultimo Comando -> " + wset("_LASTSQL"))
+	        qout( "Erro: " + db_error())
+             endif
+
+	     lnREG := db_insert_id()
+	     aadd(laSAVE2, {lnREG        ,;              // 1                  = NR_PASTA
+	                    laRES2[ii,3] ,;              // 2  cod_produt      = RA_CD_PRODUTO
+		            laRES2[ii,4] ,;              // 3  des_contr       = NR_CONTRATO
+			    laRES2[ii,5] ,;              // 4  val_compr       = VL_COMPRA
+			    laRES2[ii,6] ,;              // 5  val_entra       = VL_ENTRADA
+			    substr(laRES2[ii,7],1,10) ,; // 6  dat_inici_contr = DT_CONTRATO
+			    laRES2[ii,8] ,;              // 7  qtd_prest       = QTD_PRESTACAO
+			    laRES2[ii,9] ,;              // 8  cod_moeda       = NM_MOEDA
+			    laRES2[ii,10],;              // 9  val_taxa_contr  = PC_JUROS
+			    substr(laRES2[ii,11],1,10),; // 10 dat_negat       = DT_NEGATIVA
+			    substr(laRES2[ii,12],1,10),; // 11 dat_reabi       = DT_REABILITA
+			    laRES2[ii,14],;              // 12 ind_situa       = FL_SERASA
+			    laRES2[ii,15]})              // 13 des_bem         = NM_BEMFINANCIADO
+	      aadd(laRES2[ii],lnREG)                     // grava o nr_pasta gerado para inserir nas tabelas abaixo
+      	 next ii
+         if len(laSAVE2) > 1
+            if db_replace( laSAVE2,'ra_contrato') == -1
+	       qout('Problemas na atualizacao dos arquivos na tabela RA_CONTRATO.')
+               qout("Ultimo Comando -> " + wset("_LASTSQL"))
+	       qout( "Erro: " + db_error())
+            endif
+         endif
+   endif
+   /* ---------------------------------------------------------------------------
+            Atualizando tabela  ra_contrato_prestacao de tbl_Prestacoes_jur
+   ----------------------------------------------------------------------------*/
+   if len(laRES3) > 1
+      aadd(laSAVE3, {'NR_PASTA'    ,'RA_CD_PRODUTO','NR_CONTRATO' ,'DT_VENCTO',;
+                     'NR_PRESTACAO','DT_CORRECAO'  ,'VL_PRINCIPAL','VL_CORRIGIDO','VL_MIN_COBRADO' })
+      for ii := 2 to len(laRES3)                                       //RA_CD_PRODUTO + NR_CONTRATO
+          z := ii
+	  lnPOS := ascan(laRES2, { |x,y| x[1]+x[2] == laRES3[z,1]+laRES3[z,2] })
+          aadd(laSAVE3, {laRES2[lnPOS,db_fetchncol(laRES2,'NR_PASTA')],;  // 1                 NR_PASTA
+	                 laRES3[ii,3]  ,;                                 // 2  cod_produt  =  RA_CD_PRODUTO
+	                 laRES3[ii,4]  ,;                                 // 3  des_contr   =  NR_CONTRATO
+			 substr(laRES3[ii,5],1,10),;                      // 4  dat_venci   =  DT_VENCTO
+			 laRES3[ii,6]  ,;                                 // 5  num_prest   =  NR_PRESTACAO
+			 substr(laRES3[ii,7],1,10)  ,;                    // 6  dat_corre   =  DT_CORRECAO
+			 laRES3[ii,8]  ,;                                 // 7  val_princ   =  VL_PRINCIPAL
+			 laRES3[ii,9]  ,;                                 // 8  val_corre   =  VL_CORRIGIDO
+			 laRES3[ii,10] })                                 // 9  val_minim   =  VL_MIN_COBRADO
+      next ii
+      if len(laSAVE3) > 1
+         if db_insert( laSAVE3,'ra_contrato_prestacao') == -1 
+	    qout('Problemas na atualizacao dos arquivos na tabela RA_CONTRATO_PRESTACAO.')
+            qout("Ultimo Comando -> " + wset("_LASTSQL"))
+	    qout( "Erro: " + db_error())
+         endif
+      endif
+   endif
+   /*---------------------------------------------------------------------------
+              Atualizando tabela  ra_ocorrencia  de  tbl_ocorrencias_jur
+   ---------------------------------------------------------------------------*/
+   if len(laRES4) > 1
+      aadd(laSAVE4, {'NR_PASTA'      ,'DT_OCORRENCIA' ,'HR_OCORRENCIA','CD_RA_OCORRENCIA',;
+                     'CD_RA_OPERADOR','FL_RA_MONITORA','RA_OCORRENCIA'})
+         for ii := 2 to len(laRES4)
+             z := ii
+	     lnPOS := ascan(laRES2,{ |x,y| x[1]+x[2] == laRES4[z,1]+laRES4[z,2] })
+             aadd(laSAVE4, {laRES2[lnPOS,db_fetchncol(laRES2,'NR_PASTA')],; // 1     NR_PASTA
+	                    substr(laRES4[ii,3],1,10) ,;                    // 2  DT_OCORRENCIA     dat_atual
+                            substr(laRES4[ii,3],12,8) ,;                    // 3  HR_OCORRENCIA     dat_atual
+			    laRES4[ii,4] ,;                                 // 4  CD_RA_OCORRECIA   cod_histo
+			    laRES4[ii,5] ,;                                 // 5  CD_RA_OPERADOR    cod_opera
+			    laRES4[ii,6] ,;                                 // 6  FL_RA_MONITORA    ind_monit
+			    laRES4[ii,7] })                                 // 7  RA_OCORRENCIA     des_compl_histo
+	 next ii
+         if len(laSAVE4) > 1
+            if db_insert( laSAVE4,'ra_ocorrencia') == -1 
+	       qout('Problemas na atualizacao dos arquivos na tabela RA_OCORRENCIA.')
+               qout("Ultimo Comando -> " + wset("_LASTSQL"))
+	       qout( "Erro: " + db_error())
+            endif
+         endif
+   endif
+
+
+
+function pub_var()	// inicializa as variaveis publicas
+
+   public gaPAGE       := {} ,;
+          gaWSET       := {} ,;
+          gaWGET       := {} ,;
+          gaWGET_FILE  := {} ,;
+          gaWPUT       := {} ,;
+          ga2WPUT      := {} ,;
+          gaDBS        := {'SYSOPEN'} ,;
+          gaERROR_SYS  := {} ,;
+          gaWDATAURL   := {} ,;
+          gaWDATAGLOBAL := {}
+   public gcDB_ACTIVE      := '' ,;
+          gcDB_DRV_ACTIVE  := ''
+   public gmID         := '' ,;
+          gmPAGE       := '' ,;
+          gmPAGE_OLD   := '' ,;
+          gmLANGUAGE   := '' ,;
+          gcWOUT       := '' ,;
+          gcPAGE_HOME  := ''
+   public gnROW := 1 ,;
+          gnTIME := 0.00000 ,;
+          gnWN_ACCESS := 0
+   public gbFL_UI_DYN := .f. ,;
+          gbHTTPHEAD  := .f.
+ // Accees control enviroment
+   public gbWFL_AC      := .t. ,;
+          gbWAC_EXEC    := .f. ,;
+          gbWAC_READ    := .f. ,;
+          gbWAC_WRITE   := .f. ,;
+          gbWAC_CREATE  := .f. ,;
+          gbWAC_DELETE  := .f.
+
+   public gnWN_ACS      := 0 ,;
+          gnWN_ACS_FILE := 0 ,;
+          gnTIME_TASK   := 0 ,;
+          gnUID         := 0 ,;
+          gnGID         := 0
+
+   public gaWDATAURL := {}
+   public aDb  := {} // Database names
+   public aObj := {} // Database objects
+   public oWic
+
+   public gcLOGIN       := ''
+   public gcAC_RESTRICT := ''
+
+return

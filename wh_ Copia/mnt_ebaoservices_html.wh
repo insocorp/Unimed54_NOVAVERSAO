@@ -1,0 +1,62 @@
+/*
+
+Project      : isj_45
+Program      : mnt.ebaoservices.html
+Function     : mnt_ebaoservices_html
+Created on   : 19-Apr-2016   17:13:16
+Descripition : Serviços Ebao
+
+*/
+
+
+   local laFIELDS     := {},;
+         laRESULT     := {} as Array
+
+   local lcACTION     := ''  as string
+   
+   local ii           := 0 as int
+
+   local objServicos  := EbaoServicesNew() as Object
+
+
+   laFIELDS  := {'DESCRICAO','SERVICO'}
+   lcACTION  := alltrim(upper(WGet('ACTION')))
+
+   init_reqfield(WSet('_USER_INTERFACE'),laFIELDS)
+
+   if lcACTION == 'SAVE'
+      if verif_reqfield(WSet('_USER_INTERFACE'),laFIELDS)
+         objServicos:NrControle  := WGet('NR_CONTROLE')
+         objServicos:Descricao   := WGet('DESCRICAO')
+         objServicos:Servico     := WGet('SERVICO')
+         objServicos:Save()
+      endif
+   elseif lcACTION == 'ALTER'
+          objServicos:NrControle  := WGet('NR_CONTROLE')
+          objServicos:GetService()
+          WPut('NR_CONTROLE', objServicos:NrControle)
+          WPut('DESCRICAO',   objServicos:Descricao)
+          WPut('SERVICO',     objServicos:Servico)
+   elseif lcACTION == 'DELETE'
+          objServicos:NrControle  := WGet('NR_CONTROLE')
+          objServicos:Delete()
+   endif
+
+
+   objServicos:GetAllServices()
+   laRESULT   := objServicos:ToArray()
+   
+   laRESULT[1,3] := '(row)'
+
+   for ii := 2 to len(laRESULT)
+
+       laRESULT[ii,3] := '(row)'+wic_action('wicaction/mnt.ebaoservices.html?'+;
+                                           'NR_CONTROLE='+ALLTRIM(laRESULT[ii,1])+;
+                                           '&ACTION=ALTER')
+
+   next ii
+
+   WPut('lstSERVICOS', GRID_CREATE(laRESULT))
+
+
+return

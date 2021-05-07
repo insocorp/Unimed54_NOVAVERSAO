@@ -1,0 +1,184 @@
+/*
+
+Project      : gr5
+Program      : mnt.depexcontabil.html
+Function     : mnt_depexcontabil_html
+Created on   : 19/06/2015 11:22:25
+Descripition : Exceção contabil de deposito
+
+*/
+
+   local laRESULT   := {},;
+         laSAVE     := {},;
+         laSAVEAUX  := {},;
+         laMVTSAVE  := {},;
+         laRES      := {},;
+         laVALIDA   := {},;
+         laFIELDS   := {} as array
+
+   local lcWHERE    := '',;
+         lcTABLE    := '',;
+         lcACTION   := ''  as string
+   local lii        := 0 as numeric;
+
+   lcTABLE := 'excontped'
+
+   WPut('TITLE','Exceção contabil de deposito')
+
+   laFIELDS := {'CD_TRCT','NM_TRCT','TP_PASTA','TP_DEPOSITO','CD_PLCT_DEBITO','CD_PLCT_CREDITO','FL_OPERADOR','HISTORICO'}
+
+   lcWHERE := ' CD_TRCT = ' + Wget('CD_TRCT','C')
+
+   lcACTION := upper(Wget('ACTION'))
+
+   carrega_cbox({{'pasta_config','TP_PASTA','Y'}})
+
+   WPut('FL_OPERADOR.option',{'+','-'})
+
+   laVALIDA:= {'NM_TRCT','TP_PASTA','TP_DEPOSITO','CD_PLCT_DEBITO','CD_PLCT_CREDITO','HISTORICO'}
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+   if lcACTION == 'ALTER'
+      Monta_Grade()
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE},,,,,) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) >= 2
+         db2put(laRESULT)
+      endif
+      MostraConta(laRESULT[2,ascan(laRESULT[1],'CD_PLCT_DEBITO')],laRESULT[2,ascan(laRESULT[1],'CD_PLCT_CREDITO')])
+      return
+   elseif lcACTION == 'DELETE'
+      if db_delete(lcTABLE,lcWHERE) = -1
+         error_sys(db_error())
+      endif
+   elseif lcACTION == 'SAVE'
+      if verif_reqfield(WSET('_USER_INTERFACE'),laVALIDA) == .T.
+          for x := 1 to len(laFIELDS)
+             if Wget(laFIELDS[x],'C') == 'New'
+                aadd(laSAVEAUX,0)
+             else
+                aadd(laSAVEAUX,Wget(laFIELDS[x]))
+             endif
+         next x
+         aadd(laSAVE,laFIELDS)
+         aadd(laSAVE,laSAVEAUX)
+         if db_replace(laSAVE,lcTABLE,{lcWHERE},) == -1
+            error_sys(db_error())
+         endif
+      endif
+   elseif lcACTION == 'SEARCH'
+      Monta_Grade(wget('NM_TRCT'))
+      return
+   endif
+
+
+   Monta_Grade()
+
+   for lii := 1 to len(laFIELDS)
+       Wput(laFIELDS[lii], ' ')
+   next lii
+
+   Wput('CD_TRCT','New')
+   Wput('NM_PLCT_CREDITO',' ')
+   Wput('NM_PLCT_DEBITO',' ')
+
+return
+
+// Montagem da Grade com os dados cadastrados
+*******************************************
+Static Function Monta_Grade(pc_filtro)
+*******************************************
+local laFIELDS := {},;
+      laRESULT := {} as array
+local lcTABLE  := '',;
+      lcWHERE  := '' as string
+local ii       := 0 as numeric
+
+   lcTABLE := 'excontdep'
+   laFIELDS := {'CD_TRCT','NM_TRCT','TP_PASTA','TP_DEPOSITO','CD_PLCT_DEBITO','CD_PLCT_CREDITO','FL_OPERADOR','HISTORICO'}
+   lcWHERE := ' NM_TRCT LIKE '+DLAP+'%' + alltrim(pc_filtro)+'%'+DLAP
+
+   if empty(pc_filtro)
+      if db_select({'excontdep.CD_TRCT','excontdep.NM_TRCT'},'excontdep',,) == -1
+         db_error()
+      endif
+   else
+      if db_select({'excontdep.CD_TRCT','excontdep.NM_TRCT'},'excontdep',,{lcWHERE}) == -1
+         db_error()
+      endif
+   endif
+   laRESULT  := db_fetchall()
+   lnCOUNT   := len(laRESULT)-1
+   laPAGINAS := paginacao(lnCOUNT,'','','mnt.depexcontabil.html')
+   laLIMIT   := param_fetch(laPAGINAS,'LIMIT')
+   if empty(pc_filtro)
+      if db_select(laFIELDS,lcTABLE,,,{'CD_TRCT'},,,laLIMIT) == -1
+         error_sys(db_error())
+      endif
+   else
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE},{'CD_TRCT'},,,laLIMIT) == -1
+         error_sys(db_error())
+      endif
+   endif
+   laRESULT := db_fetchall()
+   //Resumo da pesquisa
+   if len(laRESULT) > 1
+      lcCODE := alltrim(str(laLIMIT[1]+1))+'-'
+      if ((len(laRESULT)-1) < (laLIMIT[2]-laLIMIT[1]))
+         lcCODE += alltrim(str(len(laRESULT)-1))
+      elseif param_fetch(laPAGINAS,'GOTO_PAGE') == param_fetch(laPAGINAS,'NR_PAGES') //lnNR_PAGES
+         lcCODE += alltrim(str(lnCOUNT))
+      else
+         lcCODE += alltrim(str(laLIMIT[1]+param_fetch(laPAGINAS,'ROWS_PAGE')))
+      endif
+      lcCODE += ' de '+alltrim(str(lnCOUNT))
+      if lnCOUNT > 1
+         lcCODE := ' Resultados '+lcCODE+' registros'
+      else
+         lcCODE := ' Resultado '+lcCODE+' registro'
+      endif
+      wput('RESUME_RESULTSET',lcCODE)
+      aadd(laRESULT[1],'(row)')
+      for ii := 2 to len(laRESULT)
+          aadd(laRESULT[ii],'(row)'+wic_action('wicaction/mnt.depexcontabil.html?'+;
+                                           'CD_TRCT='+str(laRESULT[ii, db_fetchncol(laRESULT,'CD_TRCT')])+;
+                                           '&ACTION=ALTER'))
+
+      next ii
+      wPut('lstTRCT',grid_create(laRESULT))
+      db2put(laRESULT)
+      MostraConta(laRESULT[2,ascan(laRESULT[1],'CD_PLCT_DEBITO')],laRESULT[2,ascan(laRESULT[1],'CD_PLCT_CREDITO')])
+   endif
+return
+// Mostra a Descrição das contas no form
+****************************************************
+Static Function MostraConta(pc_debito, pc_credito)
+****************************************************
+local laFIELDS := {},;
+      laRESULT := {} as array
+local lcTABLE  := '',;
+      lcWHERE  := '' as string
+local ii       := 0 as numeric
+
+      lcTABLE := 'plano_conta'
+      laFIELDS := {'CD_PLCT','NM_PLCT'}
+      lcWHERE := ' CD_PLCT = '+ DLAP+alltrim(pc_debito)+DLAP
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE},,,,,) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) >= 2
+         Wput('NM_PLCT_DEBITO',laRESULT[2,ascan(laRESULT[1],'NM_PLCT')])
+      endif
+      lcWHERE := ' CD_PLCT = '+ DLAP+alltrim(pc_credito)+DLAP
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE},,,,,) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) >= 2
+         Wput('NM_PLCT_CREDITO',laRESULT[2,ascan(laRESULT[1],'NM_PLCT')])
+      endif
+return
+

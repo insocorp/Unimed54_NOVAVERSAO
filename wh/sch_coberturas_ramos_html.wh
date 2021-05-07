@@ -1,0 +1,72 @@
+/*
+
+Project      : gr5
+Program      : sch.coberturas_ramos.html
+Function     : sch_coberturas_ramos_html
+Created on   :23/8/2011 16:54:51
+Descripition : Pesquisa de Coberturas / Ramos
+
+*/
+
+   local lcNM_FLD  := '' ,;
+         lcNM_FLD2 := '' as string
+   local laFIELDS       := {},;
+         laJAVA         := {},;
+         laQUICK_SEARCH := {},;
+         laINPUT_HIDDEN := {} as array
+   
+   lcNM_FLD := WGet('NM_FIELD','C')
+   lcNM_FLD2 := WGet('NM_FIELD2','C')
+   lcNM_FLD3 := WGet('NM_FIELD3','C')
+
+   if empty(lcNM_FLD)
+      lcNM_FLD := 'NR_COBERTURA'
+   endif
+   if empty(lcNM_FLD2)
+      lcNM_FLD2 := 'LMI_CD_RAMO'
+   endif
+   if empty(lcNM_FLD3)
+      lcNM_FLD3 := 'LMI_NM_COBERTURA'
+   endif
+   
+   laFIELDS       := {'NR_COBERTURA','LMI_CD_RAMO','LMI_NM_COBERTURA'}
+   
+   laINPUT_HIDDEN := {{'NM_FIELD',lcNM_FLD},;
+                      {'NM_FIELD2',lcNM_FLD2},;
+                      {'NM_FIELD3',lcNM_FLD3}}
+
+
+   laJAVA := {'mntform',{{lcNM_FLD,'NR_COBERTURA'},{lcNM_FLD2,'LMI_CD_RAMO'},{lcNM_FLD3,'LMI_NM_COBERTURA'}}}
+   laQUICK_SEARCH := {'LMI_CD_RAMO'}
+   laWHERE        := {'FL_ATIVO <> '+DLAP+'I'+DLAP}
+
+   xbp('coberturas_ramos',;                   //Tabela Alvo
+       ,;                          //Join
+       laWHERE,;                          //Where
+       ,;                          //Order by
+       ,;                          //Sort [A]-Ascendente [D]-Descentende
+       ,;                          //Group by
+       ,;                          //Limit
+       ,;                          //Banco de Dados
+       3,;                         //Modo de funcionamento [1]-Listagem/Form para manutenção [2]-Listagem e Manutenção [3]-Search
+       'gr5',;                     //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;   //Programa chamador
+       ,;                          //Parametros para linhas clicáveis
+       ,;                          //Botoes (nil)
+       'mnt.coberturas_ramos.html',;          //Programa chamado pelos links (linhas clicáveis)
+       'gr5',;                     //Módulo do programa chamado pelos links
+       laJAVA,;                    //Retorno java (nil) - usado apenas no search
+       laQUICK_SEARCH,;            //Campos usados na pesquisa rápida
+       laINPUT_HIDDEN,;            //Campos ocultos. Usado apenas em manutenções    ***
+       ,;                          //Campos da área de manutenção/entrada de dados  ***
+       laFIELDS,;                  //Campos mostratos no grid
+       laFIELDS)                   //Campos usados no select
+return
+
+
+
+
+
+
+
+

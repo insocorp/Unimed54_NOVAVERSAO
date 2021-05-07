@@ -1,0 +1,398 @@
+/*
+
+Project      : gr5
+Program      : mnt.ext.andamento.html
+Function     : mnt_ext_andamento_html
+Created on   : 19-Dec-2008   14:05:00
+Descripition : Andamentos Externos
+
+*/
+
+   private paAUTO        := {} ,;
+           paAUTO_LABELS := {}
+
+   local lcACTION       := '',;
+         lcTABLE        := '',;
+         lcWHERE        := '',;
+         lcNR_PASTA     := '',;
+         lcNR_ANDAMENTO := '',;
+         lcNR_AUTOPROC  := '',;
+         lcRELAC        := '',;
+         lcProgram      := 'mnt_ext_andamento_html',;
+         lcTSTPREF      := '' as string
+
+   local laRESULT      := {} ,;
+         laSAVE        := {} ,;
+         laSAVE_AUX    := {} ,;
+         laFIELDS      := {} ,;
+         laTABLES      := {} ,;
+         laWHERE       := {} ,;
+         laORDER_BY    := {} as array
+
+   local ii    := 0 ,;
+         jj    := 0 as int
+
+   local llAND_CANC, llAND_EXTERNO, llRETURN as logical
+   llAND_CANC    := .F.
+   llAND_EXTERNO := .T.
+
+   init_reqfield(WSet('_USER_INTERFACE'))
+
+   lcACTION         := upper(WGet('ACTION','C'))
+   lcNR_PASTA       := WGet('NR_PASTA','C')
+   lcNR_ANDAMENTO   := WGet('NR_ANDAMENTO','C')
+   lcNR_AUTOPROC    := alltrim(WGet('NR_AUTOPROC','C'))
+   lcTP_PASTA       := WGet('TP_PASTA','C')
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   if empty(alltrim(lcTP_PASTA))
+      if db_select({'TP_PASTA'},'pasta',,{'NR_PASTA='+lcNR_PASTA}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT   := db_fetchrow()
+      if len(laRESULT) > 0
+         lcTP_PASTA := laRESULT[1]
+      else
+         PutError('Tipo de Pasta inválido.')
+      endif
+   endif
+   llAND_CANC       := alltrim(upper(wSet('_USER_INTERFACE'))) == 'MNT.CANC.ANDAMENTO.HTML'
+   if lcNR_ANDAMENTO = 'New'
+      lcNR_ANDAMENTO := '0'
+   endif
+   lcTABLE    := 'pasta_andamento'
+   laTABLES   := {'pasta'}
+   laFIELDS   := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   lcWHERE    := 'NR_PASTA = '+lcNR_PASTA+' and NR_ANDAMENTO = '+lcNR_ANDAMENTO+' and FL_ANDAMENTO_EXTERNO = '+DLAP+'S'+DLAP
+   laORDER_BY := {'DT_ANDAMENTO'}
+   lcTSTPREF  := strzero(year(date()),4)+;
+                 strzero(month(date()),2)+;
+                 strzero(day(date()),2)+;
+                 substr(time(),1,2)+'00'
+
+   if empty(lcNR_PASTA)
+      wSet('_USER_INTERFACE','lst.ext.andamento.html')
+      lst_ext_andamento_html()
+      return .f.
+   endif
+
+   // Autos -----------------------------------------------------------------------------------------
+   if db_select({'NR_AUTOPROC','AUTOPROC','NUMERO_DOC'},'pasta_auto',,;
+                {'NR_PASTA='+lcNR_PASTA},{'AUTOPROC'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   paAUTO        := {''}
+   paAUTO_LABELS := {''}
+   aadd(paAUTO,'0')
+   aadd(paAUTO_LABELS,'Processo Principal')
+   for ii := 2 to len(laRESULT)
+      aadd(paAUTO,alltrim(laRESULT[ii,1]))
+      aadd(paAUTO_LABELS,laRESULT[ii,2]+' : '+laRESULT[ii,3])
+   next ii
+   WPut('NR_AUTOPROC.option',paAUTO_LABELS)
+   WPut('NR_AUTOPROC.optionvalue',paAUTO)
+   WPut('NR_AUTOPROC',lcNR_AUTOPROC)
+
+   if val(lcNR_AUTOPROC) > 0
+      if db_select({'FL_AUTO'},'pasta_auto',,{'NR_PASTA='+lcNR_PASTA+' and NR_AUTOPROC='+lcNR_AUTOPROC}) = -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if upper(laRESULT[1]) != 'ENCERRADO'
+            WPut('ifMNTFORM',.T.)
+         endif
+      endif
+   else
+      WPut('ifMNTFORM',.T.)
+   endif
+   // Autos -----------------------------------------------------------------------------------------
+
+   carrega_cbox({{'andamento_tipo','TP_ANDAMENTO','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+
+   if !empty(lcNR_ANDAMENTO)
+      aadd(laWHERE,'(NR_PASTA='+lcNR_PASTA+' and NR_ANDAMENTO='+lcNR_ANDAMENTO+')')
+   else
+      aadd(laWHERE,'NR_PASTA='+lcNR_PASTA)
+   endif
+
+   if llAND_CANC
+      aadd(laWHERE,'FL_ANDAMENTO_CANCELADO='+DLAP+'S'+DLAP)
+   else
+      aadd(laWHERE,'(FL_ANDAMENTO_CANCELADO <> '+DLAP+'S'+DLAP+' or FL_ANDAMENTO_CANCELADO is null)')
+   endif
+
+    if llAND_EXTERNO
+     aadd(laWHERE,'FL_ANDAMENTO_EXTERNO = "S"')
+   else
+     aadd(laWHERE,'FL_ANDAMENTO_EXTERNO <> "S"')
+   endif
+   if gcAC_RESTRICT = 'TERCEIRO'
+      aadd(laWHERE_TERC,'(correspondente.LOGIN_COR like "%['+gcLOGIN+']%" '+;
+                        'and pasta.CD_CORRESPONDENTE = correspondente.CD_CORRESPONDENTE)')
+   endif
+
+   if empty(lcNR_PASTA)
+      wSet('_USER_INTERFACE','lst.ext.andamento.html')
+      lst_ext_andamento_html()
+      return
+   endif
+
+   make_psthead(lcNR_PASTA,lcTP_PASTA) //Cabeçalho
+   if empty(lcACTION)
+      lcACTION = 'NEW'
+   endif
+   WPut('NR_PASTA',WGet('NR_PASTA','C'))
+   WPut('TP_PASTA',lcTP_PASTA)
+   WPut('FL_PUBLICO.option','S')
+   WPut('FL_ANDAMENTO_CANCELADO.option','S')
+   WPut('ROWS_ANDAMENTO',4)
+   //------------  Verificando relacionamento  para Lits -----------------------
+   lcRELAC:=verifica_relacionamento(lcNR_PASTA,lcTP_PASTA)
+   //------------ Verificando se Aba pode ser alterada no Lits -----------------
+   if lcRELAC == 'F' .or. lcRELAC == 'P'
+      llRETURN:=Ver_ABA(lcTP_PASTA, lcProgram)
+   endif
+   if lcRelac == 'F' .AND. llReturn .AND. (lcACTION == 'NEW' .OR. lcACTION == '')
+      walert('Somente Para Consulta - Andamento Pertence a Litsconsorte')
+   endif
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      if lcRelac = 'F' .and. llReturn
+         walert('Somente Para Consulta - Andamento Pertence a Litsconsorte')
+      else
+         if ! verif_reqfield(WSet('_USER_INTERFACE'))
+            lista_externo(lcNR_PASTA,lcTP_PASTA,laFIELDS,lcTABLE,laORDER_BY,llAND_CANC,llAND_EXTERNO)
+            //layout_pasta(lcTP_PASTA,'andamento',.F.)
+            pasta_abas(lcTP_PASTA)
+            return (.f.)
+         endif
+         
+      //
+      // Glauber 08/2012
+      //
+      // Executar a chamada para função que faz baixa automática de compromissos no portal do usuário conforme o tipo de andamento
+        ConcluirTAuto(Wget('NR_PASTA','N'), WGet('TP_ANDAMENTO','C'), '')
+
+         lcWHERE := ''
+         for ii := 1 to len(laWHERE)
+             if ii > 1
+                lcWHERE += ' and '
+             endif
+             lcWHERE += laWHERE[ii]
+         next ii
+
+         lcAND := strtran(WGet('ANDAMENTO'),chr(34),chr(96))
+         lcAND := strtran(lcAND,chr(39),chr(96))
+         aadd(laSAVE,{'TP_ANDAMENTO',;
+                      'NR_AUTOPROC',;
+                      'ANDAMENTO',;
+                      'LOGIN_RESP',;
+                      'DT_ALTERACAO'})
+
+         aadd(laSAVE,{WGet('TP_ANDAMENTO','C'),;
+                      WGet('NR_AUTOPROC','N'),;
+                      lcAND,;
+                      gcLOGIN,;
+                      date()})
+
+         psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Andamentos Externos') //Gravar log de alterações
+
+         if lcRELAC = '' .or. lcRELAC = 'P' .or. (lcRELAC = 'F' .and. llRETURN = .f.)      // se .f. posso alterar atraves do filho
+            if db_update(laSAVE,lcTABLE,{'NR_ANDAMENTO = '+lcNR_ANDAMENTO}) = -1
+               error_sys(db_error())
+            endif
+            if lcRELAC = 'P' .and. llRETURN 
+               laFILHO:= Montar_filho(lcNR_PASTA,lcTP_PASTA)
+           
+               if len(laFILHO) > 0
+                  //---------alterando andamentos filhos -----------------------
+                  for jj := 1 to len(laFILHO)            // gravando abas dos filhos
+                     lcWHEREFILHO := 'NR_PASTA = '+str(laFILHO[jj])+' AND NR_ANDAMENTO_RELACAO = '+lcNR_ANDAMENTO
+                     if db_update(laSAVE,lcTABLE,{lcWHEREFILHO}) = -1
+                        error_sys(db_error())
+                     endif
+                  next jj
+               endif   
+            endif
+         endif 
+      endif   
+      WPut('NR_ANDAMENTO','New')
+      WPut('ANDAMENTO','')
+      WPut('DT_ANDAMENTO',WGet('DT_ANDAMENTO','D'))
+      WPut('DT_ALTERACAO',WGet('DT_ALTERACAO','D'))
+      WPut('DT_CADASTRO',date())
+      WPut('LOGIN_RESP',gcLOGIN)
+      WPut('FL_PUBLICO','N')
+      WPut('FL_ANDAMENTO_CANCELADO','N')
+
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+
+      WPut('TP_PASTA',WGet('TP_PASTA','C'))
+      WPut('DT_ALTERACAO',date())
+      if db_select(laFIELDS,lcTABLE,,laWHERE) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2put(laRESULT)
+         WPut('NR_AUTOPROC',alltrim(GetWPut('NR_AUTOPROC')))
+         WPut('ROWS_ANDAMENTO', iif( mlcount(laRESULT[2,db_fetchncol(laRESULT,'ANDAMENTO')]) < 4 ,4, mlcount(laRESULT[2,db_fetchncol(laRESULT,'ANDAMENTO')]) + 2 ) )
+      endif
+
+   elseif lcACTION == 'CANCEL'  .and. gbWAC_WRITE
+      if lcRelac = 'F' .and. llReturn 
+         walert('Somente Para Consulta - Andamento Pertence a Litsconsorte')
+      else
+         if db_update({{'FL_ANDAMENTO_CANCELADO'},{'S'}},lcTABLE,laWHERE) = -1
+            error_sys(db_error())
+         endif
+         if lcRELAC = '' .or. lcRELAC = 'P' .or. (lcRELAC = 'F' .and. llRETURN = .f.)      // se .f. posso alterar atraves do filho
+            if lcRELAC = 'P' .and. llRETURN 
+               laFILHO := Montar_filho(lcNR_PASTA,lcTP_PASTA)
+               if len(laFILHO) > 0
+                  //---------cancelando andamentos filhos -----------------------
+                  for jj := 1 to len(laFILHO)            // gravando abas dos filhos
+                     lcWHEREFILHO := 'NR_PASTA = '+str(laFILHO[jj])+' AND NR_ANDAMENTO_RELACAO = '+lcNR_ANDAMENTO
+                     if db_update({{'FL_ANDAMENTO_CANCELADO'},{'S'}},lcTABLE,{lcWHEREFILHO}) = -1
+                        error_sys(db_error())
+                     endif
+                  next jj
+               endif   
+            endif
+         endif 
+      endif   
+      WPut('NR_ANDAMENTO','New')
+      WPut('ANDAMENTO','')
+      WPut('DT_ANDAMENTO',WGet('DT_ANDAMENTO','D'))
+      WPut('DT_ALTERACAO',WGet('DT_ALTERACAO','D'))
+      WPut('DT_CADASTRO',date())
+      WPut('LOGIN_RESP',gcLOGIN)
+      WPut('FL_PUBLICO','N')
+      WPut('FL_ANDAMENTO_CANCELADO','N')
+
+   elseif lcACTION == 'INTERNO'  .and. gbWAC_WRITE
+      if lcRelac = 'F' .and. llReturn 
+         walert('Somente Para Consulta - Andamento Pertence a Litsconsorte')
+      else
+         if db_update({{'FL_ANDAMENTO_EXTERNO'},{' '}},lcTABLE,laWHERE) = -1
+            error_sys(db_error())
+         endif
+         if lcRELAC = '' .or. lcRELAC = 'P' .or. (lcRELAC = 'F' .and. llRETURN = .f.)      // se .f. posso alterar atraves do filho
+            if lcRELAC = 'P' .and. llRETURN 
+               laFILHO:= Montar_filho(lcNR_PASTA,lcTP_PASTA)
+ 
+               if len(laFILHO) > 0
+                  //---------tornando interno andamentos filhos -----------------------
+                  for jj := 1 to len(laFILHO)            // gravando abas dos filhos
+                     lcWHEREFILHO := 'NR_PASTA = '+str(laFILHO[jj])+' AND NR_ANDAMENTO_RELACAO = '+lcNR_ANDAMENTO
+                     if db_update({{'FL_ANDAMENTO_EXTERNO'},{' '}},lcTABLE,{lcWHEREFILHO}) = -1
+                        error_sys(db_error())
+                     endif
+                  next jj   
+               endif   
+            endif
+         endif
+      endif    
+      WPut('NR_ANDAMENTO','New')
+      WPut('ANDAMENTO','')
+      WPut('DT_ANDAMENTO',WGet('DT_ANDAMENTO','D'))
+      WPut('DT_ALTERACAO',WGet('DT_ALTERACAO','D'))
+      WPut('DT_CADASTRO',date())
+      WPut('LOGIN_RESP',gcLOGIN)
+      WPut('FL_PUBLICO','N')
+      WPut('FL_ANDAMENTO_CANCELADO','N')
+
+   endif
+   lista_externo(lcNR_PASTA,lcTP_PASTA,laFIELDS,lcTABLE,laORDER_BY,llAND_CANC,llAND_EXTERNO)
+   WPut('TSTPREF',lcTSTPREF)
+   //layout_pasta(lcTP_PASTA,'andamento',.F.)
+   pasta_abas(lcTP_PASTA)
+return(nil)
+
+/*
+* Function..: lista_externo(fcNR_PASTA,fcTP_PASTA,faFIELDS,fcTABLE,faORDER_BY,flAND_CANC,flAND_EXTERNO)
+* Objetivo..:
+* Parâmetros:
+*    fcNR_PASTA...: Número da pasta
+*    fcTP_PASTA...: Tipo de caso
+*    faFIELDS.....: Campos a selecionar
+*    fcTABLE......: Tabela alvo
+*    faORDER_BY...: Ordenação
+*    flAND_CANC...: Listar andamentos cancelados? [.T.] [.F.]
+*    flAND_EXTERNO: Listar andamentos externos? [.T.] [.F.]
+* Retorno...:
+*     Nenhum
+*/
+static function lista_externo(fcNR_PASTA,fcTP_PASTA,faFIELDS,fcTABLE,faORDER_BY,flAND_CANC,flAND_EXTERNO)
+   local lcCOR_LINK     := '' ,;
+         lcNR_AUTOPROC  := '' ,;
+         lcTP_ANDAMENTO := '' as string
+
+   local laRESULT := {} ,;
+         laWHERE  := {} ,;
+         laJOIN   := {}  as array
+
+   local ii    := 0 ,;
+         lnPOS := 0 as int
+
+   lcNR_AUTOPROC  := alltrim(WGet('NR_AUTOPROC','C'))
+   lcTP_ANDAMENTO := alltrim(WGet('TP_ANDAMENTO','C'))
+
+   for ii := 1 to len(faFIELDS)
+       faFIELDS[ii] := fcTABLE+'.'+faFIELDS[ii]
+   next ii
+
+   aadd(laWHERE,fcTABLE+'.NR_PASTA = '+fcNR_PASTA)
+   if flAND_CANC
+      aadd(laWHERE,fcTABLE+'.FL_ANDAMENTO_CANCELADO="S"')
+   else
+      aadd(laWHERE,'('+fcTABLE+'.FL_ANDAMENTO_CANCELADO <> "S" or '+fcTABLE+'.FL_ANDAMENTO_CANCELADO is null)')
+   endif
+
+   if ! empty(lcNR_AUTOPROC)
+      aadd(laWHERE,'NR_AUTOPROC='+lcNR_AUTOPROC)
+   endif
+
+   if ! empty(lcTP_ANDAMENTO)
+      WPut('TP_ANDAMENTO',lcTP_ANDAMENTO)
+      aadd(laWHERE,'TP_ANDAMENTO='+DLAP+lcTP_ANDAMENTO+DLAP)
+   endif
+
+   if flAND_EXTERNO
+     aadd(laWHERE,'FL_ANDAMENTO_EXTERNO = "S"')
+   else 
+     aadd(laWHERE,'FL_ANDAMENTO_EXTERNO <> "S"')
+   endif
+
+   if db_select(faFIELDS,fcTABLE,,laWHERE,faORDER_BY) == -1
+      error_sys('lista_externo: '+db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 0
+      aadd(laRESULT[1],'COR_LINK')
+      aadd(laRESULT[1],'TP_PASTA')
+      aadd(laRESULT[1],'AUTOPROC')
+      for ii := 2 to len(laRESULT)
+         if laRESULT[ii,db_fetchncol(laRESULT,'FL_PUBLICO')] == 'S'
+            lcCOR_LINK := '#006A00'   //Andamento para cliente - verde escuro
+         else
+            lcCOR_LINK := '#0000FF'   //Sem flags - azul padrão
+         endif
+
+         aadd(laRESULT[ii],lcCOR_LINK)
+         aadd(laRESULT[ii],fcTP_PASTA)
+         lnPOS := laRESULT[ii,db_fetchncol(laRESULT,'NR_AUTOPROC')]
+         if ascan(paAUTO,alltrim(lnPOS)) > 0
+            aadd(laRESULT[ii],paAUTO_LABELS[ascan(paAUTO,alltrim(lnPOS))])
+         else
+            aadd(laRESULT[ii],'')
+         endif
+      next ii
+   endif
+   WPut('lstEXTERNO',laRESULT)
+return(nil)
+
+
+
+
+

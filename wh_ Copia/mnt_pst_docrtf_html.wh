@@ -1,0 +1,346 @@
+*Project      : gr5
+*Program      : mnt.pst.docrtf.html
+*Function     : mnt_pst_docrtf_html
+*Created on   : 2009-10-26 15:32:59
+*Descripition :
+
+
+   private paAUTO        := {} ,;
+           paAUTO_LABELS := {}
+
+   local lcProgram      := 'mnt_pst_docrtf_html',;
+         lcACTION       := '',;
+         lcTABLE        := '',;
+         lcWHERE        := '',;
+         lcNR_PASTA     := '',;
+         lcDOCUMENTO_DESCRICAO := '',;
+         lcRELAC        := '',;
+         lcAND_ANTERIOR := '',;
+         laCAMPOS       := '',;
+         lcTSTPREF      := '' as string
+
+   local laRESULT     := {} ,;
+         laSAVE       := {} ,;
+         laSAVEFILHO  := {} ,;
+         laSAVE_AUX   := {} ,;
+         laFIELDS     := {} ,;
+         laFIELDS2    := {} ,;
+         laDISPLAY    := {} ,;
+         laTABLES     := {} ,;
+         laWHERE      := {} ,;
+         laFILHO      := {} ,;
+         laRES        := {} ,;
+         laRES1       := {} ,;
+         laORDER_BY   := {} as array
+         
+   local lcTABLES     := {} ,;
+         lcFIELDS     := {} as array
+         
+   local lcNR_CONTROLE := '' as string
+   laURL := GetUrl()
+   laURL := STRTRAN(laURL,'/gr5.exe','/IsjXmlMerge.exe')
+   laURL1 := laURL+'/templates/'
+//   wout(debug2(laURL,,100))
+ 
+   lcNR_PASTA := WGet('NR_PASTA','C')
+   lcTP_PASTA := wdgtp_pasta(lcNR_PASTA)
+   lcACTION   := alltrim(upper(WGet('ACTION','C')))
+   lcWHERE    := 'NR_PASTA='+lcNR_PASTA     
+         
+   lcTABLES   := {'documento_modelo'}
+   lcFIELDS   := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')     
+   WPut('ifGERAR',.f.)  
+   WPut('ifOK',.t.)
+
+//   Wout('<br><b>lcACTION:'+lcACTION+'</br></b>')
+
+   if lcACTION == 'OK'
+
+      lcDOCUMENTO_DESCRICAO := wget('DOCUMENTO_DESCRICAO','C')
+
+      if db_select({'DOCUMENTO_MODELO','TP_PASTA','TABELAS','CAMPOS','RELACIONAMENTOS','DOCUMENTO_DESCRICAO'},'documento_modelo',,{'DOCUMENTO_DESCRICAO='+DLAP+lcDOCUMENTO_DESCRICAO+DLAP}) == -1
+         error_sys(db_error())
+      endif
+      laRES1   := db_fetchall()
+      if len(laRES1) > 1
+         wput('TABELAS',laRES1[2,3])
+         wput('CAMPOS',laRES1[2,4])
+         wput('RELACIONAMENTOS',laRES1[2,5])
+         wput('DOCUMENTO_DESCRICAO',laRES1[2,6])
+//         lcDIR := alltrim(lower(wset('PATHDOCS')))
+//         wput('NOME_ARQUIVO',(lcDOCUMENTO_DESCRICAO+'.xml'))
+//         wput('LOCAL',('http://192.168.0.5/tokio393/IsjXmlMerge.exe'))
+//         laURL_COMP := len(laURL)
+//         laURL := SUBSTR(laURL,1,(laURL_COMP-4))+'/IsjXmlMerge'
+//         WOUT(LAurl)
+//         wput('LOCAL',(laURL))
+         laCAMPOS := laRES1[2,4]
+
+         //
+         // Glauber 28/02/2014
+         //
+         // Geração de documentos versão Linux
+
+         if db_select({'*'},'vw_montagem',,{'NR_PASTA='+lcNR_PASTA}) == -1
+            error_sys(db_error())
+         endif
+         laRES := db_fetchall()
+         lccontador := 1
+         if len(laRES) > 1
+
+//debug2(laRES,,30)
+
+            // Cabeçalho
+            lcXMLENV := GetCabecDocX() // Função na func_wic
+            // Corpo de informações
+            lcXMLENV += Res2DocxFields(laRES, .f.) // // Função na func_wic
+
+
+            // Gerar dados para alimentar as tabelas do documento
+/*
+            laTABELAS := {'pasta_andamento',;
+                          'pasta_seguro',;
+                          'pasta_pedidos'}
+            for ii := 1 to len(laTABELAS)
+                if db_select({'*'},laTABELAS[ii],,{'NR_PASTA='+lcNR_PASTA}) == -1
+                    error_sys(db_error())
+                endif
+                laRES := db_fetchall()
+                if len(laRES) > 1
+                   lcXMLENV += Grid2DocxTable(laTABELAS[ii], laRES)
+                endif
+            next ii
+*/
+            lcXMLENV += GetRodapeDocX() // Função na func_wic
+
+
+            EnvDoc(lcDOCUMENTO_DESCRICAO,laRES1[2,2],lcXMLENV) // Função no final deste arquivo.
+            return
+
+         endif
+         WPut('ifGERAR',.t.)
+         readWEnv('mnt.pst.docrtf.html')
+      else
+         walert('Documento não localizado ou selecionado! \n Selecione um documento.')
+         WPut('ifGERAR',.f.)
+         readWEnv('mnt.pst.docrtf.html')
+      endif
+   ENDIF
+   MontaCombos(lcTP_PASTA) // Função no final do arquivo
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   pasta_abas(lcTP_PASTA)
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+
+   readWEnv('mnt.pst.docrtf.html')
+
+return(nil)
+
+
+/*
+* Data.Criação:
+* Function....: MontaCombos()
+* Objetivo....: Carregar todos os combos na tela.
+* Parâmetros..:
+*    fcTP_PASTA..: Tipo de Pasta
+* Retorno.....: Nenhum
+*/
+
+Static Function MontaCombos(fcTP_PASTA)
+
+   local laRESULT1 := {},;
+         laPUT    := {} as array
+        
+   local ii       := 0 as int      
+
+  
+   // Alimenta combo da documento_modelo
+
+   if db_query('select documento_modelo from documento_modelo where tp_pasta = '+DLAP + fcTP_PASTA + DLAP + ' order by DOCUMENTO_MODELO') == -1
+      error_sys(db_error())
+   endif
+   laRESULT1 := db_fetchall()
+   laPUT := {''}
+   laPUT := {''}
+   
+   if len(laRESULT1) >= 2
+      for ii := 2 to len(laRESULT1)
+         aadd(laPUT,laRESULT1[ii,1])
+      next ii
+      WPut('DOCUMENTO_MODELO.option',laPUT)
+      WPut('DOCUMENTO_MODELO.optionvalue',laPUT)
+      lcDOCUMENTO_MODELO   := WGet('DOCUMENTO_MODELO','C')
+      WPut('DOCUMENTO_MODELO',lcDOCUMENTO_MODELO)
+
+   endif   
+return
+
+
+
+* Autor.....: Sonia Perdigão - 2/24/2010 10:53:22 PM
+* Function..: winledocs(fnGED,fnGEDFILE,fnGEDFVERS)
+* Objetivo..:
+* Parâmetros:
+*   fnCGI...: Documento CGI
+*   fnFILE..: Id do arquivo a ser armazenado 
+* Retorno:
+*               Retorna o caminho com completo com o nome do arquivo
+*/
+static function winledocs(fnFILE)
+
+   #define lcDIRSEP  '\'
+   local lcDIR    := '' ,;
+   		   lcDIRW   := '' ,;
+         lcFILE   := '' ,;
+         lcRETURN := '' as string
+
+   local laDIR    := {} as array
+
+   local llWIN32  := .f. as logical
+
+
+   if fnFILE == ''
+      puterror('winledocs: Arquivo não definido')
+      return('')
+   endif
+
+   lcDIR := alltrim(lower(wset('PATHDOCS')))
+
+   if empty(lcDIR)
+      lcDIR := 'templates'
+      lcDIRW   := lcDIR
+   else
+      lcDIR  := lcDIR+lcDIRSEP+'templates'
+      lcDIRW   := lcDIR
+   endif
+   lcDIR  += lcDIRSEP
+   lcFILE := fnFILE+'.XML'
+
+return(lcDIR+lcFILE)
+
+
+
+/*
+*
+* Autor.....: Glauber Duma
+* Function..: EnvDoc(pcTemplate, pcArquivoGrava,pcConteudo)
+* Objetivo..: Enviar o arquivo para o webservice.
+* Parâmetros:
+*   pcTemplate......: Nome do template, incluindo a extensão.
+*   pcTpPasta.......: Tipo de pasta
+*   pcConteudo......: Conteúdo do xml a ser gravado.
+* Retorno:
+*               Em caso de erro, retorna a mensagem de erro, em caso de sucesso não retorna nada
+*/
+
+Static Function EnvDoc(pcTemplate,pcTpPasta,pcConteudo)
+
+
+   local lcXML      := '',;
+         lcTMP      := '',;
+         lcArqTmp   := WSet('LOGIN')+alltrim(wic_random())+'.XML',;
+         lcArqErro  := StrTran(lcArqTmp,'.XML','.err'),;
+         lcServico  := '-s:GETWORDDOCUMENT',;
+         lcTemplate := '-t:'+pcTemplate,;
+         lcSaida    := '-o:'+lcArqTmp,;
+         lcERRO     := '',;
+         lcCALL     := ''  as String
+
+//         lcTemplate := '-t:'+StrTran(pcTpPasta,chr(32),'_') +pcTemplate,;
+//inso54069520.err
+
+
+   if Empty(pcTemplate)
+      WAlert('EnvDoc: Nome do arquivo não foi informado.')
+      return('EnvDoc: Nome do arquivo não foi informado.')
+   endif
+
+
+   if Empty(pcTpPasta)
+      WAlert('EnvDoc: Nome do arquivo não foi informado.')
+      return('EnvDoc: Nome do arquivo não foi informado.')
+   endif
+
+   if Empty(pcConteudo)
+      WAlert('EnvDoc: Arquivo enviado não contém conteúdo.')
+      return('EnvDoc: Arquivo enviado não contém conteúdo.')
+   endif
+
+   if (at('.',pcTemplate)) == 0
+      lcTemplate += '.docx'
+   endif
+
+   GravaArquivo(lcArqTmp,pcConteudo) // Função presente na func_wic
+
+   if WSET('DOCRTFDEBUG') == 'ENABLE'
+      GravaArquivo('DEBUG_GENDOC.XML',pcConteudo) // Função presente na func_wic
+   endif
+
+
+
+    // Desviar o httpheader para saida via download
+    // Glauber 06/03/2014
+    // Se não estiver nesta ordem abaixo o download vem com sujeira de tela na saida, principalmente o código html da tela,  perdi o dia para descobrir como contornar porcaria.
+/*
+    wSet("_USER_INTERFACE",'none.wic')
+    WSet('_WDEBUG','DISABLE')
+    wouthttphead('application/octet-stream',{'Accept-Ranges: bytes','Content-Length:'+alltrim(str(len(pcConteudo))),'Content-Disposition: attachment; filename="'+lcArqTmp+'"'})
+    Wout(pcConteudo)
+    exec_page('none.wic','pt_BR')
+
+   return
+*/
+   lcCALL := WSet('GENDOCAPP') + ' ' + lcServico + ' ' + lcTemplate + ' ' + lcSaida
+
+   ! (lcCALL)
+
+//   wout('<br><b>Chamada via Run:' + lcCALL)
+
+//Chamada via Run:
+//java -cp /home/wproject/wictrix/isj_42/gendocs/TesteWsIsjDocumentos.jar testewsisjdocumentos.TesteWsIsjDocumentos -c:/home/wproject/wictrix/isj_42/gendocs/TesteWsIsjDocumentos.ini -s:GETWORDDOCUMENT -t:Contrato_com_DocumentoTemplateContratoDeCompraeVenda.docx -o:inso1112909690.XML
+
+// java -cp /home/wproject/wictrix/isj_42/gendocs/TesteWsIsjDocumentos.jar testewsisjdocumentos.TesteWsIsjDocumentos -c:/home/wproject/wictrix/isj_42/gendocs/TesteWsIsjDocumentos.ini -s:GETWORDDOCUMENT
+//-t:Contrato_com_DocumentoTemplateContratoDeCompraeVenda.docx -o:inso1112909690.XML
+
+   // Verificar se ocorreu algum erro
+
+   if file(lcArqErro)
+
+       lcERRO := GetFileContent(lcArqErro)
+
+       if ! empty(lcERRO)
+           lcERRO := substr(lcERRO,at('<ERRO>'), len(lcERRO))
+           lcERRO := strtran(lcERRO, '<ERRO>','')
+           lcERRO := strtran(lcERRO, '</ERRO>','')
+           if WSET('DOCRTFDEBUG') != 'ENABLE'
+              Ferase(lcArqErro)
+           endif
+           error_sys('Erro ao processar requisição:'+lcERRO)
+
+       endif
+   endif
+
+   // Verificar se existe o documento de retorno, executar o download
+
+   if file(lcArqTmp)
+      lcTMP := GetFileContent(lcArqTmp)
+      if WSET('DOCRTFDEBUG') != 'ENABLE'
+         Ferase(lcArqTmp)
+      endif
+      wSet("_USER_INTERFACE",'none.wic')
+      WSet('_WDEBUG','DISABLE')
+      wouthttphead('application/octet-stream',{'Accept-Ranges: bytes','Content-Length:'+alltrim(str(len(lcTMP))),'Content-Disposition: attachment; filename="'+strtran(lcTemplate,'-t:','')+'"'})
+      Wout(lcTMP)
+      exec_page('none.wic','pt_BR')
+   endif
+
+
+return ''
+
+
+
+
+
+
+
+
+

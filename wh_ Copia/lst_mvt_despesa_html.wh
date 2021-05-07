@@ -1,0 +1,51 @@
+/*
+Project      : gr5
+Program      : lst.mvt.despesa.html
+Function     : lst_mvt_despesa_html
+Created on   : 22-Aug-2002   14:11:31
+Descripition : Localização/lista de Lançamentos de Despesas
+*/
+
+   local laPARAM := {{'NR_PASTA',''},;
+                     {'NR_DESPESA',''},;
+                     {'ACTION'  ,'ALTER'}} as array
+   local laWHERE        := {} ,;
+         laINPUT_HIDDEN := {} ,;
+         laQUICK_SEARCH := {} ,;
+         laJOIN         := {} as array
+
+   laSELECT       := {'mvt_despesa.NR_PASTA',;
+                      'mvt_despesa.NR_DESPESA',;
+                      'mvt_despesa.CD_DESPESA',;
+                      'despesa.NM_DESPESA',;
+                      'mvt_despesa.QUANTIDADE',;
+                      'mvt_despesa.VL_UNIT'}
+   laJOIN         := {{2,'despesa','mvt_despesa.CD_DESPESA = despesa.CD_DESPESA'}}
+
+   laWHERE:= {'mvt_despesa.LOGIN='+DLAP+WSet('LOGIN')+DLAP}
+
+   laQUICK_SEARCH := {'despesa.NM_DESPESA'}
+
+   xbp('mvt_despesa',;                                                     //Tabela alvo
+       laJOIN,;                                                            //Joins
+       laWHERE,;                                                           //Where
+       ,;                                                                  //Order by
+       ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+       ,;                                                                  //Group by
+       ,;                                                                  //Limit
+       ,;                                                                  //Banco de Dados
+       4,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search, 4-Listagem
+       'gr5',;                                                             //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;                                           //Programa chamador
+       laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+       ,;                                                                  //Parâmetros para os botões das linhas do grid
+       'mnt.mvt.despesa.html',;                                            //Programa que os links/botoes do grid deverao chamar
+       'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+       ,;                                                                  //Retorno java (nil) - usado apenas para Search
+       laQUICK_SEARCH,;                                                    //Campos usados na pesquisa rápida
+       ,;                                                                  //Campos Ocultos
+       ,;                                                                  //Campos da área de manutenção/entrada de dados
+       laSELECT,;                                                          //Campos exibidos no grid
+       laSELECT)                                                           //Campos usados no select
+   wPut('TITLE','Relação de Lançamento de Despesas')
+return

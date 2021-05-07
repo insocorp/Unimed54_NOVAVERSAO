@@ -1,0 +1,2227 @@
+#define CRLF chr(13)+chr(10) 
+#define LF chr(10)
+#define DLMT chr(34)                  // delimited ( " )
+#define DLCM chr(34)+chr(44)+chr(34)  // delimited and coma ( "," )
+#define DLAP chr(39)                  // delimited ( ' )
+
+/*
+* Function..: xreport(fcREPORT,fcPAR)
+* Objetivo..: interpretador do RB
+* Parâmetros:
+*        fcREPORT : Relatório
+*        fcPAR    : Parametros. Ex: "cd=123,nm=teste"
+* Retorno...: borlean
+*
+  Created on (execreport)  : 04-Sep-2003   16:47:53
+  Created on   : 2004.11.03   17:50
+*/
+
+// function rb2a(fcREPORT,fcPAR)
+   local lcACTION   := '' ,;
+      lcUIFILTER := '' ,;
+      lcRBFT_FL_OBJECT := '' ,;
+      lcRBFT_SELECT    := '' ,;
+      lcOPT            := '' ,;
+      lcAUX            := '' ,;
+      lcVALUE          := '' ,;
+      lcREPORT_ANT     := '' ,;
+      lcFTID           := '' ,;
+      lcVALUESIZE      := '' ,;
+      lcOLDPROJECT     := '' ,;
+      lcBuffer         := '' ,;
+      lcTP_RBMD        := '' as string
+
+   local ii           := 0 ,;
+      ii2          := 0 ,;
+      lnFILTER     := 0 ,;
+      lnREPEAT     := 0 ,;
+      lnTAMANHO    := 0 as int
+
+   local laRESULT   := {} ,;
+      laAUX        := {} ,;
+      laRB_FILTER := {} ,;
+      laRB_TABLE := {} ,;
+      laRB_FIELD := {} ,;
+      laLSTNAMEFIELD := {} ,;
+      laTABLE        := {} ,;
+      laFILTER        := {} ,;
+      laLSTLABELFIELD := {} as array
+
+   private paRB_MODULE_TOP := {} ,;
+        paREPORT   := {} ,;
+        paMODDATA  := {} ,;
+        paMODULE   := {} ,;
+        paLIMIT    := {}
+
+   private iiMD   := 0 ,;
+        pnCOLTAB  := 0,;   // identação do HTML
+        pnARQ_PDF := 0 // Handle do arquivo pdf
+
+   private pcREPORT   := '',;
+        pcFILTER_USER := '',;
+        pcRB_OPT      := '',;
+        pcSAIDA       := '',;
+        pcNOMEREL     := '',;
+        pcNOMEPDF     := '' 
+          
+        
+
+
+
+   WSet('_PROJECT_BACKUP',wSet('REPORT_PROJECT'))
+
+   lcOLDPROJECT := WSet('_PROJECT')
+   WSet('_PROJECT','report')
+
+//   wout('Executou o xrb2a')
+
+
+  // crio o ambiente wGet quando é chamado por parametro
+   lcACTION   := upper(WGet('ACTION','C'))
+   if !empty(fcREPORT)
+      pcREPORT   := fcREPORT
+      par2WGet(fcPAR)
+      lcACTION   := upper(WGet('ACTION','C'))
+      if empty(lcACTION)
+         lcACTION   := 'EXEC'
+      endif
+   else
+      pcREPORT   := WGet('REPORT','C')
+   endif
+
+   if lcACTION = 'EXEC'
+      make_fu()  // cria regras do Filtro de Conteudo
+   endif
+//   wout('Action:'+lcACTION)
+//   wout('Report:'+pcREPORT)
+   wPut('REPORT',pcREPORT)
+//   Wout('Saida:'+WGet('RB_SAIDA'))
+
+   Wput('REPORT', pcREPORT)
+   pcSAIDA := WGet('RB_SAIDA')
+
+   if ! empty(pcREPORT)
+      if db_select(astruct2col(WSet("DB_ACTIVE"),'report',1,'A'),'report',,{'report.REPORT='+DLMT+pcREPORT+DLMT}) == -1
+         error_sys('Report:'+db_error())
+      endif
+
+      paREPORT := db_fetchall()
+      if len(paREPORT) < 2
+         error_sys('Report: not found '+pcREPORT)
+      endif
+
+      wPut('TITLE',db_fetchcolvalue(paREPORT,'NM_REPORT',2))
+      wPut('NM_REPORT',db_fetchcolvalue(paREPORT,'NM_REPORT',2))
+      wSet('REPORTNAME',db_fetchcolvalue(paREPORT,'NM_REPORT',2))
+   endif
+
+   pcFILTER_USER := db_fetchcolvalue(paREPORT,'FL_FILTER_USER',2)
+   if lcACTION = 'OPEN' .and. ! empty(pcREPORT) .and. pcFILTER_USER = 'Y'
+      wSet("_USER_INTERFACE",'xrb2a')
+      WSet("scCONTENT_TYPE") = "text/html"
+      gbFL_UI_DYN := .t.
+
+      // carrega filtros
+      if db_select(astruct2col(WSet("DB_ACTIVE"),"rb_filter",1,"A"),"rb_filter",,;   //   {{2,'rb_module','rb_module.REPORT=rb_filter.REPORT'}},;
+                   {"rb_filter.REPORT="+DLMT+pcREPORT+DLMT,;
+                    "(rb_filter.RBFT_FL_OBJECT <> '4' or rb_filter.RBFT_FL_OBJECT is null)",;
+                    "(rb_filter.FL_FILTER_HIDDEN <> 'Y' or rb_filter.FL_FILTER_HIDDEN is null)"},{"RBFT_POS"}) = -1
+         error_sys('Report:'+db_error())
+      endif
+      laRB_FILTER := db_fetchall()
+
+     // carrega tabelas'
+      if db_select({'RBMD_TABLE_MAIN'},'rb_module',,;
+                   {'rb_module.REPORT='+DLMT+pcREPORT+DLMT},,,;
+                   {'RBMD_TABLE_MAIN'}) = -1
+         error_sys('Report:'+db_error())
+      endif
+      laRB_TABLE := db_fetchall()
+      for ii := 2 to len(laRB_TABLE)
+         if ! empty(laRB_TABLE[ii,1])
+            aadd(laTABLE,laRB_TABLE[ii,1])
+         endif
+      next ii
+
+
+
+     // campos dos objetos'
+      if db_select({'RBMD_OBJECT_VALUE'},'rbmd_form',,;
+                   {'rbmd_form.REPORT='+DLMT+pcREPORT+DLMT,'rbmd_form.RBMD_TP_OBJECT="D"'}) = -1
+         error_sys('Report:'+db_error())
+      endif
+      laRB_FIELD := db_fetchall()
+      if db_select({'RBMD_OBJECT_VALUE'},'rbmd_list',,;
+                   {'rbmd_list.REPORT='+DLMT+pcREPORT+DLMT}) = -1
+         error_sys('Report:'+db_error())
+      endif
+      laRESULT := db_fetchall()
+
+      for ii := 2 to len(laRESULT)        // junta campos dos forms e das listas
+          aadd(laRB_FIELD,laRESULT[ii])
+      next ii
+
+
+
+    // -- Monta UI do Filtro
+      for ii := 2 to len(laRB_FILTER)
+         for lnREPEAT := 1 to db_fetchcolvalue(laRB_FILTER,'RBFT_REPEAT',ii)
+            lcFTID := strzero(ii,2)+strzero(lnREPEAT,2)
+            lcRBFT_FL_OBJECT := db_fetchcolvalue(laRB_FILTER,'RBFT_FL_OBJECT',ii)
+            if lcRBFT_FL_OBJECT = '4'
+               loop
+            endif
+            lcUIFILTER += '<tr width="100%">'+LF
+
+            lcUIFILTER += '   <td class="rb_bgtable" align="rigth" onmouseover="popup('+;
+                          chr(39)+db_fetchcolvalue(laRB_FILTER,'RBFT_HELP',ii)+chr(39)+;
+                          ')" onmouseout="kill()">'+LF
+
+            lcUIFILTER += ' &nbsp;&nbsp; '
+
+            if lnREPEAT > 1
+               lcUIFILTER += ' &nbsp; ou &nbsp; '
+            endif
+
+           // Identificação do ID do filtro
+            if lnREPEAT = 1
+               lcUIFILTER += '      <input type="hidden" name="POSFT_'+ db_fetchcolvalue(laRB_FILTER,'RB_FILTER',ii) +'" value="'+strzero(ii,2)+'">'+LF
+            endif
+
+           // Descrição
+            if lcRBFT_FL_OBJECT = '5'
+               lcUIFILTER += '      '+db_fetchcolvalue(laRB_FILTER,'RBFT_LABEL',ii)+LF
+           // Objeto
+            elseif lcRBFT_FL_OBJECT = '0'
+               lcUIFILTER += '      <select name="RBFT_OBJECT'+lcFTID+'" wicinput  class="rb_field">'+LF
+               for ii2 := 2 to len(laRB_FIELD)
+                  lcUIFILTER += '         <option value="'+laRB_FIELD[ii2]+'" label="'+laRB_FIELD[ii2]+'">'+laRB_FIELD[ii2]+'</option>'+LF
+               next ii2
+               lcUIFILTER += '      </select>'+LF
+
+            elseif lcRBFT_FL_OBJECT = '2'
+               lcUIFILTER += '      <select name="RBFT_OBJECT'+lcFTID+'" wicinput  class="rb_field">'+LF
+               for ii2 := 2 to len(laLSTNAMEFIELD)
+                  lcUIFILTER += '         <option value="'+laLSTNAMEFIELD[ii2]+'" label="'+laLSTLABELFIELD[ii2]+'">'+laLSTLABELFIELD[ii2]+'</option>'+LF
+               next ii2
+               lcUIFILTER += '      </select>'+LF
+            elseif lcRBFT_FL_OBJECT = '3'
+
+               lcUIFILTER += '      '+lblfscreen(xnm_field(db_fetchcolvalue(laRB_FILTER,'RBFT_OBJECT',ii)),wSet('REPORT_PROJECT'))+LF
+
+            endif
+            lcUIFILTER += ' &nbsp;&nbsp; '
+            lcUIFILTER += '   </td>'+LF
+
+            lcUIFILTER += '   <td class="rb_bgtable" align="center">'+LF
+            lcUIFILTER += ' &nbsp;&nbsp; '
+
+            lcRBFT_SELECT := db_fetchcolvalue(laRB_FILTER,'RBFT_SELECT',ii)
+            if lcRBFT_FL_OBJECT = '5'
+               lcUIFILTER += '      referência '+LF
+            elseif lcRBFT_SELECT = '1'
+               lcUIFILTER += '      contendo '+LF
+            elseif lcRBFT_SELECT = '2'
+               lcUIFILTER += '      igual '+LF
+            elseif lcRBFT_SELECT = '3'
+               lcUIFILTER += '      intervalo '+LF
+            elseif lcRBFT_SELECT = '4'
+               lcUIFILTER += '      não contendo '+LF
+            elseif lcRBFT_SELECT = '5'
+               lcUIFILTER += '      maior que '+LF
+            elseif lcRBFT_SELECT = '6'
+               lcUIFILTER += '      menor que '+LF
+            else
+               lcUIFILTER += '      <select name="RBFT_SELECT'+lcFTID+'" class="rb_field">'+LF
+               lcUIFILTER += '         <option value="1" label="Contendo">Contendo</option>'+LF
+               lcUIFILTER += '         <option value="2" label="Igual">Igual</option>'+LF
+               lcUIFILTER += '         <option value="3" label="Intervalo">Intervalo</option>'+LF
+               lcUIFILTER += '         <option value="4" label="Não Contendo">Não Contendo</option>'+LF
+               lcUIFILTER += '         <option value="5" label="Maior que">Maior que</option>'+LF
+               lcUIFILTER += '         <option value="6" label="Menor que">Menor que</option>'+LF
+               lcUIFILTER += '      </select> '+LF
+            endif
+
+            lcUIFILTER += ' &nbsp;&nbsp; '
+            lcUIFILTER += '   </td>'+LF
+            lcUIFILTER += '   <td class="rb_bgtable">'+LF
+
+           //RBFT_VALUE1_SET (0-Livre, 1-Fixa, 2-Banco de Dados, 3-Calculado, 4-Parametro)
+            lcVALUESIZE := strzero(db_fetchcolvalue(laRB_FILTER,'RBFT_VALUE1_SIZE',ii),2)
+            if lcVALUESIZE = '00'
+               lcVALUESIZE := '20'
+            endif
+            lcUIFILTER += ' &nbsp;&nbsp; '
+
+           // gera valor 1  -- (0-Livre, 1-Fixa, 2-Banco de Dados, 3-Calculado, 4-Parametro, 5-Calculado Fixo, 6-Parametro Fixo)
+            lcAUX := db_fetchcolvalue(laRB_FILTER,'RBFT_VALUE1_SET',ii)
+            if lcAUX = '0'
+               lcUIFILTER += '<input type="text" name="RBFT_VALUE1'+lcFTID+'" value="'+db_fetchcolvalue(laRB_FILTER,'RBFT_VALUE1',ii)+'" class="rb_field" size="'+lcVALUESIZE+'">'+LF
+            elseif lcAUX = '1'
+               lcUIFILTER += '<input readonly type="text" name="RBFT_VALUE1'+lcFTID+'" value="'+db_fetchcolvalue(laRB_FILTER,'RBFT_VALUE1',ii)+'" class="rb_field" size="'+lcVALUESIZE+'">'+LF
+            elseif lcAUX = '2'
+               if lnREPEAT = 1
+                  if db_select({db_fetchcolvalue(laRB_FILTER,'RBFT_VALUE1',ii)},;
+                                xnm_table(db_fetchcolvalue(laRB_FILTER,'RBFT_VALUE1',ii)), , ,;
+                                {db_fetchcolvalue(laRB_FILTER,'RBFT_VALUE1',ii)},,;
+                                {db_fetchcolvalue(laRB_FILTER,'RBFT_VALUE1',ii)}) < 0
+                     laRESULT := {}
+                  else
+                     laRESULT := db_fetchall()
+                  endif
+                  if db_fetchcolvalue(laRB_FILTER,'RBFT_VALUE1_FILL',ii) != 'Y'
+                     laFILTER := {''}
+                  else
+                     laFILTER := {}
+                  endif
+                  for ii2 := 2 to len(laRESULT)
+                     aadd(laFILTER,laRESULT[ii2,1])
+                  next ii2
+               endif
+
+               lcUIFILTER += '     <select name="RBFT_VALUE1'+lcFTID+'" class="rb_field">'+LF
+               for ii2 := 1 to len(laFILTER)
+                   lcUIFILTER += '         <option value="'+transform(laFILTER[ii2])+'">'+transform(laFILTER[ii2])+'</option>'+LF
+               next ii2
+               lcUIFILTER += '      </select>'+LF
+
+            elseif lcAUX = '3'
+               lcVALUE := db_fetchcolvalue(laRB_FILTER,'RBFT_VALUE1',ii)
+               lcUIFILTER += '<input type="text" name="RBFT_VALUE1'+lcFTID+'" value="'+alltrim(transform(eval({||&lcVALUE})))+'" class="rb_field" size="'+lcVALUESIZE+'">'+LF
+
+            elseif lcAUX = '4'
+               lcUIFILTER += '<input type="text" name="RBFT_VALUE1'+lcFTID+'" value="'+wGet(db_fetchcolvalue(laRB_FILTER,'RBFT_VALUE1',ii),'C')+'" class="rb_field" size="'+lcVALUESIZE+'">'+LF
+
+            elseif lcAUX = '5'
+               lcVALUE := db_fetchcolvalue(laRB_FILTER,'RBFT_VALUE1',ii)
+               lcUIFILTER += '<input type="text" readonly name="RBFT_VALUE1'+lcFTID+'" value="'+alltrim(transform(eval({||&lcVALUE})))+'" class="rb_field" size="'+lcVALUESIZE+'">'+LF
+
+            elseif lcAUX = '6'
+               lcUIFILTER += '<input type="text" readonly name="RBFT_VALUE1'+lcFTID+'" value="'+wGet(db_fetchcolvalue(laRB_FILTER,'RBFT_VALUE1',ii),'C')+'" class="rb_field" size="'+lcVALUESIZE+'">'+LF
+
+            else  // Falha
+               lcUIFILTER += 'Undefined: '+lcAUX
+               lcUIFILTER += db_fetchcolvalue(laRB_FILTER,'RBFT_VALUE1',ii)
+            endif
+            lcUIFILTER += ' &nbsp;&nbsp; '
+
+          // Value 2
+            lcAUX := db_fetchcolvalue(laRB_FILTER,'RBFT_VALUE2_SET',ii)
+            lcVALUESIZE := strzero(db_fetchcolvalue(laRB_FILTER,'RBFT_VALUE2_SIZE',ii),2)
+            if lcVALUESIZE = '00'
+               lcVALUESIZE := '20'
+            endif
+
+            if db_fetchcolvalue(laRB_FILTER,'RBFT_VALUE2_HIDDEN',ii) != 'Y' .and. lcAUX != '4'
+               if lcRBFT_SELECT = '1' .or. lcRBFT_SELECT = '4'
+                  lcUIFILTER += '      e '+LF
+               elseif lcRBFT_SELECT = '3'
+                  lcUIFILTER += '      até '+LF
+               endif
+
+              //RBFT_VALUE2_SET (0-Livre, 1-Fixa, 2-Banco de Dados, 3-Calculado, 4-Parametro)
+               lcUIFILTER += ' &nbsp;&nbsp; '
+               if lcAUX = '0'
+                  lcUIFILTER += '<input type="text" name="RBFT_VALUE2'+lcFTID+'" value="'+db_fetchcolvalue(laRB_FILTER,'RBFT_VALUE2',ii)+'" class="rb_field" size="'+lcVALUESIZE+'">'+LF
+               elseif lcAUX = '1'
+                  lcUIFILTER += '<input readonly type="text" name="RBFT_VALUE2'+lcFTID+'" value="'+db_fetchcolvalue(laRB_FILTER,'RBFT_VALUE2',ii)+'" class="rb_field" size="'+lcVALUESIZE+'">'+LF
+               elseif lcAUX = '2'
+                  lcUIFILTER += '     <select name="RBFT_VALUE2'+lcFTID+'" class="rb_field">'+LF
+                  for ii2 := 1 to len(laFILTER)
+                      lcUIFILTER += '         <option value="'+transform(laFILTER[ii2])+'">'+transform(laFILTER[ii2])+'</option>'+LF
+                  next ii2
+                  lcUIFILTER += '      </select>'+LF
+
+               elseif lcAUX = '3'
+                  lcVALUE := db_fetchcolvalue(laRB_FILTER,'RBFT_VALUE2',ii)
+                  lcUIFILTER += '<input type="text" name="RBFT_VALUE2'+lcFTID+'" value="'+alltrim(transform(eval({||&lcVALUE})))+'" class="rb_field" size="'+lcVALUESIZE+'">'+LF
+
+               elseif lcAUX = '4'
+                  lcUIFILTER += '<input type="text" name="RBFT_VALUE2'+lcFTID+'" value="'+wGet(db_fetchcolvalue(laRB_FILTER,'RBFT_VALUE1',ii),'C')+'" class="rb_field" size="'+lcVALUESIZE+'">'+LF
+
+               elseif lcAUX = '5'
+                  lcVALUE := db_fetchcolvalue(laRB_FILTER,'RBFT_VALUE2',ii)
+                  lcUIFILTER += '<input type="text" readonly name="RBFT_VALUE2'+lcFTID+'" value="'+alltrim(transform(eval({||&lcVALUE})))+'" class="rb_field" size="'+lcVALUESIZE+'">'+LF
+
+               elseif lcAUX = '6'
+                  lcUIFILTER += '<input type="text" readonly name="RBFT_VALUE2'+lcFTID+'" value="'+wGet(db_fetchcolvalue(laRB_FILTER,'RBFT_VALUE1',ii),'C')+'" class="rb_field" size="'+lcVALUESIZE+'">'+LF
+
+               else  // Falha
+                  lcUIFILTER += 'Undefined: '+lcAUX
+                  lcUIFILTER += db_fetchcolvalue(laRB_FILTER,'RBFT_VALUE2',ii)
+               endif
+               lcUIFILTER += ' &nbsp;&nbsp; '
+
+
+            endif
+
+            lcUIFILTER += '   </td>'+LF
+            lcUIFILTER += '</tr>'+LF
+         next lnREPEAT
+         lcUIFILTER += '<TR><TD class="rb_bgtable">&nbsp;</TD><TD class="rb_bgtable"></TD><TD class="rb_bgtable"></TD></TR>'+LF
+      next ii
+
+
+
+      wPut('REPORT_FILTER',lcUIFILTER)
+
+
+   elseif (lcACTION = 'EXEC' .or. pcFILTER_USER != 'Y') .and. ! empty(pcREPORT)
+     // Define tipo de saida
+      if db_fetchcolvalue(paREPORT,'TP_RBOUT',2) == 'html' .and. pcSAIDA == 'TELA'
+         wOut('<html>'+LF+;
+              '   <head>'+LF+;
+              '      <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">'+LF+;
+              '      <meta name="generator" content="Wictrix - Report Builder 2.0a">'+LF+;
+              '      <meta name=description content="Report '+db_fetchcolvalue(paREPORT,'NM_REPORT',2)+' generated on '+WebDate(, .T.)+'">'+LF+;
+              '      <meta http-equiv="Pragma" content="no-cache">'+LF+;
+              '      <meta http-equiv="Expires" content="-1">'+LF+;
+              '      <meta http-equiv="Cache-control" content="no-store">'+LF+;
+              '      <title>Report: '+db_fetchcolvalue(paREPORT,'NM_REPORT',2)+'</title>'+LF+;
+              '   </head>')
+      endif
+      if pcSAIDA == 'XLS'
+         wouthttphead('Content-Type: application/vnd.xls',;
+                      {'Content-Disposition: attachment; filename="'+db_fetchcolvalue(paREPORT,'NM_REPORT',2)+'.xls"',;
+                      'Content-Transfer-Encoding: binary'})
+      endif
+      if pcSAIDA == 'CSV'
+         //'Content-Type: application/vnd.csv',;
+         wouthttphead('Content-Type: application/octet-stream',;
+                      {'Content-Disposition: attachment; filename="'+db_fetchcolvalue(paREPORT,'NM_REPORT',2)+'.csv"',;
+                      'Content-Transfer-Encoding: binary'})
+                      //'Content-Length: ' + alltrim(str(len(lcCONTENT)))})         
+      endif
+      // Glauber 23/02/2012 - Verificar se o formato de saida é pdf. Caso seja, ativar a variável de ambiente chamada wout_spool
+      if pcSAIDA == 'PDF'
+         WSet('WOUT_SPOOL', 'Y')
+/*         
+         wouthttphead('Content-Type: application/octet-stream',;
+                      {'Content-Disposition: attachment; filename="'+db_fetchcolvalue(paREPORT,'NM_REPORT',2)+'.pdf"',;
+                      'Content-Transfer-Encoding: binary'})
+                      //'Content-Length: ' + alltrim(str(len(lcCONTENT)))})
+*/                               
+      endif
+
+
+     // Carrega Values dos filtros
+      if db_select({'RBFT_VALUE1','RBFT_VALUE2','RBFT_SELECT','RB_FILTER','RBFT_FL_OBJECT','RBFT_OBJECT',;
+                    'RBFT_VALUE2_HIDDEN','RBFT_VALUE1_SET','RBFT_VALUE2_SET',;
+                    'RBFT_REPEAT','RBFT_VALUE1_TYPE','RBFT_VALUE2_TYPE','RB_MODULE','FL_FILTER_HIDDEN'},;
+                    'rb_filter',,;
+                   {'rb_filter.REPORT='+DLMT+pcREPORT+DLMT},{'RBFT_POS'}) = -1
+         error_sys('Report/Filter/Values - Module: '+fcMODULE+' -  '+db_error())
+      endif
+
+      laRESULT := db_fetchall()
+
+      for ii := 2 to len(laRESULT)
+          if db_fetchcolvalue(laRESULT,'FL_FILTER_HIDDEN',ii) = 'Y' .or. db_fetchcolvalue(laRESULT,'RBFT_FL_OBJECT',ii) = '4'
+             loop
+          endif
+          lcPOS := wGet('POSFT_'+db_fetchcolvalue(laRESULT,'RB_FILTER',ii))
+          lnREPEAT := db_fetchcolvalue(laRESULT,'RBFT_REPEAT',ii)
+          if lnREPEAT = 0
+             lnREPEAT := 1
+          endif
+          for ii2 := 1 to lnREPEAT
+             lcPOSFILTER := lcPOS+strzero(ii2,2)
+
+             aadd(laFILTER,{db_fetchcolvalue(laRESULT,'RB_FILTER',ii),db_fetchcolvalue(laRESULT,'RB_MODULE',ii),'','',''})
+             lnFILTER := len(laFILTER)
+
+            // RB_FILTER,RB_MODULE,RBFT_SELECT,RBFT_VALUE1,RBFT_VALUE2
+
+            // captura valor 1  -- (0-Livre, 1-Fixa, 2-Banco de Dados, 3-Calculado, 4-Parametro)
+             lcAUX := db_fetchcolvalue(laRESULT,'RBFT_VALUE1_SET',ii)
+             if lcAUX = '0' .or. lcAUX = '2' .or. lcAUX = '3' .or. lcAUX = '4'
+                laFILTER[lnFILTER,4] := wGet('RBFT_VALUE1'+lcPOSFILTER)
+             else
+                laFILTER[lnFILTER,4] := db_fetchcolvalue(laRESULT,'RBFT_VALUE1',ii)
+             endif
+
+             lcAUX := db_fetchcolvalue(laRESULT,'RBFT_VALUE1_TYPE',ii)
+             if lcAUX = 'D'
+                laFILTER[lnFILTER,4] := dtos(ctod(laFILTER[lnFILTER,4]))
+             elseif lcAUX = 'N'
+             endif
+
+            // captura valor 2  -- (0-Livre, 1-Fixa, 2-Banco de Dados, 3-Calculado, 4-Parametro)
+             if db_fetchcolvalue(laRESULT,'RBFT_VALUE2_HIDDEN',ii) != 'Y'
+                lcAUX := db_fetchcolvalue(laRESULT,'RBFT_VALUE2_SET',ii)
+                if lcAUX = '0' .or. lcAUX = '2' .or. lcAUX = '3' .or. lcAUX = '4'
+                   laFILTER[lnFILTER,5] := wGet('RBFT_VALUE2'+lcPOSFILTER)
+                else
+                   laFILTER[lnFILTER,5] := db_fetchcolvalue(laRESULT,'RBFT_VALUE2',ii)
+                endif
+
+                lcAUX := db_fetchcolvalue(laRESULT,'RBFT_VALUE2_TYPE',ii)
+                if lcAUX = 'D'
+                   laFILTER[lnFILTER,5] := dtos(ctod(laFILTER[lnFILTER,5]))
+                elseif lcAUX = 'N'
+                endif
+             endif
+            // RB_FILTER,RB_MODULE,RBFT_SELECT,RBFT_VALUE1,RBFT_VALUE2
+             if ii2 = 1
+                moddata_mgr(laFILTER[lnFILTER,2],laFILTER[lnFILTER,1]+'.value1',laFILTER[lnFILTER,4])
+                moddata_mgr(laFILTER[lnFILTER,2],laFILTER[lnFILTER,1]+'.value2',laFILTER[lnFILTER,5])
+                moddata_mgr(laFILTER[lnFILTER,2],laFILTER[lnFILTER,1]+'.value1.01',laFILTER[lnFILTER,4])
+                moddata_mgr(laFILTER[lnFILTER,2],laFILTER[lnFILTER,1]+'.value2.01',laFILTER[lnFILTER,5])
+             else
+                moddata_mgr(laFILTER[lnFILTER,2],laFILTER[lnFILTER,1]+'.value1.'+strzero(ii2),laFILTER[lnFILTER,4])
+                moddata_mgr(laFILTER[lnFILTER,2],laFILTER[lnFILTER,1]+'.value2.'+strzero(ii2),laFILTER[lnFILTER,5])
+             endif
+         next ii2
+      next ii
+
+     // carrega modulos Top Level
+      if db_select(astruct2col(WSet("DB_ACTIVE"),'rb_module',1,'A'),'rb_module',,;
+                   {'rb_module.REPORT='+DLMT+pcREPORT+DLMT,'rb_module.RBMD_BELONG = "Top Level"'},;
+                   {'rb_module.RBMD_POS'}) = -1
+         error_sys('Report:'+db_error())
+      endif
+      paRB_MODULE_TOP := db_fetchall()
+
+      if len(paRB_MODULE_TOP) > 1
+         gmPAGE := 'none.wic'
+      else
+         puterror('ExecReport: imcomplete definitions')
+      endif
+
+      pnCOLTAB += 3
+      if pcSAIDA <> 'CSV'      
+         wOut(space(pnCOLTAB)+'<body leftmargin="0" topmargin="0" marginwidth="0" marginheight="0">')
+      endif   
+      pnCOLTAB += 3
+      for iiMD := 2 to len(paRB_MODULE_TOP)
+
+        // define os parametros da tag <table>
+         pcRB_OPT := ''
+
+         lcAUX := str(db_fetchcolvalue(paRB_MODULE_TOP,'RBMD_WIDTH',iiMD))  // largura
+         if ! empty(lcAUX)
+            if db_fetchcolvalue(paRB_MODULE_TOP,'RBMD_WIDTH_PC',iiMD) = 'Y' // largura (%)
+               pcRB_OPT += ' width="'+lcAUX+'%"'
+            else
+               pcRB_OPT += ' width="'+lcAUX+'"'
+            endif
+         endif
+
+         wSet('RBMD_'+db_fetchcolvalue(paRB_MODULE_TOP,'RB_MODULE',iiMD),pcRB_OPT)
+         wSet('RB_BRKPAGE_'+db_fetchcolvalue(paRB_MODULE_TOP,'RB_MODULE',iiMD),db_fetchcolvalue(paRB_MODULE_TOP,'RB_BRKPAGE',iiMD))
+
+         lcTP_RBMD := db_fetchcolvalue(paRB_MODULE_TOP,'TP_RBMD',iiMD)
+         if lcTP_RBMD = 'F'
+            exec_md_form(db_fetchcolvalue(paRB_MODULE_TOP,'RB_MODULE',iiMD),;
+                         db_fetchcolvalue(paRB_MODULE_TOP,'RBMD_TABLE_MAIN',iiMD))
+         elseif lcTP_RBMD = 'L'
+            exec_md_list(db_fetchcolvalue(paRB_MODULE_TOP,'RB_MODULE',iiMD),;
+                         db_fetchcolvalue(paRB_MODULE_TOP,'RBMD_TABLE_MAIN',iiMD))
+         elseif lcTP_RBMD = 'G'
+            exec_md_chart(db_fetchcolvalue(paRB_MODULE_TOP,'RB_MODULE',iiMD))
+         elseif lcTP_RBMD = 'B'
+            lcREPORT_ANT := pcREPORT
+            pcREPORT := db_fetchcolvalue(paRB_MODULE_TOP,'RBMD_COPY_REPORT',iiMD)
+
+            exec_md_copy(db_fetchcolvalue(paRB_MODULE_TOP,'RBMD_COPY_MODULE',iiMD))
+
+            pcREPORT := lcREPORT_ANT
+         endif
+
+      next iiMD
+      if pcSAIDA <> 'CSV'
+         wOut(space(pnCOLTAB)+'</body>')
+      endif   
+      pnCOLTAB -= 3
+
+      if db_fetchcolvalue(paREPORT,'TP_RBOUT',2) = 'html' .and. pcSAIDA <> 'CSV'
+         wOut('</html>')
+      endif
+   else
+      wout('<T1>desconhecido</T1>')
+   endif
+
+
+   // Glauber 23/02/2012 - Verificar se o formato de saida é pdf. Caso seja, ativar a variável de ambiente chamada wout_spool
+   if pcSAIDA == 'PDF'
+   
+      // Desativar a saida do WOUT_SPOOL para poder fazer o download do PDF. 
+   
+      WSet('WOUT_SPOOL', 'N')
+
+      // Processar criação do arquivo intermediário
+
+      pcNOMEREL := Wset('WTEMP') + '/' + 'REL'+ alltrim(wic_random()) +'_'+WSet('LOGIN') + '.xml'
+      pcNOMEPDF := Wset('WTEMP') + '/' + 'REL'+ alltrim(wic_random()) +'_'+WSet('LOGIN') + '.pdf'  
+  
+      // Cria o xml temporário com o conteúdo html
+  
+      pnARQ_PDF := fcreate(pcNOMEREL)
+      if (pnARQ_PDF < 1) .or. (Ferror() > 0)
+         error_sys('Report Builder run time error: Erro ao criar o arquivo:' + pcNOMEREL + ' - Código do Erro:'+ str(Ferror()))
+      else
+         Fwrite(pnARQ_PDF,gcWOUT) // Quando a variável de ambiente WOUT_SPOOL esta definida como 'Y', todo o conteúdo do comando wout é armazenado na variável gcWOUT
+         if (Ferror() > 0)
+            error_sys('Report Builder run time error: Erro ao gravar o arquivo:' + pcNOMEREL + ' - Código do Erro:'+ str(Ferror()))
+         endif   
+         fclose(lnARQ)
+      endif  
+      // Verificar a configuração de onde se encontra o binário que faz a leitura do html e converte apara PDF
+      if (! Empty(WSET('PDFCREATOR')))
+         // Faz a chamada do programa de conversão
+         lcCommand := WSET('PDFCREATOR') + ' ' + pcNOMEREL + ' ' + pcNOMEPDF   
+         Run (lcCommand)
+
+         // Abre o arquivo de retorno para resgatar o conteúdo do pdf
+         
+         pnARQ_PDF := fopen(pcNOMEPDF)
+         if (pnARQ_PDF < 1) .or. (Ferror() > 0)
+             error_sys('Report Builder run time error: Erro ao abrir o arquivo temporário. Código do Erro:'+alltrim(str(ferror()))+' ao tentar abrir:'+pcNOMEPDF)
+         else
+            lnTAMANHO := fseek(pnARQ_PDF,0,2) // Posiciona o cursor no final do arquivo para obter o tamanho do arquivo gerado
+            fseek(pnARQ_PDF,0,0) // Volta o ponteiro na posição inicial
+            lcBUFFER := Space(lnTAMANHO)
+            fread(pnARQ_PDF,@lcBUFFER,lnTAMANHO) // // Faz a leitura do conteúdo do arquivo
+            fclose(pnARQ_PDF) // Fecha o arquivo
+            // Caso o conteúdo do arquivo não esteja vazio printa o conteúdo na tela para download
+            if ! empty(alltrim(lcBUFFER))
+               wouthttphead('Content-Type: application/octet-stream',;
+                           {'Content-Disposition: attachment; filename="'+db_fetchcolvalue(paREPORT,'NM_REPORT',2)+'.pdf"',;
+                            'Content-Transfer-Encoding: binary'})
+               wout(lcBUFFER)
+            else
+               error_sys('Report Builder run time error: Erro ao ler o arquivo temporário. Arquivo sem conteúdo. Arquivo:'+pcNOMEPDF)                            
+            endif 
+            // Remove os arquivos temporários criado em disco
+            ferase(pcNOMEREL) // Remove o XML   
+            ferase(pcNOMEPDF) // Remove o PDF
+         endif
+      else
+          error_sys('Report Builder run time error: O diretório da tag PDFCREATOR não esta configurado no wprofile. Não será possível a exportação do PDF.')     
+      endif
+   endif     
+
+
+   WSet('_PROJECT',lcOLDPROJECT)
+return(.t.)
+
+
+// executa módulo Copy - Herança
+static function exec_md_copy(fcMODULE)
+   local laRB_MODULE := {} as array
+
+   local lcTP_RBMD  := '' ,;
+         lcREPORT_ANT := '' as string
+
+     // carrega modulos Top Level
+      if db_select(astruct2col(WSet("DB_ACTIVE"),'rb_module',1,'A'),'rb_module',,;
+                   {'rb_module.REPORT='+DLMT+pcREPORT+DLMT,'rb_module.RB_MODULE = '+DLMT+fcMODULE+DLMT},;
+                   {'rb_module.RBMD_POS'}) = -1
+         error_sys('Report:'+db_error())
+      endif
+      laRB_MODULE := db_fetchall()
+      if len(laRB_MODULE) < 2
+         puterror('RB.MD.copy: '+fcMODULE+' not found')
+         return(.f.)
+      endif
+
+     // define os parametros da tag <table>
+      pcRB_OPT := ''
+
+      lcAUX := str(db_fetchcolvalue(laRB_MODULE,'RBMD_WIDTH',2))  // largura
+      if ! empty(lcAUX)
+         if db_fetchcolvalue(laRB_MODULE,'RBMD_WIDTH_PC',2) = 'Y' // largura (%)
+            pcRB_OPT += ' width="'+lcAUX+'%"'
+         else
+            pcRB_OPT += ' width="'+lcAUX+'"'
+         endif
+      endif
+
+      wSet('RBMD_'+fcMODULE,pcRB_OPT)
+      wSet('RB_BRKPAGE_'+fcMODULE,db_fetchcolvalue(laRB_MODULE,'RB_BRKPAGE',2))
+
+      lcTP_RBMD := db_fetchcolvalue(laRB_MODULE,'TP_RBMD',2)
+      if lcTP_RBMD = 'F'
+         exec_md_form(db_fetchcolvalue(laRB_MODULE,'RB_MODULE',2),;
+                      db_fetchcolvalue(laRB_MODULE,'RBMD_TABLE_MAIN',2))
+      elseif lcTP_RBMD = 'L'
+         exec_md_list(db_fetchcolvalue(laRB_MODULE,'RB_MODULE',2),;
+                      db_fetchcolvalue(laRB_MODULE,'RBMD_TABLE_MAIN',2))
+      elseif lcTP_RBMD = 'G'
+         exec_md_chart(db_fetchcolvalue(laRB_MODULE,'RB_MODULE',2))
+      elseif lcTP_RBMD = 'B'
+         lcREPORT_ANT := pcREPORT
+         pcREPORT := db_fetchcolvalue(laRB_MODULE,'RBMD_COPY_REPORT',iiMD)
+
+         exec_md_copy(db_fetchcolvalue(laRB_MODULE,'RBMD_COPY_MODULE',iiMD))
+
+         pcREPORT := lcREPORT_ANT
+      endif
+return(.t.)
+
+// executa módulo Form
+static function exec_md_form(fcMODULE,fcTABLE_MAIN)
+   local lcORDER     := '' ,;
+         lcPOS       := '' ,;
+         lcTP_OBJECT := '' as string
+
+   local laMODSTRUCT := {} ,;
+         laRESULT    := {} ,;
+         laFILTER    := {} ,;
+         laER        := {} ,;
+         laORDER     := {} ,;
+         laWHERE     := {} ,;
+         laFIELD     := {} as array
+
+   local ii  := 0 ,;
+         ii2 := 0 as int
+  // carrega objetos do módulo
+   if db_select(astruct2col(WSet("DB_ACTIVE"),'rbmd_form',1,'A'),'rbmd_form',,;
+                {'rbmd_form.REPORT='+DLMT+pcREPORT+DLMT,;
+                 'rbmd_form.RB_MODULE='+DLMT+fcMODULE+DLMT},;
+                {'rbmd_form.RBMD_ROW,rbmd_form.RBMD_COL'}) = -1
+      error_sys('Report/Module:'+db_error())
+   endif
+   laMODSTRUCT := db_fetchall()
+
+  // se possui tabela principal monta query e cria laço com o resultado
+   if ! empty(fcTABLE_MAIN)
+      for ii := 2 to len(laMODSTRUCT)   // junta as fields para o select
+         lcTP_OBJECT := db_fetchcolvalue(laMODSTRUCT,'RBMD_TP_OBJECT',ii)
+         if lcTP_OBJECT = 'D'
+
+
+            aadd(laFIELD,db_fetchcolvalue(laMODSTRUCT,'RBMD_OBJECT_VALUE',ii)+' as '+lower(db_fetchcolvalue(laMODSTRUCT,'RBMD_OBJECT',ii)))
+            if db_fetchcolvalue(laMODSTRUCT,'RBMD_ORDERITEM',ii) != 'N'
+               lcORDER := db_fetchcolvalue(laMODSTRUCT,'RBMD_ORDERITEM',ii)
+               aadd(laORDER,db_fetchcolvalue(laMODSTRUCT,'RBMD_OBJECT_VALUE',ii))
+            endif
+         endif
+      next ii
+      if len(laFIELD) > 0
+         laER := filter_er(fcMODULE)
+      endif
+
+      paLIMIT := {}
+      laWHERE := filter_where(fcMODULE)
+
+     // select para captura dos dados
+      if db_select(laFIELD,;    // colunas
+                    fcTABLE_MAIN,; // tabela
+                   laER,;  // relacionamento
+                   laWHERE,;         // condiçao
+                   laORDER,lcORDER,,paLIMIT) = -1    // ordenaçao
+         error_sys('Report/Module/Query:'+db_error())
+      endif
+
+      laRESULT := db_fetchall()
+
+      ii := 0
+      for ii := 2 to len(laRESULT)  // laço do form
+         for ii2 := 1 to len(laRESULT[ii])
+             moddata_mgr(fcMODULE,laRESULT[1,ii2],laRESULT[ii,ii2])
+         next ii2
+
+         for ii2 := 2 to len(laMODSTRUCT)   // gera value dos outros modulos
+
+            lcTP_OBJECT := db_fetchcolvalue(laMODSTRUCT,'RBMD_TP_OBJECT',ii2)
+            if lcTP_OBJECT = 'E'  // variável
+            elseif lcTP_OBJECT = 'S'  // autonomo
+                moddata_mgr(fcMODULE,db_fetchcolvalue(laMODSTRUCT,'RBMD_OBJECT',ii2),;
+                              md_form_select(fcMODULE,;
+                                             db_fetchcolvalue(laMODSTRUCT,'RBMD_OBJECT',ii2),;
+                                             db_fetchcolvalue(laMODSTRUCT,'RBMD_OBJECT_VALUE',ii2),;
+                                             db_fetchcolvalue(laMODSTRUCT,'RBMD_TABLE_MAIN',ii2)))
+            elseif lcTP_OBJECT = 'C'  // calculado
+                moddata_mgr(fcMODULE,db_fetchcolvalue(laMODSTRUCT,'RBMD_OBJECT',ii2),;
+                                md_form_calc(fcMODULE,;
+                                             db_fetchcolvalue(laMODSTRUCT,'RBMD_OBJECT',ii2),;
+                                             db_fetchcolvalue(laMODSTRUCT,'RBMD_OBJECT_VALUE',ii2)))
+            endif
+         next ii2
+
+        // executa/imprime o modulo e seus objetos
+         md_form_print(fcMODULE,laMODSTRUCT)
+
+        // Quebra de página
+         if ii < len(laRESULT) .and. wSet('RB_BRKPAGE_'+fcMODULE) = 'Y'
+            wOut('<br style="page-break-after: always">')
+         endif
+
+      next ii
+   else
+         for ii2 := 2 to len(laMODSTRUCT)   // gera value dos outros modulos
+            lcTP_OBJECT := db_fetchcolvalue(laMODSTRUCT,'RBMD_TP_OBJECT',ii2)
+            if lcTP_OBJECT = 'T'  // texto
+                moddata_mgr(fcMODULE,db_fetchcolvalue(laMODSTRUCT,'RBMD_OBJECT',ii2),;
+                                     db_fetchcolvalue(laMODSTRUCT,'RBMD_OBJECT_VALUE',ii2))
+            elseif lcTP_OBJECT = 'E'  // variável
+                moddata_mgr(fcMODULE,db_fetchcolvalue(laMODSTRUCT,'RBMD_OBJECT',ii2),;
+                                     wSet(db_fetchcolvalue(laMODSTRUCT,'RBMD_OBJECT_VALUE',ii2)))
+            elseif lcTP_OBJECT = 'S'  // autonomo
+                moddata_mgr(fcMODULE,db_fetchcolvalue(laMODSTRUCT,'RBMD_OBJECT',ii2),;
+                              md_form_select(fcMODULE,;
+                                             db_fetchcolvalue(laMODSTRUCT,'RBMD_OBJECT',ii2),;
+                                             db_fetchcolvalue(laMODSTRUCT,'RBMD_OBJECT_VALUE',ii2),;
+                                             db_fetchcolvalue(laMODSTRUCT,'RBMD_TABLE_MAIN',ii2)))
+            elseif lcTP_OBJECT = 'C'  // calculado
+                moddata_mgr(fcMODULE,db_fetchcolvalue(laMODSTRUCT,'RBMD_OBJECT',ii2),;
+                                md_form_calc(fcMODULE,;
+                                             db_fetchcolvalue(laMODSTRUCT,'RBMD_OBJECT',ii2),;
+                                             db_fetchcolvalue(laMODSTRUCT,'RBMD_OBJECT_VALUE',ii2)))
+            endif
+         next ii2
+        // executa/imprime o modulo e seus objetos
+         md_form_print(fcMODULE,laMODSTRUCT)
+
+   endif
+return(.t.)
+
+// executa objeto form Calculado
+static function md_form_calc(fcMODULE,fcOBJECT,fcOBJECT_VALUE)
+   local ii := 0 ,;
+         lnPOS := 0 as int
+   local lcVALUE := '' ,;
+         lcVALUE_OLD := '' as string
+
+   local luRETURN
+
+   fcOBJECT := lower(fcOBJECT)
+
+   asort (paMODDATA,,, {|x,y| x[1] > y[1]})
+
+   lcVALUE := fcOBJECT_VALUE
+   lcVALUE := strtran(lcVALUE,chr(10))
+   lcVALUE := strtran(lcVALUE,chr(13))
+   lcVALUE := alltrim(lcVALUE)
+
+   for ii := 1 to len(paMODDATA)
+      lcVALUE_OLD := lcVALUE
+      do while .t.
+         lnPOS := at(lower('['+paMODDATA[ii,1]+'.'+paMODDATA[ii,2]+']'),lower(lcVALUE))
+         if lnPOS > 0
+            lcVALUE := stuff(lcVALUE,lnPOS,len(paMODDATA[ii,1])+len(paMODDATA[ii,2])+3,transform(paMODDATA[ii,3]))
+            if lcVALUE_OLD != lcVALUE .and. empty(paMODDATA[ii,3]) .and. valtype(paMODDATA[ii,3]) != 'N'
+               lcVALUE := lcVALUE_OLD
+               putError('Report / Calc - empty object: '+paMODDATA[ii,1]+'.'+paMODDATA[ii,2])
+               return('')
+            endif
+         else
+            exit
+         endif
+      enddo
+   next ii
+
+   wSet('EVAL_ERROR',0)
+   luRETURN := eval({||&lcVALUE})
+   if wSet('EVAL_ERROR') = -1
+      putError('Object error :'+fcOBJECT+': antes :{'+fcOBJECT_VALUE+'} depois: {'+lcVALUE+'}')
+   endif
+return(luRETURN)
+
+// executa objeto form autonomo
+static function md_form_select(fcMODULE,fcOBJECT,fcOBJECT_VALUE,fcTABLE)
+   local laRESULT := {} ,;
+         laFILTER := {} ,;
+         laWHERE  := {} as array
+
+//   filtro
+     // Carrega filtro
+
+   if db_select({'RBFT_OBJECT','RBFT_SELECT','RBFT_VALUE1','RBFT_VALUE2','RBFT_VALUE1_SET','RBFT_VALUE2_SET'},;
+                 'rbmd_obj_filter',,;
+                {'rbmd_obj_filter.REPORT='+DLMT+pcREPORT+DLMT,;
+                 'rbmd_obj_filter.RB_MODULE='+DLMT+fcMODULE+DLMT,;
+                 'rbmd_obj_filter.RBMD_OBJECT='+DLMT+fcOBJECT+DLMT}) = -1
+      error_sys('Report/Module/Object/Select-Filter:'+db_error())
+   endif
+   laFILTER := db_fetchall()
+
+  // controi filtros
+   for ii := 2 to len(laFILTER)
+       if laFILTER[ii,5] = '3'
+          laFILTER[ii,3] := md_form_calc(fcMODULE,fcOBJECT,laFILTER[ii,3])
+          laFILTER[ii,3] := ft_conv_value(laFILTER[ii,3],'C')
+       endif
+
+       if laFILTER[ii,6] = '3'
+          laFILTER[ii,4] := md_form_calc(fcMODULE,fcOBJECT,laFILTER[ii,4])
+          laFILTER[ii,4] := ft_conv_value(laFILTER[ii,4],'C')
+       endif
+
+       if laFILTER[ii,4] = '1'   // where contendo
+          if ! empty(laFILTER[ii,3])
+             aadd(laWHERE, laFILTER[ii,1]+' like '+DLMT+'%'+laFILTER[ii,3]+'%'+DLMT)
+          endif
+          if ! empty(laFILTER[ii,4])
+             aadd(laWHERE, laFILTER[ii,1]+' like '+DLMT+'%'+laFILTER[ii,4]+'%'+DLMT)
+          endif
+       elseif laFILTER[ii,2] = '2'   // where igual
+          if ! empty(laFILTER[ii,3])
+             aadd(laWHERE, laFILTER[ii,1]+' = '+DLMT+laFILTER[ii,3]+DLMT)
+          endif
+          if ! empty(laFILTER[ii,4])
+             aadd(laWHERE, laFILTER[ii,1]+' = '+DLMT+laFILTER[ii,4]+DLMT)
+          endif
+       elseif laFILTER[ii,2] = '3'   // where intervalo
+          if ! empty(laFILTER[ii,3])
+             aadd(laWHERE, laFILTER[ii,1]+' between '+DLMT+laFILTER[ii,3]+DLMT+;
+                  ' and '+DLMT+laFILTER[ii,4]+DLMT)
+          endif
+       elseif laFILTER[ii,2] = '4'   // where nao contendo
+          if ! empty(laFILTER[ii,3])
+             aadd(laWHERE, laFILTER[ii,1]+' not like '+DLMT+'%'+laFILTER[ii,3]+'%'+DLMT)
+          endif
+          if ! empty(laFILTER[ii,4])
+             aadd(laWHERE, laFILTER[ii,1]+' not like '+DLMT+'%'+laFILTER[ii,4]+'%'+DLMT)
+          endif
+       elseif laFILTER[ii,2] = '5'   // where maior que
+          if ! empty(laFILTER[ii,3])
+             aadd(laWHERE, laFILTER[ii,1]+' >= '+DLMT+laFILTER[ii,3]+DLMT)
+          endif
+       elseif laFILTER[ii,2] = '6'   // where menor que
+          if ! empty(laFILTER[ii,3])
+             aadd(laWHERE, laFILTER[ii,1]+' <= '+DLMT+laFILTER[ii,3]+DLMT)
+          endif
+       endif
+   next ii
+
+   if empty(fcOBJECT_VALUE)
+      putError('Report / Aut - empty object: '+fcOBJECT)
+      return('')
+   endif
+   if db_select({fcOBJECT_VALUE},fcTABLE,,laWHERE) = -1
+      puterror('Report/Module/Object/Select:'+db_error())
+   endif
+   laRESULT := db_fetchrow()
+
+   if len(laRESULT) > 0
+      return(laRESULT[1])
+   endif
+return('')
+
+// executa/imprime o modulo e seus objetos
+static function md_form_print(fcMODULE,faMODSTRUCT)
+   local lnROW  := -1 ,;
+         lnROW2 := 0 ,;
+         lnCOL  := 0 ,;
+         lnCOL2 := 0 ,;
+         lnXCOL := 0 ,;
+         iiCOL     := 0 ,;
+         ii2    := 0 ,;
+         iiMOD  := 0 as int
+
+   local laCOL := {} ,;
+         laAUX := {} ,;
+         laRESULT := {} as array
+
+   local lcOPT := '' ,;
+         lcOPT2 := '' ,;
+         lcAUX := '' ,;
+         lcFONT := '' ,;
+         lcTP_OBJECT := '' ,;
+         lcOBJECT_VALUE := '' ,;
+         lcRBMD_FL_LABEL := '' ,;
+         lcLABEL := '' ,;
+         lcPOS_LABEL := '' as string
+
+   if len(faMODSTRUCT) < 2
+      wOut('Empty Module')
+      return(.f.)
+   endif
+   if pcSAIDA == 'CSV'
+      wout('Modulo:'+ +wSet('RBMD_'+fcMODULE)+';'+LF)
+   else
+      wOut(space(pnCOLTAB)+'<table cellpadding="0" cellspacing="0" border="0" align="center"'+wSet('RBMD_'+fcMODULE)+'>')
+   endif   
+   pnCOLTAB += 3
+
+  // Verifica o numero maximo de colunas
+   for iiCOL := 2 to len(faMODSTRUCT)
+      lnCOL := db_fetchcolvalue(faMODSTRUCT,'RBMD_COL',iiCOL)
+      if lnCOL > lnXCOL
+         lnXCOL := lnCOL
+      endif
+   next iiCOL
+
+   iiMOD := 2
+   lnROW := db_fetchcolvalue(faMODSTRUCT,'RBMD_ROW',iiMOD)
+   do while iiMOD <= len(faMODSTRUCT)
+      laCOL := {}
+      do while lnROW = db_fetchcolvalue(faMODSTRUCT,'RBMD_ROW',iiMOD)  // junta colunas da linha (laCOL)
+         if db_fetchcolvalue(faMODSTRUCT,'RBMD_HIDDEN',iiMOD) != 'Y'
+
+            laAUX := {}
+            aadd(laAUX,db_fetchcolvalue(faMODSTRUCT,'RBMD_COL',iiMOD))
+            aadd(laAUX,iiMOD)
+            aadd(laAUX,0)
+            aadd(laAUX,0)
+
+            aadd(laCOL,laAUX)
+         endif
+         iiMOD ++
+         if iiMOD > len(faMODSTRUCT)
+            exit
+         endif
+      enddo
+      if iiMOD <= len(faMODSTRUCT)
+         lnROW := db_fetchcolvalue(faMODSTRUCT,'RBMD_ROW',iiMOD)
+      endif
+
+      lnCOL := 1
+      for iiCOL := 1 to len(laCOL)   // analiza celulas vazias antes e define colspam
+         if lnCOL < laCOL[iiCOL,1]
+            laCOL[iiCOL,3] := (laCOL[iiCOL,1] - lnCOL)
+         endif
+         lnCOL := laCOL[iiCOL,1] + 1
+         if iiCOL = len(laCOL)  // se for a ultima coluna
+            if laCOL[iiCOL,1] < lnXCOL  // se coluna for menor que a coluna máxima
+               laCOL[iiCOL,4] := (lnXCOL - laCOL[iiCOL,1]) + 1    // seta colspam
+            endif
+         else
+            if (laCOL[iiCOL+1,1] - laCOL[iiCOL,1]) > 1  // se a próxima coluna for maior que a atual
+               laCOL[iiCOL,4] := laCOL[iiCOL+1,1] - laCOL[iiCOL,1]    // seta colspam
+            endif
+         endif
+      next iiCOL
+
+     // imprime linha
+      wOut(space(pnCOLTAB)+'<tr>')
+
+      iiCOL := 1
+
+      for iiCOL := 1 to len(laCOL)       // imprime objeto
+         for ii2 := 1 to laCOL[iiCOL,3]
+         
+            wOut(space(pnCOLTAB+3)+'<td> </td>')
+         next ii2
+        // define os parametros da celula <td>
+         lcOPT := ''
+
+         if laCOL[iiCOL,4] > 0  // colspan
+             lcOPT += ' colspan="'+alltrim(str(laCOL[iiCOL,4]))+'"'
+         endif
+
+         lcAUX := db_fetchcolvalue(faMODSTRUCT,'RBMD_BGCOLOR',laCOL[iiCOL,2])
+         if ! empty(lcAUX)  // cor de fundo
+            lcOPT += ' bgcolor="'+lcAUX+'"'
+         endif
+
+         lcOPT2 := ''
+         lcAUX := db_fetchcolvalue(faMODSTRUCT,'RBMD_BORDER_COLOR',laCOL[iiCOL,2])
+         if ! empty(lcAUX)  // cor de fundo
+            lcOPT2 += ' border-color: #'+lcAUX+';'
+         endif
+
+         lcAUX := str(db_fetchcolvalue(faMODSTRUCT,'RBMD_BORDER',laCOL[iiCOL,2]))
+         if val(lcAUX) > 0  // cor de fundo
+            lcOPT2 += ' border-width: '+lcAUX+'px;'
+         endif
+
+         if ! empty(lcOPT2)
+            lcOPT += ' style="border-style: solid;'+lcOPT2+'"'
+         endif
+
+         lcAUX := db_fetchcolvalue(faMODSTRUCT,'RBMD_ALIGN',laCOL[iiCOL,2])  // alinhamento
+         if ! empty(lcAUX)
+            lcOPT += ' align="'+if(lcAUX='R','right',if(lcAUX='C','center','left'))+'"'
+         endif
+
+         wOut(space(pnCOLTAB+3)+'<td'+lcOPT+'>')
+
+
+         lcTP_OBJECT := db_fetchcolvalue(faMODSTRUCT,'RBMD_TP_OBJECT',laCOL[iiCOL,2])
+         lcOPT:= ''
+         if lcTP_OBJECT $ 'TEDSC' // T-Texto, E-Variável, D-Banco de Dados, S-Autonomo, C-Calculado
+           // define a label
+            lcFONT := ''
+            lcRBMD_FL_LABEL := db_fetchcolvalue(faMODSTRUCT,'RBMD_FL_LABEL',laCOL[iiCOL,2])
+            if lcRBMD_FL_LABEL = 'Y'
+               lcAUX := db_fetchcolvalue(faMODSTRUCT,'RBMD_LABEL_FONT',laCOL[iiCOL,2])
+               if ! empty(lcAUX)  // define tipo da fonte
+                  lcFONT += ' face="'+lcAUX+'"'
+               endif
+
+               lcAUX := str(db_fetchcolvalue(faMODSTRUCT,'RBMD_LABEL_SZFONT',laCOL[iiCOL,2]))
+               if val(lcAUX) > 0 // define tamanho da fonte
+                  lcFONT += ' size="'+lcAUX+'"'
+               endif
+
+               lcAUX := db_fetchcolvalue(faMODSTRUCT,'RBMD_LABEL_COLOR',laCOL[iiCOL,2])
+               if ! empty(lcAUX)  // define cor da fonte
+                  lcFONT += ' color="'+lcAUX+'"'
+               endif
+
+               lcAUX := lblfscreen(xnm_field(db_fetchcolvalue(faMODSTRUCT,'RBMD_OBJECT_VALUE',laCOL[iiCOL,2])),wSet('REPORT_PROJECT'))
+               if empty(lcAUX)
+                  lcAUX := db_fetchcolvalue(faMODSTRUCT,'RBMD_LABEL',laCOL[iiCOL,2])
+               endif
+
+               if ! empty(lcFONT)
+                  lcLABEL := '<font'+lcFONT+'>'+lcAUX+'</font>'
+               else
+                  lcLABEL := lcAUX
+               endif
+            endif
+
+           // define objeto
+            lcFONT := ''
+            lcAUX := db_fetchcolvalue(faMODSTRUCT,'RBMD_FONT',laCOL[iiCOL,2])
+            if ! empty(lcAUX)  // define tipo da fonte
+               lcFONT += ' face="'+lcAUX+'"'
+            endif
+            lcAUX := str(db_fetchcolvalue(faMODSTRUCT,'RBMD_SZFONT',laCOL[iiCOL,2]))
+               lcFONT += ' size="'+lcAUX+'"'
+
+            lcAUX := db_fetchcolvalue(faMODSTRUCT,'RBMD_COLOR',laCOL[iiCOL,2])
+            if ! empty(lcAUX)  // define cor da fonte
+               lcFONT += ' color="'+lcAUX+'"'
+            endif
+
+            lcAUX := transform(moddata_fetch(fcMODULE,db_fetchcolvalue(faMODSTRUCT,'RBMD_OBJECT',laCOL[iiCOL,2])))
+
+            if ! empty(lcFONT)
+               lcOBJECT_VALUE := '<font'+lcFONT+'>'+lcAUX+'</font>'
+            else
+               lcOBJECT_VALUE := lcAUX
+            endif
+
+
+            if lcRBMD_FL_LABEL != 'Y'
+               wOut(space(pnCOLTAB+6)+lcOBJECT_VALUE)
+            else
+
+               lcLABEL_POS := db_fetchcolvalue(faMODSTRUCT,'RBMD_LABEL_POS',laCOL[iiCOL,2])
+              // posiçao de impressao da Label X Objeto
+               if lcLABEL_POS = 'L'   // Label à esquerda
+                  wOut(space(pnCOLTAB+6)+lcLABEL+' '+lcOBJECT_VALUE)
+               elseif lcLABEL_POS = 'R'  // Label à direita
+                  wOut(space(pnCOLTAB+6)+lcOBJECT_VALUE+' '+lcLABEL)
+               elseif lcLABEL_POS = 'T'  // Label em cima
+                  wOut(space(pnCOLTAB+6)+lcLABEL+'<BR>'+lcOBJECT_VALUE)
+               elseif lcLABEL_POS = 'B'  // Label embaixo
+                  wOut(space(pnCOLTAB+6)+lcOBJECT_VALUE+'<BR>'+lcLABEL)
+               endif
+            endif
+         elseif lcTP_OBJECT = 'I' // I-Imagem
+            lcOPT := ''
+            if db_fetchcolvalue(faMODSTRUCT,'RBMD_FL_IMAGE_SRC',laCOL[iiCOL,2]) = 'U' // U-URL
+               lcAUX := str(db_fetchcolvalue(faMODSTRUCT,'RBMD_WIDTH',laCOL[iiCOL,2]))  // largura
+               if val(lcAUX) >0
+                  if db_fetchcolvalue(faMODSTRUCT,'RBMD_WIDTH_PC',laCOL[iiCOL,2]) = 'Y' // largura (%)
+                     lcOPT += ' width="'+lcAUX+'%"'
+                  else
+                     lcOPT += ' width="'+lcAUX+'"'
+                  endif
+               endif
+
+               lcAUX := str(db_fetchcolvalue(faMODSTRUCT,'RBMD_HEIGHT',laCOL[iiCOL,2]))  // altura
+               if val(lcAUX) > 0
+                  if db_fetchcolvalue(faMODSTRUCT,'RBMD_HEIGHT_PC',laCOL[iiCOL,2]) = 'Y' // altura (%)
+                     lcOPT += ' height="'+lcAUX+'%"'
+                  else
+                     lcOPT += ' height="'+lcAUX+'"'
+                  endif
+               endif
+
+               lcAUX := str(db_fetchcolvalue(faMODSTRUCT,'RBMD_BORDER',laCOL[iiCOL,2]))  // borda
+               if val(lcAUX) > 0
+                  lcOPT += ' border="'+lcAUX+'"'
+               endif
+
+               lcAUX := db_fetchcolvalue(faMODSTRUCT,'RBMD_ALIGN',laCOL[iiCOL,2])  // alinhamento
+               if ! empty(lcAUX)
+                  lcOPT += ' align="'+if(lcAUX='R','right',if(lcAUX='C','center','left'))+'"'
+               endif
+
+               lcAUX := db_fetchcolvalue(faMODSTRUCT,'RBMD_OBJECT_VALUE',laCOL[iiCOL,2])
+
+               wOut(space(pnCOLTAB+6)+'<img src="'+lcAUX+'"'+lcOPT+'>')
+
+            elseif db_fetchcolvalue(faMODSTRUCT,'RBMD_FL_IMAGE_SRC',laCOL[iiCOL,2]) = 'G' // G-GED
+            elseif db_fetchcolvalue(faMODSTRUCT,'RBMD_FL_IMAGE_SRC',laCOL[iiCOL,2]) = 'B' // B-Banco de Dados
+            endif
+
+         elseif lcTP_OBJECT = 'R' // R-Linha
+
+            lcAUX := db_fetchcolvalue(faMODSTRUCT,'RBMD_COLOR',laCOL[iiCOL,2])  // cor da linha
+            if ! empty(lcAUX)
+               lcOPT += ' color="'+lcAUX+'"'
+            endif
+
+            lcAUX := str(db_fetchcolvalue(faMODSTRUCT,'RBMD_HRULE',laCOL[iiCOL,2]))  // tamanho da linha
+            if ! empty(lcAUX)
+               if db_fetchcolvalue(faMODSTRUCT,'RBMD_WIDTH_PC',laCOL[iiCOL,2]) = 'Y' // tamanho (%)
+                  lcOPT += ' width="'+lcAUX+'%"'
+               else
+                  lcOPT += ' width="'+lcAUX+'"'
+               endif
+            endif
+
+            lcAUX := str(db_fetchcolvalue(faMODSTRUCT,'RBMD_BORDER',laCOL[iiCOL,2]))  // grossura
+            if val(lcAUX) > 0
+               lcOPT += ' size="'+lcAUX+'"'
+            endif
+
+            lcAUX := db_fetchcolvalue(faMODSTRUCT,'RBMD_ALIGN',laCOL[iiCOL,2])  // alinhamento
+            if ! empty(lcAUX)
+               lcOPT += ' align="'+if(lcAUX='R','right',if(lcAUX='C','center','left'))+'"'
+            endif
+
+            wOut(space(pnCOLTAB+6)+'<hr'+lcOPT+' noshade>')
+
+         elseif lcTP_OBJECT = 'L' // L-Link Módulo
+
+           // carrega modulo linkado
+            if db_select({'RB_MODULE','RBMD_TABLE_MAIN','TP_RBMD','RBMD_WIDTH','RBMD_WIDTH_PC','RB_BRKPAGE'},'rb_module',,;
+                        {'rb_module.REPORT='+DLMT+pcREPORT+DLMT,;
+                         'rb_module.RB_MODULE="'+db_fetchcolvalue(faMODSTRUCT,'RBMD_OBJECT_VALUE',laCOL[iiCOL,2])+'"'}) = -1
+               error_sys('Report:'+db_error())
+            endif
+            laRESULT := db_fetchrow()
+
+           // define os parametros da tag <table>
+            pcRB_OPT := ''
+
+            lcAUX := str(laRESULT[4])  // largura
+            if ! empty(lcAUX)
+               if laRESULT[5] = 'Y' // largura (%)
+                  pcRB_OPT += ' width="'+lcAUX+'%"'
+               else
+                  pcRB_OPT += ' width="'+lcAUX+'"'
+               endif
+            endif
+
+            wSet('RBMD_'+laRESULT[1],pcRB_OPT)
+            wSet('RB_BRKPAGE_'+laRESULT[1],laRESULT[6])
+
+            pnCOLTAB += 6
+            if laRESULT[3] = 'F'
+               exec_md_form(laRESULT[1],laRESULT[2])
+            elseif laRESULT[3] = 'L'
+               exec_md_list(laRESULT[1],laRESULT[2])
+            elseif laRESULT[3] = 'G'
+               exec_md_chart(laRESULT[1])
+            elseif laRESULT[3] = 'B'
+               exec_md_copy(laRESULT[1])
+            endif
+            pnCOLTAB -= 6
+
+         endif
+         wOut(space(pnCOLTAB+3)+'</td>')
+
+      next iiCOL
+
+      wOut(space(pnCOLTAB)+'</tr>')
+   enddo
+   pnCOLTAB -= 3
+   wOut(space(pnCOLTAB)+'</table>')
+return
+
+// executa módulo List
+static function exec_md_list(fcMODULE,fcTABLE_MAIN)
+   local lcORDER     := '' ,;
+         lcFL_TOTAL  := 'N' ,;
+         lcAUX       := '' ,;
+         lcOPT       := '' ,;
+         lcTD        := '' ,;
+         lcFONT      := '' ,;
+         lcOBJECT_VALUE := '' ,;
+         lcPOS       := '' ,;
+         lcBuffer    := '',;
+         lcNROW      := '' as string
+
+   local laMODSTRUCT := {} ,;
+         laRESULT    := {} ,;
+         laFILTER    := {} ,;
+         laER        := {} ,;
+         laORDER     := {} ,;
+         laGROUPBY   := {} ,;
+         laWHERE     := {} ,;
+         laFIELD     := {} ,;
+         laTTCOL     := {} ,;
+         laQUEBRA     := {} as array
+
+   local ii  := 0 ,;
+         ii2 := 0 ,;
+         iiAUX := 0 ,;
+         lnPOS := 0 as int
+  // carrega objetos do módulo
+   if db_select(astruct2col(WSet("DB_ACTIVE"),'rbmd_list',1,'A'),'rbmd_list',,;
+                {'rbmd_list.REPORT='+DLMT+pcREPORT+DLMT,;
+                 'rbmd_list.RB_MODULE='+DLMT+fcMODULE+DLMT},;
+                {'rbmd_list.RBMD_COL'}) = -1
+      error_sys('Report/Module/List:'+db_error())
+   endif
+   laMODSTRUCT := db_fetchall()
+
+  // se possui tabela principal monta query e cria laço com o resultado
+   if ! empty(fcTABLE_MAIN)
+      if pcSAIDA <> 'CSV'
+         wOut(space(pnCOLTAB)+'<table cellpadding="0" cellspacing="0" border="0" align="center"'+wSet('RBMD_'+fcMODULE)+'>')
+      endif   
+      pnCOLTAB += 3
+
+      for ii := 2 to len(laMODSTRUCT)   // junta as fields para o select
+         if ! empty(db_fetchcolvalue(laMODSTRUCT,'RBMD_OBJECT_VALUE',ii))
+            aadd(laFIELD,db_fetchcolvalue(laMODSTRUCT,'RBMD_OBJECT_VALUE',ii)+' as '+lower(db_fetchcolvalue(laMODSTRUCT,'RBMD_OBJECT',ii)))
+         endif
+         if db_fetchcolvalue(laMODSTRUCT,'RBMD_ORDERITEM',ii) $ 'AD'
+            lcORDER := db_fetchcolvalue(laMODSTRUCT,'RBMD_ORDERITEM',ii)
+            aadd(laORDER,db_fetchcolvalue(laMODSTRUCT,'RBMD_OBJECT_VALUE',ii))
+         endif
+         if db_fetchcolvalue(laMODSTRUCT,'RBMD_GROUPITEM',ii) = 'Y'
+            aadd(laGROUPBY,db_fetchcolvalue(laMODSTRUCT,'RBMD_OBJECT_VALUE',ii))
+         endif
+        // ativa colunas que serão totalizadas
+         aadd(laTTCOL,{db_fetchcolvalue(laMODSTRUCT,'RBMD_TOTALIZEITEM',ii),0})
+         aadd(laQUEBRA,{db_fetchcolvalue(laMODSTRUCT,'RBMD_ITEMSTART',ii),0,''})
+         if db_fetchcolvalue(laMODSTRUCT,'RBMD_TOTALIZEITEM',ii) = 'Y'
+            lcFL_TOTAL := 'Y'
+         endif
+      next ii
+
+      if len(laFIELD) > 0
+         laER := filter_er(fcMODULE)
+      endif
+
+      paLIMIT := {}
+      laWHERE := filter_where(fcMODULE)
+     // select para captura dos dados
+      if db_select(laFIELD,;           // colunas
+                    fcTABLE_MAIN,;     // tabela
+                   laER,;              // relacionamento
+                   laWHERE,;           // condiçao
+                   laORDER,lcORDER,;   // ordenaçao
+                   laGROUPBY,paLIMIT) = -1     // agrupamento
+
+         error_sys('Report/Module/Query:'+db_error())
+      endif
+
+
+      laRESULT := db_fetchall()
+     // Imprime linha de titulo da tabela
+      if pcSAIDA <> 'CSV'     
+         wOut(space(pnCOLTAB)+'<tr>')
+      endif   
+      pnCOLTAB += 3
+// Impressão dos nomes das colunas
+      ii := 0
+      for ii := 2 to len(laMODSTRUCT)
+        // define os parametros da celula <td>
+         lcOPT := ''
+
+         lcAUX := db_fetchcolvalue(laMODSTRUCT,'RBMD_TH_BGCOLOR',ii)
+         if ! empty(lcAUX)  // cor de fundo
+            lcOPT += ' bgcolor="'+lcAUX+'"'
+         endif
+
+         lcAUX := db_fetchcolvalue(laMODSTRUCT,'RBMD_TH_ALIGN',ii)  // alinhamento
+         if ! empty(lcAUX)
+            lcOPT += ' align="'+if(lcAUX='R','right',if(lcAUX='C','center','left'))+'"'
+         endif
+
+         lcTD := '<td'+lcOPT+'>'
+
+        // define objeto do titulo
+         lcFONT := ''
+         lcAUX := db_fetchcolvalue(laMODSTRUCT,'RBMD_TH_FONT',ii)
+         if ! empty(lcAUX)  // define tipo da fonte
+            lcFONT += ' face="'+lcAUX+'"'
+         endif
+         lcAUX := str(db_fetchcolvalue(laMODSTRUCT,'RBMD_TH_SZFONT',ii))
+            lcFONT += ' size="'+lcAUX+'"'
+
+         lcAUX := db_fetchcolvalue(laMODSTRUCT,'RBMD_TH_COLOR',ii)
+         if ! empty(lcAUX)  // define cor da fonte
+            lcFONT += ' color="'+lcAUX+'"'
+         endif
+
+         lcAUX := db_fetchcolvalue(laMODSTRUCT,'RBMD_OBJECT_LABEL',ii)
+
+         if ! empty(lcFONT)
+            lcOBJECT_VALUE := '<font'+lcFONT+'>'+lcAUX+'</font>'
+         else
+            lcOBJECT_VALUE := lcAUX
+         endif
+
+         lcTD += lcOBJECT_VALUE
+
+         lcTD += '</td>'
+         if pcSAIDA <> 'CSV'
+            wOut(space(pnCOLTAB+3)+lcTD)
+         else
+            lcBuffer += lcAUX
+            if ii < len(laMODSTRUCT)
+               lcBuffer += ';'
+            endif    
+//            Wout(lcAUX+';')
+         endif   
+
+        // define colunas para totalizar
+
+      next ii
+
+      pnCOLTAB -= 3
+      if pcSAIDA <> 'CSV'      
+         wOut(space(pnCOLTAB)+'</tr>')
+      else
+         WOut(lcBuffer)   
+      endif   
+
+      ii := 0
+      for ii := 2 to len(laRESULT)  // laço do resultado
+         if empty(lcNROW)
+            lcNROW := '2'
+         else
+            lcNROW := ''
+         endif
+
+         for ii2 := 1 to len(laRESULT[ii])
+            if laQUEBRA[ii2,1] $ 'RP'
+               if ! (laQUEBRA[ii2,3] == transform(laRESULT[ii,ii2]))
+                  if ii > 2
+                     if lcFL_TOTAL = 'Y'
+                        for iiAUX := 1 to len(laRESULT[1])
+                           if laTTCOL[iiAUX,1] = 'Y'
+                              moddata_mgr(fcMODULE,laRESULT[1,iiAUX],laQUEBRA[iiAUX,2])
+                              laQUEBRA[iiAUX,2] := 0  // reinicia total da quebra
+                           elseif iiAUX = ii2
+                                  // Glauber 24/02/2012 - Quando o formato de exportação é CSV no final do relatório, esta apresentando o caracter &nbsp
+                                  if pcSAIDA == 'CSV'
+                                     moddata_mgr(fcMODULE,laRESULT[1,iiAUX],space(4)+'Total '+laQUEBRA[iiAUX,3])
+                                  else
+                                     moddata_mgr(fcMODULE,laRESULT[1,iiAUX],wspace(4)+'Total '+laQUEBRA[iiAUX,3])
+                                  endif   
+                           else
+                                  if pcSAIDA == 'CSV'
+                                     moddata_mgr(fcMODULE,laRESULT[1,iiAUX],space(1))                                  
+                                  else                           
+                                     moddata_mgr(fcMODULE,laRESULT[1,iiAUX],wspace(1))
+                                  endif   
+                           endif
+                        next iiAUX
+
+                        md_list_print(fcMODULE,laMODSTRUCT,lcNROW,'N')
+
+                        if empty(lcNROW)
+                           lcNROW := '2'
+                        else
+                           lcNROW := ''
+                        endif
+                     endif
+
+                    // linha em branco
+                     for iiAUX := 1 to len(laRESULT[1])
+                         if pcSAIDA == 'CSV'
+                            moddata_mgr(fcMODULE,laRESULT[1,iiAUX],space(1))
+                         else
+                             moddata_mgr(fcMODULE,laRESULT[1,iiAUX],wspace(1))                         
+                         endif
+                     next iiAUX
+                     md_list_print(fcMODULE,laMODSTRUCT,lcNROW,'N')
+
+                     if empty(lcNROW)
+                        lcNROW := '2'
+                     else
+                        lcNROW := ''
+                     endif
+                  endif
+
+                  laQUEBRA[ii2,2] := 0
+                  laQUEBRA[ii2,3] := transform(laRESULT[ii,ii2])
+
+               endif
+            endif
+
+            moddata_mgr(fcMODULE,laRESULT[1,ii2],laRESULT[ii,ii2])
+
+            if laTTCOL[ii2,1] = 'Y'
+               if valtype(laRESULT[ii,ii2]) = 'N'
+                  laTTCOL[ii2,2] += laRESULT[ii,ii2]
+                  laQUEBRA[ii2,2] += laRESULT[ii,ii2]
+               else
+                  laTTCOL[ii2,2] ++
+                  laQUEBRA[ii2,2] ++
+               endif
+            endif
+         next ii2
+
+        // executa/imprime o modulo e seus objetos
+         md_list_print(fcMODULE,laMODSTRUCT,lcNROW,'Y')
+
+      next ii
+      if len(laRESULT) > 1
+         for ii2 := 1 to len(laRESULT[1])
+            if laQUEBRA[ii2,1] $ 'RP'
+                  if ii > 2
+                     if lcFL_TOTAL = 'Y'
+                        for iiAUX := 1 to len(laRESULT[1])
+                           if laTTCOL[iiAUX,1] = 'Y'
+                              moddata_mgr(fcMODULE,laRESULT[1,iiAUX],laQUEBRA[iiAUX,2])
+                              laQUEBRA[iiAUX,2] := 0  // reinicia total da quebra
+                           elseif iiAUX = ii2
+                              // Glauber 24/02/2012 - Quando o formato de exportação é CSV no final do relatório, esta apresentando o caracter &nbsp
+                              if pcSAIDA == 'CSV'
+                                 moddata_mgr(fcMODULE,laRESULT[1,iiAUX],space(4)+'Total '+laQUEBRA[iiAUX,3])
+                              else                          
+                                 moddata_mgr(fcMODULE,laRESULT[1,iiAUX],wspace(4)+'Total '+laQUEBRA[iiAUX,3])
+                              endif   
+                           else
+                              if pcSAIDA == 'CSV'
+                                 moddata_mgr(fcMODULE,laRESULT[1,iiAUX],space(1))
+                              else                           
+                                 moddata_mgr(fcMODULE,laRESULT[1,iiAUX],wspace(1))
+                              endif   
+                           endif
+                        next iiAUX
+
+                        if empty(lcNROW)
+                           lcNROW := '2'
+                        else
+                           lcNROW := ''
+                        endif
+
+                        md_list_print(fcMODULE,laMODSTRUCT,lcNROW,'N')
+                     endif
+                  endif
+            endif
+         next ii2
+      endif
+     // imprime total
+      if len(laTTCOL) > 0 .and. len(laRESULT) > 0
+         if empty(lcNROW)
+            lcNROW := '2'
+         else
+            lcNROW := ''
+         endif
+
+
+         for ii := 1 to len(laRESULT[1])
+             // Glauber 24/02/2012 - Quando o formato de exportação é CSV no final do relatório, esta apresentando o caracter &nbsp
+             if pcSAIDA == 'CSV'
+                moddata_mgr(fcMODULE,laRESULT[1,ii],space(1))
+             else
+                moddata_mgr(fcMODULE,laRESULT[1,ii],wspace(1))
+             endif   
+         next ii
+        // executa/imprime linha separando o total
+         md_list_print(fcMODULE,laMODSTRUCT,lcNROW,'N')
+
+
+         if empty(lcNROW)
+            lcNROW := '2'
+         else
+            lcNROW := ''
+         endif
+
+         for ii := 1 to len(laRESULT[1])
+            if laTTCOL[ii,1] = 'Y'
+               moddata_mgr(fcMODULE,laRESULT[1,ii],laTTCOL[ii,2])
+            elseif ii == 1 .and. laTTCOL[ii,1] != 'Y'
+               moddata_mgr(fcMODULE,laRESULT[1,ii],'Total:')
+            else
+               // Glauber 24/02/2012 - Quando o formato de exportação é CSV no final do relatório, esta apresentando o caracter &nbsp
+               if pcSAIDA == 'CSV'
+                  moddata_mgr(fcMODULE,laRESULT[1,ii],space(1))             
+               else
+                  moddata_mgr(fcMODULE,laRESULT[1,ii],wspace(1))
+               endif   
+            endif
+         next ii
+        // executa/imprime linha do total
+         if lcFL_TOTAL = 'Y'
+            md_list_print(fcMODULE,laMODSTRUCT,lcNROW,'N')
+         endif
+      endif
+
+      pnCOLTAB -= 3
+      if pcSAIDA <> 'CSV'
+         wOut(space(pnCOLTAB)+'</table>')
+      endif   
+   endif
+return(.t.)
+
+
+// Glauber 11/2011
+// Imprime os módulos tipo lista
+
+static function md_list_print(fcMODULE,faMODSTRUCT,fcNROW,fcFL_VALUES)  // fcFL_VALUES se é linha de dados 'Y', ou total 'N'
+   local lcTD   := '' ,;
+         lcAUX       := '' ,;
+         lcOPT       := '' ,;
+         lcFONT      := '' ,;
+         lcRBMD_BOND_MODULE := '' ,;
+         lcOBJECT := '' ,;
+         lcBuffer := '',;
+         lcOBJECT_VALUE := '' as string
+
+   local laRESULT := {} as array
+   local ii := 0 as int
+   local luFETCH
+
+  // Imprime linha de titulo da tabela
+   if pcSAIDA <> 'CSV'
+      wOut(space(pnCOLTAB)+'<tr>')
+   endif   
+   pnCOLTAB += 3
+
+   ii := 0
+   for ii := 2 to len(faMODSTRUCT)
+     // define os parametros da celula <td>
+      lcOPT := ''
+
+      lcAUX := db_fetchcolvalue(faMODSTRUCT,'RBMD_BGCOLOR'+fcNROW,ii)
+      if ! empty(lcAUX)  // cor de fundo
+         lcOPT += ' bgcolor="'+lcAUX+'"'
+      endif
+
+      lcAUX := db_fetchcolvalue(faMODSTRUCT,'RBMD_ALIGN',ii)  // alinhamento
+      if ! empty(lcAUX)
+         lcOPT += ' align="'+if(lcAUX='R','right',if(lcAUX='C','center','left'))+'"'
+      endif
+
+      lcTD := '<td'+lcOPT+'>'
+
+      lcRBMD_BOND_MODULE  := db_fetchcolvalue(faMODSTRUCT,'RBMD_BOND_MODULE',ii)
+      if empty(lcRBMD_BOND_MODULE) .or. fcFL_VALUES = 'N'
+        // define objeto do titulo
+         lcFONT := ''
+         lcAUX := db_fetchcolvalue(faMODSTRUCT,'RBMD_FONT',ii)
+         if ! empty(lcAUX)  // define tipo da fonte
+            lcFONT += ' face="'+lcAUX+'"'
+         endif
+         lcAUX := str(db_fetchcolvalue(faMODSTRUCT,'RBMD_SZFONT',ii))
+            lcFONT += ' size="'+lcAUX+'"'
+
+         lcAUX := db_fetchcolvalue(faMODSTRUCT,'RBMD_COLOR'+fcNROW,ii)
+         if ! empty(lcAUX)  // define cor da fonte
+            lcFONT += ' color="'+lcAUX+'"'
+         endif
+
+         lcOBJECT := db_fetchcolvalue(faMODSTRUCT,'RBMD_OBJECT',ii)
+         luFETCH := moddata_fetch(fcMODULE,lcOBJECT)
+
+         if valtype(luFETCH) = 'N'
+            if wmd_fieldzerofill(lcOBJECT) = 'Y'
+               lcAUX := alltrim(strzero(luFETCH,wmd_fieldsize(lcOBJECT),wmd_fieldfloat(lcOBJECT)))
+            else
+               // Glauber - verificar se o formato é para o excel ou csv e trocar o ponto por vírgula
+//               if pcSAIDA <> 'TELA'
+                  // Glauber 24/02/2012 - Conforme solicitado por email pelo Alexandre o gerador deve apresentar
+                  // os dados financeiros no formato 99.999.999,99
+               
+//                  lcAUX := alltrim(str(luFETCH,wmd_fieldsize(lcOBJECT),wmd_fieldfloat(lcOBJECT)))
+                  lcAUX := strtran(lcAUX,'.',',')
+//               else
+                  //lcAUX := alltrim(str(luFETCH,wmd_fieldsize(lcOBJECT),wmd_fieldfloat(lcOBJECT)))
+                  lcAUX := alltrim(wpictrans(lcOBJECT,luFETCH))
+//               endif   
+            endif
+         else
+            lcAUX := transform(luFETCH)
+         endif
+
+         if ! empty(lcFONT)
+            lcOBJECT_VALUE := '<font'+lcFONT+'>'+lcAUX+'</font>'
+         else
+            lcOBJECT_VALUE := lcAUX
+         endif
+
+         lcTD += lcOBJECT_VALUE
+
+         lcTD += '</td>'
+         if pcSAIDA <> 'CSV'
+            wOut(space(pnCOLTAB+3)+lcTD)
+         else
+            lcBuffer += lcAUX 
+            if ii < len(faMODSTRUCT)
+               lcBuffer += ';'
+            endif
+//            Wout(lcAUX+';')
+         endif   
+      else
+         if pcSAIDA <> 'CSV'
+            wOut(space(pnCOLTAB+3)+lcTD)
+         endif   
+
+           // carrega modulo linkado
+            if db_select({'RB_MODULE','RBMD_TABLE_MAIN','TP_RBMD'},'rb_module',,;
+                        {'rb_module.REPORT='+DLMT+pcREPORT+DLMT,;
+                         'rb_module.RB_MODULE="'+lcRBMD_BOND_MODULE+'"'}) = -1
+               error_sys('Report:'+db_error())
+            endif
+            laRESULT := db_fetchrow()
+
+            pnCOLTAB += 6
+            if laRESULT[3] = 'F'
+               exec_md_form(laRESULT[1],laRESULT[2])
+            elseif laRESULT[3] = 'L'
+               exec_md_list(laRESULT[1],laRESULT[2])
+            elseif laRESULT[3] = 'G'
+               exec_md_chart(laRESULT[1])
+            elseif laRESULT[3] = 'B'
+               exec_md_copy(laRESULT[1])
+            endif
+            pnCOLTAB -= 6
+          if pcSAIDA <> 'CSV'   
+             wOut(space(pnCOLTAB+3)+'</td>')
+          endif   
+      endif
+
+   next ii
+
+   pnCOLTAB -= 3
+   if pcSAIDA <> 'CSV'
+      wOut(space(pnCOLTAB)+'</tr>')
+   else
+      wout(lcBuffer)             
+   endif   
+return(.t.)
+
+// executa módulo Grafico
+static function exec_md_chart(fcMODULE)
+   local laPARM    := {} ,;
+         laAUX := {} ,;
+         laRESTULT := {} as array
+
+   local ii  := 0 ,;
+         lnKEY := 0 as int
+
+   LOCAL_LONG Init_Val, random_num
+
+   local lcID := '' ,;
+         lcAUX        := '' ,;
+         lcOPT        := '' ,;
+         lcKEY        := '' ,;
+         lcKEY_MASTER := '83751067301673485' as string
+  // carrega módulo chart
+   if db_select(astruct2col(WSet("DB_ACTIVE"),'rbmd_chart',1,'A'),'rbmd_chart',,;
+                {'rbmd_chart.REPORT='+DLMT+pcREPORT+DLMT,;
+                 'rbmd_chart.RB_MODULE='+DLMT+fcMODULE+DLMT}) = -1
+      error_sys('Report/Module/Chart:'+db_error())
+   endif
+   laRESULT := db_fetchall()
+   laAUX := {}
+   for ii := 1 to len(laRESULT[1])
+      aadd(laAUX,{laRESULT[1,ii],laRESULT[2,ii]})
+
+   next ii
+   aadd(laPARM,{'rbmd_chart',laAUX})
+
+  // define parametros da TD  e do <img src>
+   lcOPT := ''
+   lcAUX := str(db_fetchcolvalue(laRESULT,'RBMD_WIDTH',2))  // largura
+   if val(lcAUX) >0
+      if db_fetchcolvalue(laRESULT,'RBMD_WIDTH_PC',2) = 'Y' // largura (%)
+         lcOPT += ' width="'+lcAUX+'%"'
+      else
+         lcOPT += ' width="'+lcAUX+'"'
+      endif
+   endif
+
+   lcAUX := str(db_fetchcolvalue(laRESULT,'RBMD_HEIGHT',2))  // altura
+   if val(lcAUX) > 0
+      if db_fetchcolvalue(laRESULT,'RBMD_HEIGHT_PC',2) = 'Y' // altura (%)
+         lcOPT += ' height="'+lcAUX+'%"'
+      else
+         lcOPT += ' height="'+lcAUX+'"'
+      endif
+   endif
+
+   lcAUX := str(db_fetchcolvalue(laRESULT,'RBMD_BORDER',2))  // borda
+   if val(lcAUX) > 0
+      lcOPT += ' border="'+lcAUX+'"'
+   endif
+
+   lcAUX := db_fetchcolvalue(laRESULT,'RBMD_ALIGN',2)  // alinhamento
+   if ! empty(lcAUX)
+      lcOPT += ' align="'+if(lcAUX='R','right',if(lcAUX='C','center','left'))+'"'
+   endif
+
+
+  // carrega Titulo das Células
+   if db_select(astruct2col(WSet("DB_ACTIVE"),'rbmd_chart_point',1,'A'),'rbmd_chart_point',,;
+                {'rbmd_chart_point.REPORT='+DLMT+pcREPORT+DLMT,;
+                 'rbmd_chart_point.RB_MODULE='+DLMT+fcMODULE+DLMT},;
+                 {'rbmd_chart_point.RBMD_POINT'}) = -1
+      error_sys('Report/Module/Chart/Point:'+db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   aadd(laRESULT,'')
+   ains(laRESULT,1)
+   laRESULT[1] := 'row'
+   aadd(laPARM,{'rbmd_chart_point',{laRESULT}})
+
+  // carrega Titulo dos Datasets
+   if db_select(astruct2col(WSet("DB_ACTIVE"),'rbmd_chart_ds',1,'A'),'rbmd_chart_ds',,;
+                {'rbmd_chart_ds.REPORT='+DLMT+pcREPORT+DLMT,;
+                 'rbmd_chart_ds.RB_MODULE='+DLMT+fcMODULE+DLMT},;
+                 {'rbmd_chart_ds.RBMD_DS'}) = -1
+      error_sys('Report/Module/Chart/DS:'+db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   aadd(laRESULT,'')
+   ains(laRESULT,1)
+   laRESULT[1] := 'row'
+   aadd(laPARM,{'rbmd_chart_ds',{laRESULT}})
+
+  // carrega Datasets / Points
+   if db_select({'RBMD_DS','RBMD_POINT','RBMD_COLOR','RBMD_VALUE'},'rbmd_chart_dspoint',,;
+                {'rbmd_chart_dspoint.REPORT='+DLMT+pcREPORT+DLMT,;
+                 'rbmd_chart_dspoint.RB_MODULE='+DLMT+fcMODULE+DLMT},;
+                 {'rbmd_chart_dspoint.RBMD_DS','rbmd_chart_dspoint.RBMD_POINT'}) = -1
+      error_sys('Report/Module/Chart/DS Point:'+db_error())
+   endif
+   laRESULT := db_fetchall()
+   for ii := 2 to len(laRESULT)
+      laRESULT[ii,4] := moddata_fetch(xnm_table(laRESULT[ii,4]),xnm_field(laRESULT[ii,4]))
+   next ii
+
+   aadd(laRESULT,'')
+   ains(laRESULT,1)
+   laRESULT[1] := 'row'
+   aadd(laPARM,{'rbmd_chart_dspoint',{laRESULT}})
+
+   init_val := SECONDS()+ExecPIDnum()
+   #Cinline
+      srand48 (init_val);
+      random_num = lrand48();     /* note 10 chars of var name */
+   #endCinline
+   lnKEY  := val(substr(str(random_num,10),5,6))
+
+   laAUX := {}
+
+   aadd(laAUX,{'RB_CHART_KEY','RB_CHART_VALUE','WUID'})
+   aadd(laAUX,{str(lnKEY),array2xml(laPARM),gnUID})
+
+   if db_insert(laAUX,'rb_chart_control') = -1
+      error_sys('Report/Module/Chart/DS Point/Control:'+db_error())
+   endif
+
+
+   wOut(space(pnCOLTAB)+'<table cellpadding="0" cellspacing="0" border="0" align="center"'+wSet('RBMD_'+fcMODULE)+'>')
+   pnCOLTAB += 3
+
+   wOut(space(pnCOLTAB)+'<tr>')
+
+   wOut(space(pnCOLTAB+3)+'<td'+lcOPT+'>')
+
+   wOut(space(pnCOLTAB+6)+'<img src="'+wic_action('wicaction_xchart/execchart?'+;
+                         'IDCHART='+strzero(lnKEY,6)+alltrim(str(db_insert_id())))+'"'+lcOPT+'>')
+
+   wOut(space(pnCOLTAB+3)+'</td>')
+
+   wOut(space(pnCOLTAB)+'</tr>')
+
+   pnCOLTAB -= 3
+   wOut(space(pnCOLTAB)+'</table>')
+
+return(.t.)
+
+// MODDATA : area com o conteudo dos objetos
+// gerencia formulario na module data
+static function moddata_mgr(fcMODULE,fcOBJECT,fcOBJECT_VALUE)
+   local lnPOS  := 0 as int
+
+   fcOBJECT := lower(fcOBJECT)
+
+   lnPOS := ascan(paMODDATA,{|x| x[1] == fcMODULE .and. x[2] == fcOBJECT})
+   if lnPOS = 0
+      aadd(paMODDATA,{fcMODULE,fcOBJECT,fcOBJECT_VALUE})
+
+   else
+      paMODDATA[lnPOS,3] := fcOBJECT_VALUE
+   endif
+return(.t.)
+
+// captura conteudo de célula do module data
+static function moddata_fetch(fcMODULE,fcOBJECT)
+   local lnPOS  := 0 as int
+
+   fcOBJECT := lower(fcOBJECT)
+
+   lnPOS := ascan(paMODDATA,{|x| x[1] == fcMODULE .and. x[2] == fcOBJECT})
+   if lnPOS > 0
+      return(paMODDATA[lnPOS,3])
+   endif
+return('')
+
+// limpa formulario na module data
+static function moddata_del(fcMODULE)
+   local ii := 0 as int
+
+   for ii := 1 to len(paMODDATA)
+      if paMODDATA[ii,1] = fcMODULE
+         adel(paMODDATA,ii)
+         loop
+      endif
+   next ii
+return
+
+
+
+// pega FIELD da string table.FIELD
+static function xnm_field(fcSTRING)
+return(substr(fcSTRING,at('.',fcSTRING)+1))
+
+// pega table da string table.FIELD
+static function xnm_table(fcSTRING)
+return(substr(fcSTRING,1,at('.',fcSTRING)-1))
+
+
+// gera ER do módulo
+static function filter_er(fcMODULE)
+   local laER := {} as array
+
+        // carrega ER
+         if db_select({'RBMD_ERJOIN','RBMD_EROBJETC1','RBMD_EROBJETC2'},'rbmd_er',,;
+                      {'rbmd_er.REPORT='+DLMT+pcREPORT+DLMT,;
+                       'rbmd_er.RB_MODULE='+DLMT+fcMODULE+DLMT},;
+                      {'rbmd_er.RBMD_ERKEY','rbmd_er.RBMD_ER'}) = -1
+            error_sys('Report/Module/ER:'+db_error())
+         endif
+
+         laRESULT := db_fetchall()
+         for ii := 2 to len(laRESULT)
+             aadd(laER,{val(laRESULT[ii,1]),xnm_table(laRESULT[ii,2]),laRESULT[ii,2]+'='+laRESULT[ii,3]})
+         next ii
+
+return(laER)
+
+// gera WHERE do módulo
+static function filter_where(fcMODULE)
+   local laRESULT  := {} ,;
+         laFILTER  := {} ,;
+         laWHERE   := {} as array
+   local lcWHERE   := '' ,;
+         lcWHERE2  := '' ,;
+         lcFILTER  := '' ,;
+         lcAUX     := '' ,;
+         lcPOS     := '' ,;
+         lcPOSFILTER := '' as string
+   local lnREPEAT  := 0 ,;
+         lnFILTER  := 0 ,;
+         ii        := 0 ,;
+         ii2       := 0 as int
+
+     // Carrega filtro
+      if db_select({'RBFT_VALUE1','RBFT_VALUE2','RBFT_SELECT','RB_FILTER','RBFT_FL_OBJECT','RBFT_OBJECT',;
+                    'RBFT_VALUE2_HIDDEN','RBFT_VALUE1_SET','RBFT_VALUE2_SET',;
+                    'RBFT_REPEAT','RBFT_VALUE1_TYPE','RBFT_VALUE2_TYPE','FL_FILTER_HIDDEN','FT_WHERE_CUSTON'},;
+                    'rb_filter',,;  //       {{2,'rb_module','rb_module.REPORT=rb_filter.REPORT'}},;
+                   {'rb_filter.REPORT='+DLMT+pcREPORT+DLMT,;
+                    'rb_filter.RB_MODULE='+DLMT+fcMODULE+DLMT},{'RBFT_POS'}) = -1
+         error_sys('Report/Filter - Module: '+fcMODULE+' -  '+db_error())
+      endif
+
+      laRESULT := db_fetchall()
+
+     // gera matriz zom dados dos filtros
+     // 1         2           3           4           5           6               7                8
+     // RB_FILTER,RBFT_OBJECT,RBFT_SELECT,RBFT_VALUE1,RBFT_VALUE2,FT_WHERE_CUSTON,RBFT_VALUE1_TYPE,RBFT_VALUE2_TYPE
+
+      for ii := 2 to len(laRESULT)
+          if db_fetchcolvalue(laRESULT,'RBFT_FL_OBJECT',ii) = '4'
+             aadd(laFILTER,{db_fetchcolvalue(laRESULT,'RB_FILTER',ii),'','','','',db_fetchcolvalue(laRESULT,'FT_WHERE_CUSTON',ii),'',''})
+             loop
+          elseif db_fetchcolvalue(laRESULT,'RBFT_FL_OBJECT',ii) = '6'   // limit
+             if empty(laRESULT[ii,2])
+                paLIMIT    := {val(laRESULT[ii,1])}
+             else
+                paLIMIT    := {val(laRESULT[ii,1]),val(laRESULT[ii,2])}
+             endif
+             loop
+          endif
+
+          lcPOS := wGet('POSFT_'+db_fetchcolvalue(laRESULT,'RB_FILTER',ii))
+          lnREPEAT := db_fetchcolvalue(laRESULT,'RBFT_REPEAT',ii)
+          if lnREPEAT = 0
+             lnREPEAT := 1
+          endif
+          for ii2 := 1 to lnREPEAT
+             lcPOSFILTER := lcPOS+strzero(ii2,2)
+
+             aadd(laFILTER,{db_fetchcolvalue(laRESULT,'RB_FILTER',ii),'','','','','',;
+                 db_fetchcolvalue(laRESULT,'RBFT_VALUE1_TYPE',ii),db_fetchcolvalue(laRESULT,'RBFT_VALUE2_TYPE',ii)})
+             lnFILTER := len(laFILTER)
+
+            // 1         2           3           4           5           6               7                8
+            // RB_FILTER,RBFT_OBJECT,RBFT_SELECT,RBFT_VALUE1,RBFT_VALUE2,FT_WHERE_CUSTON,RBFT_VALUE1_TYPE,RBFT_VALUE2_TYPE
+
+            // OBJECT
+             lcAUX := db_fetchcolvalue(laRESULT,'RBFT_FL_OBJECT',ii)
+             if lcAUX = '0' .or. lcAUX = '2'
+                laFILTER[lnFILTER,2] := wGet('RBFT_OBJECT'+lcPOSFILTER)
+             else
+                laFILTER[lnFILTER,2] := db_fetchcolvalue(laRESULT,'RBFT_OBJECT',ii)
+             endif
+
+            // tipo de seleçao
+             lcAUX := db_fetchcolvalue(laRESULT,'RBFT_SELECT',ii)
+             if lcAUX = '0'
+                laFILTER[lnFILTER,3] := wGet('RBFT_SELECT'+lcPOSFILTER)
+             else
+                laFILTER[lnFILTER,3] := db_fetchcolvalue(laRESULT,'RBFT_SELECT',ii)
+             endif
+
+            // captura valor 1  -- (0-Livre, 1-Fixa, 2-Banco de Dados, 3-Calculado, 4-Parametro, 5-Calculado Fixo, 6-Parametro Fixo)
+             lcAUX := db_fetchcolvalue(laRESULT,'RBFT_VALUE1_SET',ii)
+             if pcFILTER_USER = 'Y' .and. db_fetchcolvalue(laRESULT,'FL_FILTER_HIDDEN',ii) != 'Y'
+                if lcAUX = '1'
+                   laFILTER[lnFILTER,4] := db_fetchcolvalue(laRESULT,'RBFT_VALUE1',ii)
+                else
+                   laFILTER[lnFILTER,4] := wGet('RBFT_VALUE1'+lcPOSFILTER)
+                endif
+             else
+                if lcAUX $ '01'
+                   laFILTER[lnFILTER,4] := db_fetchcolvalue(laRESULT,'RBFT_VALUE1',ii)
+                elseif lcAUX = '2'
+                   laFILTER[lnFILTER,4] := ''
+                elseif lcAUX $ '35'
+                   lcVALUE := db_fetchcolvalue(laRESULT,'RBFT_VALUE1',ii)
+                   laFILTER[lnFILTER,4] := md_form_calc(fcMODULE,laFILTER[lnFILTER,2],lcVALUE)
+                elseif lcAUX $ '46'
+                   laFILTER[lnFILTER,4] := wGet(db_fetchcolvalue(laRESULT,'RBFT_VALUE1',ii),'C')
+                endif
+             endif
+
+             lcAUX := db_fetchcolvalue(laRESULT,'RBFT_VALUE1_TYPE',ii)
+             laFILTER[lnFILTER,4] := ft_conv_value(laFILTER[lnFILTER,4],lcAUX )
+
+            // captura valor 2  -- (0-Livre, 1-Fixa, 2-Banco de Dados, 3-Calculado, 4-Parametro, 5-Calculado Fixo, 6-Parametro Fixo)
+             if db_fetchcolvalue(laRESULT,'RBFT_VALUE2_HIDDEN',ii) != 'Y'
+                lcAUX := db_fetchcolvalue(laRESULT,'RBFT_VALUE2_SET',ii)
+                if pcFILTER_USER = 'Y' .and. db_fetchcolvalue(laRESULT,'FL_FILTER_HIDDEN',ii) != 'Y'
+                   if lcAUX = '1'
+                      laFILTER[lnFILTER,5] := db_fetchcolvalue(laRESULT,'RBFT_VALUE2',ii)
+                   else
+                      laFILTER[lnFILTER,5] := wGet('RBFT_VALUE2'+lcPOSFILTER)
+                   endif
+                else
+                   if lcAUX $ '01'
+                      laFILTER[lnFILTER,5] := db_fetchcolvalue(laRESULT,'RBFT_VALUE2',ii)
+                   elseif lcAUX = '2'
+                      laFILTER[lnFILTER,5] := ''
+                   elseif lcAUX $ '35'
+                      lcVALUE := db_fetchcolvalue(laRESULT,'RBFT_VALUE2',ii)
+                      laFILTER[lnFILTER,5] := md_form_calc(fcMODULE,laFILTER[lnFILTER,2],lcVALUE)
+                   elseif lcAUX $ '46'
+                      laFILTER[lnFILTER,5] := wGet(db_fetchcolvalue(laRESULT,'RBFT_VALUE2',ii),'C')
+                   endif
+                endif
+
+                lcAUX := db_fetchcolvalue(laRESULT,'RBFT_VALUE2_TYPE',ii)
+                laFILTER[lnFILTER,5] := ft_conv_value(laFILTER[lnFILTER,5],lcAUX )
+             endif
+         next ii2
+      next ii
+
+     // Constroi filtros
+
+/*
+      if db_select({'RB_FILTER','RBFT_FL_OBJECT','RBFT_OBJECT','RBFT_SELECT','RBFT_VALUE1','RBFT_VALUE1_FIX',;
+                    'RBFT_VALUE2_HIDDEN','RBFT_VALUE2','RBFT_VALUE2_FIX'},;
+    1         3           4           5           8
+ RB_FILTER,RBFT_OBJECT,RBFT_SELECT,RBFT_VALUE1,RBFT_VALUE2
+    1         2           3           4           5
+*/
+      ii := 1
+      do while ii <= len(laFILTER)
+         if ! empty(laFILTER[ii,6])
+            aadd(laWHERE,laFILTER[ii,6])
+
+            ii ++
+            loop
+         endif
+
+         lcWHERE := ''
+         lcWHERE2 := ''
+         lcFILTER := laFILTER[ii,1]
+         ii2 := 1
+         do while lcFILTER = laFILTER[ii,1]
+            if laFILTER[ii,3] = '1'   // where contendo
+               if ! empty(laFILTER[ii,4])
+                  lcWHERE += laFILTER[ii,2]+' like '+DLMT+'%'+laFILTER[ii,4]+'%'+DLMT
+
+                  if ! empty(laFILTER[ii,5])
+                     lcWHERE += ' and '+laFILTER[ii,2]+' like '+DLMT+'%'+laFILTER[ii,5]+'%'+DLMT
+                  endif
+               endif
+            elseif laFILTER[ii,3] = '2'   // where igual
+               if ! empty(laFILTER[ii,4])
+                  lcWHERE += laFILTER[ii,2]+' = '+DLMT+laFILTER[ii,4]+DLMT
+
+                  if ! empty(laFILTER[ii,5])
+                     lcWHERE += laFILTER[ii,2]+' = '+DLMT+laFILTER[ii,5]+DLMT
+                  endif
+               endif
+            elseif laFILTER[ii,3] = '3'   // where intervalo
+               if ! empty(laFILTER[ii,4])
+                  lcWHERE += laFILTER[ii,2]+' between '
+                  if laFILTER[ii,7] = 'T' .or. laFILTER[ii,7] = 'D'
+                     lcWHERE += "'"+laFILTER[ii,4]+"'"
+                  else
+                     lcWHERE += laFILTER[ii,4]
+                  endif
+
+                  if laFILTER[ii,8] = 'T' .or. laFILTER[ii,8] = 'D'
+                     lcWHERE += ' and '+"'"+laFILTER[ii,5]+"'"
+                  else
+                     lcWHERE += ' and '+laFILTER[ii,5]
+                  endif
+               endif
+            elseif laFILTER[ii,3] = '4'   // where nao contendo
+               if ! empty(laFILTER[ii,4])
+                  lcWHERE += laFILTER[ii,2]+' not like '+DLMT+'%'+laFILTER[ii,4]+'%'+DLMT
+               endif
+               if ! empty(laFILTER[ii,5])
+                  lcWHERE += laFILTER[ii,2]+' not like '+DLMT+'%'+laFILTER[ii,5]+'%'+DLMT
+               endif
+            elseif laFILTER[ii,3] = '5'   // where maior que
+               if ! empty(laFILTER[ii,4])
+                  lcWHERE += laFILTER[ii,2]+' >= '+DLMT+laFILTER[ii,4]+DLMT
+               endif
+            elseif laFILTER[ii,3] = '6'   // where menor que
+               if ! empty(laFILTER[ii,4])
+                  lcWHERE += laFILTER[ii,2]+' <= '+DLMT+laFILTER[ii,4]+DLMT
+               endif
+            elseif laFILTER[ii,3] = '7'   // is null
+               lcWHERE += laFILTER[ii,2]+' is null '
+            endif
+
+            if ! empty(lcWHERE)
+               if ii2 > 1
+                  lcWHERE2 += ' or '
+               endif
+               lcWHERE2 += lcWHERE
+               ii2 ++
+               lcWHERE := ''
+            endif
+
+            ii ++
+            if ii > len(laFILTER)
+               lcFILTER := ''
+               exit
+            endif
+         enddo
+         if ! empty(lcWHERE2)
+            aadd(laWHERE,lcWHERE2)
+         endif
+      enddo
+return(laWHERE)
+
+static function ft_conv_value(fuVALUE,fcTYPE )
+   local luVALUE
+
+   if valtype(fuVALUE) = 'C'
+      if fcTYPE = 'D'
+         luVALUE := dtos(ctod(fuVALUE))
+      elseif fcTYPE = 'N'
+         if empty(fuVALUE)
+            luVALUE := ''
+         else
+            luVALUE := str(val(fuVALUE))
+         endif
+      else
+         luVALUE := fuVALUE
+      endif
+   elseif valtype(fuVALUE) = 'D'
+      if fcTYPE = 'D'
+         luVALUE := dtos(fuVALUE)
+      elseif fcTYPE = 'N'
+         luVALUE := dtos(stod('00010101')+fuVALUE)
+      else
+         luVALUE := dtoc(fuVALUE)
+      endif
+   elseif valtype(fuVALUE) = 'N'
+      if fcTYPE = 'D'
+         luVALUE := dtos(fuVALUE-stod('00010101'))
+      elseif fcTYPE = 'N'
+         if fuVALUE = 0
+            luVALUE := ''
+         else
+            luVALUE := str(fuVALUE)
+         endif
+      else
+         luVALUE := str(fuVALUE)
+      endif
+   else
+      luVALUE := transform(fuVALUE)
+   endif
+
+
+return(alltrim(luVALUE))
+
+ 
+ 
+ 
+ /*
+ *
+ *  Glauber - 24/02/2012
+ *  
+ *  Função    : FormataNumero
+ *  Objetivo  : Formatar um numero financeiro no formato 99,999.99
+ *  Parâmetros:
+ *    puValue : Valor a ser convertido
+ *    pnTam   : Tamanho do campo
+ *    pnCas   : Numero de Casas decimais          
+ *  Retorno  
+ *       
+ */ 
+ 
+ 
+ /****
+ Static Function FormataNumero(puValue, pnTam, pnCas)
+ 
+ 
+     local lcMasc := '' as String
+     local lnII   := 0 ,;
+           lnqtd  := 0 ,;
+           lnSobra := 0 as int
+ 
+ 
+    if pnCas == 0 // Caso o número de casas decimais seja zero significa que é um numero inteiro, então é feito um transform de forma simples
+       for lnII := 1 to pnTam
+           lcMasc += '9'
+       next lnII
+       return(alltrim(transform(puValue,lcMasc)))
+    endif  
+    // 
+    
+    lnqtd   := int(pnTam / 3)    
+    lnMod   := (pnTam % 3) * 100
+    lnSobra := int(lnMod)
+    
+    for lnII := 1 to lnSobra
+        lcMasc += '9'
+    next lnII  
+    
+    if lnSobra > 0
+       lnSobra += ','
+    endif
+ 
+    for lnII := 1 to lnqtd
+        lcMasc += '999'
+        if lnII < lnQtd
+           lcMasc += ','
+        endif
+    next lnII
+    lcMasc += '.'
+           
+    lcTMP1 := transform(puValue,lcMasc)
+    lcMasc := '.'
+    for lnII := 1 to pnCas
+        lcMasc += '9'
+    next lnII 
+    lcTMP2 := transform(puValue,lcMasc) 
+    
+    return ("'"+ lcTMP1 + lcTMP2+"'")
+ */
+ //lcAUX := alltrim(str(luFETCH,wmd_fieldsize(lcOBJECT),wmd_fieldfloat(lcOBJECT)))
+
+
+
+

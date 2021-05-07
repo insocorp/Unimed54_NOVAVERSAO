@@ -1,0 +1,144 @@
+/*
+
+Project      : gr5
+Program      : ps.sct.procedimento.html
+Function     : ps_sct_procedimento_html
+Created on   : 24-Jan-2004   13:23:17
+Descripition :
+
+*/
+
+   local lcACTION   := '' ,;
+         lcTP_PASTA := '' ,;
+         lcTABLE    := '' ,;
+         lcNR_PASTA := '' ,;
+         lcNR_ATA   := '' ,;
+         lcMANDATO  := ''  as string
+   local laRESULT   := {} ,;
+         laRES      := {} ,;
+         laPUT      := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laWHERE    := {} ,;
+         laFIELDS   := {} ,;
+         laLABELS   := {} ,;
+         laVALIDA   := {} as array
+   local ii := 0 as int
+   local llERRO := .F. as logical
+
+   lcACTION   := upper(alltrim(WGet('ACTION','C')))
+   lcTP_PASTA := WGet('TP_PASTA','C')
+   lcNR_PASTA := WGet('NR_PASTA','C')
+   lcNR_ATA   := WGet('NR_ATA','C')
+   lcTABLE    := 'pasta_sct_procedimento'
+   laWHERE    := {'NR_PASTA='+lcNR_PASTA+;
+                  ' and NR_ATA='+DLAP+lcNR_ATA+DLAP+;
+                  ' and NR_SCT_PROCEDIMENTO='+DLAP+wGet('NR_SCT_PROCEDIMENTO','C')+DLAP}
+   laFIELDS   := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS   := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   laVALIDA   := {'NR_SCT_PROCEDIMENTO'}
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+   for ii := 1 to len(laVALIDA)
+     *WPut(laVALIDA[ii]+'.label.style.color','#FF0000')
+     *WPut(laVALIDA[ii]+'.label.style.font-weight','bold')
+     WPut(laVALIDA[ii]+'.style.border','2px solid red')
+   next ii
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+
+   if empty(lcACTION)
+      lcACTION = 'NEW'
+   endif
+
+   wPut('TP_PASTA',lcTP_PASTA)
+   wPut('NR_PASTA',lcNR_PASTA)
+   wPut('NR_ATA',lcNR_ATA)
+   wPut('ifNR_SCT_PROCEDIMENTORW',.T.)
+
+   if lcACTION == 'NEW' .and. gbWAC_CREATE
+      wPut('TITLE','Inclusão de Procedimento')
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,laWHERE) = -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      db2put(laRESULT)
+      wPut('TITLE','Alteração do Procedimento '+getWPut('NR_SCT_PROCEDIMENTO'))
+      wPut('ifNR_SCT_PROCEDIMENTORO',.T.)
+      wPut('ifNR_SCT_PROCEDIMENTORW',.F.)
+   elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+      for ii := 1 to len(laVALIDA)
+          if empty(alltrim(WGet(laVALIDA[ii],'C')))
+             walert(laLABELS[ascan(laFIELDS,laVALIDA[ii])]+' é um campo obrigatório!')
+             get2Put()
+             llERRO := .T.
+             exit
+          endif
+      next ii
+      if ! llERRO
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+
+         psab_logs(laSAVE,lcTABLE, 'NR_PASTA='+lcNR_PASTA+;
+                                   ' and NR_ATA='+DLAP+lcNR_ATA+DLAP+;
+                                   ' and NR_SCT_PROCEDIMENTO='+DLAP+WGet('NR_SCT_PROCEDIMENTO','C')+DLAP,lcNR_PASTA,'Procedimentos')
+
+
+         if db_replace(laSAVE,lcTABLE,laWHERE) = -1
+            error_sys(db_error())
+         endif
+         wPut('TITLE','Inclusão de novo Procedimento')
+      endif
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      psab_logdel(lcNR_PASTA,'NR_SCT_PROCEDIMENTO',WGet('NR_SCT_PROCEDIMENTO','C'),,'Procedimentos')
+
+      if db_delete(lcTABLE,laWHERE[1]) = -1
+         error_sys(db_error())
+      endif
+      wPut('TITLE','Inclusão de novo Procedimento')
+   endif
+
+   /* Listagem */
+   if db_select({'NR_SCT_PROCEDIMENTO',;
+                 'DT_ABERTURA',;
+                 'DT_ARQUIVAMENTO',;
+                 'SCT_PROCEDIMENTO',;
+                 'NR_JUNTA_COMERCIAL',;
+                 'NR_REGISTRO',;
+                 'DT_REGISTRO',;
+                 'NR_PROTOCOLO'},lcTABLE,,{'NR_PASTA='+lcNR_PASTA+' and NR_ATA='+DLAP+lcNR_ATA+DLAP}) = -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 0
+      aadd(laRES[1],'(row)')
+      for ii := 2 to len(laRES)
+         aadd(laRES[ii],'(row)'+wic_action('wicaction/ps.sct.procedimento.html'+;
+                                           '?ACTION=ALTER'+;
+                                           '&NR_PASTA='+lcNR_PASTA+;
+                                           '&NR_ATA='+lcNR_ATA+;
+                                           '&NR_SCT_PROCEDIMENTO='+laRES[ii,db_fetchncol(laRES,'NR_SCT_PROCEDIMENTO')]))
+      next ii
+      WPut('GRID_PROCEDIMENTO',grid_create(laRES))
+   endif
+return
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,51 @@
+/*
+
+Project      : gr5
+Program      : ps.tipo.relacionamento.mnt.html
+Function     : ps_tipo_relacionamento_mnt_html
+Created on   : 30-Mar-2005   16:35:41
+Descripition : Cadastro de Tipos de Relacionamento entre Pastas
+
+*/
+
+   local laPARAM        := {},;
+         laINPUT_OBJ    := {},;
+         laSELECT       := {} as array
+
+   laPARAM := {{'TP_PASTA_RELACIONAMENTO',''     ,'*'},;
+            {'FL_ATIVO','',},;
+               {'ACTION'                 ,'ALTER',   }}
+
+   laINPUT_OBJ := {{'TP_PASTA_RELACIONAMENTO',0,,'Y',},;
+                {,,,,},;
+                {'FL_ATIVO',2,,,'"S"' }}
+
+   laSELECT := {'TP_PASTA_RELACIONAMENTO','FL_ATIVO'}
+
+   if upper(alltrim(WGet('ACTIONBP'))) == 'ALTER'
+      mkgedico('pasta_tipo_relacionamento',WGet('TP_PASTA_RELACIONAMENTO','C'))
+   endif
+
+   xbp('pasta_tipo_relacionamento',;          //Tabela alvo
+       ,;                                     //Joins
+       ,;                                     //Where
+       {'TP_PASTA_RELACIONAMENTO'},;          //Order by
+       ,;                                     //Sort [A]-Ascendente [D]-Descentende
+       ,;                                     //Group by
+       ,;                                     //Limit
+       ,;                                     //Banco de Dados
+       2,;                                    //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+       'gr5',;                               //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;              //Programa chamador
+       laPARAM,;                              //Parametros das linhas clicaveis do grid
+       ,;                                     //Parâmetros para os botões das linhas do grid
+       'ps.tipo.relacionamento.mnt.html',;    //Programa que os links/botoes do grid deverao chamar
+       'gr5',;                               //Módulo do programa chamado pelos links/botoes do grid
+       ,;                                     //Retorno java (nil) - usado apenas para Search
+       ,;                                     //Campos usados na pesquisa rápida
+       ,;                                     //Campos Ocultos
+       laINPUT_OBJ,;                          //Campos da área de manutenção/entrada de dados
+       laSELECT ,;                            //Campos exibidos no grid
+       laSELECT)                              //Campos usados no select
+return
+

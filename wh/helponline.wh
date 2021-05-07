@@ -1,0 +1,26 @@
+/*
+
+Project      : gr5
+Program      : helponline
+Function     : helponline
+Created on   : 29-Sep-2005   17:20:26
+Descripition : Exibe informações de Help de um campo.
+
+*/
+
+   local lcWFIELD := WGet('WFIELD','C') as string
+   local laRES := {} as array
+
+   laRES := wmd_field(lcWFIELD,WSet('_PROJECT'))
+   if len(laRES) > 0
+       WPut('LABEL_SCREEN',laRES[9])
+       WPut('NM_HELP',laRES[11])
+       WPut('WFIELD',laRES[1])
+       WPut('WTYPE',lower(laRES[2]))
+       WPut('WSIZE',alltrim(str(laRES[3])))
+       if laRES[4] > 0
+          WPut('WFLOAT',','+alltrim(str(laRES[4])))
+       endif
+       WPut('WPICTURE',laRES[5])
+   endif
+return

@@ -1,0 +1,123 @@
+
+D:\wproject\BCSul53\compile>FlagShip -c aba_administracao_pfpj_html.prg 
+aba_administracao_pfpj_html.c
+
+FlagShip PRO (unlimited users)
+(c) Copyright 1989..2017 by multisoft GmbH Munich/Germany
+
+D:\wproject\BCSul53\compile>FlagShip -c aba_contas_pfpj_html.prg 
+aba_contas_pfpj_html.c
+
+FlagShip PRO (unlimited users)
+(c) Copyright 1989..2017 by multisoft GmbH Munich/Germany
+
+D:\wproject\BCSul53\compile>FlagShip -c aba_contato_pfpj_html.prg 
+aba_contato_pfpj_html.c
+
+FlagShip PRO (unlimited users)
+(c) Copyright 1989..2017 by multisoft GmbH Munich/Germany
+
+D:\wproject\BCSul53\compile>FlagShip -c aba_socios_pfpj_html.prg 
+aba_socios_pfpj_html.c
+
+FlagShip PRO (unlimited users)
+(c) Copyright 1989..2017 by multisoft GmbH Munich/Germany
+
+D:\wproject\BCSul53\compile>FlagShip -c abat_autorizado_mnt_html.prg 
+abat_autorizado_mnt_html.c
+
+FlagShip PRO (unlimited users)
+(c) Copyright 1989..2017 by multisoft GmbH Munich/Germany
+
+D:\wproject\BCSul53\compile>FlagShip -c abat_fixo_mnt_html.prg 
+abat_fixo_mnt_html.c
+
+FlagShip PRO (unlimited users)
+(c) Copyright 1989..2017 by multisoft GmbH Munich/Germany
+
+D:\wproject\BCSul53\compile>FlagShip -c ac_field_redef_html.prg 
+ac_field_redef_html.c
+
+FlagShip PRO (unlimited users)
+(c) Copyright 1989..2017 by multisoft GmbH Munich/Germany
+
+D:\wproject\BCSul53\compile>FlagShip -c acordo_mnt_html.prg 
+acordo_mnt_html.c
+
+FlagShip PRO (unlimited users)
+(c) Copyright 1989..2017 by multisoft GmbH Munich/Germany
+
+D:\wproject\BCSul53\compile>FlagShip -c acsel_import.prg 
+acsel_import.c
+
+FlagShip PRO (unlimited users)
+(c) Copyright 1989..2017 by multisoft GmbH Munich/Germany
+
+D:\wproject\BCSul53\compile>FlagShip -c acsel_tokio_html.prg 
+acsel_tokio_html.c
+
+FlagShip PRO (unlimited users)
+(c) Copyright 1989..2017 by multisoft GmbH Munich/Germany
+
+D:\wproject\BCSul53\compile>FlagShip -c adiantamento_financeiro_mnt_html.prg 
+adiantamento_financeiro_mnt_html.c
+
+FlagShip PRO (unlimited users)
+(c) Copyright 1989..2017 by multisoft GmbH Munich/Germany
+
+D:\wproject\BCSul53\compile>FlagShip -c aditivo_tipo_mnt_html.prg 
+aditivo_tipo_mnt_html.c
+
+FlagShip PRO (unlimited users)
+(c) Copyright 1989..2017 by multisoft GmbH Munich/Germany
+
+D:\wproject\BCSul53\compile>FlagShip -c afastamento_mnt_html.prg 
+afastamento_mnt_html.c
+
+FlagShip PRO (unlimited users)
+(c) Copyright 1989..2017 by multisoft GmbH Munich/Germany
+
+D:\wproject\BCSul53\compile>FlagShip -c ajuste_monetario_html.prg 
+ajuste_monetario_html.c
+
+FlagShip PRO (unlimited users)
+(c) Copyright 1989..2017 by multisoft GmbH Munich/Germany
+
+D:\wproject\BCSul53\compile>FlagShip -c alcada_aprovacao_html.prg 
+alcada_aprovacao_html.c
+
+FlagShip PRO (unlimited users)
+(c) Copyright 1989..2017 by multisoft GmbH Munich/Germany
+
+D:\wproject\BCSul53\compile>FlagShip -c alt_capacidadeescritorio_html.prg 
+alt_capacidadeescritorio_html.c
+
+FlagShip PRO (unlimited users)
+(c) Copyright 1989..2017 by multisoft GmbH Munich/Germany
+
+D:\wproject\BCSul53\compile>FlagShip -c ambito_mnt_html.prg 
+ambito_mnt_html.c
+
+FlagShip PRO (unlimited users)
+(c) Copyright 1989..2017 by multisoft GmbH Munich/Germany
+
+D:\wproject\BCSul53\compile>FlagShip -c analiserisco_mnt_html.prg 
+analiserisco_mnt_html.c
+
+FlagShip PRO (unlimited users)
+(c) Copyright 1989..2017 by multisoft GmbH Munich/Germany
+
+D:\wproject\BCSul53\compile>FlagShip -c andamento_par_mnt_html.prg 
+andamento_par_mnt_html.c
+
+FlagShip PRO (unlimited users)
+(c) Copyright 1989..2017 by multisoft GmbH Munich/Germany
+
+D:\wproject\BCSul53\compile>FlagShip -c apresentacao_mnt_html.prg 
+apresentacao_mnt_html.c
+
+FlagShip PRO (unlimited users)
+(c) Copyright 1989..2017 by multisoft GmbH Munich/Germany
+Deseja finalizar o arquivo em lotes (S/N)? 
+
+D:\wproject\BCSul53\compile>

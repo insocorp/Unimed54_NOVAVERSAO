@@ -1,0 +1,53 @@
+/*
+
+Project      : gr5
+Program      : mnt.sct.conselho.html
+Function     : mnt_sct_conselho_html
+Created on   : 24-Jan-2004   13:28:49
+Descripition :
+
+*/
+
+
+local laPARAM        := {},;
+      laINPUT_OBJ    := {},;
+      laSELECT       := {} as array
+
+laPARAM     := {{'CONSELHO' ,''     ,'*'},;
+                {'FL_ATIVO','',},;
+                {'ACTION'   ,'ALTER',   }}
+                      
+laINPUT_OBJ := {{'CONSELHO'   ,0,   ,'Y' , } ,;
+                {          , , ,   , },;
+                {'FL_ATIVO',1,,'Y','{"S","I","D"}' }}
+      
+laSELECT    := {'CONSELHO','FL_ATIVO'}
+
+if upper(alltrim(WGet('ACTIONBP'))) == 'ALTER'
+   mkgedico('conselho',WGet('CONSELHO','C'))
+endif
+
+xbp('conselho',;                                                        //Tabela alvo
+    ,;                                                                  //Joins
+    ,;                                                                  //Where
+    {'CONSELHO'},;                                                      //Order by
+    ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+    ,;                                                                  //Group by
+    ,;                                                                  //Limit
+    ,;                                                                  //Banco de Dados
+    2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+    'gr5',;                                                             //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                                           //Programa chamador
+    laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+    ,;                                                                  //Parâmetros para os botões das linhas do grid
+    'mnt.sct.conselho.html',;                                           //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+    ,;                                                                  //Retorno java (nil) - usado apenas para Search
+    ,;                                                                  //Campos usados na pesquisa rápida
+    ,;                                                                  //Campos Ocultos
+    laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+    laSELECT,;                                                          //Campos exibidos no grid
+    laSELECT)                                                           //Campos usados no select
+return
+
+

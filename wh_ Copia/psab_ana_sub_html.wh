@@ -1,0 +1,121 @@
+/*
+
+Project      : gr5
+Program      : psab.ana.sub.html
+Function     : psab_ana_sub_html
+Created on   : 18/10/2017 16:00:12
+Descripition : Análise de subsídios
+
+*/
+
+private lcACTION   := '' 
+local   lcAUX      := '' as string
+local   lcWHERE    := '' as string
+local   lcSITU     := '' as string
+
+local   laRESULT      := {} as array
+local   laRES         := {} as array
+local   laTMP         := {} as array
+local   laLINHA_ATUAL := {} as array
+local   laWHERE       := {} as array
+local   laWAUX        := {} as array
+local   laDIFFROW     := {} as array
+
+local ii := 0 as int
+local zz := 0 as int
+local lnNR_CONTROLE := 0 as int
+
+lcACTION          := upper(Wget('ACTION'))
+
+
+WPut('TITLE','Análise de subsídios')
+
+Wput('NR_PASTA',wGet('NR_PASTA','C'))               
+Wput('TP_PASTA',wGet('TP_PASTA','C'))
+
+if lcACTION == 'SAVENEW' .and. gbWAC_CREATE
+   
+   laSAVE      := {'NR_PASTA',;
+                   'ID_MOT',;
+                   'ID_SUB',;
+                   'ID_PERGUNTA',;
+                   'RESP_SIM',;
+                   'RESP_NAO',;
+                   'SITUACAO'}
+       
+                            
+   laRESULT := str2array(WGet('GRAVAR','C'),'|')
+   aadd(laLINHA_ATUAL,laSAVE)
+   
+   for ii := 1 to len(laRESULT)
+       laTMP:=str2array(laRESULT[ii],',')     
+       aadd(laLINHA_ATUAL,laTMP)
+   next ii
+   
+   lcSITU = laTMP[7] 
+   
+   if db_insert(laLINHA_ATUAL,'pasta_anasub')= -1
+      error_sys(db_error())
+   endif 
+
+   if db_select({'max(NR_CONTROLE)'},'pasta_anasub') == -1
+	    error_sys(db_error())
+   endif
+   laRES     := db_fetchrow()
+
+   lnNR_CONTROLE:= laRES[1]    
+   
+   laLINHA_ATUAL:={}
+   laTMP:={}
+
+   laSAVE      := {'ID_ORIGEM',;
+                   'JUSTIFICATIVA',;
+                   'SITUACAO',;
+                   'DATA_ALTERA',;
+                   'HORA',;
+                   'LOGIN_ALTERA'} 
+                     
+   aadd(laLINHA_ATUAL,laSAVE)
+  
+   aadd(laTMP,lnNR_CONTROLE) 
+   aadd(laTMP,'Cadastro inicial') 
+   aadd(laTMP,lcSITU)   
+   aadd(laTMP,date()) 
+   aadd(laTMP,time()) 
+   aadd(laTMP,WSet('LOGIN')) 
+   
+   aadd(laLINHA_ATUAL,laTMP)
+   
+   if db_insert(laLINHA_ATUAL,'justificativas')= -1
+      error_sys(db_error())
+   endif       
+
+endif
+        
+if lcACTION == 'SAVEALT' .and. gbWAC_CREATE 
+   laSAVE      := {'ID_ORIGEM',;
+                   'JUSTIFICATIVA',;
+                   'SITUACAO',;
+                   'DATA_ALTERA',;
+                   'HORA',;
+                   'LOGIN_ALTERA'}
+                   
+   aadd(laLINHA_ATUAL,laSAVE)                
+   
+   laTMP:=str2array(WGet('GRAVAR','C'),',') 
+   aadd(laTMP,date()) 
+   aadd(laTMP,time()) 
+   aadd(laTMP,WSet('LOGIN'))
+   
+   aadd(laLINHA_ATUAL,laTMP)
+
+   if db_insert(laLINHA_ATUAL,'justificativas')= -1
+      error_sys(db_error())
+   endif    
+
+endif      
+        
+
+
+return
+

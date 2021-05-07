@@ -1,0 +1,347 @@
+/*
+Project      : gr5
+Program      : detalhes_sinistro_html.wh
+Function     : detalhes_sinistro_html.wh
+Created on   : 03/12/2012 17:01
+Descripition :
+*/
+
+private paFL_STINT := {}
+
+local lcNR_PASTA := '' ,;
+      lcTP_PASTA := '' ,;
+      lcWHERE    := '' ,;
+      lcACTION   := '' as string
+
+local laFIELDS   := {} ,;
+      laSAVE     := {} ,;
+      laSAVE_AUX := {} ,;
+      laWHERE    := {} ,;
+      laRESULT   := {}  as array     
+
+local ii 	:= 0 ,;
+      xx 	:= 0 ,;
+      lnCOBRAMO := 0 as int
+
+local llERRO := .F. as logical
+
+get2put()
+
+lcNR_PASTA := wGet('NR_PASTA','C')
+if empty(lcNR_PASTA)
+   error_sys('Pasta inexistente')
+   return(.f.)
+endif
+
+lcNR_CONTROLE := wGet('NR_CONTROLE','C')
+
+if upper(lcNR_CONTROLE) == 'NEW' .or. empty(lcNR_CONTROLE)
+   lcNR_CONTROLE := '0'
+endif
+
+lcACTION      := upper(wGet('ACTION','C'))
+lcTP_PASTA    := wdgtp_pasta(lcNR_PASTA)
+
+
+
+if lcACTION == 'ALTER' .and. gbWAC_READ
+   carrega_detalhes(lcNR_PASTA,lcNR_CONTROLE)
+
+elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+
+   if ! verif_reqfield(WSet('_USER_INTERFACE'))
+      llERRO := .T.
+   endif
+
+   if ! llERRO
+
+      /* Reclamantes */
+      
+      if ! empty(WGet('CIP_RECLAMANTE','C'))
+         
+         laSAVE := {{'NR_PASTA','NR_CONTROLE','CIP_RECLAMANTE'}}
+         
+         aadd(laSAVE,{val(lcNR_PASTA),;
+                      val(lcNR_CONTROLE),;
+                      WGet('CIP_RECLAMANTE')})
+
+         if db_replace(laSAVE,'pasta_seguro_reclamante',{'NR_PASTA='+lcNR_PASTA+;
+                                                       ' and NR_CONTROLE='+lcNR_CONTROLE+;
+                                                       ' and CIP_RECLAMANTE='+DLAP+WGet('CIP_RECLAMANTE','C')+DLAP}) == -1
+            error_sys(db_error())
+         endif
+      endif       
+
+      ln_NRCOBERTURA := WGet('LMI_NR_COBERTURA','C')
+      lc_CODVITIMA   := WGet('LMI_CODVITIMA','C') 
+
+      lcWHERERAMO   := 'NR_PASTA='+lcNR_PASTA+' and LMI_NR_COBERTURA='+ln_NRCOBERTURA+' and LMI_CODVITIMA='+lc_CODVITIMA
+       
+      if db_select({'pasta_seguro_lmi.NR_PASTA'},'pasta_seguro_lmi',,{lcWHERERAMO}) == -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      
+      if len(laRES) > 1        
+        Walert('Cobertura e Vítimas já cadastradas')
+      else    
+  
+         if WGet('LMI_VL','N') > 0 .or. WGet('LMI_VL_SINISTRADO','N') > 0                       
+            laSAVE:={{'NR_PASTA',;
+                   'NR_CONTROLE',;
+                   'LMI_NR_COBERTURA',;
+                   'LMI_VL',;
+                   'LMI_VL_SINISTRADO',;
+                   'LMI_NM_COBERTURA',;
+                   'LMI_CD_RECLAMANTE_SINISTRO',;
+                   'LMI_CODVITIMA',;
+                   'LMI_CIP_VITIMA',;
+                   'LMI_NR_SINISTRO',;
+                   'LMI_VL_CORRECAO',;
+                   'LMI_VL_JUROS',;
+                   'LMI_VL_MULTA',;
+                   'LMI_VL_CONTINGENCIA',;
+                   'LMI_VL_HONORARIOS',;
+                   'LMI_VL_CUSTAS',;
+                   'LMI_VL_RESERVA'}}
+                   
+           aadd(laSAVE,{val(lcNR_PASTA),;
+                      val(lcNR_CONTROLE),; 
+                      WGet('LMI_NR_COBERTURA'),;     
+                      WGet('LMI_VL'),; 
+                      WGet('LMI_VL_SINISTRADO'),;
+                      WGet('LMI_NM_COBERTURA'),; 
+                      WGet('LMI_CD_RECLAMANTE_SINISTRO'),;            
+                      WGet('LMI_CODVITIMA'),; 
+                      WGet('CIP_VITIMA'),; 
+                      WGet('LMI_NR_SINISTRO'),; 
+                      WGet('LMI_VL_CORRECAO'),; 
+                      WGet('LMI_VL_JUROS'),; 
+                      WGet('LMI_VL_MULTA'),; 
+                      WGet('LMI_VL_CONTINGENCIA'),;
+                      WGet('LMI_VL_HONORARIOS'),;
+                      WGet('LMI_VL_CUSTAS'),;
+                      WGet('LMI_VL_RESERVA')})
+              if db_insert(laSAVE,'pasta_seguro_lmi') == -1
+                 error_sys(db_error())
+              endif
+         endif
+      endif
+      
+      /* Pasta Seguro */
+      if ! empty(WGet('MOT_OPER2','C'))
+      
+      laSAVE:={{'MOT_OPER2',;
+                'DT_ATUALIZ_INTERF',;
+                'CD_LETRA_SINISTRO',;
+                'CD_LOCAL_CONTABIL',;
+                'CD_RAMO',;
+                'CD_SINISTRO',;
+                'CD_RECLAMANTE_SINISTRO',;
+                'CIP_ESTIPULANTE'}}         
+        
+         lcWHERE    := 'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE         
+         
+         aadd(laSAVE,{WGet('MOT_OPER2'),;
+                      WGet('DT_ATUALIZ_INTERF'),;
+                      WGet('CD_LETRA_SINISTRO'),;
+                      WGet('CD_LOCAL_CONTABIL'),;
+                      WGet('CD_RAMO'),;
+                      WGet('CD_SINISTRO'),;
+                      WGet('CD_RECLAMANTE_SINISTRO'),;
+                      WGet('CIP_ESTIPULANTE')})  
+        
+        
+         if db_update(laSAVE,'pasta_seguro',{lcWHERE}) == -1             
+            error_sys(db_error())
+         endif
+      endif 
+      // Salvar Segurados
+      
+         if ! empty(WGet('CIP_SEGURADO','C'))
+            laSAVE := {{'NR_PASTA','NR_CONTROLE','CIP_SEGURADO','NR_CONTRATO'}}
+            aadd(laSAVE,{val(lcNR_PASTA),;
+                         val(lcNR_CONTROLE),;
+                         WGet('CIP_SEGURADO'),;
+                         WGet('NR_CONTRATO')})
+
+            if db_replace(laSAVE,'pasta_seguro_segurado',{'NR_PASTA='+lcNR_PASTA+;
+                                                          ' and NR_CONTROLE='+lcNR_CONTROLE+;
+                                                          ' and CIP_SEGURADO='+DLAP+WGet('CIP_SEGURADO','C')+DLAP}) == -1
+               error_sys(db_error())
+            endif
+            //carrega_seguro(lcNR_PASTA,lcNR_CONTROLE)
+         endif
+//      carrega_detalhes(lcNR_PASTA,lcNR_CONTROLE)
+   endif   
+elseif lcACTION == 'DELETE_SEGURADO' .and. gbWAC_DELETE
+
+      psab_logdel(lcNR_PASTA,'CIP_SEGURADO',WGet('CIP_SEGURADO','C'),,'Seguro com Sinistro Contabil')
+
+      if db_delete('pasta_seguro_segurado','NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE+;
+                                           ' and CIP_SEGURADO='+DLAP+WGet('CIP_SEGURADO','C')+DLAP) == -1
+         error_sys(db_error())
+      endif   
+
+elseif lcACTION == 'DELETE_LMI' .and. gbWAC_DELETE
+   psab_logdel(lcNR_PASTA,'LMI_NR',WGet('LMI_NR','C'),,'Seguro com Sinistro Contabil')
+   if db_delete('pasta_seguro_lmi','NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE+' and LMI_NR='+WGet('LMI_NR','C')) == -1
+      error_sys(db_error())
+   endif
+
+elseif lcACTION == 'DELETE_RECLAMANTE' .and. gbWAC_DELETE
+   psab_logdel(lcNR_PASTA,'CIP_RECLAMANTE',WGet('CIP_RECLAMANTE','C'),,'Seguro com Sinistro Contabil')
+   if db_delete('pasta_seguro_reclamante','NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE+;
+                                        ' and CIP_RECLAMANTE='+DLAP+WGet('CIP_RECLAMANTE','C')+DLAP) == -1
+      error_sys(db_error())
+   endif
+
+endif
+
+carrega_detalhes(lcNR_PASTA,lcNR_CONTROLE)   
+return
+**********************************************************
+static function carrega_detalhes(fcNR_PASTA,fcNR_CONTROLE)
+**********************************************************
+
+local lcWHERE        := '' ,;
+      lcWHERECOB     := '',;
+      lcTABLE        := '' as string
+      
+local laFIELDS  := {} ,;
+      laFIELDS2 := {} ,;
+      laRES     := {} ,;
+      laJOIN2   := {} ,;
+      laJOIN    := {} as array
+
+local xx 	:= 0 ,;
+      ii 	:= 0 as int
+      
+      
+      
+WPut('LMI_NR_COBERTURA','')
+WPut('LMI_CD_RAMO','')
+WPut('LMI_NM_COBERTURA','')
+WPut('LMI_VL',0)
+WPut('LMI_CD_RECLAMANTE_SINISTRO','')
+WPut('LMI_CODVITIMA','')
+WPut('CIP_VITIMA','')
+WPut('CIP_VITIMA_PFPJ','')
+WPut('LMI_VL_RESERVA',0)
+WPut('LMI_VL_CORRECAO',0)
+WPut('LMI_VL_JUROS',0)
+WPut('LMI_VL_MULTA',0)
+WPut('LMI_VL_CONTINGENCIA',0)
+WPut('LMI_VL_HONORARIOS',0)
+WPut('LMI_VL_CUSTAS',0)
+
+WPut('CIP_RECLAMANTE','')
+WPut('CIP_RECLAMANTE_PFPJ','')
+
+WPut('CIP_SEGURADO','')
+WPut('CIP_SEGURADO_PFPJ','')
+WPut('NR_CONTRATO','')
+
+
+      
+lcWHERECOB    := 'pasta_seguro_lmi.NR_PASTA='+fcNR_PASTA+' and pasta_seguro_lmi.NR_CONTROLE='+fcNR_CONTROLE        
+/* Carrega grid de valores LMI - 2a. opcao*/
+laJOIN2 := {{2,'coberturas_ramos','coberturas_ramos.NR_COBERTURA = pasta_seguro_lmi.LMI_NR_COBERTURA'},;
+            {2,'pfpj','pfpj.CIP = pasta_seguro_lmi.LMI_CIP_VITIMA'}}
+
+if db_select({'pasta_seguro_lmi.LMI_NR_COBERTURA',;         
+              'coberturas_ramos.LMI_CD_RAMO',;
+              'coberturas_ramos.LMI_NM_COBERTURA',;
+              'pasta_seguro_lmi.LMI_NR',;
+              'pasta_seguro_lmi.LMI_VL',;
+              'pasta_seguro_lmi.LMI_VL_SINISTRADO',;
+              'pasta_seguro_lmi.LMI_CD_RECLAMANTE_SINISTRO',;
+              'pasta_seguro_lmi.LMI_CODVITIMA',;
+              'pasta_seguro_lmi.LMI_CIP_VITIMA as CIP_VITIMA',;
+              'pfpj.PFPJ as CIP_VITIMA_PFPJ',;
+              'pasta_seguro_lmi.LMI_VL_RESERVA',;
+              'pasta_seguro_lmi.LMI_VL_CORRECAO',;
+              'pasta_seguro_lmi.LMI_VL_JUROS',;
+              'pasta_seguro_lmi.LMI_VL_MULTA',;
+              'pasta_seguro_lmi.LMI_VL_CONTINGENCIA',;
+              'pasta_seguro_lmi.LMI_VL_HONORARIOS',;
+              'pasta_seguro_lmi.LMI_VL_CUSTAS',;
+              'pasta_seguro_lmi.LMI_VL_RESERVA + pasta_seguro_lmi.LMI_VL_CORRECAO+pasta_seguro_lmi.LMI_VL_JUROS+pasta_seguro_lmi.LMI_VL_MULTA+pasta_seguro_lmi.LMI_VL_CONTINGENCIA+pasta_seguro_lmi.LMI_VL_HONORARIOS+pasta_seguro_lmi.LMI_VL_CUSTAS as VL_RESERVA_FINAL'},;
+              'pasta_seguro_lmi',laJOIN2,{lcWHERECOB},{'pasta_seguro_lmi.LMI_CODVITIMA','pasta_seguro_lmi.LMI_CD_RECLAMANTE_SINISTRO'}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+WPut('lstLMI',laRES)
+
+
+/* Carrega Dados da Tabela pasta_seguro_reclamante */
+if db_select({'pasta_seguro_reclamante.NR_PASTA',;
+              'pasta_seguro_reclamante.NR_CONTROLE',;
+              'pasta_seguro_reclamante.CIP_RECLAMANTE',;
+              'pfpj.PFPJ as CIP_RECLAMANTE_PFPJ'},;
+              'pasta_seguro_reclamante',;
+              {{2,'pfpj','pfpj.CIP=pasta_seguro_reclamante.CIP_RECLAMANTE'}},;
+              {'pasta_seguro_reclamante.NR_PASTA='+fcNR_PASTA+' and pasta_seguro_reclamante.NR_CONTROLE='+fcNR_CONTROLE}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+WPut('lstRECLAMANTE',laRES) 
+
+
+
+
+laFIELDS:={'NR_PASTA',;
+            'pasta_seguro.NR_CONTROLE',;
+            'pasta_seguro.MOT_OPER2',;
+            'motivo_operacao.NM_MOT_OPER',;
+            'DT_ATUALIZ_INTERF',;
+            'CD_LETRA_SINISTRO',;
+            'CD_LOCAL_CONTABIL',;
+            'CD_RAMO',;
+            'CD_SINISTRO',;
+            'CD_RECLAMANTE_SINISTRO',;
+            'CIP_ESTIPULANTE',;
+            'pfpj.PFPJ'}
+
+lcTABLE    := 'pasta_seguro'
+lcWHERE    := 'pasta_seguro.NR_PASTA='+fcNR_PASTA+' and pasta_seguro.NR_CONTROLE='+fcNR_CONTROLE         
+laJOIN     := {{2,'motivo_operacao','motivo_operacao.MOT_OPER2 = pasta_seguro.MOT_OPER2'},; 
+               {2,'pfpj','pfpj.CIP = pasta_seguro.CIP_ESTIPULANTE'}} 
+
+
+aadd(laFIELDS2,'NM_MOT_OPER')        
+
+if db_select(laFIELDS,lcTABLE,laJOIN,{lcWHERE}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+WPut('MOT_OPER2',laRES[2,db_fetchncol(laRES,'MOT_OPER2')])
+WPut('NM_MOT_OPER',laRES[2,db_fetchncol(laRES,'NM_MOT_OPER')])         
+WPut('DT_ATUALIZ_INTERF',laRES[2,db_fetchncol(laRES,'DT_ATUALIZ_INTERF')])
+WPut('CD_LETRA_SINISTRO',laRES[2,db_fetchncol(laRES,'CD_LETRA_SINISTRO')])
+WPut('CD_LOCAL_CONTABIL',laRES[2,db_fetchncol(laRES,'CD_LOCAL_CONTABIL')])
+WPut('CD_RAMO',laRES[2,db_fetchncol(laRES,'CD_RAMO')])
+WPut('CD_SINISTRO',laRES[2,db_fetchncol(laRES,'CD_SINISTRO')])
+WPut('CD_RECLAMANTE_SINISTRO',laRES[2,db_fetchncol(laRES,'CD_RECLAMANTE_SINISTRO')])
+WPut('CIP_ESTIPULANTE',laRES[2,db_fetchncol(laRES,'CIP_ESTIPULANTE')])
+WPut('CIP_ESTIPULANTE_PFPJ',laRES[2,db_fetchncol(laRES,'PFPJ')])
+
+// Alimenta a grid de segurados
+
+      if db_select({'pasta_seguro_segurado.NR_PASTA',;
+                    'pasta_seguro_segurado.NR_CONTROLE',;
+                    'pasta_seguro_segurado.CIP_SEGURADO',;
+                    'pfpj.PFPJ as CIP_SEGURADO_PFPJ',;
+                    'pasta_seguro_segurado.NR_CONTRATO'},;
+                   'pasta_seguro_segurado',;
+                   {{2,'pfpj','pfpj.CIP=pasta_seguro_segurado.CIP_SEGURADO'}},;
+                   {'pasta_seguro_segurado.NR_PASTA='+fcNR_PASTA+' and pasta_seguro_segurado.NR_CONTROLE='+fcNR_CONTROLE}) == -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      WPut('lstSEGURADO',laRES)
+
+
+return(nil)
+ 

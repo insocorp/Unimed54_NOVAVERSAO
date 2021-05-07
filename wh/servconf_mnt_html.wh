@@ -1,0 +1,154 @@
+/*
+
+Project      : gr5
+Program      : servconf.mnt.html
+Function     : servconf_mnt_html
+Created on   : 2010-08-26 14:47:07
+Descripition : Configuracao de Servicos Webservice
+
+*/
+
+   local laPARAM        := {},;
+         laSAVE         := {},;
+         laSAVE_AUX     := {},;
+         laFIELDS       := {},;
+         laRES          := {},;
+         laSELECT       := {} AS Array
+/*
+         laFIELDS       := {'ID_SOLICITA_DADOS',;
+                             'ID_MARCA_DESMARCA',;
+                             'ID_RAMO_EVIDA',;
+                             'ID_RAMO_TOP',;
+                             'PEDIDO_PROCESSO',;
+                             'TEMPOESPERA',;
+                             'ID_DESMARCA',;
+                             'ID_RESERVA',;
+                             'ID_PAGTO',;
+                             'ID_CONFAV',;
+                             'ID_INCFAV',;
+                             'ID_PAGTO_EVIDA',;
+                             'ID_CONFAV_EVIDA',;
+                             'ID_INCFAV_EVIDA',;
+                             'ID_RETORNO_PAGTOS',;
+                             'ID_CONSULTA_TOP_SINISTRO',;
+                             'ID_CONSULTA_TOP_SEGURADO',;
+                             'ID_VINCULAR_TOP',;
+                             'ID_ATUALIZAR_RESERVA_TOP',;
+                             'ID_EFETUAR_PAGAMENTO_TOP',;
+                             'COMANDO_ROBO_DESPESA'}
+                             
+                             
+ID_SOLICITA_DADOS,ID_MARCA_DESMARCA,ID_DESMARCA,ID_RAMO_EVIDA,ID_RAMO_TOP,PEDIDO_PROCESSO,TEMPOESPERA,ID_RESERVA,ID_PAGTO_EVIDA,ID_CONFAV_EVIDA,ID_INCFAV_EVIDA,ID_RETORNO_PAGTOS,
+
+ID_CONSULTA_TOP_SINISTRO, ID_CONSULTA_TOP_SEGURADO, ID_VINCULAR_TOP, ID_ATUALIZAR_RESERVA_TOP, ID_EFETUAR_PAGAMENTO_TOP
+
+*/
+
+         laFIELDS       := {'ID_SOLICITA_DADOS',;
+                             'ID_MARCA_DESMARCA',;
+                             'ID_RAMO_EVIDA',;
+                             'ID_RAMO_TOP',;
+                             'PEDIDO_PROCESSO',;
+                             'TEMPOESPERA',;
+                             'ID_DESMARCA',;
+                             'ID_RESERVA',;
+                             'ID_PAGTO',;
+                             'ID_CONFAV',;
+                             'ID_INCFAV',;
+                             'ID_PAGTO_EVIDA',;
+                             'ID_CONFAV_EVIDA',;
+                             'ID_INCFAV_EVIDA',;
+                             'ID_RETORNO_PAGTOS',;
+                             'ID_REABRE_SINISTRO_VIDA',;                             
+                             'ID_CONSULTA_TOP_SINISTRO',;
+                             'ID_CONSULTA_TOP_SEGURADO',;
+                             'ID_VINCULAR_TOP',;
+                             'ID_ATUALIZAR_RESERVA_TOP',;
+                             'ID_EFETUAR_PAGAMENTO_TOP',;
+                             'COMANDO_ROBO_DESPESA'}
+
+
+
+   local lcACTION := WGet('ACTION') AS String
+   local lcBUF    := ''   AS String
+   local ii       := 0 AS Int
+
+
+
+         popularServicos()
+
+         
+         if (lcACTION == 'SAVE')
+            aadd(laSAVE, laFIELDS)
+            
+            for ii := 1 to len(laFIELDS)
+                if (laFIELDS[ii] == 'ID_RAMO_EVIDA'  .OR. laFIELDS[ii] == 'ID_RAMO_TOP' .OR. laFIELDS[ii] == 'PEDIDO_PROCESSO' .OR. laFIELDS[ii] == 'COMANDO_ROBO_DESPESA')
+                   aadd(laSAVE_AUX, WGet(laFIELDS[ii],'C'))
+                else
+                   aadd(laSAVE_AUX, val('0'+ Alltrim(WGet(laFIELDS[ii],'C'))))
+                endif
+            next ii
+            aadd(laSAVE,laSAVE_AUX)
+            
+            if db_replace(laSAVE, 'isjunimedservconf', {'1 = 1'}) == -1
+               error_sys(db_error())
+            endif
+
+         elseif (lcACTION == 'EXECUTARROBO')
+                if ( ! Empty(WGet('COMANDO_ROBO_DESPESA')))
+                   RUN (WGet('COMANDO_ROBO_DESPESA') + " > EVIDA.OUT")
+                   if file('EVIDA.OUT')
+                      lcBUF := "RESULTADO DA EXECUÇÃO EM " + DTOC(DATE()) + " AS " + TIME() + ":" + CHR(13) + GetFileContent('EVIDA.OUT')
+                      WPut('ifSAIDA', .T.)
+                      WPut('RESULTADO',lcBUF)
+                   endif
+                endif
+
+         endif
+
+
+         if db_select(laFIELDS,'isjunimedservconf') == -1
+            error_sys(db_error())
+         endif
+         
+         laRES := db_fetchall()
+         if len(laRES) > 1
+            db2put(laRES)
+         endif
+
+
+
+
+
+return
+
+
+Static Function popularServicos()
+
+   local laSELECT   := {} AS Array
+   local ii         := 0 AS Int
+   local lcSERVICOS := '' AS String
+
+
+   if db_select({'DESCRICAO','ID_SERVICO'},'isjunimedservicos') == -1
+      error_sys(db_error())
+   endif
+
+   laSELECT := db_fetchall()
+
+   if len(laSELECT) > 1
+
+      lcSERVICOS := "["
+
+      for ii := 2 to len(laSELECT)
+          lcSERVICOS += "{" + '"' + laSELECT[1,1] + '"' + " : " + '"' + laSELECT[ii,1] + '"' + ", " + '"' + laSELECT[1,2] + '"' + " : " + ALLTRIM(laSELECT[ii,2]) + "}"
+          lcSERVICOS += iif(ii < len(laSELECT), ", ", "")
+      next ii
+      lcSERVICOS += "]"
+
+      WPUT('SERVICOS', lcSERVICOS)
+
+   endif
+//wout('<br><b>servicos:'+lcSERVICOS)
+
+return

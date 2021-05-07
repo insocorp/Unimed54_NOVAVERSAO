@@ -1,0 +1,69 @@
+/*
+
+Project      : gr5
+Program      : psab.lic_certificado.html
+Function     : psab_lic_certificado_html
+Created on   : 01-Feb-2006   15:40:35
+Descripition : Aba Licenças e Certificados da Pasta
+
+*/
+
+   local lcACTION   := upper(WGet('ACTION','U')),;
+         lcNR_PASTA := WGet('NR_PASTA','C'),;
+         lcTP_PASTA := WGet('TP_PASTA','C'),;
+         lcLIC_CERTIFICADO      := WGet('LIC_CERTIFICADO','C'),;
+         lcTABLE    := '',;
+         lcWHERE    := '' as string
+   local laFIELDS   := {} ,;
+         laRESULT   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laVALIDA   := {} as array
+   local ii := 0 as int
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   laVALIDA := {'LIC_CERTIFICADO'}
+
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+
+   lcTABLE  := 'pasta_lic_certificado'
+   laFIELDS := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   lcWHERE  := 'NR_PASTA='+lcNR_PASTA+' and LIC_CERTIFICADO='+DLAP+lcLIC_CERTIFICADO+DLAP
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+   WPut('LIC_CERTIFICADO.option',loadcbox_build('lic_certificado','LIC_CERTIFICADO',.T.))
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      if verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+
+         psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Licenças / Certificados') //Gravar log de alterações da pasta
+
+         if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+            error_sys(db_error())
+         endif
+      endif
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+   endif
+
+   if db_select({'LIC_CERTIFICADO'},lcTABLE,,{'NR_PASTA='+lcNR_PASTA},{'LIC_CERTIFICADO'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      WPut('doLIC_CERTIFICADO',laRESULT)
+   endif
+   pasta_abas(lcTP_PASTA)
+return
+
+
+
+
+

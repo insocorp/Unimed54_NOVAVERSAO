@@ -1,0 +1,31 @@
+/*
+
+Project      : isj_45
+Program      : importapfpj.html
+Function     : importapfpj_html
+Created on   : 03/07/2015 09:43:28
+Descripition :
+
+*/
+
+#define TAB chr(9)
+
+/* linha comentada por solicitação do Glauber
+#define CRLF chr(13)
+ */
+
+
+   local laINDICES := {},;
+         laCARGA   := {} as array
+   local lcARQ     := '',;
+         lcCONTENT := '',;
+         lcInd     := '',;
+         lcDELETE  := 'DELETE FROM mvt_indice WHERE ',;
+         lcINSERT  := "INSERT INTO mvt_indice (cd_indice,vl_indice,am_ref) VALUES (",;
+         lcWHERE   := '' as String
+//   local lcCRLF    := chr(13) as String
+   local lcCRLF    := chr(13) + chr(10) as String
+
+
+return
+

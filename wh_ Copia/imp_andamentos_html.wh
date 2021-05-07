@@ -1,0 +1,798 @@
+/*
+
+Project      : gr5
+Program      : imp_andamentos.html
+Function     : imp_andamentos_html
+Created on   : 07-Jan-2009   10:07:00
+Description  : ImportaÁ„o de Andamentos 
+
+*/
+
+/*
+    EndereÁos de importaÁ„o definidos no .wprofile
+   <FILEPATHANDAMENTO>/home/wictrix2/andamentos/</FILEPATHANDAMENTO>
+   <FILEANDAMENTOLOG>/home/wictrix2/andamentos/</FILEANDAMENTOLOG>
+*/
+    
+    local lcPATHIN   := WSet("FILEPATHANDAMENTO") ,;
+          lcFILELOG  := WSet("FILEANDAMENTOLOG")  as string
+                   
+          
+    local ii      := 0 ,;
+          lnHAND1 := 0 as int
+    
+    local laLOG := {} as array
+
+    if empty(lcPATHIN)
+      wout('Path de Leitura n„o informado')
+      return(nil)
+    endif
+    
+    if empty(lcFILELOG)
+      wout('PATH de Log n„o informado')
+      return(nil)
+    endif
+    
+wout('Iniciando carga de andamentos.')
+
+    lcFILELOG := lcFILELOG + 'log_anda' + dtos(date()) +'.txt'
+    aadd(laLOG, space(10)+'Ocorrencias de Importacao de Andamentos')
+    aadd(laLOG, 'Data: '+ dtoc(date())+' - Hora: '+time())
+    aadd(laLOG, 'Arquivo de Log: '+lcFILELOG)
+    aadd(laLOG, '     ')
+    aadd(laLOG, '     ')
+
+    laLOG := nome_arquivo(lcPATHIN,laLOG)
+
+    aadd(laLOG, '     ')
+    aadd(laLOG, '     ')
+    aadd(laLOG, 'ImportaÁ„o Encerrada: '+ dtoc(date())+' - Hora: '+time())
+
+    lnHAND1 := fcreate(lcFILELOG, 0)
+    if lnHAND1 > 0
+       for ii := 1 to len(laLOG)
+          if !dispmess(laLOG[ii], lnHAND1 , 0, 0)
+             return(nil)
+          endif
+       next ii
+       fclose(lnHAND1)
+    else
+       wout("Problemas na criaÁ„o do arquivo de log: "+lcFILELOG)
+    endif
+return(nil)
+
+
+* Function  : nome_arquivo(fcPATHIN,faLOG)
+* Objetivo  : Buscar o nome do arquivo a ser importado.
+* Par‚metros: 
+*             fcPATHIN : Path do arquivo de importaÁ„o
+*             faLOG    : Array do arquivo Log
+
+static function nome_arquivo(fcPATHIN,faLOG)
+
+     local lcFILEIN   := '' ,;
+           lcCTRL     := '' ,;
+           lcVERSAO   := '' ,;
+           lcHORAINI  := time() ,;
+           lcTABLEPAR := 'andamentos_parametros',;
+           lcTABLEINT := 'seq_interfaces' as string
+     
+     local ii      := 0 ,;
+           lnHAND  := 0 ,;
+           lnSEQ   := 0 ,;
+           lnANO   := 0 ,;
+           lnMES   := 0 ,;
+           lnDIA   := 0 as int
+           
+     local ldData   := date() ,;
+           ldDIAINI := date() as date
+     
+     local laFIELDSPAR := {} ,;
+           laFIELDSINT := {} ,;
+           laSAVE      := {} ,;
+           laSAVEINT   := {} ,;
+           laWHERE     := {} ,;
+           laWHEREINT  := {} ,;
+           laRESULT    := {} ,;
+           laRESULTINT := {} as array
+     
+     laFIELDSPAR := structtable(WSet("DB_ACTIVE"),lcTABLEPAR,1,'N')
+
+     if db_select(laFIELDSPAR,lcTABLEPAR) == -1
+        error_sys(db_error())
+     endif
+
+     laRESULT := db_fetchrow()
+     // Glauber 17/12
+     if len(laRESULT) > 0
+        lnANO   := val(substr(str(laRESULT[1]),1,4))        //2009
+        lnMES   := val(substr(str(laRESULT[1]),5,2))        //01   
+        lnDIA   := val(substr(str(laRESULT[1]),7,2))        //06
+        ldDATA  := ctod(strzero(lnDIA,2)+'/'+strzero(lnMES,2)+'/'+strzero(lnANO,4))
+     else
+        aadd(faLOG,'N„o foi possÌvel a execuÁ„o da interface, motivo: N„o foi encontrado as configuraÁıes na tabela andamentos_parametros. '+lcFILEIN)
+        ? 'N„o foi possÌvel a execuÁ„o da interface, motivo: N„o foi encontrado as configuraÁıes na tabela andamentos_parametros. '
+        return
+     endif   
+
+     //ii      := iif(ldDATA<date(),val(substr(str(laRESULT[1]),9,2)) + 1,1)      
+     ii      := iif(ldDATA<=date(),val(substr(str(laRESULT[1]),9,2)) + 1,1)      
+     // Glauber 04/03/2010
+     lcFILEIN := fcPATHIN + 'anda' + strzero(lnANO,4) + strzero(lnMES,2) + strzero(lnDIA,2) + strzero(ii,2) + '.txt'
+
+     do while ldDATA <= date()
+        do while ! file(lcFILEIN)
+           ii := ii + 1
+           if ii > 99
+              ii    := 1
+              lnDIA := lnDIA + 1
+           endif   
+           if lnDIA > 31
+              lnDIA := 1
+              lnMES := lnMES + 1
+           endif
+           if lnMES > 12
+              lnMES := 1
+              lnANO := lnANO + 1      
+           endif             
+           lcFILEIN := fcPATHIN + 'anda' + strzero(lnANO,4) + strzero(lnMES,2) + strzero(lnDIA,2) + strzero(ii,2) + '.txt'  
+                                                  //EXEMPLO: /home/wictrix2/andamentos/anda2009010701.txt
+           ldDATA   := ctod(strzero(lnDIA,2)+'/'+strzero(lnMES,2)+'/'+strzero(lnANO,4))
+           if ldDATA > date()
+             lcFILEIN := ''
+             exit
+           endif  
+        enddo
+        //? 'lcFILEIN:'+lcFILEIN
+        if ! empty(lcFILEIN)
+           lnHAND := fopen(lcFILEIN)
+           if lnHAND >= 0
+              aadd(faLOG,'ImportaÁ„o do arquivo: '+lcFILEIN) 
+              faLOG := importa_andamento(lnHAND,faLOG,laRESULT[6],laRESULT[2],laRESULT[3],laRESULT[4],laRESULT[5])
+              fclose(lnHAND)           
+              lcVERSAO := strzero(lnANO,4) + strzero(lnMES,2) + strzero(lnDIA,2) + strzero(ii,2)
+              lnHAND   := 0
+              lcFILEIN := ''
+           endif
+        else
+           exit   
+        endif     
+     enddo
+
+     // Expurgar andamentos pendentes 
+     if laRESULT[4] == 'S'
+        faLOG := expurga_pendentes(laRESULT[5],faLOG)
+     endif   
+     //? 'lcVERSAO:'+lcVERSAO
+     if lcVERSAO == ''
+        aadd(faLOG,'Nenhum arquivo foi importado') 
+     else
+       //Atualizar Interfaces - seq_interfaces
+       laFIELDSINT := structtable(WSet("DB_ACTIVE"),lcTABLEINT,1,'N')
+       laWHEREINT  := {"PROGRAM = 'imp_andamentos_html'"}
+       if db_select(laFIELDSINT, lcTABLEINT,,laWHEREINT) == -1
+          error_sys(db_error())
+       endif
+       
+// Glauber 08/12/2016 - Pasta 9394 Portal OcorrÍncias
+
+       laRESULTINT := db_fetchrow()
+
+       if len(laRESULTINT) == 0
+          wout('AtenÁ„o: A tabela seq_interfaces n„o contÈm configuraÁ„o definida para o programa imp_andamentos_html !')
+          wout('         Foi carregada a configuraÁ„o padr„o.')
+          wout('         Aproveite e confira as configuraÁıes da tabela andamentos_parametros.')
+          
+// Glaiber 27/01/2017
+          laRESULTINT := {{'PROGRAM','NR_SEQUENCIA','DT_INICIO','HR_INICIO','DT_TERMINO','HR_TERMINO','STATUS','DT_MOVIMENTACAO','DT_REMESSA','FL_ATIVO','DT_REFERENCIA'},;
+                         {'imp_andamentos_html',1,date(),time(),date(),time(),'OK',date(),date(),'S',date()}}
+          if db_insert(laRESULTINT,lcTABLEINT) == -1
+             error_sys(db_error())
+          endif
+
+          laRESULTINT := {'imp_andamentos_html',0,date(),time(),date(),time(),'OK',date(),date(),'S',date()}
+
+//select PROGRAM,NR_SEQUENCIA,DT_INICIO,HR_INICIO,DT_TERMINO,HR_TERMINO,STATUS,DT_MOVIMENTACAO,DT_REMESSA,FL_ATIVO,DT_REFERENCIA from seq_interfaces where (PROGRAM = 'imp_andamentos_html')
+
+
+       endif
+
+       lnSEQ       := laRESULTINT[2] + 1
+       aadd(laSAVEINT,laFIELDSINT)
+       aadd(laSAVEINT,{laRESULTINT[1],lnSEQ, ldDIAINI, lcHORAINI, date(), time(), ' '})
+       if db_replace(laSAVEINT,lcTABLEINT,laWHEREINT) == -1
+          error_sys(db_error())
+       endif
+
+       // Atualizar Controle de Vers„o na Tabela de Par‚metros - andamentos_parametros
+       aadd(laSAVE,{'CTRL_VERSAO'})
+       aadd(laSAVE,{lcVERSAO})
+       laCTRL := str(laRESULT[1])
+       laWHERE := {'CTRL_VERSAO = '+DLAP+laCTRL+DLAP}
+       if db_replace(laSAVE,lcTABLEPAR,laWHERE) == -1
+          error_sys(db_error())
+       endif    
+
+     endif
+        
+return(faLOG)
+
+
+* Function  : importa_andamento(fnHAND,faLOG,fcLOGIN,fcTPANDA,fcEXTERNO,fcEXPURGA,fnTEMPO)
+* Objetivo  : Importa os dados para as devidas tabelas.
+* Par‚metros: 
+*             fnHAND    : confirmaÁ„o de abertura do arquivo de importaÁ„o
+*             faLOG     : Array do arquivo Log
+*             fcLOGIN   : login parametrizado no arquivo ANDAMENTOS_PARAMETROS
+*             fcTPANDA  : tipo de andamento parametrizado
+*             fcEXTERNO : andamento ser· externo/interno, parametrizado
+*             fcEXPURGA : par‚metro de expurgo de andamentos pendentes
+*             fnTEMPO   : par‚metro do tempo para expurgo.
+
+static function importa_andamento(fnHAND,faLOG,fcLOGIN,fcTPANDA,fcEXTERNO,fcEXPURGA,fnTEMPO)
+
+     local llFLIMP := .f. as logical
+     
+     local lcLINE     := '' ,;
+           lcWHERE    := '' ,;
+           lcWHEREp   := '' ,;
+           lcTABLE    := 'pasta' ,;
+           lcTABLEI   := 'pasta_andamento' ,;
+           lcTABLEP   := 'andamentos_pendentes' ,;
+           lcProgram  := 'imp_andamentos_html' ,;
+           lcPROCESSO := '' ,;
+           lcRELAC    := '' ,; 
+           lcCHAR     := '' ,;
+           lcTP_BANCO := upper(WSet("DRV_GR5")) as string
+     
+     local lnACHOU        := 0 ,;
+           lnPUBL         := 0 ,;
+           lnANDA_RELACAO := 0 ,;
+           lnANDA_EXTERNO := 0 ,;
+           lnNR_AUTOFILHO := 0 ,;
+           lnELEMENTO     := 0 ,;
+           ii             := 0 as int
+
+     local laHEADER       := {} ,;
+           laDETALHE      := {} ,;
+           laFIELDS       := {} ,;
+           laIFIELDS      := {} ,;
+           laFIELDSP      := {} ,;
+           laSAVE         := {} ,;
+           laSAVEI        := {} ,;
+           laSAVEFILHO    := {} ,;
+           laSAVEP        := {} ,;
+           laFILHO        := {} ,;
+           laNR_AUTOFILHO := {} ,;
+           laRESULTPAS    := {} ,;
+           laRESULT       := {} as array
+
+     local llRETURN := .F. as logical
+
+     laFIELDS  :={'NR_PASTA','NR_PROCESSO','TP_PASTA'}
+
+     laIFIELDS := {'NR_PASTA',;
+                   'NR_ANDAMENTO',;
+                   'DT_ANDAMENTO',;
+                   'ANDAMENTO',;
+                   'LOGIN',;
+                   'FL_ANDAMENTO',;
+                   'FL_ANDAMENTO_CANCELADO',;
+                   'DT_CRIACAO',;
+                   'DT_ALTERACAO',;
+                   'NR_PASTA_RECURSO',;
+                   'DT_CADASTRO',;
+                   'FL_PUBLICO',;
+                   'LOGIN_RESP',;
+                   'NR_AUTOPROC',;
+                   'TP_ANDAMENTO',;
+                   'FL_ANDAMENTO_EXTERNO',;
+                   'NR_ANDAMENTO_RELACAO'}
+
+     laFIELDSP := {'NR_PENDENTE','NR_PROCESSO','ANDAMENTO','DT_ANDAMENTO','DT_CADASTRO','ADVOGADO','TRIBUNAL',;
+                   'VARA','CIDADE','UF','LOGIN_CADASTRO'} 
+
+     aadd(laSAVEP,laFIELDSP)
+     do while .t.
+        lcLINE     := freadtxt(fnHAND)
+        laDETALHE  := {}
+        do case
+           case substr(lcLINE,1,2) = '00'
+              for ii := 4 to len(lcLINE)
+                 lcCHAR := substr(lcLINE,ii,1)
+                 if lcCHAR == '|'
+                    aadd(laHEADER,lcCONT)
+                    lcCONT := ''
+                 else
+                    lcCONT := lcCONT + lcCHAR
+                 endif
+              next ii     
+           case substr(lcLINE,1,2) = '10'
+              for ii := 4 to len(lcLINE) 
+                 lcCHAR := substr(lcLINE,ii,1)
+                 if lcCHAR == '|'
+                    aadd(laDETALHE,lcCONT)
+                    lcCONT := ''
+                 else
+                    //------ Limpar aspas simples e duplas 
+                    if lcCHAR = chr(39)
+                       lcCONT := lcCONT + ''
+                    elseif lcCHAR = chr(34)    
+                       lcCONT := lcCONT + ''
+                    else   
+                       lcCONT := lcCONT + lcCHAR
+                    endif   
+                 endif
+              next ii
+              // Glauber 24/03 - N„o processar registros que venham com o n˙mero de processo em branco ou zero, jogar para andamentos_pendentes
+              if (len(laDETALHE) > 0) //.and. ( alltrim(laDETALHE[2]) <> '0') .and. ( alltrim(laDETALHE[2]) <> '')
+                 //----------- localizando o processo na tabela pasta
+                 lcPROCESSO    := alltrim(laDETALHE[2])
+                 // Glauber 30/03
+                 if lcPROCESSO == '0' .or. lcPROCESSO == ''
+                    if fcEXPURGA <> 'S' .OR. fnTEMPO > 0
+                       aadd(laSAVEP,{0,lcPROCESSO,laDETALHE[13],ctod(laHEADER[2]),date(),laDETALHE[3] ,;
+                                     laDETALHE[7],laDETALHE[8],laDETALHE[9],laDETALHE[10],fcLOGIN})
+                    endif
+                    loop
+                 endif 
+                 lcWHERE       := 'NR_PROCESSO = '+DLAP+lcPROCESSO+DLAP
+                 if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+                    error_sys(db_error())
+                 endif
+                 laRESULT := db_fetchrow()
+                 lnACHOU  := len(laRESULT)
+                 //-------------- Busca por No. do Processo Completo.  
+                 if lnACHOU > 0
+                    aadd(laSAVEI,laIFIELDS)
+                    aadd(laSAVEFILHO,laIFIELDS)
+                    aadd(laSAVEI,{laRESULT[1], 0,ctod(laHEADER[2]),laDETALHE[13],'','','N',date(),;
+                                  date(),0,date(),'', fcLOGIN, 0, fcTPANDA, fcEXTERNO, 0})    
+                    //------------  Verificando relacionamento  para Lits -----------------------
+                    lcRELAC    := verifica_relacionamento(str(laRESULT[1]),laRESULT[3])
+                    if len(laSAVEI) > 1
+                       lnANDA_EXTERNO := lnANDA_EXTERNO + 1
+                       if db_insert(laSAVEI,lcTABLEI) == -1
+                          db_rollback()
+                          error_sys(db_error())
+                       endif
+                    endif   
+                    //------------ Verificando se Aba pode ser alterada no Lits -----------------
+                    if lcRELAC = '' .or. lcRELAC = 'P' .or. (lcRELAC = 'F' .and. llRETURN = .f.)      // se .f. posso alterar atraves do filho
+                       if lcRELAC = 'F' .or. lcRELAC = 'P'
+                          llRETURN := Ver_ABA(laRESULT[3], lcProgram)
+                       endif         
+                       lnANDA_RELACAO := db_insert_id()
+                       laFILHO:= Montar_filho(str(laRESULT[1]),laRESULT[3])
+                       //---------incluindo andamentos filhos -----------------------
+                       if lcRELAC = 'P' .and. llRETURN 
+                          if len(laFILHO) > 0
+                             for ii := 1 to len(laFILHO)            // gravando abas dos filhos
+                                aadd(laSAVEFILHO,{laFILHO[ii], 0,ctod(laHEADER[2]),laDETALHE[13],'','',;
+                                     'N',date(),date(),0,date(),'', fcLOGIN, 0, fcTPANDA, fcEXTERNO, lnANDA_RELACAO})    
+                             next ii
+                          endif   
+                       endif
+                    endif
+                    //---------incluindo andamentos filhos -----------------------
+                    if len(laSAVEFILHO) > 1
+                       if db_insert(laSAVEFILHO,lcTABLEI) == -1
+                          db_rollback()
+                          error_sys(db_error())
+                       endif   
+                    endif     
+                    laSAVEI     := {}
+                    laSAVEFILHO := {}
+                 else
+                    // localizando o processo sem caracteres especiais
+                    lcPROCESSO := limpa_chars(lcPROCESSO)
+                    /*
+                      Se o banco for PostgreSQL usa a funÁ„o TRANSLATE,
+                      se for SQL SERVER ou ORACLE usar a funÁ„o REPLACE.
+                    */
+                      // Glauber - 02/03
+                      // Implementei LAT2CHAR para quando o banco n„o for postgres
+                      // Esta function LAT2CHAR esta no banco de dados
+                      //
+                      if lcTP_BANCO == 'PGS'
+                         //lcWHERE := "to_number(translate(NR_PROCESSO,'.,/-{}[]()','')) = "+str(val(lcPROCESSO))
+                         //lcWHERE := "translate(NR_PROCESSO,'∫‚ÍÓÙ˚Á„ı·ÈÌÛ˙⁄¡…Õ”‘€Œ¬ √’‹Ÿ¿»Ã“QWERTYUIOP[]ASDFGHJKL;ZXCVBNM,./<>?|{}:-_=+)(*&^%$#@!~` ,') = "+DLAP + lcPROCESSO + DLAP
+                         lcWHERE := "translate(NR_PROCESSO,'.,/-{}[]()','') = "+DLAP + lcPROCESSO + DLAP
+                      else
+                         if upper(WSET('DRV_ODB')) == 'ORACLE'
+                            lcWHERE := "replace(translate(NR_PROCESSO,'.,/-{}[]()',' '),' ','') = "+DLAP+lcPROCESSO+DLAP
+                         else
+                            lcWHERE := "dbo.LAT2CHAR(NR_PROCESSO) = "+DLAP+lcPROCESSO+DLAP
+                         endif
+                      endif
+                    if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+                       error_sys(db_error())
+                    endif
+                    laRESULT := db_fetchrow()
+                    lnACHOU  := len(laRESULT)
+                    //-------------- Busca por No. do Processo sem caracteres especiais.
+                    if lnACHOU > 0
+
+//                       lnELEMENTO := ascan(laIFIELDS,'WFRETURN')
+
+//                       if lnELEMENTO > 0
+//                          adel(laIFIELDS,lnELEMENTO)
+//                          asize(laIFIELDS,len(laIFIELDS)-1)
+//                       endif
+
+                       aadd(laSAVEI,laIFIELDS)
+
+                       aadd(laSAVEFILHO,laIFIELDS)
+
+                       aadd(laSAVEI,{laRESULT[1], 0,ctod(laHEADER[2]),laDETALHE[13],'','','N',date(),;
+                                     date(),0,date(),'', fcLOGIN, 0, fcTPANDA, fcEXTERNO, 0})
+
+                       //------------  Verificando relacionamento  para Lits -----------------------
+                       lcRELAC    := verifica_relacionamento(str(laRESULT[1]),laRESULT[3])
+
+                       if len(laSAVEI) > 1
+                          lnANDA_EXTERNO := lnANDA_EXTERNO + 1
+                          //--------- Incluindo Andamento Externo -----------------------
+
+                          if db_insert(laSAVEI,lcTABLEI) == -1
+                             db_rollback()
+                             error_sys(db_error())
+                          endif
+                       endif
+
+                       //------------ Verificando se Aba pode ser alterada no Lits -----------------
+                       if lcRELAC = '' .or. lcRELAC = 'P' .or. (lcRELAC = 'F' .and. llRETURN = .f.)      // se .f. posso alterar atraves do filho
+                          if lcRELAC = 'F' .or. lcRELAC = 'P'
+                             llRETURN := Ver_ABA(laRESULT[3], lcProgram)
+                          endif
+                          lnANDA_RELACAO := db_insert_id()
+                          laFILHO        := Montar_filho(str(laRESULT[1]),laRESULT[3])
+                          //---------incluindo andamentos filhos -----------------------
+                          if lcRELAC = 'P' .and. llRETURN
+                             if len(laFILHO) > 0
+                                for ii := 1 to len(laFILHO)            // gravando abas dos filhos
+                                   aadd(laSAVEFILHO,{laFILHO[ii], 0,ctod(laHEADER[2]),laDETALHE[13],'','',;
+                                        'N',date(),date(),0,date(),'', fcLOGIN, 0, fcTPANDA, fcEXTERNO, lnANDA_RELACAO})
+                                next ii
+                             endif
+                          endif
+                       endif
+                       //--------- Incluindo andamentos filhos -----------------------
+                       if len(laSAVEFILHO) > 1
+                          if db_insert(laSAVEFILHO,lcTABLEI) == -1
+                             db_rollback()
+                             error_sys(db_error())
+                          endif
+                       endif
+                       laSAVEI     := {}
+                       laSAVEFILHO := {}
+                    else // N„o achou na tabela pasta
+                       // localizando pelo autoprocessual na tabela pasta
+                       lcPROCESSO := alltrim(laDETALHE[2])
+                       lcWHERE    := 'NUMERO_DOC = '+DLAP+lcPROCESSO+DLAP
+                       if db_select({'NR_PASTA','NUMERO_DOC','NR_AUTOPROC'},'pasta_auto',,{lcWHERE}) == -1
+                          error_sys(db_error())
+                       endif
+                       //laRESULT := db_fetchrow()
+                       laRESULT := db_fetchall()
+                       lnACHOU  := len(laRESULT)
+                       //-------------- Busca por No. do Auto-Processual Completo.
+                       //if lnACHOU > 0 // Glauber 17/12
+                       //? debug2(laRESULT,,20)
+                       if (len(laRESULT) >1) .and. val(laRESULT[2,1]) > 0
+                          //? 'laRESULT[1]' + laRESULT[1]
+                          if db_select({'TP_PASTA'},'pasta',,{'NR_PASTA = '+str(laRESULT[2,1])})
+                             error_sys(db_error())
+                          endif
+                          laRESULTPAS := db_fetchrow()
+                          aadd(laSAVEI,laIFIELDS)
+                          aadd(laSAVEFILHO,laIFIELDS)
+                          aadd(laSAVEI,{laRESULT[2,1], 0,ctod(laHEADER[2]),laDETALHE[13],'','','N',date(),;
+                                        date(),0,date(),'', fcLOGIN, laRESULT[3], fcTPANDA, fcEXTERNO, 0})
+                          //------------  Verificando relacionamento  para Lits -----------------------
+                          lcRELAC    := verifica_relacionamento(str(laRESULT[1]),laRESULTPAS[1])
+                          if len(laSAVEI) > 1
+                             lnANDA_EXTERNO := lnANDA_EXTERNO + 1
+                             if db_insert(laSAVEI,lcTABLEI) == -1
+                                db_rollback()
+                                error_sys(db_error())
+                             endif
+                          endif
+                          //------------ Verificando se Aba pode ser alterada no Lits -----------------
+                          if lcRELAC = '' .or. lcRELAC = 'P' .or. (lcRELAC = 'F' .and. llRETURN = .f.)      // se .f. posso alterar atraves do filho
+                             if lcRELAC = 'F' .or. lcRELAC = 'P'
+                                llRETURN := Ver_ABA(laRESULTPAS[1], lcProgram)
+                             endif
+                             lnANDA_RELACAO := db_insert_id()
+                             laFILHO:= Montar_filho(str(laRESULT[2,1]),laRESULTPAS[1])
+                             //---------incluindo andamentos filhos -----------------------
+                             if lcRELAC = 'P' .and. llRETURN
+                                if len(laFILHO) > 0
+                                   for ii := 1 to len(laFILHO)            // gravando abas dos filhos
+                                      if laRESULT[2,3] > 0
+                                         //--------- Buscando o auto processual secund·rio
+                                         if db_select({'NR_AUTOPROC'},'pasta_auto',,{'NR_PASTA = '+str(laFILHO[ii])+' AND NR_AUTO_RELACAO = '+str(laRESULT[3])+' AND NUMERO_DOC ='+laRESULT[2]}) == -1
+                                            error_sys(db_error())
+                                         endif
+                                         laAUTO_FILHO := db_fetchall()  // Numero de Autos Secund·rio.
+                                         if len(laAUTO_FILHO) > 0
+                                            for xx := 2 to len(laAUTO_FILHO)
+                                               lnNR_AUTOFILHO := laAUTO_FILHO[xx,1]
+                                               aadd(laSAVEFILHO,{laFILHO[ii], 0,ctod(laHEADER[2]),laDETALHE[13],'','',;
+                                                                 'N',date(),date(),0,date(),'', fcLOGIN, lnNR_AUTOFILHO, fcTPANDA,;
+                                                                 fcEXTERNO, lnANDA_RELACAO})
+
+                                            next xx
+                                         else
+                                            lnNR_AUTOFILHO := 0
+                                         endif
+                                      else
+                                         lnNR_AUTOFILHO := 0
+                                      endif
+                                      if lnNR_AUTOFILHO == 0
+                                         aadd(laSAVEFILHO,{laFILHO[ii],0,ctod(laHEADER[2]),laDETALHE[13],'','',;
+                                                           'N',date(),date(),0,date(),'', fcLOGIN, lnNR_AUTOFILHO, fcTPANDA,;
+                                                           fcEXTERNO, lnANDA_RELACAO})
+                                      endif
+                                   next ii
+                                endif
+                             endif
+                          endif
+                          //---------incluindo andamentos filhos -----------------------
+                          if len(laSAVEFILHO) > 1
+                             if db_insert(laSAVEFILHO,lcTABLEI) == -1
+                                db_rollback()
+                                error_sys(db_error())
+                             endif
+                          endif
+                          laSAVEI     := {}
+                          laSAVEFILHO := {}
+                       else
+                          // localizando o auto-processual sem caracteres especiais
+                          lcPROCESSO := limpa_chars(lcPROCESSO)
+                          // Glauber - 02/03
+                          // Implementei LAT2CHAR para quando o banco n„o for postgres
+                          // Esta function LAT2CHAR esta no banco de dados
+                          //
+//                          if lcTP_BANCO == 'PGS'
+//                             lcWHERE := "translate(NUMERO_DOC,'.,/-{}[]()','') like "+DLAP+'%'+lcPROCESSO+'%'+DLAP
+//                          else
+//                             lcWHERE := "LAT2CHAR(NUMERO_DOC) = "+DLAP+lcPROCESSO+DLAP
+//                          endif
+                          if lcTP_BANCO == 'PGS'
+                              lcWHERE := "translate(NUMERO_DOC,'.,/-{}[]()','') = "+DLAP+lcPROCESSO+DLAP
+                          else
+                              if upper(WSET('DRV_ODB')) == 'ORACLE'
+                                 lcWHERE := "replace(translate(NUMERO_DOC,'.,/-{}[]()',' '),' ','') = "+DLAP+lcPROCESSO+DLAP
+                              else
+                                 lcWHERE := "dbo.LAT2CHAR(NUMERO_DOC) = "+DLAP+lcPROCESSO+DLAP
+                              endif
+                          endif
+                          if db_select({'NR_PASTA','NUMERO_DOC','NR_AUTOPROC'},'pasta_auto',,{lcWHERE}) == -1
+                             error_sys(db_error())
+                          endif
+                          laRESULT := db_fetchall() // Glauber 17/12
+                          lnACHOU  := len(laRESULT)
+                          //-------------- Busca por No. do Auto-Processal sem caracteres especiais.
+                          if lnACHOU > 1 .and. (val(laRESULT[2,1])>0)
+                             aadd(laSAVEI,laIFIELDS)
+                             aadd(laSAVEFILHO,laIFIELDS)
+                             if db_select({'TP_PASTA'},lcTABLE,,{'NR_PASTA = '+str(laRESULT[2,1])})
+                                error_sys(db_error())
+                             endif
+                             laRESULTPAS := db_fetchrow()
+                             aadd(laSAVEI,{laRESULT[2,1], laRESULT[2,3],ctod(laHEADER[2]),laDETALHE[13],'','','N',date(),;
+                                           date(),0,date(),'', fcLOGIN, laRESULT[3], fcTPANDA, fcEXTERNO, 0})
+                             //------------  Verificando relacionamento  para Lits -----------------------
+                             lcRELAC    := verifica_relacionamento(str(laRESULT[2,1]),laRESULTPAS[1])
+                             if len(laSAVEI) > 1
+                                lnANDA_EXTERNO := lnANDA_EXTERNO + 1
+                                //--------- Incluindo Andamento Externo -----------------------
+                                if db_insert(laSAVEI,lcTABLEI) == -1
+                                   db_rollback()
+                                   error_sys(db_error())
+                                endif
+                             endif
+
+                             //------------ Verificando se Aba pode ser alterada no Lits -----------------
+                             if lcRELAC = '' .or. lcRELAC = 'P' .or. (lcRELAC = 'F' .and. llRETURN = .f.)      // se .f. posso alterar atraves do filho
+                                if lcRELAC = 'F' .or. lcRELAC = 'P'
+                                   llRETURN := Ver_ABA(laRESULTPAS[1], lcProgram)
+                                endif
+                                lnANDA_RELACAO := db_insert_id()
+                                laFILHO        := Montar_filho(str(laRESULT[2,1]),laRESULTPAS[1])
+                                //---------incluindo andamentos filhos -----------------------
+                                if lcRELAC = 'P' .and. llRETURN
+                                   if len(laFILHO) > 0
+                                      for ii := 1 to len(laFILHO)            // gravando abas dos filhos
+                                         if laRESULT[2,3] > 0
+                                            //--------- Buscando o auto processual secund·rio
+                                            if db_select({'NR_AUTOPROC'},'pasta_auto',,{'NR_AUTO_RELACAO = '+str(laRESULT[2,3])+' AND NUMERO_DOC ='+laRESULT[2,2]}) == -1
+                                               error_sys(db_error())
+                                            endif
+                                            laAUTO_FILHO := db_fetchall()  // Numero do Auto Secund·rio.
+                                            if len(laAUTO_FILHO) > 0
+                                               for xx := 2 to len(laAUTO_FILHO)
+                                                  lnNR_AUTOFILHO := laAUTO_FILHO[xx,1]
+                                                  aadd(laSAVEFILHO,{laFILHO[ii],lnNR_AUTOFILHO,ctod(laHEADER[2]),laDETALHE[13],'','',;
+                                                                    'N',date(),date(),0,date(),'', fcLOGIN, laRESULT[2,3], fcTPANDA,;
+                                                                    fcEXTERNO, lnANDA_RELACAO})
+
+                                               next xx
+                                            else
+                                               lnNR_AUTOFILHO := 0
+                                            endif
+                                         else
+                                            lnNR_AUTOFILHO := 0
+                                         endif
+                                         if lnNR_AUTOFILHO == 0
+                                            aadd(laSAVEFILHO,{laFILHO[ii],lnNR_AUTOFILHO,ctod(laHEADER[2]),laDETALHE[13],'','',;
+                                                              'N',date(),date(),0,date(),'', fcLOGIN, laRESULT[2,3], fcTPANDA,;
+                                                              fcEXTERNO, lnANDA_RELACAO})
+                                         endif
+                                      next ii
+                                   endif
+                                endif
+                             endif
+                             //--------- Incluindo andamentos filhos -----------------------
+                             if len(laSAVEFILHO) > 1
+                                if db_insert(laSAVEFILHO,lcTABLEI) == -1
+                                   db_rollback()
+                                   error_sys(db_error())
+                                endif
+                             endif
+                             laSAVEI     := {}
+                             laSAVEFILHO := {}
+
+                          else
+                             if fcEXPURGA <> 'S' .OR. fnTEMPO > 0
+                                aadd(laSAVEP,{0,lcPROCESSO,laDETALHE[13],ctod(laHEADER[2]),date(),laDETALHE[3] ,;
+                                              laDETALHE[7],laDETALHE[8],laDETALHE[9],laDETALHE[10],fcLOGIN})
+                             endif
+                          endif
+                       endif
+                    endif
+                 endif
+              // Glauber - 24/03 - Quando o n˙mero do processo vier branco ou zero jogar para andamentos_pendentes
+/*
+              elseif (len(laDETALHE) > 0) .and. (alltrim(laDETALHE[2]) == '' .or. alltrim(laDETALHE[2]) == '0')
+                     if fcEXPURGA <> 'S' .OR. fnTEMPO > 0
+                        aadd(laSAVEP,{0,'0',laDETALHE[13],ctod(laHEADER[2]),date(),laDETALHE[3] ,;
+                                      laDETALHE[7],laDETALHE[8],laDETALHE[9],laDETALHE[10],fcLOGIN})
+                     endif
+*/                                          
+              endif          
+           case substr(lcLINE,1,2) = '99'
+              lcCONT := ''
+              for ii := 4 to len(lcLINE)
+                 if substr(lcLINE,ii,1) == '|'
+                    exit
+                 else
+                    lcCONT := lcCONT + substr(lcLINE,ii,1)
+                 endif  
+              next ii
+              lnPUBL := val(lcCONT)
+              exit
+        endcase
+        /*
+         * Grava na tabela [pasta_andamento_last] o ˙ltimo andamento
+         * filtrado pela Data [DT_ANDAMENTO]
+        */
+        if lnACHOU > 0
+
+           if db_select({'NR_PASTA','ANDAMENTO','DT_ANDAMENTO','TP_ANDAMENTO'},'pasta_andamento',,,{'NR_ANDAMENTO'},'D',,{1}) == -1
+              error_sys(db_error())
+           endif
+           laSAVE := db_fetchall()
+
+           if len(laSAVE) > 1
+              if db_replace(laSAVE,'pasta_andamento_last',{'NR_PASTA = '+str(laSAVE[2,1])}) == -1
+                 error_sys(db_error())
+              endif
+           endif
+        endif
+     enddo
+     //--------- Incluindo Andamentos Pendentes ---------- 
+     if len(laSAVEP) > 1
+        if db_insert(laSAVEP,lcTABLEP) == -1
+           db_rollback()
+           error_sys(db_error())
+        endif
+     endif
+     aadd(faLOG,'     Andamentos Externos : '+strzero(lnANDA_EXTERNOS,3))
+     aadd(faLOG,'     Andamentos Pendentes: '+strzero(len(laSAVEP)-1,3))
+     aadd(faLOG,'     Total And Importados: '+strzero(lnPUBL,3))
+     aadd(faLOG,'     ') 
+return(faLOG)
+
+
+* Function  : expurga_pendentes(fnTEMPO,faLOG)
+* Objetivo  : Expurga andamentos Pendentes.
+* Par‚metros: 
+*             fnTEMPO : tempo limite para expurgo do andamento pendente.
+*             faLOG   : array do arquivo Log
+
+static function expurga_pendentes(fnTEMPO,faLOG)
+
+    local lcTABLE    := 'andamentos_pendentes',;
+          lcDEXPURGO := '' ,;
+          lcWHERE    := '' as string
+
+    local lnEXPURGO := 0 ,;
+          ii        := 0 as int
+            
+    local laFIELDS := {} ,;
+          laRESULT := {} as array
+
+    lcDEXPURGO := dtos(date() - fnTEMPO)
+    laFIELDS   := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+    lcWHERE    := 'DT_CADASTRO < '+DLAP+lcDEXPURGO+DLAP
+    if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+       error_sys(db_error())
+    endif
+    laRESULT  := db_fetchall()
+    lnEXPURGO := len(laRESULT) - 1 
+    if db_delete(lcTABLE,lcWHERE) == -1
+       error_sys(db_error())
+    else
+       aadd(faLOG,'     ') 
+       aadd(faLOG,'Andamentos Pendentes Expurgados : '+str(lnEXPURGO))
+    endif   
+return(faLOG)
+
+
+
+* Function  : limpa_chars(fcPROCESSO)
+* Objetivo  : Retira os caracteres especiais
+* Par‚metros: 
+*             fcPROCESSO: conteudo a ser limpo
+function limpa_CHARS(fcPROCESSO,fcLIMPO)
+   local ii     := 0
+   local laCHARS:= {{"-",""},;
+                    {".",""},;
+                    {" ",""},;
+                    {":",""},;
+                    {",",""},;
+                    {"/",""}}
+
+   fcPROCESSO:= alltrim(fcPROCESSO)
+   for ii := 1 to len(laCHARS)
+      fcPROCESSO := strtran(fcPROCESSO,laCHARS[ii,1],laCHARS[ii,2])
+   next ii
+return (fcPROCESSO)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

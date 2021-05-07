@@ -1,0 +1,1066 @@
+/*
+
+Project      : isj_395b
+Program      : psab.res2.html
+Function     : psab_res2_html
+Created on   : 15-Dec-2010   16:24:18
+Descripition : 
+
+*/
+
+   local lcACTION     := '' ,;
+         lcWHERE      := '' ,;
+         lcTABLE      := '' ,;
+         lcNR_PASTA   := '' ,;
+         lcTP_PASTA   := '' ,;
+         lcNR_ROW     := '' ,;
+         lcVAR        := '' ,;
+         lcUSUARIO    := '' ,;
+         lcCONTNOVO   := '' ,;
+         lcCONTALT    := '' ,;
+         lcWFIELD     := '' ,;
+         lcHORA       := '' ,;
+         lcABA        := '' ,;
+         lcINST       := '' as string
+         
+   local laFIELDS        := {} ,;
+         laFIELDS_AUX    := {} ,;
+         laPUT           := {} ,;
+         laRESULT        := {} ,;
+         laRES_CFG       := {} ,;
+         laSAVE          := {} ,;
+         laSAVE_AUX      := {} ,;
+         laWICDO         := {} ,;
+         laCAMPOSENCERRA := {} ,;
+         laWHEREENCERRA  := {} ,;
+         laVL_INDICE     := {} ,;
+         laVALIDA        := {} as array
+
+   local ii          := 0 ,;
+         lnID_RESULT := 0 ,;         
+         xx          := 0 ,;
+         yy          := 0 ,;
+         lnPOS       := 0 ,;
+         lnPEDORIGEM := 0 as int
+
+   local lnVL_TT_RESULTADO := 0.00 as numeric
+
+   local llERROR := .f. as logical
+
+//   if valtype(plFL_SINISTRO) <> 'L'
+//      plFL_SINISTRO := .f.
+//   endif
+   plFL_SINISTRO := .t.
+   lcACTION   := upper(alltrim(WGet('ACTION','C')))
+   lcTP_PASTA := wGet('TP_PASTA','C')
+   lcNR_PASTA := wGet('NR_PASTA','C')
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   if plFL_SINISTRO
+      lcTABLE := 'pasta_resultado_pedidos_sinistro'
+      if psab_find(lcTP_PASTA,'psab.seg.cont.sinistro.html')
+         WPut('ifSINISTRO',.t.)
+      else
+         WPut('ifSEM_SINISTRO',.t.)
+      endif
+   else
+      lcTABLE := 'pasta_resultado_pedidos'
+   endif
+
+   WPut('RESUMODECISAO_ROWS',5)
+
+   //WPut('MOTIVO_ENCERRAMENTO.label.style.color','#FF0000')
+   //WPut('MOTIVO_ENCERRAMENTO.label.style.font-weight','bold')
+
+   carrega_cbox({{'motivo_encerramento','MOTIVO_ENCERRAMENTO','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+
+   //Combo Resultado Processo
+   
+   if db_select({'FL_RESULTADO_PROCESSO'},'resultado_processo',,{'TP_PASTA='+DLAP+lcTP_PASTA+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      aadd(laPUT,'')
+      for ii := 2 to len(laRESULT)
+         aadd(laPUT,laRESULT[ii,1])
+      next ii
+      WPut('FL_RESULTADO_PROCESSO_OPT',laPUT)
+      laPUT := {}
+   else
+      if lcACTION == ''
+         walert('A Tabela de Resultado do Processo está vazia.')
+      endif      
+   endif
+
+   //---------- Buscar Forma de Encerramento de Pasta.
+   if db_select({'ID_PAR_VL_RESULTADO'},'pasta_config',,{'TP_PASTA = '+DLAP+lcTP_PASTA+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRES_CFG   := db_fetchrow()
+   lnID_RESULT := laRES_CFG[1]
+
+   //---------- Combo Tipo de Baixa
+   if db_select({'TP_BAIXA'},'pasta_tp_baixa',,{'TP_PASTA='+DLAP+lcTP_PASTA+DLAP},{'TP_BAIXA'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      aadd(laPUT,'')
+      for ii := 2 to len(laRESULT)
+         aadd(laPUT,laRESULT[ii,1])
+      next ii
+      WPut('TP_BAIXA_OPT',laPUT)
+      laPUT := {}
+   else
+      if lcACTION == '' .and. lnID_RESULT == 1
+         walert('A Tabela de Tipo de Baixa está vazia.')   
+      endif      
+   endif
+
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+
+   if plFL_SINISTRO
+      pedproc_sin_resultado(val(lcNR_PASTA),lcTP_PASTA)
+   else
+      pedproc_resultado(val(lcNR_PASTA))
+   endif
+
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   pasta_abas(lcTP_PASTA)
+   init_reqfield(WSet('_USER_INTERFACE'),{'MOTIVO_ENCERRAMENTO'})
+
+   laFIELDS     := {'pasta.FL_PASTA',;
+                    'pasta.FL_RESULTADO_PROCESSO',;
+                    'pasta.TP_BAIXA',;
+                    'pasta.VL_RESULTADO',;
+                    'pasta.DT_RESULTADO',;
+                    'pasta.DT_ARQUIVAMENTO',;
+                    'pasta.RESUMODECISAO',;
+                    'pasta.DT_DECISAO_1INST',;
+                    'pasta.DT_DECISAO_2INST',;
+                    'pasta.DT_DECISAO_3INST',;
+                    'pasta.MOTIVO_ENCERRAMENTO',;
+                    'pasta.DT_ENCERRAMENTO'}
+   laFIELDS_AUX := {'pasta.FL_PASTA',;
+                    'pasta_status.FL_PASTA_STATUS',;
+                    'pasta.FL_RESULTADO_PROCESSO',;
+                    'pasta.TP_BAIXA',;
+                    'pasta.VL_RESULTADO',;
+                    'pasta.DT_RESULTADO',;
+                    'pasta.DT_ARQUIVAMENTO',;
+                    'pasta.RESUMODECISAO',;
+                    'pasta.DT_DECISAO_1INST',;
+                    'pasta.DT_DECISAO_2INST',;
+                    'pasta.DT_DECISAO_3INST',;
+                    'pasta.DT_ENCERRAMENTO',;
+                    'pasta.MOTIVO_ENCERRAMENTO'}
+   // Glauber 06/01/2011
+   AbasPerfil(lcTP_PASTA,laFIELDS)
+   // Glauber 06/01/2011
+   AbasPerfil(lcTP_PASTA,laFIELDS_AUX)
+
+   if lcACTION = 'SAVE' .and. gbWAC_WRITE
+
+      if empty(WGet('TP_BAIXA')) .and. lnID_RESULT == 1 
+         walert('O campo Tipo de Baixa é de preenchimento obrigatório.')   
+         get2put()
+         llERROR := .t.
+      endif
+
+      ii       := 1
+      lcNR_ROW := '1'
+      lcVAR    := 'VAR_PEDIDO_PROCESSO1'
+      do while WGet(lcVAR,'B') .and. !llERROR
+         laSAVE := {{'NR_INSTANCIA','FL_RESULTADO_PEDIDO','VL_RESULTADO'}}
+         aadd(laSAVE,{WGet('VAR_NR_INSTANCIA'+lcNR_ROW,'N'),;
+                      WGet('VAR_FL_RESULTADO_PEDIDO'+lcNR_ROW,'C'),;
+                      WGet('VAR_VL_RESULTADO'+lcNR_ROW,'N')})
+
+         lcWHERE  := 'NR_PASTA='+lcNR_PASTA
+         lcWHERE  += ' and NR_INSTANCIA='+WGet('VAR_NR_INSTANCIA'+lcNR_ROW,'C')
+
+         if plFL_SINISTRO
+            lcWHERE  += ' and NR_CONTROLE='+str(WGet('VAR_NR_CONTROLE'+lcNR_ROW,'N'))
+         else
+            lcWHERE  += ' and PEDIDO_PROCESSO='+DLAP+WGet('VAR_PEDIDO_PROCESSO'+lcNR_ROW,'C')+DLAP
+         endif
+
+         psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Resultado')
+
+         if db_update(laSAVE,lcTABLE,{lcWHERE}) == -1
+            error_sys(db_error())
+         endif
+
+         ii++
+         lcNR_ROW := alltrim(str(ii))
+         lcVAR    := 'VAR_PEDIDO_PROCESSO'+lcNR_ROW
+      enddo
+
+      if WGet('FL_PASTA_ACTION') == 'E'
+         aadd(laVALIDA,'MOTIVO_ENCERRAMENTO')
+      endif
+
+      /* Salva campos na pasta */
+      if verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA) .and. !llERROR
+         laSAVE := {}
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            if laFIELDS[ii] == 'FL_PASTA'
+               if WGet('FL_PASTA_ACTION','C') == 'A'
+                  if db_select({'FL_PASTA'},'pasta_status',,{'FL_PASTA_STATUS='+DLAP+'A'+DLAP+' and FL_DEFAULT='+DLAP+'S'+DLAP}) == -1
+                     error_sys(db_error())
+                  endif
+                  laRESULT := db_fetchrow()
+                  if len(laRESULT) > 0
+                     aadd(laSAVE_AUX,laRESULT[1])
+                  else
+                     walert('Não existe um status padrão para "Ativo" cadastrado no sistema!\nA Pasta não pode ser ativada.')
+                     get2put()
+                     llERROR := .t.
+                     exit
+                  endif
+
+               elseif WGet('FL_PASTA_ACTION','C') == 'E'
+                  if db_select({'FL_PASTA'},'pasta_status',,{'FL_PASTA_STATUS='+DLAP+'E'+DLAP+' and FL_DEFAULT='+DLAP+'S'+DLAP}) == -1
+                     error_sys(db_error())
+                  endif
+                  laRESULT := db_fetchrow()
+                  if len(laRESULT) > 0
+                     aadd(laSAVE_AUX,laRESULT[1])
+                  else
+                     walert('Não existe um status padrão para "Encerrado" cadastrado no sistema!\nA Pasta não pode ser encerrada.')
+                     get2put()
+                     llERROR := .t.
+                     exit
+                  endif
+               else
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+               endif
+            elseif laFIELDS[ii] == 'MOTIVO_ENCERRAMENTO'
+               if WGet('FL_PASTA_ACTION','C') == 'A'
+                  aadd(laSAVE_AUX,'')
+               else
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+               endif
+
+            elseif laFIELDS[ii] == 'DT_ENCERRAMENTO'
+               if WGet('FL_PASTA_ACTION','C') == 'A'
+                  aadd(laSAVE_AUX,ctod(''))
+               elseif WGet('FL_PASTA_ACTION','C') == 'E'
+                  aadd(laSAVE_AUX,date())
+               else
+                  aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+               endif
+
+            else
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+            endif
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+         if plFL_SINISTRO .and. ! llERROR
+            if ! valida_vl_resultado(WGet('VL_RESULTADO','N'),WGet('FL_PASTA_ACTION','C'),lcNR_PASTA,lcTP_PASTA) .or. llERROR
+               llERROR := .t.
+            else
+               llERROR := .f.
+            endif
+         endif
+         // Verifica se existe regras para encerramento da pasta
+         if !validaresult() .or. llERROR
+            llERROR := .t.
+         else
+            llERROR := .f.
+         endif
+           
+         if !llERROR
+            lcWHERE  := 'NR_PASTA='+lcNR_PASTA
+            psab_logs(laSAVE,'pasta',lcWHERE,lcNR_PASTA,'Resultado')
+            if db_update(laSAVE,'pasta',{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+         endif   
+      endif
+   endif
+
+   /* Dados da Pasta */
+   laFIELDS_AUX := {'pasta.FL_PASTA',;
+                    'pasta_status.FL_PASTA_STATUS',;
+                    'pasta.FL_RESULTADO_PROCESSO',;
+                    'pasta.TP_BAIXA',;
+                    'pasta.VL_RESULTADO',;
+                    'pasta.DT_RESULTADO',;
+                    'pasta.DT_ARQUIVAMENTO',;
+                    'pasta.RESUMODECISAO',;
+                    'pasta.DT_DECISAO_1INST',;
+                    'pasta.DT_DECISAO_2INST',;
+                    'pasta.DT_DECISAO_3INST',;
+                    'pasta.DT_ENCERRAMENTO',;
+                    'pasta.MOTIVO_ENCERRAMENTO'}   
+   if db_select(laFIELDS_AUX,'pasta',{{2,'pasta_status','pasta_status.FL_PASTA=pasta.FL_PASTA'}},{'pasta.NR_PASTA='+lcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      // Verificação do status da pasta e habilitação dos botões correspondentes
+      lnPOS := ascan(laRESULT[1],'FL_PASTA_STATUS')
+      if lnPOS > 0
+         if upper(laRESULT[2,lnPOS]) == 'E'
+	         WPut('ifATIVA',.t.)
+	         WPut('ifENCERRA',.f.)
+   	   elseif upper(laRESULT[2,lnPOS]) == 'A'
+	         WPut('ifATIVA',.f.)
+	         WPut('ifENCERRA',.t.)
+         else
+	         WPut('ifATIVA',.f.)
+	         WPut('ifENCERRA',.f.)
+	      endif
+      endif
+
+      db2put(laRESULT)
+      ii := mlcount(laRESULT[2,db_fetchncol(laRESULT,'RESUMODECISAO')])
+      if ii > 5
+         WPut('RESUMODECISAO_ROWS',ii)
+      endif
+
+      if llERROR
+         get2put()
+      endif
+   endif
+
+   /* Selecionando os pedidos */
+   if plFL_SINISTRO
+      if db_select({'pasta_resultado_pedidos_sinistro.NR_CONTROLE',;
+                    'pasta_resultado_pedidos_sinistro.PEDIDO_PROCESSO',;
+                    'pasta_resultado_pedidos_sinistro.NR_INSTANCIA',;
+                    'pasta_resultado_pedidos_sinistro.NR_CONTROLE_SEGURO',;
+                    'pasta_seguro.NR_SINISTRO',;
+                    'pasta_resultado_pedidos_sinistro.FL_RESULTADO_PEDIDO',;
+                    'pasta_resultado_pedidos_sinistro.VL_RESULTADO'},;
+                    lcTABLE,;
+                    {{2,'pasta_seguro','pasta_seguro.NR_CONTROLE=pasta_resultado_pedidos_sinistro.NR_CONTROLE_SEGURO'+;
+                                       ' and pasta_seguro.NR_PASTA=pasta_resultado_pedidos_sinistro.NR_PASTA'}},;
+                    {'pasta_resultado_pedidos_sinistro.NR_PASTA='+lcNR_PASTA},;
+                    {'pasta_resultado_pedidos_sinistro.NR_INSTANCIA',;
+                     'pasta_resultado_pedidos_sinistro.PEDIDO_PROCESSO'}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         laPUT := loadcbox_build('resultado_pedido','FL_RESULTADO_PEDIDO',.t.)
+
+         for xx := 1 to 3
+            lnVL_TT_RESULTADO := 0
+            lcINST            := alltrim(str(xx))+'INST'
+            laWICDO           := {{'VAR_NR_CONTROLE',;
+                                   'VAR_PEDIDO_PROCESSO',;
+                                   'VAR_NR_INSTANCIA',;
+                                   'VAR_FL_RESULTADO_PEDIDO',;
+                                   'VAR_VL_RESULTADO',;
+                                   'PEDIDO_PROCESSO',;
+                                   'NR_CONTROLE_SEGURO',;
+                                   'NR_SINISTRO'}}
+            for ii := 2 to len(laRESULT)
+               if laRESULT[ii,db_fetchncol(laRESULT,'NR_INSTANCIA')] == xx
+                  lcNR_ROW := alltrim(str(ii-1))
+
+                  lnVL_TT_RESULTADO  += round(laRESULT[ii,db_fetchncol(laRESULT,'VL_RESULTADO')],2)
+
+                  aadd(laWICDO,{'VAR_NR_CONTROLE'+lcNR_ROW,;
+                                'VAR_PEDIDO_PROCESSO'+lcNR_ROW,;
+                                'VAR_NR_INSTANCIA'+lcNR_ROW,;
+                                'VAR_FL_RESULTADO_PEDIDO'+lcNR_ROW,;
+                                'VAR_VL_RESULTADO'+lcNR_ROW,;
+                                laRESULT[ii,db_fetchncol(laRESULT,'PEDIDO_PROCESSO')],;
+                                laRESULT[ii,db_fetchncol(laRESULT,'NR_CONTROLE_SEGURO')],;
+                                laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')]})
+
+                  WPut('VAR_NR_CONTROLE'+lcNR_ROW                   ,laRESULT[ii,db_fetchncol(laRESULT,'NR_CONTROLE')])
+                  WPut('VAR_PEDIDO_PROCESSO'+lcNR_ROW               ,laRESULT[ii,db_fetchncol(laRESULT,'PEDIDO_PROCESSO')])
+                  WPut('VAR_NR_INSTANCIA'+lcNR_ROW                  ,laRESULT[ii,db_fetchncol(laRESULT,'NR_INSTANCIA')])
+                  WPut('VAR_FL_RESULTADO_PEDIDO'+lcNR_ROW+'.option' ,laPUT)
+                  WPut('VAR_FL_RESULTADO_PEDIDO'+lcNR_ROW           ,laRESULT[ii,db_fetchncol(laRESULT,'FL_RESULTADO_PEDIDO')])
+                  WPut('VAR_VL_RESULTADO'+lcNR_ROW                  ,wpictrans('VL_RESULTADO',laRESULT[ii,db_fetchncol(laRESULT,'VL_RESULTADO')]))
+               endif
+            next xx
+            WPut('lstRESULTADO_'+lcINST  ,laWICDO)
+            WPut('VL_TT_RESULTADO'+lcINST,wpictrans('VL_RESULTADO',lnVL_TT_RESULTADO))
+         next xx
+      endif
+   else
+      if db_select({'pasta_resultado_pedidos.PEDIDO_PROCESSO',;
+                    'pasta_resultado_pedidos.NR_INSTANCIA',;
+                    'pasta_resultado_pedidos.FL_RESULTADO_PEDIDO',;
+                    'pasta_resultado_pedidos.VL_RESULTADO'},;
+                    lcTABLE,,;
+                    {'NR_PASTA='+lcNR_PASTA},;
+                    {'pasta_resultado_pedidos.NR_INSTANCIA',;
+                     'pasta_resultado_pedidos.PEDIDO_PROCESSO'}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      
+      if len(laRESULT) > 1
+         laPUT := loadcbox_build('resultado_pedido','FL_RESULTADO_PEDIDO',.t.)
+
+         for xx := 1 to 3
+            lnVL_TT_RESULTADO := 0
+            lcINST            := alltrim(str(xx))+'INST'
+            laWICDO           := {{'VAR_PEDIDO_PROCESSO',;
+                                   'VAR_NR_INSTANCIA',;
+                                   'VAR_FL_RESULTADO_PEDIDO',;
+                                   'VAR_VL_RESULTADO',;
+                                   'PEDIDO_PROCESSO'}}
+            for ii := 2 to len(laRESULT)
+               if laRESULT[ii,db_fetchncol(laRESULT,'NR_INSTANCIA')] == xx
+                  lcNR_ROW := alltrim(str(ii-1))
+
+                  lnVL_TT_RESULTADO  += round(laRESULT[ii,db_fetchncol(laRESULT,'VL_RESULTADO')],2)
+
+                  aadd(laWICDO,{'VAR_PEDIDO_PROCESSO'+lcNR_ROW,;
+                                'VAR_NR_INSTANCIA'+lcNR_ROW,;
+                                'VAR_FL_RESULTADO_PEDIDO'+lcNR_ROW,;
+                                'VAR_VL_RESULTADO'+lcNR_ROW,;
+                                laRESULT[ii,db_fetchncol(laRESULT,'PEDIDO_PROCESSO')]})
+
+                  WPut('VAR_PEDIDO_PROCESSO'+lcNR_ROW               ,laRESULT[ii,db_fetchncol(laRESULT,'PEDIDO_PROCESSO')])
+                  WPut('VAR_NR_INSTANCIA'+lcNR_ROW                  ,laRESULT[ii,db_fetchncol(laRESULT,'NR_INSTANCIA')])
+                  WPut('VAR_FL_RESULTADO_PEDIDO'+lcNR_ROW+'.option' ,laPUT)
+                  WPut('VAR_FL_RESULTADO_PEDIDO'+lcNR_ROW           ,laRESULT[ii,db_fetchncol(laRESULT,'FL_RESULTADO_PEDIDO')])
+                  WPut('VAR_VL_RESULTADO'+lcNR_ROW                  ,wpictrans('VL_RESULTADO',laRESULT[ii,db_fetchncol(laRESULT,'VL_RESULTADO')]))
+               endif
+            next xx
+            WPut('lstRESULTADO_'+lcINST  ,laWICDO)
+            WPut('VL_TT_RESULTADO'+lcINST,wpictrans('VL_RESULTADO',lnVL_TT_RESULTADO))
+         next xx
+      endif
+   endif
+return
+
+/*
+* Data.Criação: 21.09.2006
+* Function....: valida_vl_resultado(fnVL_RESULTADO,fcFL_ACTION,fcNR_PASTA,fcTP_PASTA)
+* Objetivo....: Verifica se o Valor Risco é igual ao Total de Pedidos do processo.
+* Parâmetros..: Nenhum
+*    fnVL_RESULTADO.: Valor Risco Contratual
+*    fcFL_ACTION....: FL_Action da Pasta - <E> Encerramento ou <A> Ativa
+*    fcNR_PASTA.....: Número da Pasta
+*    fcTP_PASTA.....: Tipo da Pasta
+*
+* Retorno.....: .t. em caso dos valores serem iguais
+*               .f. em caso dos valores serem diferentes
+*/
+static function valida_vl_resultado(fnVL_RESULTADO,fcFL_ACTION,fcNR_PASTA,fcTP_PASTA)
+
+   local lcOCOR_PGTO := '' as string
+
+   local laRESULT    := {},;
+         laSAVE      := {},;
+         laSAVE_AUX  := {},;
+         laRESULTCFG := {} as array
+         
+   local ii := 0 as int
+   
+   local lnVL_TOTAL   := 0.00 ,;
+         lnSALDO      := 0.00 ,;
+         lnRISCO_CALC := 0.00 ,;
+         lnSLD_CALC   := 0.00 ,;
+         lnDIF_CALC   := 0.00 ,;
+         lnCORRECAO   := 0.00 ,;
+         lnSLD_CORR   := 0.00 ,;
+         lnDIF_CORR   := 0.00 ,;
+         lnJUROS      := 0.00 ,;
+         lnSLD_JUR    := 0.00 ,;
+         lnDIF_JUR    := 0.00 ,;
+         lnPORC       := 0.00 as numeric
+
+   if db_select({'ID_PAR_VL_RESULTADO','OCOR_PEDIDO_RATEIO'},'pasta_config',,{'TP_PASTA = '+DLAP+fcTP_PASTA+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESULTCFG := db_fetchrow()
+/*
+   if db_select({'NR_PASTA',;
+                 'NR_CONTROLE',;
+                 'PEDIDO_PROCESSO',;
+                 'NR_CONTROLE_SEGURO',;
+                 'VL_RISCO',;
+                 'PC_RISCO',;
+                 'VL_RISCO_CALC',;
+                 'VL_CORRECAO',;
+                 'VL_JUROS',;
+                 'DT_RISCO',;
+                 'FL_CALCULO',;
+                 'DT_MOVTO_PED',;
+                 'COMENTARIOS_PED',;
+                 'OCOR_PEDIDO',;
+                 'TP_EXPEDIENTE'},;
+                 'pasta_pedidos',;
+                 {{0,'pasta_objeto','pasta_objeto.OBJETO=pasta_pedidos.PEDIDO_PROCESSO'}},;
+                 {'pasta_pedidos.NR_PASTA='+fcNR_PASTA+' and pasta_objeto.TP_PASTA = '+DLAP+fcTP_PASTA+DLAP+' and pasta_objeto.FL_VISIVEL ='+DLAP+'W'+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   */
+   // Glauber 15/12/2010
+   // Primeiramente pegar os pedidos somando os valores do risco calculado, correcao e juros e 
+   // agrupando pelo numero do pedido origem 
+   //
+   
+   
+   if db_select({'pasta_pedidos.NR_PEDIDO_ORIGEM',; 
+                 'sum(pasta_pedidos.VL_RISCO_CALC) as VL_RISCO_CALC',; 
+                 'sum(pasta_pedidos.VL_CORRECAO) as VL_CORRECAO',; 
+                 'sum(pasta_pedidos.VL_JUROS) as VL_JUROS'},;
+                 'pasta_pedidos',;
+                 {{0,'pasta','pasta_pedidos.NR_PASTA = pasta.NR_PASTA'},;
+                  {2,'risco','pasta_pedidos.PEDIDO_PROCESSO = risco.ESTI_PERDA and risco.TP_PASTA = pasta.TP_PASTA'}},;
+                  {'pasta_pedidos.NR_PASTA = ' + fcNR_PASTA + ' and pasta_pedidos.NR_PEDIDO_ORIGEM > 0 and risco.FL_RISCO_RATEIO = ' + DLAP +'S'+ DLAP},;
+                 ,;
+                 ,;
+                 {'pasta_pedidos.NR_PEDIDO_ORIGEM'}) == -1
+      error_sys(db_error())
+   endif
+   
+   laRESULT := db_fetchall()
+   
+   if len(laRESULT) > 1 .and. fcFL_ACTION == 'E'
+      lnVL_TOTAL := 0
+      for ii := 2 to len(laRESULT)
+         lnVL_TOTAL += laRESULT[ii,2]+laRESULT[ii,3]+laRESULT[ii,4]
+      next ii
+      if laRESULTCFG[1] == 0
+         if round(lnVL_TOTAL,2) != round(fnVL_RESULTADO,2)
+            walert('O '+lblfscreen('VL_RESULTADO')+' deve ser igual ao Valor Total dos Pedidos Atualizados!')
+            return(.f.)
+         endif
+      elseif laRESULTCFG[1] == 1 // Calculo automatico
+         if round(fnVL_RESULTADO,2) > round(lnVL_TOTAL,2) 
+            walert('O '+lblfscreen('VL_RESULTADO')+' para o Cálculo Automático, não pode ser maior \n que o Valor Total dos Pedidos Atualizados!')
+            return(.f.)
+         else
+            lcOCOR_PGTO := WGet('TP_BAIXA','C')
+            if db_replace({{'DESCR_OCOR'},{lcOCOR_PGTO}},'ocorrencia_pedido',{'DESCR_OCOR = '+DLAP+lcOCOR_PGTO+DLAP}) == -1
+               error_sys(db_error())
+            endif
+            // Processar pedido a pedido
+            for xx := 2 to len(laRESULT)
+               lnVL_PED:= laRESULT[xx,2]+laRESULT[xx,3]+laRESULT[xx,4]
+               lnPORC  := round(fnVL_RESULTADO / lnVL_PED,2)
+               lnSALDO := fnVL_RESULTADO
+               lnPEDORIGEM := laRESULT[xx,1] 
+               // Selecionar os pedidos que estão setados para entrar no rateio
+               if db_select({'pasta_pedidos.NR_PASTA',;
+                             'pasta_pedidos.NR_CONTROLE',;
+                             'pasta_pedidos.PEDIDO_PROCESSO',;
+                             'pasta_pedidos.NR_CONTROLE_SEGURO',;
+                             'pasta_pedidos.VL_RISCO',;
+                             'pasta_pedidos.PC_RISCO',;
+                             'pasta_pedidos.VL_RISCO_CALC',;
+                             'pasta_pedidos.VL_CORRECAO',;
+                             'pasta_pedidos.VL_JUROS',;
+                             'pasta_pedidos.DT_RISCO',;
+                             'pasta_pedidos.FL_CALCULO',;
+                             'pasta_pedidos.DT_MOVTO_PED',;
+                             'pasta_pedidos.COMENTARIOS_PED',;
+                             'pasta_pedidos.OCOR_PEDIDO',;
+                             'pasta_pedidos.TP_EXPEDIENTE'},;
+                             'pasta_pedidos',;
+                             {{0,'pasta','(pasta_pedidos.NR_PASTA = pasta.NR_PASTA)'},;
+                              {2,'risco','(pasta_pedidos.PEDIDO_PROCESSO = risco.ESTI_PERDA and risco.TP_PASTA = pasta.TP_PASTA)'}},;
+                             {'pasta_pedidos.NR_PASTA='+fcNR_PASTA+' and pasta_pedidos.NR_PEDIDO_ORIGEM ='+ str(lnPEDORIGEM)+ ' and risco.FL_RISCO_RATEIO = '+DLAP+'S'+DLAP}) == -1
+                  error_sys(db_error())
+               endif
+               laPEDIDOS := db_fetchall()
+//               debug2(laPEDIDOS,,30)
+//               wout('lnPORC:'+ str(lnPORC))
+               GeraLancamentos(laPEDIDOS,lnPORC,fcNR_PASTA,lcOCOR_PGTO,laRESULTCFG, lnSALDO, fcTP_PASTA)
+//               wout('Extornos')
+//               debug2(laRESULT,,30)
+               if db_select({'pasta_pedidos.NR_PASTA',;
+                             'pasta_pedidos.NR_CONTROLE',;
+                             'pasta_pedidos.PEDIDO_PROCESSO',;
+                             'pasta_pedidos.NR_CONTROLE_SEGURO',;
+                             'pasta_pedidos.VL_RISCO',;
+                             'pasta_pedidos.PC_RISCO',;
+                             'pasta_pedidos.VL_RISCO_CALC',;
+                             'pasta_pedidos.VL_CORRECAO',;
+                             'pasta_pedidos.VL_JUROS',;
+                             'pasta_pedidos.DT_RISCO',;
+                             'pasta_pedidos.FL_CALCULO',;
+                             'pasta_pedidos.DT_MOVTO_PED',;
+                             'pasta_pedidos.COMENTARIOS_PED',;
+                             'pasta_pedidos.OCOR_PEDIDO',;
+                             'pasta_pedidos.TP_EXPEDIENTE'},;
+                             'pasta_pedidos',;
+                             {{0,'pasta','(pasta_pedidos.NR_PASTA = pasta.NR_PASTA)'},;
+                              {2,'risco','(pasta_pedidos.PEDIDO_PROCESSO = risco.ESTI_PERDA and risco.TP_PASTA = pasta.TP_PASTA)'}},;
+                             {'pasta_pedidos.NR_PASTA='+fcNR_PASTA+' and pasta_pedidos.NR_PEDIDO_ORIGEM ='+ str(lnPEDORIGEM)+ ' and (risco.FL_RISCO_RATEIO = '+DLAP+'N'+DLAP + ' or risco.FL_RISCO_RATEIO is null) '}) == -1
+                  error_sys(db_error())
+               endif
+               laPEDIDOS := db_fetchall()
+               debug2(laPEDIDOS,,30)
+               GeraExtorno(laPEDIDOS,lnPORC,fcNR_PASTA,lcOCOR_PGTO,laRESULTCFG, lnSALDO, fcTP_PASTA)               
+            next xx
+         endif
+      elseif laRESULTCFG[1] == 2
+         //Não faz nenhuma consistência.
+      elseif laRESULTCFG[1] == 3
+         if round(lnVL_TOTAL,2) != 0
+            walert('O Valor dos Pedidos deve ser Obrigatoriamente Zerado !')
+            return(.f.)
+         endif
+      endif   
+   endif
+return (.t.)
+
+
+
+/*
+* Data.Criação: 29.07.2008
+* Function....: validaresult()
+* Objetivo....: Verifica se o Encerramento esta atendendo as regras de validacao
+* Parâmetros..: Nenhum
+
+* Retorno.....: .t. em caso de sucesso 
+*               .f. em caso de erro
+*/
+static function validaresult()
+
+local laRESULT := {} as array
+  
+   if db_select({'FL_VALOR_RESULTADO'},'resultado_processo',,{'TP_PASTA='+DLAP+Wget('TP_PASTA')+DLAP+ ' and FL_RESULTADO_PROCESSO = '+DLAP+WGet('FL_RESULTADO_PROCESSO')+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      if laRESULT[2,1] == 'Diferente de Zero'
+         if Wget('VL_RESULTADO' ,'N') <= 0
+            Walert('O valor de encerramento difere da regra de fechamento da pasta. Valor diferente de zero.')
+            return(.t.)
+         endif   
+      elseif laRESULT[2,1] == 'Igual a Zero'
+         if Wget('VL_RESULTADO' ,'N') <> 0      
+            Walert('O valor de encerramento difere da regra de fechamento da pasta. Valor igual a zero.')      
+            return(.t.)
+         endif   
+      elseif laRESULT[2,1] == 'Nenhuma'
+           return(.t.)
+      endif
+   else 
+   // Caso não exista nenhuma regra de encerramento de pasta cadastrada para o resultado do processo, emite o aviso ao usuário e não encerra a pasta
+   //     Walert('Não existe regra de encerramento para este tipo de pasta/resultado do processo, não é possível salvar ou encerrar a pasta')      
+   //     return(.f.)
+      return(.t.)  
+  
+   endif
+return(.t.)
+
+
+/*
+* Glauber - 16/12/2010 
+*
+* Function  : GeraLancamentos(paRESULT, pnPORC, fcNR_PASTA, fcOCOR_PGTO, paRESULTCFG, fnSALDO, fcTP_PASTA)
+* Objetivo  : Gera os lançamentos rateado conforme Flag do risco.
+*             
+* Parâmetros:
+*             paPESULT   : Array com os registros a ser processado.
+*             pnPORC     : Percentual do rateio a ser aplicado nos valores
+*             fcNR_PASTA : Numero da pasta
+*             lcOCOR_PGTO: Ocorrência para pagamento
+*             paRESULTCFG: Array com a ocorrência para rateio
+*             fnSALDO    : Valor do saldo
+*             fcTP_PASTA : Tipo da pasta
+*
+* Retorno:
+*             
+* Layout de paRESULT:
+* 
+* {'pasta_pedidos.NR_PASTA',;                  //  1
+*  'pasta_pedidos.NR_CONTROLE',;               //  2
+*  'pasta_pedidos.PEDIDO_PROCESSO',;           //  3
+*  'pasta_pedidos.NR_CONTROLE_SEGURO',;        //  4
+*  'pasta_pedidos.VL_RISCO',;                  //  5
+*  'pasta_pedidos.PC_RISCO',;                  //  6
+*  'pasta_pedidos.VL_RISCO_CALC',;             //  7
+*  'pasta_pedidos.VL_CORRECAO',;               //  8
+*  'pasta_pedidos.VL_JUROS',;                  //  9
+*  'pasta_pedidos.DT_RISCO',;                  // 10
+*  'pasta_pedidos.FL_CALCULO',;                // 11
+*  'pasta_pedidos.DT_MOVTO_PED',;              // 12
+*  'pasta_pedidos.COMENTARIOS_PED',;           // 13
+*  'pasta_pedidos.OCOR_PEDIDO',;               // 14
+*  'pasta_pedidos.TP_EXPEDIENTE'}              // 15
+*
+*
+*/   
+
+Static function GeraLancamentos(paRESULT, pnPORC, fcNR_PASTA, fcOCOR_PGTO, paRESULTCFG, fnSALDO, fcTP_PASTA)
+
+   local lnRISCO_CALC := 0.00,;
+         lnSLD_CALC   := 0.00,;
+         lnDIF_CALC   := 0.00,;
+         lnCORRECAO   := 0.00,;
+         lnSLD_CORR   := 0.00,;
+         lnDIF_CORR   := 0.00,;
+         lnJUROS      := 0.00,;
+         lnSLD_JUR    := 0.00,;
+         lnDIF_JUR    := 0.00  as numeric
+
+   local laSAVE     := {},;
+         laSAVE_AUX := {},;
+         laREGISTRO := {} as array
+         
+   local ii         := 0 as int
+   local llULTIMO   := .f.
+         
+         
+   for ii := 2 to len(paRESULT)
+       lnRISCO_CALC := 0.00
+       lnSLD_CALC   := 0.00
+       lnDIF_CALC   := 0.00
+       lnCORRECAO   := 0.00
+       lnSLD_CORR   := 0.00
+       lnDIF_CORR   := 0.00
+       lnJUROS      := 0.00
+       lnSLD_JUR    := 0.00
+       lnDIF_JUR    := 0.00
+       
+       // Sempre verificar se é o último registro para fazer o tratamento na geração
+       // do lançamento afim de não gerar diferenças.
+       // Caso não seja o último registro eu sempre armazeno o conteúdo do registro
+       // processado em laREGISTRO
+       if ii == len(paRESULT)
+           llULTIMO := .t.
+       endif
+       if paRESULT[ii,7] > 0
+          // 
+          // Caso seja o último registro, processar a diferença para gera o valor correto
+          // do último registro
+          //
+          if llULTIMO
+          endif
+          if ii < len(paRESULT)
+             lnRISCO_CALC := paRESULT[ii,7] * pnPORC
+          else
+             if paRESULT[ii,8] <= 0 .AND. paRESULT[ii,9] <= 0
+                lnRISCO_CALC := fnSALDO
+                lnCORRECAO   := 0
+                lnJUROS      := 0
+             else
+                lnRISCO_CALC := paRESULT[ii,7] * pnPORC
+             endif
+          endif
+          lnSLD_CALC := paRESULT[ii,7] - lnRISCO_CALC 
+          lnDIF_CALC := lnRISCO_CALC - paRESULT[ii,7]
+          fnSALDO    := fnSALDO - lnRISCO_CALC
+       endif            
+       if paRESULT[ii,8] > 0
+          if ii < len(paRESULT)
+             lnCORRECAO := paRESULT[ii,8] * pnPORC
+          else
+             if paRESULT[ii,9] <= 0
+                lnCORRECAO := fnSALDO
+                lnJUROS    := 0
+             else
+                lnCORRECAO := paRESULT[ii,8] * pnPORC
+             endif
+          endif
+          lnSLD_CORR := paRESULT[ii,8] - lnCORRECAO 
+          lnDIF_CORR := lnCORRECAO - paRESULT[ii,8]
+          fnSALDO    := fnSALDO - lnCORRECAO
+       endif            
+       if paRESULT[ii,9] > 0
+          if ii < len(paRESULT)
+             lnJUROS := paRESULT[ii,9] * pnPORC
+          else
+             lnJUROS := fnSALDO
+          endif
+          lnSLD_JUR := paRESULT[ii,9] - lnJUROS 
+          lnDIF_JUR := lnJUROS  - paRESULT[ii,9]
+          fnSALDO   := fnSALDO - lnJUROS
+       endif        
+       laSAVE_AUX := {}
+       laSAVE     := {{'NR_PASTA',;
+                       'NR_CONTROLE',;
+                       'PEDIDO_PROCESSO',;
+                       'NR_CONTROLE_SEGURO',;
+                       'VL_RISCO',;
+                       'PC_RISCO',;
+                       'VL_RISCO_CALC',;
+                       'VL_CORRECAO',;
+                       'VL_JUROS',;
+                       'DT_RISCO',;
+                       'FL_CALCULO',;
+                       'DT_MOVTO_PED',;
+                       'COMENTARIOS_PED',;
+                       'OCOR_PEDIDO',;
+                       'TP_EXPEDIENTE'}}
+       aadd(laSAVE_AUX,paRESULT[ii,1])
+       aadd(laSAVE_AUX,paRESULT[ii,2])
+       aadd(laSAVE_AUX,paRESULT[ii,3])
+       aadd(laSAVE_AUX,paRESULT[ii,4])
+       aadd(laSAVE_AUX,paRESULT[ii,5])
+       aadd(laSAVE_AUX,paRESULT[ii,6])
+       aadd(laSAVE_AUX,0)
+       aadd(laSAVE_AUX,0)
+       aadd(laSAVE_AUX,0)
+       aadd(laSAVE_AUX,paRESULT[ii,10])
+       aadd(laSAVE_AUX,paRESULT[ii,11])
+       aadd(laSAVE_AUX,date())
+       aadd(laSAVE_AUX,'')
+       aadd(laSAVE_AUX,'')    
+       aadd(laSAVE_AUX,iif(empty(paRESULT[ii,15]),'',paRESULT[ii,15]))
+                
+       aadd(laSAVE,laSAVE_AUX)
+//       wout('Update de pasta pedidos')
+//       debug2(laSAVE,,30)  
+               //------------- Efetuar Log de Alterações dos Pedidos
+       lcWHERE  := 'NR_PASTA='+fcNR_PASTA+' and NR_CONTROLE='+str(paRESULT[ii,2])
+       efetua_log(paRESULT,laSAVE_AUX,fcNR_PASTA,lcWHERE,ii) 
+
+
+       xcont(laSAVE,fcNR_PASTA,fcTP_PASTA)
+
+       if db_update(laSAVE,'pasta_pedidos',{lcWHERE}) == -1
+          error_sys(db_error())
+       endif
+
+       laSAVE := {{'NR_DETAL',;
+                   'NR_PASTA',;
+                   'NR_CONTROLE',;
+                   'PEDIDO_PROCESSO',;
+                   'DT_MOVTO_PED',;
+                   'DT_RISCO',;
+                   'VL_RISCO',;
+                   'VL_RISCO_CALC',;
+                   'PC_RISCO',;
+                   'VL_CORRECAO',;
+                   'VL_JUROS',;
+                   'FL_CALCULO',;
+                   'COMENTARIOS_PED',;
+                   'OCOR_PEDIDO',;
+                   'DT_ALTERACAO',;
+                   'HR_ALTERACAO',;
+                   'LOGIN_CADASTRO'}}
+               
+               //---------- Lançamento dos valores Pagos
+       aadd(laSAVE,{0,;
+                    val(fcNR_PASTA),;
+                    paRESULT[ii,2],;
+                    paRESULT[ii,3],;
+                    date(),;
+                    paRESULT[ii,10],;
+                    0,;
+                    lnRISCO_CALC*-1,;
+                    paRESULT[ii,6],;
+                    lnCORRECAO*-1,;
+                    lnJUROS*-1,;
+                    paRESULT[ii,11],;
+                    '',;
+                    fcOCOR_PGTO,;
+                    date(),;
+                    time(),;
+                   gcLOGIN})
+
+       // Adiciona em laREGISTRO o registro do pagamento
+       if ! llULTIMO
+          aadd(laREGISTRO,{0,;
+                        val(fcNR_PASTA),;
+                        paRESULT[ii,2],;
+                        paRESULT[ii,3],;
+                        date(),;
+                        paRESULT[ii,10],;
+                        0,;
+                        lnRISCO_CALC,;
+                        paRESULT[ii,6],;
+                        lnCORRECAO,;
+                        lnJUROS,;
+                        paRESULT[ii,11],;
+                        '',;
+                        fcOCOR_PGTO,;
+                        date(),;
+                        time(),;
+                        gcLOGIN})
+       endif
+       //---------- Lançamento dos valores de Provisão Extornados
+       aadd(laSAVE,{0,;
+                    val(fcNR_PASTA),;
+                    paRESULT[ii,2],;
+                    paRESULT[ii,3],;
+                    date(),;
+                    paRESULT[ii,10],;
+                    0,;
+                    lnDIF_CALC,;
+                    paRESULT[ii,6],;
+                    lnDIF_CORR,;
+                    lnDIF_JUR,;
+                    paRESULT[ii,11],;
+                    '',;
+                    paRESULTCFG[2],;
+                    date(),;
+                    time(),;
+                    gcLOGIN})
+
+               if db_insert(laSAVE,'pasta_detal_pedidos') == -1
+                  error_sys(db_error())
+               endif
+//       wout('Lançamento do valor pago e provisão extornada')
+//       debug2(laSAVE,,30)  
+
+   next ii
+   return          
+
+
+/*
+* Glauber - 16/12/2010 
+*
+* Function  : GeraExtorno(paRESULT, pnPORC, fcNR_PASTA, fcOCOR_PGTO, paRESULTCFG, fnSALDO, , fcTP_PASTA)
+* Objetivo  : Gera os lançamentos de extorno das estimativas que não entraram no rateio.
+*             
+* Parâmetros:
+*             paPESULT   : Array com os registros a ser processado.
+*             pnPORC     : Percentual do rateio a ser aplicado nos valores
+*             fcNR_PASTA : Numero da pasta
+*             lcOCOR_PGTO: Ocorrência para pagamento
+*             paRESULTCFG: Array com a ocorrência para rateio
+*             fnSALDO    : Valor do saldo
+*             fcTP_PASTA : Tipo da pasta
+*
+* Retorno:
+*             
+* Layout de paRESULT:
+* 
+* {'pasta_pedidos.NR_PASTA',;                  //  1
+*  'pasta_pedidos.NR_CONTROLE',;               //  2
+*  'pasta_pedidos.PEDIDO_PROCESSO',;           //  3
+*  'pasta_pedidos.NR_CONTROLE_SEGURO',;        //  4
+*  'pasta_pedidos.VL_RISCO',;                  //  5
+*  'pasta_pedidos.PC_RISCO',;                  //  6
+*  'pasta_pedidos.VL_RISCO_CALC',;             //  7
+*  'pasta_pedidos.VL_CORRECAO',;               //  8
+*  'pasta_pedidos.VL_JUROS',;                  //  9
+*  'pasta_pedidos.DT_RISCO',;                  // 10
+*  'pasta_pedidos.FL_CALCULO',;                // 11
+*  'pasta_pedidos.DT_MOVTO_PED',;              // 12
+*  'pasta_pedidos.COMENTARIOS_PED',;           // 13
+*  'pasta_pedidos.OCOR_PEDIDO',;               // 14
+*  'pasta_pedidos.TP_EXPEDIENTE'}              // 15
+*
+*
+*/   
+
+Static function GeraExtorno(paRESULT, pnPORC, fcNR_PASTA, fcOCOR_PGTO, paRESULTCFG, fnSALDO, fcTP_PASTA)
+
+   local laSAVE     := {},;
+         laSAVE_AUX := {},;
+         laREGISTRO := {} as array
+         
+   local ii         := 0 as int
+   local llULTIMO   := .f.
+         
+         
+   for ii := 2 to len(paRESULT)
+
+       // Zerando os valores do pedido
+       laSAVE_AUX := {}
+       laSAVE     := {{'NR_PASTA',;
+                       'NR_CONTROLE',;
+                       'PEDIDO_PROCESSO',;
+                       'NR_CONTROLE_SEGURO',;
+                       'VL_RISCO',;
+                       'PC_RISCO',;
+                       'VL_RISCO_CALC',;
+                       'VL_CORRECAO',;
+                       'VL_JUROS',;
+                       'DT_RISCO',;
+                       'FL_CALCULO',;
+                       'DT_MOVTO_PED',;
+                       'COMENTARIOS_PED',;
+                       'OCOR_PEDIDO',;
+                       'TP_EXPEDIENTE'}}
+       aadd(laSAVE_AUX,paRESULT[ii,1])
+       aadd(laSAVE_AUX,paRESULT[ii,2])
+       aadd(laSAVE_AUX,paRESULT[ii,3])
+       aadd(laSAVE_AUX,paRESULT[ii,4])
+       aadd(laSAVE_AUX,paRESULT[ii,5])
+       aadd(laSAVE_AUX,paRESULT[ii,6])
+       aadd(laSAVE_AUX,0)
+       aadd(laSAVE_AUX,0)
+       aadd(laSAVE_AUX,0)
+       aadd(laSAVE_AUX,paRESULT[ii,10])
+       aadd(laSAVE_AUX,paRESULT[ii,11])
+       aadd(laSAVE_AUX,date())
+       aadd(laSAVE_AUX,'')
+       aadd(laSAVE_AUX,'')    
+       aadd(laSAVE_AUX,iif(empty(paRESULT[ii,15]),'',paRESULT[ii,15]))
+                
+       aadd(laSAVE,laSAVE_AUX)
+//       wout('Update de pasta pedidos')
+//       debug2(laSAVE,,30)  
+               //------------- Efetuar Log de Alterações dos Pedidos
+       lcWHERE  := 'NR_PASTA='+fcNR_PASTA+' and NR_CONTROLE='+str(paRESULT[ii,2])
+       efetua_log(paRESULT,laSAVE_AUX,fcNR_PASTA,lcWHERE,ii) 
+
+       xcont(laSAVE,fcNR_PASTA,fcTP_PASTA)
+
+       if db_update(laSAVE,'pasta_pedidos',{lcWHERE}) == -1
+          error_sys(db_error())
+       endif
+       
+
+       //---------- Lançamento dos valores de Provisão Extornados
+       laSAVE := {{'NR_DETAL',;
+                   'NR_PASTA',;
+                   'NR_CONTROLE',;
+                   'PEDIDO_PROCESSO',;
+                   'DT_MOVTO_PED',;
+                   'DT_RISCO',;
+                   'VL_RISCO',;
+                   'VL_RISCO_CALC',;
+                   'PC_RISCO',;
+                   'VL_CORRECAO',;
+                   'VL_JUROS',;
+                   'FL_CALCULO',;
+                   'COMENTARIOS_PED',;
+                   'OCOR_PEDIDO',;
+                   'DT_ALTERACAO',;
+                   'HR_ALTERACAO',;
+                   'LOGIN_CADASTRO'}}
+       
+       aadd(laSAVE,{0,;
+                    val(fcNR_PASTA),;
+                    paRESULT[ii,2],;
+                    paRESULT[ii,3],;
+                    date(),;
+                    paRESULT[ii,10],;
+                    0,;
+                    paRESULT[ii,7] * -1,;
+                    paRESULT[ii,6],;
+                    paRESULT[ii,8] * -1,;
+                    paRESULT[ii,9] * -1,;
+                    paRESULT[ii,11],;
+                    '',;
+                    paRESULTCFG[2],;
+                    date(),;
+                    time(),;
+                    gcLOGIN})
+
+               if db_insert(laSAVE,'pasta_detal_pedidos') == -1
+                  error_sys(db_error())
+               endif
+//       wout('Lançamento das extimativas a serem estornadas')
+//       debug2(laSAVE,,30)  
+
+   next ii
+   return          
+
+
+
+
+
+
+
+
+
+
+

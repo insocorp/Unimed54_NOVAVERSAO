@@ -1,0 +1,286 @@
+/*
+
+Project      : isj_398
+Program      : psab.ocorecur.html
+Function     : psab_ocorecur_html
+Created on   : 09/07/2012   10:00
+Descripition : 
+
+*/
+
+local lcNR_PASTA    := '' ,;
+      lcNR_SEQUENCIA:= '' ,;
+      lcTABLE       := '' ,;
+      lcWHERE       := '' ,;
+      lcWHERE2      := '' as string
+
+private lcTP_PASTA  := ''  
+private lcACTION  := '' 
+      
+local laRES       := {} ,;
+      laFIELDS    := {} ,;
+      laFIELDS_AUX:= {} ,;
+      laSAVE      := {} ,; 
+      laJOIN      := {} ,;     
+      laRESULTCON := {} as array 
+      
+lcTABLE       := 'ocorrencia_recurso'
+
+
+
+
+
+
+lcACTION      := upper(Wget('ACTION'))
+lcNR_PASTA    := Wget('NR_PASTA','C')
+lcTP_PASTA    := Wget('TP_PASTA','C')
+
+lcNR_SEQUENCIA := alltrim(WGet('NR_SEQUENCIA','C'))
+
+if empty(lcNR_SEQUENCIA)
+   lcNR_SEQUENCIA := '0'
+endif
+
+
+wput('NR_PASTA',lcNR_PASTA)
+wput('TP_PASTA',lcTP_PASTA)
+
+*** marca em vermelho campos obrigatorios
+init_reqfield(WSet('_USER_INTERFACE'))
+
+make_psthead(lcNR_PASTA,lcTP_PASTA)
+pasta_abas(lcTP_PASTA)
+
+Wput('ifNOVO',.T.)
+Wput('ifSAVE',.F.)
+Wput('ifLOCA',.T.)
+Wput('ifDELE',.F.)
+
+if lcACTION == 'NEW' .and. gbWAC_CREATE
+   Wput('NR_SEQUENCIA','New')
+   Wput('NR_SEQUENCIA.readonly',.T.)
+   Wput('NR_SEQUENCIA.class','winputreadonly')
+   
+   Wput('ifNOVO',.T.)
+   Wput('ifSAVE',.T.)
+   Wput('ifLOCA',.F.)
+   Wput('ifDELE',.F.) 
+   
+elseif lcACTION = 'ALTER' .and. gbWAC_READ
+
+   Wput('ifNOVO',.T.)
+   Wput('ifSAVE',.T.)
+   Wput('ifLOCA',.F.)
+   Wput('ifDELE',.T.) 
+
+   lcWHERE    := 'NR_PASTA = ' + WGet('NR_PASTA','C')  + ' and NR_SEQUENCIA = ' + WGet('NR_SEQUENCIA','C')
+   
+   
+   laJOIN := {{2,'departamento_area','departamento_area.ID_DEPARTAMENTO_AREA=ocorrencia_recurso.ID_DEPARTAMENTO_AREA'},;
+              {2,'atividade_recurso','atividade_recurso.ID_ATIVIDADE=ocorrencia_recurso.ID_ATIVIDADE'},;
+              {2,'status_recurso','status_recurso.ID_STATUS=ocorrencia_recurso.ID_STATUS'},;
+              {2,'pfpj','pfpj.CIP=ocorrencia_recurso.CIP_RECURSO'}}
+
+   laFIELDS    := {'NR_PASTA',; 
+                   'NR_SEQUENCIA',;      
+                   'ocorrencia_recurso.ID_DEPARTAMENTO_AREA',;
+                   'departamento_area.DEPARTAMENTO_AREA',;
+                   'ocorrencia_recurso.ID_ATIVIDADE',;
+                   'atividade_recurso.ATIVIDADE_RECURSO',;     
+                   'DT_INICIO',;
+                   'HR_INICIO',;     
+                   'DT_FIM',;
+                   'HR_FIM',;
+                   'QTD_HORAS_PREV',;
+                   'ocorrencia_recurso.ID_STATUS',;
+                   'status_recurso.STATUS_RECURSO',;
+                   'OBSERVACAO',;
+                   'CIP_RECURSO',;
+                   'pfpj.pfpj as CIP_RECURSO_PFPJ'}
+   
+   if db_select(laFIELDS,'ocorrencia_recurso',laJOIN,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   
+   Wput('NR_SEQUENCIA.readonly',.T.)
+   Wput('NR_SEQUENCIA.class','winputreadonly')
+   
+   db2put(laRES) //sobe os dados encontrados para tela
+
+elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+
+    lcWHERE    := 'NR_PASTA = ' + WGet('NR_PASTA','C')  + ' and NR_SEQUENCIA = ' + WGet('NR_SEQUENCIA','C')
+    
+    psab_logdel(WGet('NR_PASTA','C'),'NR_SEQUENCIA',WGet('NR_SEQUENCIA','C'),,'Recursos')
+    
+    if db_delete(lcTABLE,lcWHERE) == -1
+       error_sys(db_error())
+    endif 
+
+    
+elseif lcACTION == 'SEARCH'
+
+    lcWHERE    := 'NR_PASTA = ' + lcNR_PASTA
+
+    if WGet('NR_SEQUENCIA','N')>0
+        lcWHERE    := lcWHERE + ' and ocorrencia_recurso.NR_SEQUENCIA = ' + WGet('NR_SEQUENCIA','C') 
+    endif
+    
+    if (WGet('ID_DEPARTAMENTO_AREA','N'))>0
+        lcWHERE    := lcWHERE + ' and ocorrencia_recurso.ID_DEPARTAMENTO_AREA = ' + WGet('ID_DEPARTAMENTO_AREA','C') 
+    endif
+    
+    if (WGet('ID_ATIVIDADE','N'))>0
+        lcWHERE    := lcWHERE + ' and ocorrencia_recurso.ID_ATIVIDADE = ' + WGet('ID_ATIVIDADE','C') 
+    endif 
+    
+    if (WGet('ID_STATUS','N'))>0
+        lcWHERE    := lcWHERE + ' and ocorrencia_recurso.ID_STATUS = ' + WGet('ID_STATUS','C') 
+    endif    
+
+    if (WGet('CIP_RECURSO','N'))>0
+        lcWHERE    := lcWHERE + ' and ocorrencia_recurso.CIP_RECURSO = ' + WGet('CIP_RECURSO','C') 
+    endif    
+    
+                   
+    busca(lcWHERE) 
+
+  
+elseif lcACTION == 'SAVE'
+
+    llERRO := .f.
+        
+    *** verifica se campos obrigatorios estão com dados
+    if ! verif_reqfield(WSet('_USER_INTERFACE'))
+       llERRO := .t.
+    endif
+    
+    if ! llERRO 
+     
+       if upper(wGet('NR_SEQUENCIA','C')) == 'NEW'
+          lcNR_PROPOSTA := '0'
+         else
+          lcNR_PROPOSTA := wGet('NR_SEQUENCIA','C')
+       endif      
+
+       laFIELDS     := {'NR_PASTA',; 
+                        'NR_SEQUENCIA',;      
+                        'ID_DEPARTAMENTO_AREA',; 
+                        'ID_ATIVIDADE',;     
+                        'DT_INICIO',;
+                        'HR_INICIO',;     
+                        'DT_FIM',;
+                        'HR_FIM',;
+                        'QTD_HORAS_PREV',;
+                        'ID_STATUS',;
+                        'OBSERVACAO',;
+                        'CIP_RECURSO'}                    
+                        
+                        
+       laFIELDS_AUX := {}
+       for lnXX := 1 to len(laFIELDS)
+            if laFIELDS[lnXX] == 'NR_SEQUENCIA'
+               if str(wGet(laFIELDS[lnXX])) = 'New'
+                  aadd(laFIELDS_AUX,0)  
+                 else
+                  aadd(laFIELDS_AUX,wGet(laFIELDS[lnXX])) 
+               endif 
+            elseif laFIELDS[lnXX] == 'DT_INICIO'      
+               if RetFeriado(Wget('DT_INICIO','D'))
+                  aadd(laFIELDS_AUX,WfDiaUtilQtd(wGet('DT_INICIO','D'),1,1))                   
+                  walert('Devido a data de inicio não ser um dia util, o ISJ ajustou a data para o próximo.') 
+                 else
+                  aadd(laFIELDS_AUX,wGet(laFIELDS[lnXX]))
+               endif             
+            elseif laFIELDS[lnXX] == 'DT_FIM' 
+               if RetFeriado(Wget('DT_FIM','D'))
+                  aadd(laFIELDS_AUX,WfDiaUtilQtd(wGet('DT_FIM','D'),1,1))                   
+                  walert('Devido a data final não ser um dia util, o ISJ ajustou a data para o próximo.')  
+                 else
+                  aadd(laFIELDS_AUX,wGet(laFIELDS[lnXX]))
+               endif            
+              else  
+               aadd(laFIELDS_AUX,wGet(laFIELDS[lnXX]))
+            endif   
+       next lnXX 
+       
+       aadd(laSAVE,laFIELDS)
+       aadd(laSAVE,laFIELDS_AUX) 
+       
+       lcWHERE    := 'NR_PASTA = ' + lcNR_PASTA + ' and NR_SEQUENCIA = ' + lcNR_SEQUENCIA
+             
+       psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Ocorrencia Recurso') 
+
+       if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+           error_sys(db_error())
+       endif
+              
+                             
+   endif
+   
+   lcACTION:=''
+   
+endif
+
+if lcACTION<>'SEARCH'
+   *** refaz grid
+   lcWHERE    := 'NR_PASTA = ' + lcNR_PASTA
+   busca(lcWHERE)
+   ***
+endif
+
+return
+
+******************************
+static function busca(fcWHERE)
+******************************          
+local laJOIN    := {} as array
+local laFIELDS2 := {} as array
+
+
+laJOIN := {{2,'departamento_area','departamento_area.ID_DEPARTAMENTO_AREA=ocorrencia_recurso.ID_DEPARTAMENTO_AREA'},;
+           {2,'atividade_recurso','atividade_recurso.ID_ATIVIDADE=ocorrencia_recurso.ID_ATIVIDADE'},;
+           {2,'status_recurso','status_recurso.ID_STATUS=ocorrencia_recurso.ID_STATUS'},;
+           {2,'pfpj','pfpj.CIP=ocorrencia_recurso.CIP_RECURSO'}}
+
+laFIELDS2    := {'NR_PASTA',; 
+                 'NR_SEQUENCIA',;      
+                 'ocorrencia_recurso.ID_DEPARTAMENTO_AREA',;
+                 'departamento_area.DEPARTAMENTO_AREA',;
+                 'ocorrencia_recurso.ID_ATIVIDADE',;
+                 'atividade_recurso.ATIVIDADE_RECURSO',;     
+                 'DT_INICIO',;
+                 'HR_INICIO',;     
+                 'DT_FIM',;
+                 'HR_FIM',;
+                 'QTD_HORAS_PREV',;
+                 'ocorrencia_recurso.ID_STATUS',;
+                 'status_recurso.STATUS_RECURSO',;
+                 'OBSERVACAO',;
+                 'CIP_RECURSO',;
+                 'pfpj.pfpj'}
+
+if db_select(laFIELDS2,'ocorrencia_recurso',laJOIN,{fcWHERE}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+aadd(laRES[1],'(row)')
+for ii := 2 to len(laRES)
+    aadd(laRES[ii],'(row)'+wic_action('wicaction_gr5/psab.ocorecur.html'+;
+                                      '?NR_PASTA='+str(laRES[ii,1])+;
+                                      '&NR_SEQUENCIA='+str(laRES[ii,2])+;
+                                      '&TP_PASTA='+lcTP_PASTA+; 
+                                      '&ACTION=ALTER'))
+next ii
+WPut('GRID_OCORECUR',grid_create(laRES))
+
+if lcACTION='SEARCH' .and. len(laRES)=1
+   walert('Lançamento não localizado.')
+endif    
+    
+
+return(nil)
+
+

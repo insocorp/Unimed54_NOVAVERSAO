@@ -1,0 +1,53 @@
+/*
+
+Project      : gr5
+Program      : lst.tb.servico.html
+Function     : lst_tb_servico_html
+Created on   : 19-Aug-2002   17:55:20
+Descripition : Listagem de Tabelas de serviços
+
+*/
+
+   local laPARAM := {{'CD_TB_SERVICO',''},;
+                     {'FL_ATIVO','',},;
+                     {'ACTION'       ,'ALTER',   }} as array
+
+   local laWHERE        := {} ,;
+         laINPUT_HIDDEN := {} ,;
+         laQUICK_SEARCH := {} ,;
+         laJOIN         := {} as array
+
+   laSELECT       := {'tabela_servico.CD_TB_SERVICO',;
+                      'tabela_servico.NM_TB_SERVICO',;
+                      'tabela_servico.CD_MOEDA',;
+                      'moeda.NM_MOEDA',;
+                      'tabela_servico.NM_NARRATIVA_FATURA',;
+                      'tabela_servico.FL_ATIVO'}
+
+   laQUICK_SEARCH := {'NM_TB_SERVICO','NM_NARRATIVA_FATURA','FL_ATIVO'}
+
+   laJOIN := {{2,'moeda','moeda.CD_MOEDA=tabela_servico.CD_MOEDA'}}
+
+   xbp('tabela_servico',;                                                  //Tabela alvo
+       laJOIN,;                                                            //Joins
+       laWHERE,;                                                           //Where
+       ,;                                                                  //Order by
+       ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+       ,;                                                                  //Group by
+       ,;                                                                  //Limit
+       ,;                                                                  //Banco de Dados
+       4,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search, 4-Listagem
+       'gr5',;                                                             //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;                                           //Programa chamador
+       laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+       ,;                                                                  //Parâmetros para os botões das linhas do grid
+       'mnt.tb.servico.html',;                                             //Programa que os links/botoes do grid deverao chamar
+       'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+       ,;                                                                  //Retorno java (nil) - usado apenas para Search
+       laQUICK_SEARCH,;                                                    //Campos usados na pesquisa rápida
+       ,;                                                                  //Campos Ocultos
+       ,;                                                                  //Campos da área de manutenção/entrada de dados
+       laSELECT,;                                                          //Campos exibidos no grid
+       laSELECT)                                                           //Campos usados no select
+   wPut('TITLE','Tabela de Serviços')
+return

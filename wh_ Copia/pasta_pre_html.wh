@@ -1,0 +1,11 @@
+/*
+
+Project      : gr5
+Program      : pasta.pre.html
+Function     : pasta_pre_html
+Created on   : 31-Jan-2006   10:43:47
+Descripition : Tela de pré cadastro para as pastas.
+
+*/
+   mnt_pasta_html(,,,.t.)
+return

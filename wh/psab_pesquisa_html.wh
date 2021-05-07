@@ -1,0 +1,177 @@
+/*
+Project      : gr5
+Program      : psab.pesquisa.html
+Function     : psab_pesquisa_ html
+Created on   : 4/10/2010 11:32:59
+Descripition : Pesquisa de Satisfação
+               Sonia Perdigão              
+*/
+   local laRESULT          := {} ,;
+         laSAVE            := {} ,;
+         laSAVEAUX         := {} ,;
+         laWHERE           := {} ,;
+         laFIELDS          := {} as array
+
+   local lcNR_ROW           := '1',;
+         lcNR_PASTA         := '' ,;
+         lcTP_PASTA         := '' ,;
+         lcACTION           := '' ,;
+         lcITEM_1           := '' ,;
+         lcWHERE            := '' as string
+   local lnII               := 0 as int
+   local llAUX      := .t. ,;
+         llERROR    := .f. ,;
+         llSalvar   := .f. as logical
+
+
+   lcACTION := upper(Wget('ACTION'))
+   
+   laFIELDS := {'NR_PASTA','ITEM_1','ITEM_2','ITEM_3','ITEM_4','EXTRA','DT_CADASTRO','DT_RESPOSTA','LOGIN'}
+   laSAVE   := {{'NR_PASTA','ITEM_1','ITEM_2','ITEM_3','ITEM_4','EXTRA','DT_CADASTRO','DT_RESPOSTA','LOGIN'}}
+
+   // Faz a carga dos combos
+
+   WPut('ITEM_1_OPT',{'Sim','Não','Em Parte'})
+   WPut('ITEM_2_OPT',{'Sim','Não','Em Parte'})
+   WPut('ITEM_3_OPT',{'Sim','Não','Em Parte'})
+   WPut('ITEM_4_OPT',{'Insuficiente','Regular','Bom'})
+
+   lcUSUARIO := wSet('LOGIN')
+   Wput('LOGIN',lcUSUARIO)
+   Wput('DT_CADASTRO',DATE())
+   Wput('ACTION','NEW')
+ 
+   
+   lcTP_PASTA    := wGet('TP_PASTA','C')
+   lcNR_PASTA    := wGet('NR_PASTA','C')
+
+   if !empty(pcTP_PASTA) .and. !empty(pcNR_PASTA)
+      lcTP_PASTA    := pcTP_PASTA
+      lcNR_PASTA    := pcNR_PASTA
+   else   
+      lcTP_PASTA    := wGet('TP_PASTA','C')
+      lcNR_PASTA    := wGet('NR_PASTA','C')
+   endif      
+   Wput('NR_PASTA',val(lcNR_PASTA))
+   Wput('TP_PASTA',lcTP_PASTA)
+
+   lcWHERE       := 'NR_PASTA = '+lcNR_PASTA
+
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta,encontra-se na func.wic 
+
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   pasta_abas(lcTP_PASTA)
+
+/*   
+   for lnII := 2 to len(laSAVE[1])
+       if ! empty(WGet(laSAVE[1,lnII]))
+          llSalvar := .t.
+       endif
+   next lnII
+*/
+
+//
+// Glauber 19/12/2012 - Customizações Unimed
+//
+//
+
+if (val(lcNR_PASTA) > 0)
+   llAltera := PodeAlterarPasta(val(lcNR_PASTA))
+   if llAltera
+//      WPut('ifSAVE',.t.)
+//      WPut('if!SAVE',.f.)
+   else
+//      WPut('ifSAVE',.f.)
+//      WPut('if!SAVE',.t.)
+    endif
+endif
+
+
+   //--------------        Salvar        ----------------------------------------
+   if lcACTION == 'SALVAR'  .and. gbWAC_WRITE
+
+      // Glauber - Customização Unimed
+      // equiparação unimed45
+//      llAltera := PodeAlterarPasta(val(lcNR_PASTA))
+//      if ! llAltera
+//         WAlert('Atenção: Seu login não tem permissão para efetuar alterações nesta pasta.')
+//         get2Put()
+//         return(.f.)
+//      endif
+
+      //
+      // Glauber 19/11/2010
+      // Alterações solicitadas pela Unimed
+      //
+      // Só se responde uma pesquisa de satisfação se o status da consulta for igual a Encerrada. Portanto, tirar o redirecionamento a
+      // aba e inserir a regra na pesquisa de satisfação - só deixa salvar se o campo pasta.FL_CONSULTA for igual a 'Encerrada'.
+      //
+
+      if db_select({'FL_CONSULTA'},'pasta',,{'NR_PASTA = '+lcNR_PASTA}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      // equiparação unimed45
+//      if laRESULT[2,1] <> 'Encerrada'
+      if laRESULT[2,1] <> 'Concluída'
+         WAlert('A consulta não foi encerrada, não é possível responder a pesquisa de satisfação.')
+         get2put()
+         return
+      endif
+      for lnII := 1 to len(laSAVE[1])
+          if (laSAVE[1,lnII] == 'DT_RESPOSTA') .or. (laSAVE[1,lnII] == 'DT_CADASTRO')
+             aadd(laSAVEAUX, Date())   
+          elseif laSAVE[1,lnII] == 'LOGIN'
+             aadd(laSAVEAUX, WSet('LOGIN'))   
+          else
+             aadd(laSAVEAUX,WGet(laSAVE[1,lnII]))
+          endif
+      next lnII
+      aadd(laSAVE,laSAVEAUX)
+      // Faz a consistência para verificar se todos os campos estão preenchidos corretamente
+      if (laSAVE[2,2] <> 'Sim') .or. (laSAVE[2,3] <> 'Sim') .or. (laSAVE[2,4] <> 'Sim') .or. (laSAVE[2,5] <> 'Bom')
+         if empty(laSAVE[2,6])
+            WAlert('O Campo '+lblfscreen('EXTRA') + ' é de preenchimento obrigatório.')
+            Get2Put()
+            return
+         endif
+      endif
+
+      lcWHERE := 'NR_PASTA='+lcNR_PASTA
+      // Salva o Log de Alteração
+      psab_logs(laSAVE,'pasta_pesquisa',lcWHERE, lcNR_PASTA,'Pasta Pesquisa')
+      if db_replace(laSAVE,'pasta_pesquisa',{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+   endif
+   if db_select(laFIELDS,'pasta_pesquisa',,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   if len(laRESULT) > 1
+      db2put(laRESULT)
+   endif
+   
+//   Get2Put()
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

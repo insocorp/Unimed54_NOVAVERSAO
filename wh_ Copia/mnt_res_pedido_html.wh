@@ -1,0 +1,47 @@
+/*
+
+Project      : gr5
+Program      : mnt.res_pedido.html
+Function     : mnt_res_pedido_html
+Created on   : 12-Jul-2005   10:42:02
+Descripition : Cadastro de Resultados de Pedidos.
+
+*/
+
+   local laPARAM        := {},;
+         laINPUT_OBJ    := {},;
+         laSELECT       := {} as array
+
+   laPARAM := {{'FL_RESULTADO_PEDIDO','','*'},;
+            {'FL_ATIVO','',},;
+               {'ACTION','ALTER',}}
+
+   laINPUT_OBJ := {{'FL_RESULTADO_PEDIDO' ,0,,'Y',},;
+                {          , , ,   , },;
+                    {'FL_ATIVO',1,,'Y','{"S","I","D"}' }}
+
+   laSELECT := {'FL_RESULTADO_PEDIDO','FL_ATIVO'}
+
+   xbp('resultado_pedido',;                                                //Tabela alvo
+       ,;                                                                  //Joins
+       ,;                                                                  //Where
+       {'FL_RESULTADO_PEDIDO'},;                                           //Order by
+       ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+       ,;                                                                  //Group by
+       ,;                                                                  //Limit
+       ,;                                                                  //Banco de Dados
+       2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+       'gr5',;                                                             //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;                                           //Programa chamador
+       laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+       ,;                                                                  //Parâmetros para os botões das linhas do grid
+       'mnt.res_pedido.html',;                                             //Programa que os links/botoes do grid deverao chamar
+       'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+       ,;                                                                  //Retorno java (nil) - usado apenas para Search
+       ,;                                                                  //Campos usados na pesquisa rápida
+       ,;                                                                  //Campos Ocultos
+       laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+       laSELECT ,;                                                         //Campos exibidos no grid
+       laSELECT)                                                           //Campos usados no select
+return
+

@@ -1,0 +1,75 @@
+/*
+
+Project      : gr5
+Program      : cidade.mnt.html
+Function     : cidade_mnt_html
+Created on   : 06/10/2014 11:33:56
+Alterado em  : 20/09/2017 09:10:52 - Sonia inserido CD_GEOCMU
+Descripition : Cidade - Cadastro do IBGE
+
+*/
+
+   local laPARAM        := {},;
+         laINPUT_OBJ    := {},;
+         laSELECT       := {} as array
+
+   laPARAM := {{'ID_CIDADE',''     ,'*'},;
+               {'CIDADE'     ,''     ,'*'},;
+               {'UF'     ,''     ,'*'},;
+               {'CD_GEOCMU'     ,''     ,'*'},;
+               {'FL_ATIVO','',},;
+               {'ACTION'       ,'ALTER',   }}
+
+   laINPUT_OBJ := {{'ID_CIDADE',0, ,'Y',   },;
+                   {,,,,},;
+                   {'CIDADE',0, ,'Y',   },;
+                   {,,,,},;
+                   {'UF',1, ,'Y',"loadcboxorder_build('estados','UF',.T.,{'UF'})"},;
+                   {,,,,},;
+                   {'CD_GEOCMU',0, ,'Y',   },;
+                   {,,,,},;
+                   {'FL_ATIVO',1,,'Y','{"S","I","D"}' }}
+           
+
+   laSELECT := {'ID_CIDADE','CIDADE','UF','CD_GEOCMU','FL_ATIVO'}
+
+   xbp('cidade',;                                                     //Tabela alvo
+       ,;                                                                  //Joins
+       ,;                                                                  //Where
+       {'UF','CIDADE'},;                                             			//Order by
+       ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+       ,;                                                                  //Group by
+       ,;                                                                  //Limit
+       ,;                                                                  //Banco de Dados
+       2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+       'gr5',;                                                             //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;                                           //Programa chamador
+       laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+       ,;                                                                  //Parâmetros para os botões das linhas do grid
+       'cidade.mnt.html',;                                           //Programa que os links/botoes do grid deverao chamar
+       'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+       ,;                                                                  //Retorno java (nil) - usado apenas para Search
+       ,;                                                                  //Campos usados na pesquisa rápida
+       ,;                                                                  //Campos Ocultos
+       laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+       laSELECT ,;                                                         //Campos exibidos no grid
+       laSELECT)                                                           //Campos usados no select
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

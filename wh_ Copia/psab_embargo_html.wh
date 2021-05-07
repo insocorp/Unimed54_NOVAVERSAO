@@ -1,0 +1,617 @@
+/*
+
+Project      : gr5
+Program      : psab.embargo.html
+Function     : psab_embargo_html
+Created on   : 04/08/2015 09:24:37 rufino
+Descripition : Aba Embargos
+
+*Chama funcoes : verifica_relacionamento
+*                ver_aba
+*                montar_filho
+*                sincroniza_pasta
+*/
+   private pcFL_AUTOPROC_OK := '',;
+           pcFL_AUTO        := ''
+
+   local lcTP_PASTA    := '' ,;
+         lcACTION      := '' ,;
+         lcRelac    := '' ,;
+         lcFL_ENCERRAR := '' ,;
+         lcWHERE       := '' ,;
+         lcWHEREP      := '' ,;
+         lcProgram  := 'psab_embargo_html' ,;
+         lcNR_PASTA    := '' ,;
+         lcNR_AUTOPROC := '' ,;
+         lcAUTOPROC    := '' as string
+   local laVALIDA   := {} ,;
+         laFIELDS   := {} ,;
+         laFILHO    := {} ,;
+         laLABELS   := {} ,;
+         laRES      := {} ,;
+         laRESULT   := {} ,;
+         laPUT      := {} ,;
+         laSAVE     := {} ,;
+         laSAVEfilho := {} ,;
+         laCampos   := {} ,;
+         laSAVE_AUX := {} ,;
+         laFOREIGN  := {} as array
+         
+   local llERRO     := .F. as logical
+   local llReturn   := .f. as logical
+   local lnPos := 0 as int
+   local lnPos1 := 0 as int
+   local lnAuto := 0 as int
+   local nn := 0 as int
+        
+   lcACTION         := WGet('ACTION','C')
+   lcTP_PASTA       := WGet('TP_PASTA','C')
+   lcNR_PASTA       := WGet('NR_PASTA','C')
+   lcNR_AUTOPROC    := alltrim(WGet('NR_AUTOPROC','C'))
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   if upper(lcNR_AUTOPROC) == 'NEW' .or. empty(lcNR_AUTOPROC)
+      lcNR_AUTOPROC := '0'
+   endif
+   lcAUTOPROC       := alltrim(WGet('AUTOPROC','C'))
+   pcFL_AUTO        := alltrim(WGet('FL_AUTO','C'))
+   pcFL_AUTOPROC_OK := alltrim(WGet('FL_AUTOPROC_OK','C'))
+   lcFL_ENCERRAR    := alltrim(WGet('FL_ENCERRAR','C')) // Campo somente para controle, no existe na tabela
+   lcTABLE          := 'pasta_embargo'
+   laFIELDS         := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS         := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   lcWHERE          := 'NR_PASTA='+lcNR_PASTA+' and NR_AUTOPROC='+lcNR_AUTOPROC
+   laVALIDA         := {{'AUTOPROC',laLABELS[ascan(laFIELDS,'AUTOPROC')]}}
+
+   init_reqfield(WSet('_USER_INTERFACE'))
+
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+  
+  
+//------------  Verificando relacionamento    -----------------------------------------
+
+   lcRelac:=verifica_relacionamento(lcNR_PASTA, lcTp_pasta)
+
+//------------ Verificando se Aba pode ser alterada  ------------------------
+
+   if lcRelac = 'F' .or. lcRelac = 'P'
+      llReturn:=Ver_ABA(lcTP_PASTA, lcProgram)
+   endif         
+   if lcRelac = 'F'  .and. llReturn 
+      walert('Somente Para Consulta - Pasta Pertence a Litsconsorte')
+   endif
+   carrega_cbox({{'autoproc','AUTOPROC','Y','EMBARGO='+DLAP+'S'+DLAP+ ' or AMBOS='+DLAP+'S'+DLAP},;
+                 {'instancia','INSTANCIA','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP},;
+                 {'tribunal','TRIBUNAL','Y','TP_PASTA='+DLAP+lcTP_PASTA+DLAP}})
+
+   /* Tamanhos dos Textareas */
+   WPut('ROWS_NM_AUTO',5)
+   WPut('ROWS_JUSTIF_INTERPOS',5)
+   WPut('ROWS_JUSTIF_REPROVA',5)
+   WPut('ROWS_RESUMODECISAO',5)
+
+   /* Combo Tribunal */
+/*
+   if db_select({'TRIBUNAL'},'tribunal',,{'TP_PASTA='+DLAP+lcTP_PASTA+DLAP}) = -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 0
+      aadd(laPUT,'')
+      for ii := 2 to len(laRES)
+         aadd(laPUT,laRES[ii,1])
+      next ii
+      WPut('TRIBUNAL_OPT',laPUT)
+   endif
+*/
+//    WPut('TITLE',lcTP_PASTA+' - Autos')
+   WPut('NR_AUTOPROC','New')
+   WPut('LOGIN_RESP',gcLOGIN)
+   WPut('DT_CADASTRO',date())
+   WPut('FL_ENCERRAR',lcFL_ENCERRAR)
+   WPut('ifBT_SALVAR',.t.)
+
+   /* Definir os campos readonly */
+   WPut('NR_AUTOPROC.readonly',.t.)
+   WPut('NR_AUTOPROC.class','winputreadonly')
+   WPut('FL_AUTO.readonly',.t.)
+   WPut('FL_AUTO.class','winputreadonly')
+
+   /* Combo TP_AUTO -------------------------------------------------------------------------------- */
+   if ! empty(lcAUTOPROC)
+      if db_select({'FL_AUTOPROC_OK'},'autoproc',,{'AUTOPROC='+DLAP+lcAUTOPROC+DLAP}) = -1
+         walert(db_error())
+      endif
+      laRES := db_fetchrow()
+      if len(laRES) > 0
+         WPut('FL_AUTOPROC_OK',laRES[1])
+         pcFL_AUTOPROC_OK := laRES[1]
+      endif
+
+      /*
+      * Combo TP_AUTO
+      */
+      /*
+      if db_select({'TP_AUTO'},'autotipo',,{'AUTOPROC='+DLAP+lcAUTOPROC+DLAP}) = -1
+         walert(db_error())
+      endif
+      laRES := db_fetchall()
+      if len(laRES) > 0
+         laPUT := {}
+         aadd(laPUT,'')
+         for ii := 2 to len(laRES)
+            aadd(laPUT,laRES[ii,1])
+         next ii
+         WPut('TP_AUTO.option',laPUT)
+      endif
+      */
+   endif
+   /* Fim ---------------------------------------------------------------------------- */
+
+   if lcACTION == 'CG_AUTOPROC'
+      get2put()
+      if alltrim(lcNR_AUTOPROC) == '0'
+         WPut('NR_AUTOPROC','New')
+      endif
+      if pcFL_AUTOPROC_OK == 'S'
+         if empty(pcFL_AUTO)
+            WPut('FL_AUTO','Requer Justificativa')
+            WPut('ifJUSTIFICATIVA',.t.)
+            *WPut('JUSTIF_INTERPOS.label.style.color','#FF0000')
+            *WPut('JUSTIF_INTERPOS.label.style.font-weight','bold')
+            WPut('JUSTIF_INTERPOS.style.border','2px solid red')
+         endif
+      endif
+   endif
+
+   if lcACTION == 'NEW' .or. lcACTION == 'CG_AUTOPROC' .or. empty(lcACTION)
+      WPut('ifNEW',.t.)
+   else
+      WPut('ifALTER',.t.)
+   endif
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      aadd(laSAVE,laFIELDS)
+
+      // Controle de validação de acordo com Status do Auto.
+      if pcFL_AUTOPROC_OK == 'S'
+         if upper(pcFL_AUTO) == 'REQUER JUSTIFICATIVA'
+            aadd(laVALIDA,{'JUSTIF_INTERPOS',laLABELS[ascan(laFIELDS,'JUSTIF_INTERPOS')]})
+
+         elseif upper(pcFL_AUTO) == 'RESULTADO PENDENTE' .or. ;
+                upper(pcFL_AUTO) == 'ENCERRADO'
+            aadd(laVALIDA,{'AUTORESULTADO',laLABELS[ascan(laFIELDS,'AUTORESULTADO')]})
+         endif
+      endif
+
+      for ii := 1 to len(laVALIDA)
+         if empty(alltrim(WGet(laVALIDA[ii,1],'C')))
+            walert('['+laVALIDA[ii,2]+'] é um campo obrigatório')
+            llERRO := .t.
+            carrega_auto(lcNR_PASTA,lcNR_AUTOPROC,llERRO)
+            if upper(pcFL_AUTO) == 'REQUER JUSTIFICATIVA'
+               WPut('ifJUSTIFICATIVA',.t.)
+               *WPut('JUSTIF_INTERPOS.label.style.color','#FF0000')
+               *WPut('JUSTIF_INTERPOS.label.style.font-weight','bold')
+               WPut('JUSTIF_INTERPOS.style.border','2px solid red')
+            endif
+
+            if empty(alltrim(lcAUTOPROC))
+               WPut('ifNEW',.t.)
+               WPut('ifALTER',.f.)
+            endif
+            exit
+         endif
+      next ii
+
+      if ! llERRO
+         if ! verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+            llERRO := .t.
+            carrega_auto(lcNR_PASTA,lcNR_AUTOPROC,llERRO)
+            if upper(pcFL_AUTO) == 'REQUER JUSTIFICATIVA'
+               WPut('ifJUSTIFICATIVA',.t.)
+               *WPut('JUSTIF_INTERPOS.label.style.color','#FF0000')
+               *WPut('JUSTIF_INTERPOS.label.style.font-weight','bold')
+               WPut('JUSTIF_INTERPOS.style.border','2px solid red')
+            endif
+
+            if empty(alltrim(lcAUTOPROC))
+               WPut('ifNEW',.t.)
+               WPut('ifALTER',.f.)
+            endif
+         endif
+      endif
+
+      if ! llERRO
+         //Controle de Status
+         if pcFL_AUTOPROC_OK == 'S'
+            if empty(pcFL_AUTO)
+               pcFL_AUTO := 'Requer Justificativa'
+            elseif upper(pcFL_AUTO) == 'REQUER JUSTIFICATIVA'
+               pcFL_AUTO := 'Requer Aprovação'
+            elseif upper(pcFL_AUTO) == 'REQUER APROVAÇÃO'
+               pcFL_AUTO := 'Ativo'
+            elseif upper(pcFL_AUTO) == 'RESULTADO PENDENTE' .and. lcFL_ENCERRAR != 'Y'
+               pcFL_AUTO := 'Ativo'
+            elseif upper(pcFL_AUTO) == 'RESULTADO PENDENTE' .and. lcFL_ENCERRAR == 'Y'
+               pcFL_AUTO := 'Encerrado'
+            endif
+         else
+            pcFL_AUTO := 'Ativo'
+         endif
+
+         for ii := 1 to len(laFIELDS)
+            if laFIELDS[ii] == 'FL_AUTO'
+               aadd(laSAVE_AUX,pcFL_AUTO)
+            else
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii],wmd_wfieldtype(laFIELDS[ii])))
+            endif
+         next ii
+//         aadd(laSAVE,laSAVE_AUX)
+
+         if lcRelac = '' .or. lcRelac = 'P' .or. (lcRelac = 'F' .and. llReturn = .f.)      // se .f. posso alterar atraves do filho
+            aadd(laSAVE,laSAVE_AUX)
+
+            lcWHERE := 'NR_PASTA='+lcNR_PASTA+' and NR_AUTOPROC='+lcNR_AUTOPROC
+            psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Embargos')
+            if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+               error_sys(db_error())
+            endif
+            if lcNr_autoproc = '0'
+               lnAuto:=db_insert_id()
+            else
+               lnAuto:=val(lcNr_autoproc)   
+            endif
+
+            if lcRelac = 'P' .and. llReturn 
+               laFilho:=Montar_filho(lcNR_PASTA, lcTp_pasta)
+               if len(laFilho) > 0
+                  for ii :=1 to len(lafilho)
+                     lcWHEREp  := 'NR_PASTA='+str(lafilho[ii])+' AND NR_AUTO_RELACAO='+str(lnAuto)
+                     if db_select({'NR_PASTA','NR_AUTOPROC','NR_AUTO_RELACAO'},lcTable,,{lcWHEREp}) == -1
+                        error_sys(db_error())
+                     endif
+                     laCampos := db_fetchrow()
+                     if len(laCampos) > 0
+                        for jj:=2 to 2
+                            for ll:=1 to len(laFields)
+                               if laSave[1,ll] = 'NR_PASTA'
+                                  laSave[2,ll] := laCampos[1]
+                               endif
+                               if laSave[1,ll] = 'NR_AUTOPROC'
+                                  laSave[2,ll] := laCampos[2]
+                               endif
+                               if laSave[1,ll] = 'NR_AUTO_RELACAO'
+                                   laSave[2,ll] := laCampos[3]
+                               endif
+                            next ll   
+                        next jj   
+                        if db_replace(laSAVE,lcTABLE,{lcWHEREp}) = -1
+                          error_sys(db_error())
+                        endif
+                     else 
+                        lasavefilho :={} 
+                        aadd(laSAVEFILHO,laFIELDS)
+                        laSAVE_AUX := {}
+                        for jj:= 1 to len(laFields)
+                            if laFIELDS[jj]='NR_PASTA'
+                               aadd(laSAVE_AUX,laFILHO[ii])
+                            elseif laFIELDS[jj]='FL_AUTO'
+                               aadd(laSAVE_AUX,pcFL_AUTO)
+                            elseif   laFields[jj] = 'NR_AUTOPROC'
+                               aadd(laSAVE_AUX,'0')
+                            elseif laFields[jj] = 'NR_AUTO_RELACAO'
+                               aadd(laSAVE_AUX,str(lnAuto))
+                            else
+                              aadd(laSAVE_AUX,WGet(laFIELDS[jj]))
+                            endif                         
+                        next jj
+                        aadd(laSAVEFILHO,laSAVE_AUX)
+                        if db_insert(laSAVEfilho,lcTABLE) = -1
+                          error_sys(db_error())
+                        endif
+                     endif 
+                  next ii
+               endif   
+            endif   
+         endif
+      endif
+      
+         //Carrega o Auto caso necessário
+         if upper(pcFL_AUTO) <> 'ATIVO'
+            carrega_auto(lcNR_PASTA,lcNR_AUTOPROC,llERRO)
+         else
+            WPut('ifNEW',.t.)
+            WPut('ifALTER',.f.)
+         endif
+
+         if alltrim(lcNR_AUTOPROC) == '0' .or. empty(lcNR_AUTOPROC)
+            lcNR_AUTOPROC := alltrim(db_insert_id())
+         endif
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+      carrega_auto(lcNR_PASTA,lcNR_AUTOPROC,llERRO)
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      if db_query('select count(*) from pasta_deposito where '+lcWHERE+;
+                  ' union select count(*) from pasta_outraspartes where '+lcWHERE+;
+                  ' union select count(*) from pasta_andamento where FL_ANDAMENTO_CANCELADO <> '+DLAP+'S'+DLAP+' and '+lcWHERE) = -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      if len(laRES) > 1
+         for ii := 2 to len(laRES)
+             if laRES[ii,1] > 0
+                llERRO := .t.
+                exit
+             endif
+         next ii
+      endif
+
+      if ! llERRO
+        if lcRelac = '' .or. lcRelac = 'P' .or. (lcRelac = 'F' .and. llReturn = .f.)      // se .f. posso alterar atraves do filho
+         if db_delete(lcTABLE,lcWHERE) = -1
+            error_sys(db_error())
+         endif
+         if lcRelac = 'P' .and. llReturn 
+            laFilho:=Montar_filho(lcNR_PASTA, lcTp_pasta)
+            if len(laFilho) > 0
+               for ii := 1 to len(laFilho)                   // gravando abas dos filhos
+                lcWHEREp  := 'NR_PASTA='+str(lafilho[ii])+' AND NR_AUTO_RELACAO='+lcNR_Autoproc
+                if db_delete(lcTABLE,lcWHEREp) = -1
+                   error_sys(db_error())
+                endif
+               next ii
+            endif   
+         endif
+        endif
+        WPut('ifNEW',.t.)
+        WPut('ifALTER',.f.)
+      else
+         walert('O Auto não pode ser excluido.\nExistem Andamentos,Partes ou Depósitos relacionados.')
+         WPut('ifNEW',.t.)
+         WPut('ifALTER',.f.)
+      endif
+
+   elseif lcACTION == 'ENCERRAR'
+    if lcRelac = '' .or. lcRelac = 'P' .or. (lcRelac = 'F' .and. llReturn = .f.)      // se .f. posso alterar atraves do filho
+       laSAVE := {{'FL_AUTO'},{'Resultado Pendente'}}
+       psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Peças Processuais')
+       if db_update({{'FL_AUTO'},{'Resultado Pendente'}},'pasta_embargo',{lcWHERE}) = -1
+          error_sys(db_error())
+       endif
+       if lcRelac = 'P' .and. llReturn 
+          laFilho:=Montar_filho(lcNR_PASTA, lcTp_pasta)
+          if len(laFilho) > 0
+             for ii :=1 to len(lafilho)
+                lcWHEREp  := 'NR_PASTA='+str(lafilho[ii])+' AND NR_AUTO_RELACAO='+lcNR_Autoproc
+                if db_update({{'FL_AUTO'},{'Resultado Pendente'}},'pasta_embargo',{lcWHEREp}) = -1
+                   error_sys(db_error())
+                endif
+             next ii
+          endif   
+       endif
+    endif
+      carrega_auto(lcNR_PASTA,lcNR_AUTOPROC,llERRO)
+      pcFL_AUTO := 'Resultado Pendente'
+//    endif
+   elseif lcACTION == 'ATIVAR'
+//      laSAVE := {{'FL_AUTO'},{'Ativo'}}
+    if lcRelac = '' .or. lcRelac = 'P' .or. (lcRelac = 'F' .and. llReturn = .f.)      // se .f. posso alterar atraves do filho
+      laSAVE := {{'FL_AUTO'},{'Ativo'}}
+      psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Peças Processuais')
+      if db_update({{'FL_AUTO'},{'Ativo'}},'pasta_embargo',{lcWHERE}) = -1
+         error_sys(db_error())
+      endif
+       if lcRelac = 'P' .and. llReturn 
+          laFilho:=Montar_filho(lcNR_PASTA, lcTp_pasta)
+          if len(laFilho) > 0
+             for ii :=1 to len(lafilho)
+                lcWHEREp  := 'NR_PASTA='+str(lafilho[ii])+' AND NR_AUTO_RELACAO='+lcNR_Autoproc
+                if db_update({{'FL_AUTO'},{'Ativo'}},'pasta_embargo',{lcWHEREp}) = -1
+                   error_sys(db_error())
+                endif
+             next ii
+          endif   
+       endif
+    endif
+    carrega_auto(lcNR_PASTA,lcNR_AUTOPROC,llERRO)
+    pcFL_AUTO := 'Ativo'
+//    endif
+   endif
+
+   if db_select({'DT_CADASTRO',;
+                 'LOGIN_RESP',;
+                 'NR_AUTOPROC',;
+                 'AUTOPROC',;
+                 'FL_AUTO',;
+                 'NUMERO_DOC'},;
+                 lcTABLE,,{'NR_PASTA='+lcNR_PASTA}) = -1
+      error_sys(db_error())
+   endif
+
+   laRES := db_fetchall()
+   if len(laRES) > 0
+      aadd(laRES[1],'(row)')
+      aadd(laRES[1],'[Andamentos]')
+      aadd(laRES[1],'[Pessoas]')
+      for ii := 2 to len(laRES)
+         aadd(laRES[ii],'(row)'+wic_action('wicaction_gr5/psab.embargo.html'+;
+                                           '?TP_PASTA='+lcTP_PASTA+;
+                                           '&NR_PASTA='+lcNR_PASTA+;
+                                           '&NR_AUTOPROC='+str(laRES[ii,db_fetchncol(laRES,'NR_AUTOPROC')])+;
+                                           '&ACTION=ALTER'))
+         aadd(laRES[ii],'[Andamentos]'+wic_action('wicaction_gr5/mnt.pst.andamento.html'+;
+                                                  '?TP_PASTA='+lcTP_PASTA+;
+                                                  '&NR_PASTA='+lcNR_PASTA+;
+                                                  '&NR_AUTOPROC='+str(laRES[ii,db_fetchncol(laRES,'NR_AUTOPROC')])))
+
+         aadd(laRES[ii],'[Pessoas]'+wic_action('wicaction_gr5/mnt.pst.partes.html'+;
+                                                  '?TP_PASTA='+lcTP_PASTA+;
+                                                  '&NR_PASTA='+lcNR_PASTA+;
+                                                  '&NR_AUTOPROC='+str(laRES[ii,db_fetchncol(laRES,'NR_AUTOPROC')])))
+      next ii
+
+      laRES[1,3]:='NR_EMBARGO'
+      laRES[1,4]:='EMBARGO'
+
+      WPut('GRID_AUTO',grid_create(laRES))
+   endif
+   pasta_abas(lcTP_PASTA)
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+
+return
+
+static function carrega_auto(fcNR_PASTA,fcNR_AUTOPROC,flERRO)
+
+   local laRES    := {} ,;
+         laRESULT := {} ,;
+         laFIELDS := {} ,;
+         laPUT    := {} as array
+
+   // Criação do link com o GED
+   amkgedico('pasta_embargo',fcNR_PASTA,fcNR_AUTOPROC)
+
+   laFIELDS         := structtable(WSet("DB_ACTIVE"),'pasta_embargo',1,'N')
+   if db_select(laFIELDS,'pasta_embargo',,{'NR_PASTA='+fcNR_PASTA+' and NR_AUTOPROC='+fcNR_AUTOPROC}) = -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 1
+      db2Put(laRES)
+
+      WPut('ROWS_NM_AUTO',iif( mlcount(laRES[2,db_fetchncol(laRES,'NM_AUTO')]) < 6 ,5, mlcount(laRES[2,db_fetchncol(laRES,'NM_AUTO')]) ) )
+      WPut('ROWS_JUSTIF_INTERPOS',iif( mlcount(laRES[2,db_fetchncol(laRES,'JUSTIF_INTERPOS')]) < 6 ,5, mlcount(laRES[2,db_fetchncol(laRES,'JUSTIF_INTERPOS')]) ))
+      WPut('ROWS_JUSTIF_REPROVA',iif( mlcount(laRES[2,db_fetchncol(laRES,'JUSTIF_REPROVA')]) < 6 ,5, mlcount(laRES[2,db_fetchncol(laRES,'JUSTIF_REPROVA')]) ))
+      WPut('ROWS_RESUMODECISAO',iif( mlcount(laRES[2,db_fetchncol(laRES,'RESUMODECISAO')]) < 6 ,5, mlcount(laRES[2,db_fetchncol(laRES,'RESUMODECISAO')]) ))
+
+      /* Combo AUTORESULTADO */
+      carrega_cbox({{'autoresultado','AUTORESULTADO','Y','AUTOPROC='+DLAP+laRES[2,db_fetchncol(laRES,'AUTOPROC')]+DLAP}})
+
+
+      /* Pega pcFL_AUTOPROC_OK do BD caso seja uma Alteração */
+      if empty(pcFL_AUTOPROC_OK)
+         if db_select({'FL_AUTOPROC_OK'},'autoproc',,{'AUTOPROC='+DLAP+laRES[2,db_fetchncol(laRES,'AUTOPROC')]+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchrow()
+         if len(laRESULT) > 0
+            pcFL_AUTOPROC_OK := laRESULT[1]
+         endif
+      endif
+      WPut('FL_AUTOPROC_OK',pcFL_AUTOPROC_OK)
+
+      /* Pega pcFL_AUTO do BD caso seja uma Alteração */
+      if empty(pcFL_AUTO)
+         pcFL_AUTO := laRES[2,db_fetchncol(laRES,'FL_AUTO')]
+      endif
+
+      /* Deixa visivel os Topicos de acordo com FL_AUTO */
+      if upper(pcFL_AUTO) == 'REQUER JUSTIFICATIVA'
+         WPut('ifJUSTIFICATIVA',.t.)
+         *WPut('JUSTIF_INTERPOS.label.style.color','#FF0000')
+         *WPut('JUSTIF_INTERPOS.label.style.font-weight','bold')
+         WPut('JUSTIF_INTERPOS.style.border','2px solid red')
+
+      elseif upper(pcFL_AUTO) == 'REQUER APROVAÇÃO'
+         WPut('ifAPROVACAO',.t.)
+      elseif upper(pcFL_AUTO) == 'ATIVO'
+         WPut('ifBT_ENCERRAR',.t.) //Mostra botão Encerrar
+      elseif upper(pcFL_AUTO) == 'RESULTADO PENDENTE'
+         WPut('ifRESULTADO',.t.)
+         WPut('ifBT_ATIVAR',.t.) //Mostra botão Ativar
+         *WPut('AUTORESULTADO.label.style.color','#FF0000')
+         *WPut('AUTORESULTADO.label.style.font-weight','bold')
+         WPut('AUTORESULTADO.style.border','2px solid red')
+      elseif upper(pcFL_AUTO) == 'ENCERRADO'
+         WPut('ifRESULTADO',.t.)
+         WPut('ifBT_ATIVAR',.t.) //Mostra botão Ativar
+         WPut('ifBT_SALVAR',.F.) //Esconde botao Salvar
+         *WPut('AUTORESULTADO.label.style.color','#FF0000')
+         *WPut('AUTORESULTADO.label.style.font-weight','bold')
+         WPut('AUTORESULTADO.style.border','2px solid red')
+
+      endif
+
+      if upper(pcFL_AUTO) <> 'REQUER JUSTIFICATIVA' .and. pcFL_AUTOPROC_OK == 'OK'
+         WPut('ifAPROVACAO',.t.)
+      endif
+
+      /* Deixa visivel os Topicos ja preenchidos */
+      if ! empty(laRES[2,db_fetchncol(laRES,'JUSTIF_INTERPOS')])
+         WPut('ifJUSTIFICATIVA',.t.)
+      endif
+      if ! empty(laRES[2,db_fetchncol(laRES,'AUTORESULTADO')])
+         WPut('ifRESULTADO',.t.)
+      endif
+      if ! empty(laRES[2,db_fetchncol(laRES,'LOGIN_APROVA')])
+         WPut('ifAPROVACAO',.t.)
+         if laRES[2,db_fetchncol(laRES,'FL_APROVADO')] == 'S'
+            WPut('FL_APROVACAO','Aprovado')
+         else
+            WPut('FL_APROVACAO','Negado')
+            WPut('ifNEGADO',.t.)
+         endif
+      endif
+
+      /* Carrega RISCOPERDA dos campso PC_RISCO* */
+      laFOREIGN := {'PC_RISCO',;
+                    'PC_RISCO2_ADVEXT'}
+      for ii := 1 to len(laFOREIGN)
+         if db_select({'RISCOPERDA'},'exito_riscoperda',,{'PC_RISCO='+str(laRES[2,db_fetchncol(laRES,laFOREIGN[ii])])} ) = -1
+            error_sys(db_error())
+         endif
+         laPUT := db_fetchrow()
+         if len(laPUT) > 0
+            WPut(laFOREIGN[ii]+'_RISCOPERDA',laPUT[1])
+         endif
+      next ii
+
+   endif
+
+   //Mantem os dados no formulário caso tenha ocorrido algum erro.
+   if flERRO
+      Get2Put()
+   endif
+
+return(nil)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

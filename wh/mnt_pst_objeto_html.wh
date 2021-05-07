@@ -1,0 +1,351 @@
+/*
+
+Project      : gr5
+Program      : mnt.pst.objeto.html
+Function     : mnt_pst_objeto_html
+Created on   : 25-Jul-2006   14:53:17
+Descripition : Manutenção Objetos - Demandas Caixa
+
+*/
+
+   local laRESULT   := {},;
+         laSAVE     := {},;
+         laSAVEAUX  := {},;
+         laMVTSAVE  := {},;
+         laRES      := {},;
+         laFIELDS   := {},;
+         laVALIDA   := {},;
+         laFOREIGN  := {},;
+         laPUT      := {} as array
+
+   local lcWHERE    := '',;
+         lcTABLE    := '',;
+         lcPROCURA  := '',;
+         lcACTION   := ''  as string
+   local xx         := 0 as numeric
+
+   lcTABLE   := 'pasta_objeto'
+
+   //laFIELDS  := {'TP_PASTA','OBJETO','CD_TRCT','HISTORICO','CD_TRCT_CORRECAO','HISTORICO_CORRECAO','CD_TRCT_JURO','HISTORICO_JURO'}
+   laFIELDS  := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   // função para checar aspas simples e duplas
+   // 18/2/2009 16:39:27 - Sonia Perdigão                   
+   x1 := wget('OBJETO','C')
+   x1 := strtran(x1,chr(39)," ")
+   x1 := strtran(x1,chr(34)," ")
+   
+//   lcWHERE   := 'TP_PASTA = '+DLAP+WGet('TP_PASTA','C')+DLAP+' and OBJETO = '+DLAP+(strtran(WGet('OBJETO','C'),"[chr(39),chr(34)]",""))+DLAP
+   lcWHERE   := 'TP_PASTA = '+DLAP+WGet('TP_PASTA','C')+DLAP+' and OBJETO = '+DLAP+x1+DLAP
+   lcACTION  := alltrim(upper(WGet('ACTION')))
+   lcPROCURA := ''
+   laVALIDA  := {'TP_PASTA','OBJETO'}
+
+   carrega_cbox({{'pasta_config','TP_PASTA','Y'}})
+   wput('FL_VISIVEL.option',{'','1- Alteração Completa','2- Apenas Leitura','3- Invisível'})
+   wput('FL_VISIVEL.optionvalue',{'','W','R','I'})
+
+// teste sonia
+   wput('FL_ATIVO.option',{'Ativo','Inativo','Default'})
+   wput('FL_ATIVO.optionvalue',{'S','I','D'})
+
+
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+   if lcACTION == 'ALTER'
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2put(laRESULT)
+
+         laFOREIGN := {{'transacao_contabil','NM_TRCT','NM_TRCT','CD_TRCT='+str(laRESULT[2,db_fetchncol(laRESULT,'CD_TRCT')])},;
+                       {'transacao_contabil','NM_TRCT','NM_TRCT_ESTORNO','CD_TRCT='+str(laRESULT[2,db_fetchncol(laRESULT,'CD_TRCT_ESTORNO')])},;
+                       {'transacao_contabil','NM_TRCT','NM_TRCT_CORRECAO','CD_TRCT='+str(laRESULT[2,db_fetchncol(laRESULT,'CD_TRCT_CORRECAO')])},;
+                       {'transacao_contabil','NM_TRCT','NM_TRCT_CORRECAO_ESTORNO','CD_TRCT='+str(laRESULT[2,db_fetchncol(laRESULT,'CD_TRCT_CORRECAO_ESTORNO')])},;
+                       {'transacao_contabil','NM_TRCT','NM_TRCT_JURO','CD_TRCT='+str(laRESULT[2,db_fetchncol(laRESULT,'CD_TRCT_JURO')])},;
+                       {'transacao_contabil','NM_TRCT','NM_TRCT_JURO_ESTORNO','CD_TRCT='+str(laRESULT[2,db_fetchncol(laRESULT,'CD_TRCT_JURO_ESTORNO')])}}
+
+         for ii := 1 to len(laFOREIGN)
+            if db_select({laFOREIGN[ii,2]},laFOREIGN[ii,1],,{laFOREIGN[ii,4]}) = -1
+               error_sys(db_error())
+            endif
+            laPUT := db_fetchrow()
+            if  len(laPUT) > 0
+              for xx := 1 to len(laPUT)
+                 wPut(laFOREIGN[ii,3],laPUT[xx])
+              next xx
+            endif
+         next ii
+
+         //MostraTran(laRESULT[2,ascan(laRESULT[1],'CD_PLCT_DEBITO')],laRESULT[2,ascan(laRESULT[1],'CD_PLCT_CREDITO')])
+      endif
+      //return
+
+   elseif lcACTION == 'DELETE'
+       if db_select({'count(*)'},'pasta',,{lcWHERE}) == -1
+          error_sys('Erro na Contagem da Pasta: ('+alltrim(str(procline()))+') - '+db_error())
+       endif
+       laCOUNT := db_fetchrow()
+       if laCOUNT[1] > 0 
+          walert('Existem pastas relacionadas a este conteudo.\n     Registro nao pode ser excluido!')
+       else         
+          if db_delete(lcTABLE,lcWHERE) = -1
+             error_sys(db_error())
+          endif
+       endif
+   elseif lcACTION == 'SAVE'
+      if verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+         for x := 1 to len(laFIELDS)
+            // função para checar aspas simples e duplas
+            // 18/2/2009 16:39:27 - Sonia Perdigão    
+            x1 := wget(laFIELDS[x])
+            x1 := strtran(x1,chr(39)," ")
+            x1 := strtran(x1,chr(34)," ")
+            if laFIELDS[x] == 'FL_VISIVEL'
+               if WGet(laFIELDS[x]) == ''
+                  aadd(laSAVEAUX,'W')
+               else                   
+                  aadd(laSAVEAUX,x1)
+               endif
+            else    
+               aadd(laSAVEAUX,WGet(laFIELDS[x]))
+            endif   
+         next x
+         aadd(laSAVE,laFIELDS)
+         aadd(laSAVE,laSAVEAUX)
+         if db_replace(laSAVE,lcTABLE,{lcWHERE},) == -1
+            error_sys(db_error())
+         endif
+      endif
+
+   elseif lcACTION == 'SEARCH'
+      for xx := 1 to len(laFIELDS)
+         if wmd_wfieldtype(laFIELDS[xx]) == 'C'
+             if ! empty(WGet(laFIELDS[xx],'C'))
+             // função para checar aspas simples e duplas
+             // 18/2/2009 16:39:27 - Sonia Perdigão                   
+                x1 := wget(laFIELDS[xx])
+                x1 := strtran(x1,chr(39)," ")
+                x1 := strtran(x1,chr(34)," ")
+                if empty(lcPROCURA)
+//                   lcPROCURA += laFIELDS[xx]+' like '+DLAP+'%'+strtran(WGet(laFIELDS[xx],'C'),[chr(34),chr(39)],'')+'%'+DLAP
+                   lcPROCURA += laFIELDS[xx]+' like '+DLAP+'%'+x1+'%'+DLAP
+                else
+//                   lcPROCURA += ' and '+laFIELDS[xx]+' like '+DLAP+'%'+strtran(WGet(laFIELDS[xx],'C'),[chr(34),chr(39)],'')+'%'+DLAP
+                   lcPROCURA += ' and '+laFIELDS[xx]+' like '+DLAP+'%'+x1+'%'+DLAP
+                endif
+             endif
+         elseif wmd_wfieldtype(laFIELDS[xx]) == 'N'
+             if WGet(laFIELDS[xx],'N') > 0
+                if empty(lcPROCURA)
+                   lcPROCURA += laFIELDS[xx]+' = '+WGet(laFIELDS[xx],'C')
+                else
+                   lcPROCURA += ' and '+laFIELDS[xx]+' = '+WGet(laFIELDS[xx],'C')
+                endif
+             endif
+         endif
+      next xx
+
+      Monta_Grade(lcPROCURA)
+      get2put()
+      return
+   endif
+   Monta_Grade()
+return
+
+// Montagem da Grade com os dados cadastrados
+Static Function Monta_Grade(pc_filtro)
+local laFIELDS := {},;
+      laRESULT := {} as array
+local lcTABLE  := '',;
+      lcWHERE  := '' as string
+local ii       := 0 as numeric
+
+   lcTABLE := 'pasta_objeto'
+   laFIELDS := {'TP_PASTA','OBJETO'}
+
+   if ! empty(pc_filtro)
+      lcWHERE := pc_filtro // ' NM_TRCT LIKE '+DLAP+'%' + alltrim(pc_filtro)+'%'+DLAP
+   else
+      lcWHERE := ''
+   endif
+   if empty(pc_filtro)
+      if db_select({'distinct pasta_objeto.TP_PASTA','pasta_objeto.OBJETO'},'pasta_objeto',,,{'pasta_objeto.TP_PASTA','pasta_objeto.OBJETO'},'A') == -1
+         error_sys(db_error())
+      endif
+   else
+      if db_select({'distinct pasta_objeto.TP_PASTA','pasta_objeto.OBJETO'},'pasta_objeto',,{lcWHERE},{'pasta_objeto.TP_PASTA','pasta_objeto.OBJETO'},'A') == -1
+         error_sys(db_error())
+      endif
+   endif
+   laRESULT  := db_fetchall()
+   lnCOUNT   := len(laRESULT)-1
+   if lnCOUNT > 0
+	   laPAGINAS := paginacao(lnCOUNT,'','')
+	   laLIMIT   := param_fetch(laPAGINAS,'LIMIT')
+	   if empty(pc_filtro)
+	      if db_select(laFIELDS,lcTABLE,,,{'TP_PASTA','OBJETO'},,,laLIMIT) == -1
+	         error_sys(db_error())
+	      endif
+	   else
+	      if db_select(laFIELDS,lcTABLE,,{lcWHERE},{'TP_PASTA','OBJETO'},,,laLIMIT) == -1
+	         error_sys(db_error())
+	      endif
+	   endif
+	   laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         //Resumo da pesquisa
+         lcCODE := alltrim(str(laLIMIT[1]+1))+'-'
+         if ((len(laRESULT)-1) < (laLIMIT[2]-laLIMIT[1]))
+            lcCODE += alltrim(str(len(laRESULT)-1))
+         elseif param_fetch(laPAGINAS,'GOTO_PAGE') == param_fetch(laPAGINAS,'NR_PAGES') //lnNR_PAGES
+            lcCODE += alltrim(str(lnCOUNT))
+         else
+            lcCODE += alltrim(str(laLIMIT[1]+param_fetch(laPAGINAS,'ROWS_PAGE')))
+         endif
+         lcCODE += ' de '+alltrim(str(lnCOUNT))
+         if lnCOUNT > 1
+            lcCODE := ' Resultados '+lcCODE+' registros'
+         else
+            lcCODE := ' Resultado '+lcCODE+' registro'
+         endif
+         wput('RESUME_RESULTSET',lcCODE)
+         aadd(laRESULT[1],'(row)')
+         for ii := 2 to len(laRESULT)
+            aadd(laRESULT[ii],'(row)'+wic_action('wicaction/mnt.pst.objeto.html?'+;
+                                                 'TP_PASTA='+laRESULT[ii, db_fetchncol(laRESULT,'TP_PASTA')]+;
+                                                 '&OBJETO='+laRESULT[ii, db_fetchncol(laRESULT,'OBJETO')]+;
+                                                 '&ACTION=ALTER'))
+         next ii
+         wPut('lstTRCT',grid_create(laRESULT))
+      else
+         wPut('lstTRCT','<center>Nenhum registro foi encontrado</center>')
+      endif
+   endif
+return
+
+Static function paginacao(fnCOUNT,fcMSGTYPE,fcQUICK_SEARCH)
+  local ii          := 0 ,;
+        lnGOTO_PAGE := WGet('GOTO_PAGE','N') ,;
+        lnNR_PAGES  := 0 ,;
+        lnROWS_PAGE := 0 ,;
+        lnMAX_PAGES := 0 ,;
+        lnPAGE_INI  := 0 ,;
+        lnPAGE_FIN  := 0 ,;
+        lnLIMIT1    := 0 ,;
+        lnLIMIT2    := 0 as int
+
+   local lcCODE     := '' as string
+
+   local laPAGES    := {} ,;
+         laLIMIT    := {} ,;
+         laRETURN   := {} as array
+
+   if lnCOUNT > 0
+      if lnGOTO_PAGE <= 0
+         lnGOTO_PAGE := 1
+      endif
+      lnMAX_PAGES := iif(val(WSet('MAX_PAGES'))==0,10,val(WSet('MAX_PAGES')))
+      lnROWS_PAGE := iif(val(WSet('ROWS_PAGE'))==0,10,val(WSet('ROWS_PAGE')))
+
+      if lnROWS_PAGE > fnCOUNT
+         lnROWS_PAGE := fnCOUNT
+      endif
+      lnNR_PAGES := fnCOUNT/lnROWS_PAGE
+
+      if (fnCOUNT % lnROWS_PAGE) > 0
+         lnNR_PAGES += 1
+      endif
+
+      lnMAX_PAGES := iif(lnNR_PAGES < lnMAX_PAGES,lnNR_PAGES,lnMAX_PAGES)
+      if lnGOTO_PAGE == 1
+         lnPAGE_INI := 1                              // Página inicial
+         lnPAGE_FIN := lnMAX_PAGES                    // Página final
+      else
+         if alltrim(WGet('MORE')) == 'Y'              // Visualizar as próximas 10 páginas, se possível
+            lnPAGE_INI := lnGOTO_PAGE
+            lnPAGE_FIN := lnMAX_PAGES+(lnGOTO_PAGE-1)
+            if lnPAGE_FIN > lnNR_PAGES
+               lnPAGE_FIN := lnNR_PAGES
+            endif
+         elseif alltrim(WGet('LESS')) == 'Y'          // Visualizar as 10 páginas anteriores, se possível
+            lnPAGE_INI := lnGOTO_PAGE-lnMAX_PAGES+1
+            lnPAGE_FIN := lnGOTO_PAGE
+         else
+            lnPAGE_INI := WGet('FIRST_PAGE','N')
+            lnPAGE_FIN := WGet('LAST_PAGE','N')
+         endif
+      endif
+
+      aadd(laPAGES,{'PROGRAM_CALL','NR_PAGE'})
+      for ii := lnPAGE_INI to lnPAGE_FIN
+          lcCODE := wic_action('wicaction/mnt.pst.objeto.html?GOTO_PAGE='+alltrim(str(ii)))
+          lcCODE += '&FIRST_PAGE='+alltrim(str(lnPAGE_INI))+'&LAST_PAGE='+alltrim(str(lnPAGE_FIN))
+          if ii == lnPAGE_INI
+             lcCODE += '&LESS=Y'
+          endif
+          if ii == lnPAGE_FIN .and. lnPAGE_FIN < lnNR_PAGES
+             lcCODE += '&MORE=Y'
+          endif
+
+          // Manter a pesquisa do usuário caso ela exista e demais parametros
+          if !empty(fcQUICK_SEARCH)
+             lcCODE += '&QUICK_SEARCH='+fcQUICK_SEARCH
+          endif
+
+          if !empty(fcMSGTYPE)
+             lcCODE += '&MSGTYPE='+fcMSGTYPE
+          endif
+
+          aadd(laPAGES,{lcCODE,alltrim(str(ii))})
+      next ii
+      WPut('ifRESULT',.T.)
+      WPut('PAGES',laPAGES)
+
+      lnLIMIT1 := iif(lnGOTO_PAGE == 1,0,((lnGOTO_PAGE*lnROWS_PAGE)-1)-(lnROWS_PAGE-1))
+      lnLIMIT2 := lnROWS_PAGE
+      laLIMIT  := {lnLIMIT1,lnLIMIT2}
+
+      aadd(laRETURN,{'NR_PAGES',lnNR_PAGES})
+      aadd(laRETURN,{'ROWS_PAGE',lnROWS_PAGE})
+      aadd(laRETURN,{'GOTO_PAGE',lnGOTO_PAGE})
+      aadd(laRETURN,{'LIMIT',laLIMIT})
+   else
+      aadd(laRETURN,{'NR_PAGES' ,0})
+      aadd(laRETURN,{'ROWS_PAGE',0})
+      aadd(laRETURN,{'GOTO_PAGE',0})
+      aadd(laRETURN,{'LIMIT',{}})
+   endif
+return(laRETURN)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

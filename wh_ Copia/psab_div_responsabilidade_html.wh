@@ -1,0 +1,211 @@
+/*
+Alterado em 31/01/2009 - Eliana inclusao rotina para Lits
+*Chama funcoes : verifica_relacionamento
+*                ver_aba
+*                montar_filho
+
+Project      : gr5
+Program      : psab.div.responsabilidade.html
+Function     : psab_div_responsabilidade_html
+Created on   : 26-Dec-2005   15:14:28
+Descripition : Aba Divisão de Responsabilidade
+
+*/
+
+   local lcACTION   := upper(WGet('ACTION','U')),;
+         lcNR_PASTA := WGet('NR_PASTA','C'),;
+         lcTP_PASTA := WGet('TP_PASTA','C'),;
+         lcRelac    := '' ,;
+         lcProgram  := 'psab_div_responsabilidade_html' ,;
+         lcCIP      := WGet('CIP','C'),;
+         lcTABLE    := '',;
+         lcWHERE    := '' as string
+   local laFIELDS   := {} ,;
+         laRESULT   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laVALIDA   := {} ,;
+         laMARKUP      := {} as array
+   local ii := 0 as int
+   local llReturn   := .f. as logical
+
+   local lnPC_RISCO := 0.00 ,;
+         lnAUX      := 0.00 ,;
+         lnAUX2     := 0.00 ,;
+         lnAUX3     := 0.00 ,;
+         lnVL_ACAO  := 0.00 ,;
+         lnPTR      := 0.00 ,;
+         lnVTA      := 0.00 ,;
+         lnVTAA     := 0.00 ,;
+         lnVTP      := 0.00 as numeric
+
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   get2Put({'NR_PASTA','TP_PASTA'})
+   laVALIDA := {'CIP'}
+
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+   lcTABLE  := 'pasta_div_responsabilidade'
+   laFIELDS := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   lcWHERE  := 'NR_PASTA='+lcNR_PASTA+' and CIP='+DLAP+lcCIP+DLAP
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, laFIELDS)
+
+   if db_select({'VL_ACAO','PC_RISCO'},'pasta',,{'NR_PASTA='+lcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchrow()
+   if len(laRESULT) > 0
+      lnVL_ACAO  := laRESULT[1]
+      lnPC_RISCO := laRESULT[2]
+   endif
+//------------  Verificando relacionamento    -----------------------------------------
+
+   lcRelac:=verifica_relacionamento(lcNR_PASTA, lcTP_pasta)
+
+//------------ Verificando se Aba pode ser alterada  ------------------------
+   if lcRelac = 'F' .or. lcRelac = 'P'
+      llReturn:=Ver_ABA(lcTP_PASTA, lcProgram)
+   endif         
+
+   if lcRelac = 'F' .and. llReturn  
+      walert('Somente Para Consulta - Pasta Pertence a Litsconsorte')
+   endif
+
+   if lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2Put(laRESULT)
+         if db_select({'PFPJ as CIP_PFPJ'},'pfpj',,{'CIP='+DLAP+GetWPut('CIP')+DLAP}) == -1
+            error_sys(db_error())
+         endif
+         db2Put(db_fetchall())
+      endif
+
+   elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+      if verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+         //Validação de total
+         if db_select({'sum(PC_RATEIO)'},'pasta_div_responsabilidade',,{'NR_PASTA='+lcNR_PASTA+' and CIP<>'+DLAP+lcCIP+DLAP}) == -1
+            error_sys(db_error())
+         endif
+
+         laRESULT := db_fetchrow()
+         if (laRESULT[1]+WGet('PC_RATEIO','N')) > 100
+            walert('A soma dos rateios não pode ser superior a 100%')
+            get2put()
+         else
+            aadd(laSAVE,laFIELDS)
+            for ii := 1 to len(laFIELDS)
+               aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+            next ii
+            aadd(laSAVE,laSAVE_AUX)
+            if lcRelac = '' .or. lcRelac = 'P' .or. (lcRelac = 'F' .and. llReturn = .f.)      // se .f. posso alterar atraves do filho
+               psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Divisão Responsabilidade') //Gravar log de alterações da pasta
+               if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+                  error_sys(db_error())
+               endif
+               if lcRelac = 'P' .and. llReturn 
+                  laFilho:=Montar_filho(lcNR_PASTA, lcTp_pasta)
+                  if len(laFilho) > 0
+                     for ii :=1 to len(lafilho)
+                         laSave[2,1]:=lafilho[ii]
+                         lcWHEREP  := 'NR_PASTA='+str(lafilho[ii])+' and CIP='+DLAP+lcCIP+DLAP
+                         if db_replace(laSAVE,lcTABLE,{lcWHEREp}) == -1
+                            error_sys(db_error())
+                         endif
+                     next ii
+                  endif   
+               endif
+            endif
+         endif
+      endif
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      if lcRelac = '' .or. lcRelac = 'P' .or. (lcRelac = 'F' .and. llReturn = .f.)      // se .f. posso alterar atraves do filho
+         if db_delete(lcTABLE,lcWHERE) == -1
+            error_sys(db_error())
+         endif
+         if lcRelac = 'P' .and. llReturn 
+            laFilho:=Montar_filho(lcNR_PASTA, lcTp_pasta)
+            if len(laFilho) > 0
+//---------excluindo Divisao Responsabilidade ------------------------------------------------
+               for ii :=1 to len(lafilho)
+                   lcWHEREP := 'NR_PASTA='+str(lafilho[ii])+' and CIP='+DLAP+lcCIP+DLAP
+                   if db_delete(lcTABLE, lcWherep) == -1
+                       error_sys(db_error())
+                   endif
+               next ii
+            endif   
+         endif
+      endif
+   endif
+
+   laMARKUP := getvlmarkup(lcNR_PASTA,lcTP_PASTA,'VL_ACAO')
+   WPut('MSGMARKUP',laMARKUP[3])
+
+   if db_select({'pasta_div_responsabilidade.CIP',;
+                 'pfpj.PFPJ',;
+                 'pasta_div_responsabilidade.PC_RATEIO'},lcTABLE,;
+                {{2,'pfpj','pfpj.CIP=pasta_div_responsabilidade.CIP'}},;
+                {'pasta_div_responsabilidade.NR_PASTA='+lcNR_PASTA},{'pasta_div_responsabilidade.CIP'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      aadd(laRESULT[1],'VL_ACAO')
+      aadd(laRESULT[1],'VL_ATUALIZADO')
+      aadd(laRESULT[1],'VL_PROVISAO_CALC')
+      //aadd(laRESULT[1],'(row)')
+      for ii := 2 to len(laRESULT)
+         lnAUX  := lnVL_ACAO * (laRESULT[ii,db_fetchncol(laRESULT,'PC_RATEIO')]/100)
+         lnAUX2 := lnAUX*laMARKUP[1]
+         lnAUX3 := lnAUX2 * (pc_risco(lnPC_RISCO)/100)
+
+         lnPTR  += laRESULT[ii,db_fetchncol(laRESULT,'PC_RATEIO')]
+         lnVTA  += lnAUX
+         lnVTAA += lnAUX2
+         lnVTP  += lnAUX3
+
+         aadd(laRESULT[ii],lnAUX)
+         aadd(laRESULT[ii],lnAUX2)
+         aadd(laRESULT[ii],lnAUX3)
+      next ii
+      WPut('PC_TT_RATEIO',wpictrans('PC_RATEIO',lnPTR))
+      WPut('VL_TT_ACAO',wpictrans('VL_ACAO',lnVTA))
+      WPut('VL_TT_ATUALIZADO',wpictrans('VL_ACAO',lnVTAA))
+      WPut('VL_TT_PROVISAO_CALC',wpictrans('VL_ACAO',lnVTP))
+
+      WPut('lstDIV_RESPONSABILIDADE',laRESULT)
+   endif
+   pasta_abas(lcTP_PASTA)
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

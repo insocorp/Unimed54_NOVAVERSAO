@@ -1,0 +1,260 @@
+/*
+
+Project      : gr5
+Program      : mnt.trct.html
+Function     : mnt_trct_html
+Created on   : 12-Nov-2002   09:02:35
+Descripition : Manutenção de Transação Contábil
+
+*/
+
+   private lcACTION     := '' ,;
+           lcWHERE      := '' ,;
+           lcTABLE      := '' ,;
+           lcTABLE_DET  := '' ,;
+           lcTRANS      := '' ,;
+           lcITEM       := '' ,;
+           lcFIELD_VAR  := '' ,;
+           lcVALIDA     := ''
+
+   private laRESULT     := {} ,;
+           laSAVE       := {} ,;
+           laSAVE_AUX   := {} ,;
+           laFIELDS     := {} ,;
+           laPUT        := {} ,;
+           laVAR_WICDO  := {} ,;
+           laVAR_WRITE  := {} ,;
+           laCCUSTOS    := {} ,;
+           laAUX        := {} ,;
+           laAUX_WICDO  := {} ,;
+           laCD_PLCT    := {} ,;
+           laVALIDA     := {} ,;
+           laLABELS     := {}
+
+   private x     := 0 ,;
+           y     := 0 ,;
+           liPOS := 0
+
+   local laWHERE := {} as array
+
+   lcACTION    := upper(WGet('ACTION','C'))
+   lcWHERE     := 'CD_TRCT='+WGet('CD_TRCT','C')
+   lcTABLE     := 'transcontabil'
+   lcTABLE_DET := 'transcontabil_ccusto'
+   laFIELDS    := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+   laLABELS    := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'A')
+
+   laVAR_WICDO := {'VAR_CD_CCUSTO',;
+                   'VAR_NM_CCUSTO',;
+                   'VAR_PC_CCUSTO_RATEIO'}
+
+   laVAR_WRITE := {'CD_TRCT',;
+                   'CD_CCUSTO',;
+                   'PC_CCUSTO_RATEIO'}
+
+   /* Campos obrigatórios
+   * Formato do array abaixo
+   * 1 - Campo para captura da informação no HTML - WGet()
+   * 2 - Parte do label a exibir em caso de erro, está inf. e capturado do Wictrix
+   */
+   laVALIDA := {{'CD_TRCT',laLABELS[ascan(laFIELDS,'CD_TRCT')]},;
+                {'NM_TRCT',laLABELS[ascan(laFIELDS,'NM_TRCT')]},;
+                {'CD_PLCT',laLABELS[ascan(laFIELDS,'CD_PLCT')]}}
+
+   /* Relacionamentos que devem ser validados
+   * Formato do array abaixo
+   * 1 - Tabela
+   * 2 - Campo para captura da informação no HTML - WGet()
+   * 3 - Campo para montagem da cláusula WHERE usada em old_db_findrec()
+   * 4 - Parte do label a exibir em caso de erro, está inf. e capturado do Wictrix
+   */
+   laFIND_REC := {{'planocontas','CD_PLCT','CD_PLCT',laLABELS[ascan(laFIELDS,'CD_PLCT')]}}
+
+   if lcACTION='NEW' .or. lcACTION='ALTER'
+      ccustos()
+   endif
+   wPut('FL_TRCT_CCF_OPT','S')
+
+   if lcACTION='NEW'  .and. gbWAC_CREATE
+      aadd(laPUT,laVAR_WICDO)
+      for x := 2 to len(laRESULT)
+          lcITEM := '_'+alltrim(str(x-1))
+          aadd(laPUT,{laVAR_WICDO[1]+lcITEM,laVAR_WICDO[2]+lcITEM,laVAR_WICDO[3]+lcITEM})
+          wPut(laVAR_WICDO[1]+lcITEM,laRESULT[x,1])
+          wPut(laVAR_WICDO[2]+lcITEM,laRESULT[x,2])
+          wPut(laVAR_WICDO[3]+lcITEM,'0.00')
+      next x
+      wPut('FL_TRCT_CCF','S')
+      wPut('lstTRCT',laPUT)
+   elseif lcACTION='ALTER'  .and. gbWAC_READ
+      monta_grid(.f.)
+   elseif lcACTION='SAVE' .and. gbWAC_WRITE
+      // Validação de campos obrigatórios ------------------------------
+      if !valida_campo_obrig()
+         return(.f.)
+      endif
+      //Validação de chaves estrangeiras ------------------------------
+      for ii := 1 to len(laFIND_REC)
+          lcVALIDA := alltrim(WGet(laFIND_REC[ii,2],'C'))
+          if !empty(lcVALIDA) .and. lcVALIDA <> '0'
+             if len(db_findrec({laFIND_REC[ii,3]},laFIND_REC[ii,1],laFIND_REC[ii,3]+'='+DLAP+lcVALIDA+DLAP)) = 0
+                walert(laFIND_REC[ii,4]+' é inválido(a) ou não pode ser encontrado(a)!')
+                ccustos()
+                monta_grid(.t.)
+                get2Put()
+                return(.f.)
+             endif
+          endif
+      next ii
+      if db_delete(lcTABLE_DET,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+
+      aadd(laSAVE,laFIELDS)
+      for x := 1 to len(laFIELDS)
+          aadd(laSAVE_AUX,WGet(laFIELDS[x]))
+      next x
+      aadd(laSAVE,laSAVE_AUX)
+      if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+         error_sys(db_error())
+      endif
+
+      laSAVE      := {}
+      lcTRANS     := WGet('CD_TRCT','C')
+      laCCUSTOS   := comma2array(WGet('CCCUSTOS','C'))
+      y           := 1
+      lcITEM      := '_'+alltrim(str(y))
+      lcFIELD_VAR := 'VAR_'+laVAR_WRITE[2]+lcITEM  //Controle do laço - Cód do Centro de Custo
+      aadd(laSAVE,laVAR_WRITE)
+      do while WGet(lcFIELD_VAR,'B')
+         if WGet('VAR_'+laVAR_WRITE[3]+lcITEM,'N') <> 0
+            aadd(laSAVE,{val(lcTRANS),WGet('VAR_'+laVAR_WRITE[2]+lcITEM),;
+                                      WGet('VAR_'+laVAR_WRITE[3]+lcITEM,'N')})
+            aadd(laWHERE,'CD_TRCT='+lcTRANS+' and CD_CCUSTO='+DLAP+WGet('VAR_'+laVAR_WRITE[2]+lcITEM,'C')+DLAP)
+         endif
+         y++
+         lcITEM      := '_'+alltrim(str(y))
+         lcFIELD_VAR := 'VAR_'+laVAR_WRITE[2]+lcITEM  //Controle do laço - Cód do Centro de Custo
+      enddo
+      if len(laSAVE) > 1
+         //old_db_replace(lcTABLE_DET,laSAVE,lcWHERE)
+         if db_replace(laSAVE,lcTABLE_DET,laWHERE) = -1
+            error_sys(db_error())
+         endif
+      endif
+      wSet('_USER_INTERFACE','lst.trct.html')
+      lst_trct_html()
+   endif
+return
+
+/*
+* Function..: monta_grid(flERROR)
+* Objetivo..: Montar a lista de Cargos com seus respectivos valores, caso esteja cadastrados
+* Parâmetros:
+*    Nenhum
+* Retorno...: Nenhum
+*/
+static function monta_grid(flERROR)
+   local laFLD_GRID := {} ,;
+         laWHERE    := {} ,;
+         laPUT      := {} as array
+   local ii := 0 as int
+
+   if lcACTION = 'ALTER' .or. flERROR
+      //lcQUERY := 'select '+lcFIELDS+',planocontas.NM_PLCT from '+lcTABLE+;
+      //           ',planocontas where transcontabil.CD_PLCT=planocontas.CD_PLCT and '+lcWHERE
+
+      for ii := 1 to len(laFIELDS)
+          aadd(laFLD_GRID,lcTABLE+'.'+laFIELDS[ii])
+      next ii
+      aadd(laFLD_GRID,'planocontas.NM_PLCT')
+
+      laWHERE := {lcWHERE+' and transcontabil.CD_PLCT=planocontas.CD_PLCT'}
+      if db_select(laFLD_GRID,lcTABLE+',planocontas',,laWHERE) == -1
+         error_sys('monta_grid: '+db_error())
+      endif
+      db2Put(db_fetchall())
+
+      /*
+      lcQUERY := 'select '+lcTABLE_DET+'.CD_CCUSTO,';
+                            +'centrocusto.NM_CCUSTO,';
+                            +lcTABLE_DET+'.PC_CCUSTO_RATEIO';
+                            +' from centrocusto,'+lcTABLE_DET+' where '+lcWHERE;
+                            +' and centrocusto.CD_CCUSTO='+lcTABLE_DET+'.CD_CCUSTO'
+      */
+   endif
+
+   if lcACTION = 'ALTER' .or. flERROR
+      laFLD_GRID := {lcTABLE_DET+'.CD_CCUSTO',;
+                     'centrocusto.NM_CCUSTO',;
+                     lcTABLE_DET+'.PC_CCUSTO_RATEIO'}
+      laWHERE    := {lcWHERE+' and centrocusto.CD_CCUSTO='+lcTABLE_DET+'.CD_CCUSTO'}
+      if db_select(laFLD_GRID,lcTABLE_DET+',centrocusto',,laWHERE) == -1
+         error_sys('monta_grid: '+db_error())
+      endif
+      laAUX := db_fetchall()
+   else
+      laAUX := {}
+   endif
+   aadd(laAUX_WICDO,laVAR_WICDO)
+   for x := 2 to len(laRESULT)
+       lcITEM := alltrim(laRESULT[x,1])
+       liPOS  := ascan(laAUX,{|laFIND| alltrim(laFIND[1]) == lcITEM})
+
+       if liPOS > 0
+          aadd(laAUX_WICDO,laAUX[liPOS]) //Adiciona registro encontrado em [transcontabil_ccusto]
+       else
+          aadd(laAUX_WICDO,laRESULT[x]) //Adiciona Codigo e Descrição de uma vez
+          aadd(laAUX_WICDO[x],'0.00')   //Percentual de Rateio
+       endif
+   next x
+   laRESULT := {}
+   aadd(laRESULT,laVAR_WICDO)
+   for x := 2 to len(laAUX_WICDO)
+       lcITEM := '_'+alltrim(str(x-1))
+       aadd(laRESULT,{laVAR_WICDO[1]+lcITEM,laVAR_WICDO[2]+lcITEM,laVAR_WICDO[3]+lcITEM})
+       for y := 1 to len(laVAR_WICDO)
+           wPut(laVAR_WICDO[y]+lcITEM,laAUX_WICDO[x,y])
+       next y
+   next x
+   wPut('lstTRCT',laRESULT)
+return(nil)
+
+/*
+* Function..: ccustos()
+* Objetivo..: Selecionar Centros de Custo
+* Parâmetros:
+*    Nenhum
+* Retorno...: Nenhum
+*/
+static function ccustos()
+   if db_select({'CD_CCUSTO','NM_CCUSTO'},'centrocusto',,,{'CD_CCUSTO'}) == -1
+      error_sys('ccustos: '+db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) == 0
+      wSet('_USER_INTERFACE','lst.trct.html')
+      lst_trct_html()
+   endif
+return(nil)
+
+/*
+* Function..: valida_campo_obrig()
+* Objetivo..: Validar campos obrigatórios
+* Parâmetros:
+*    Nenhum
+* Retorno...: .T. - Validação OK
+*             .F. - Não passou na validação
+*/
+static function valida_campo_obrig()
+   for x := 1 to len(laVALIDA)
+       lcVALIDA := alltrim(WGet(laVALIDA[x,1],'C'))
+       if len(lcVALIDA) = 0 .or. lcVALIDA == '0'
+          walert(laVALIDA[x,2]+' é um campo obrigatório!')
+          ccustos()
+          monta_grid(.t.)
+          get2Put()
+          return(.f.)
+       endif
+   next ii
+return(.t.)

@@ -1,0 +1,117 @@
+/*
+
+Project      : gr5
+Program      : sch.all.fields.html
+Function     : sch_all_fields_html
+Created on   : 25-Jan-2004   13:13:32
+Descripition : Pesquisa de Campos com multipla-seleção
+
+*/
+
+   local lcNM_FIELD       := '' ,;
+         lcWFIELDS        := '' ,;
+         lcLAYOUT_PASTA   := '' ,;
+         lcTABELA         := '' ,;
+         lcOP             := '' as string
+   local laRES     := {} ,;
+         laPUT     := {} ,;
+         laWFIELDS := {} ,;
+         laCIP     := {} as array
+   local xx := 0 as int
+
+   laCIP := pstcips()
+
+   lcNM_FIELD       := wGet('NM_FIELD','C')
+   lcWFIELDS        := alltrim(wGet('WFIELDS','C'))
+   lcLAYOUT_PASTA   := lower(wGet('LAYOUT_PASTA','C'))
+   lcTABELA         := wGet('TABELA','C')
+   if !empty(lcWFIELDS)
+      laWFIELDS := str2array(lcWFIELDS,',')
+      if len(laWFIELDS) > 0
+         aadd(laPUT,{'WFIELD'})
+         for xx:= 1 to len(laWFIELDS)
+            //if ! empty(alltrim(laWFIELDS[xx]))
+               aadd(laPUT,{'<option value='+DLAP+laWFIELDS[xx]+DLAP+'>'+laWFIELDS[xx]+'</option>'})
+            //endif
+         next xx
+         wPut('lstSELECTED_FIELDS',laPUT)
+      endif
+   endif
+
+   if ! empty(lcLAYOUT_PASTA)
+      if substr(lcLAYOUT_PASTA,1,9) != 'mnt.pasta'
+         lcLAYOUT_PASTA := 'mnt.pasta.'+lcLAYOUT_PASTA+'.html'
+      endif
+
+      /* Seleciona o campo WFIELDS da wprogram */
+      if db_select({'WFIELDS'},'wprogram',,{'PROGRAM = '+DLAP+lcLAYOUT_PASTA+DLAP}) = -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchrow()
+      laPUT := {}
+
+      /* Gera array (laRES) unidimensional com todos os campos encontrados na pesquisa anterior */
+      if len(laRES) > 0
+         if ! empty(laRES[1])
+            laPUT := asort(str2array(alltrim(laRES[1]),','))
+         else
+            wPut('WSCRIPT','alert("O Programa ['+lcLAYOUT_PASTA+'] não tem campos definidos!")')
+            WSet('_USER_INTERFACE','close.wic')
+            return
+         endif
+
+         if len(laPUT) > 0
+            laRES := {}
+            aadd(laRES,{'WFIELD'})
+            for xx:= 1 to len(laPUT)
+               if lcTABELA == 'Y'
+                  lcOP := laPUT[xx]
+               else
+                  lcOP := substr(laPUT[xx],at('.',laPUT[xx])+1)
+               endif
+               if ascan(laWFIELDS,lcOP) == 0 // Só Adiciona o campo na Lista,
+                                             // caso ele não esteja na Lista
+                                             // de campos ja selecionados
+                  aadd(laRES,{'<option value="'+lcOP+'">'+lcOP+'</option>'})
+               endif
+            next xx
+            //Adicina os campos CIP
+            for xx := 1 to len(laCIP)
+               if lcTABELA == 'Y'
+                  lcOP := 'pasta_pfpj_'+lower(substr(laCIP[xx],5))+'.CIP'
+                  if ascan(laWFIELDS,lcOP) == 0
+                     aadd(laRES,{'<option value="'+lcOP+'">'+lcOP+'</option>'})
+                  endif
+                  lcOP := 'pasta_pfpj_'+lower(substr(laCIP[xx],5))+'.PFPJ'
+                  if ascan(laWFIELDS,lcOP) == 0
+                     aadd(laRES,{'<option value="'+lcOP+'">'+lcOP+'</option>'})
+                  endif
+               else
+                  if ascan(laWFIELDS,laCIP[xx]) == 0
+                     aadd(laRES,{'<option value="'+laCIP[xx]+'">'+laCIP[xx]+'</option>'})
+                  endif
+               endif
+            next xx
+            wPut('lstALL_FIELDS',laRES)
+         endif
+      else
+         wPut('WSCRIPT','alert("Programa ['+lcLAYOUT_PASTA+'] não definido!")')
+         WSet('_USER_INTERFACE','close.wic')
+         return
+      endif
+   else
+      wPut('WSCRIPT','alert("Template não definido")')
+      WSet('_USER_INTERFACE','close.wic')
+      return
+   endif
+   wPut('NM_FIELD',lcNM_FIELD)
+   wPut('LAYOUT_PASTA',lcLAYOUT_PASTA)
+return
+
+
+
+
+
+
+
+

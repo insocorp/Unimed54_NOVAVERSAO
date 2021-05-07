@@ -1,0 +1,153 @@
+/*
+
+Project      : gr5
+Program      : mnt.juridico.html
+Function     : mnt_juridico_html
+Created on   : 12/11/2014 09:24:12
+Descripition : Configuração do Juridico
+
+*/
+
+    local laFields     := {'disponibilidade_juridico.CIP_JURIDICO',;
+                           'disponibilidade_juridico.CD_CCUSTO',;
+                           'disponibilidade_juridico.ENTRADA1',;
+                           'disponibilidade_juridico.SAIDA1',;
+                           'disponibilidade_juridico.ENTRADA2',;
+                           'disponibilidade_juridico.SAIDA2',;
+                           'disponibilidade_juridico.LOGIN_INTERFACE',;
+                           'disponibilidade_juridico.ARREDONDAMENTO',;
+                           'disponibilidade_juridico.VL_HORA',;
+                           'disponibilidade_juridico.PRAZO_INICIAL',;
+                           'disponibilidade_juridico.HORAS_POR_DIA_UTIL',;
+                           'disponibilidade_juridico.FL_ALTERADO',;
+                           'disponibilidade_juridico.DISP_INTERNA_ANTERIOR',;
+                           'disponibilidade_juridico.TP_AND_APROV',;
+                           'disponibilidade_juridico.AND_APROV',;
+                           'disponibilidade_juridico.TP_AND_REJ',;
+                           'disponibilidade_juridico.AND_REJ',;
+                           'disponibilidade_juridico.FEXERCICIO',;
+                           'disponibilidade_juridico.FRANQUIA',;
+                           'disponibilidade_juridico.TP_AND_LIMPEZA',;
+                           'disponibilidade_juridico.AND_LIMPEZA',;
+                          'disponibilidade_juridico.TP_AND_PLANO',;
+                           'disponibilidade_juridico.AND_PLANO'} AS Array
+                           
+   local laJoin        := {{2,'pfpj','disponibilidade_juridico.CIP_JURIDICO = pfpj.CIP'},;
+                           {2,'centrocusto','disponibilidade_juridico.CD_CCUSTO = centrocusto.CD_CCUSTO'}}
+
+
+    local laRes        := {},;
+          laAUX        := {},;
+          laSAVE       := {} AS Array
+
+    local ii           := 0 AS Int
+
+
+
+
+    if upper(Wget('ACTION')) == 'SAVE'
+       if ValidaForm()
+           
+           if db_select(laFIELDS,'disponibilidade_juridico',,,,,,{0,1}) == -1
+              error_sys(db_error())
+           endif
+           laRES := db_fetchall()
+
+
+          // Preparar o array para salvar as informações
+          aadd(laSAVE,laRES[1])
+
+          for ii := 1 to len(laRES[1])
+              aadd(laAUX,WGet(laRES[1,ii]))
+          next
+
+          aadd(laSAVE,laAUX)
+
+          if db_replace(laSAVE,'disponibilidade_juridico',{'CIP_JURIDICO='+DLAP+iif(len(laRES) == 1, '', alltrim(laRES[2,1]))+DLAP}) == -1
+            error_sys(db_error())
+          endif
+          get2put()
+
+        else
+           get2put()
+        endif
+    else
+        aadd(laFIELDS,'pfpj.pfpj AS CIP_JURIDICO_PFPJ')
+        aadd(laFIELDS,'centrocusto.NM_CCUSTO AS NM_CCUSTO')
+        if db_select(laFIELDS,'disponibilidade_juridico',laJOIN,,,,,{0,1}) == -1
+           error_sys(db_error())
+        endif
+
+        laRES := db_fetchall()
+
+        if len(laRES) > 1
+           db2Put(laRES)
+        endif
+    endif
+
+
+return
+
+/*
+* Glauber - 12/2014
+*
+* Function..: ValidaForm()
+* Objetivo..: Valida o preenchiento dos campos no formulario.
+* Parâmetros:
+*
+*
+* Retorno...:
+*
+*    .T. caso o preenchimento esteja correto, senão retorna .F.
+*
+*/
+
+Static Function ValidaForm()
+
+
+local laVazio  := {'CIP_JURIDICO',;
+                   'CD_CCUSTO',;
+                   'LOGIN_INTERFACE',;
+                   'ENTRADA1',;
+                   'SAIDA1',;
+                   'ENTRADA2',;
+                   'SAIDA2'} AS ARRAY
+local laNumber := {'ARREDONDAMENTO',;
+                   'VL_HORA',;
+                   'PRAZO_INICIAL',;
+                   'HORAS_POR_DIA_UTIL'} AS ARRAY
+
+local II       := 0 AS INT
+
+
+    for II := 1 to len(laVazio)
+        if Empty(Alltrim(WGet(laVazio[II])))
+            WAlert('O campo '+ lblfscreen(laVazio[II]) + ' deve ser preenchido !')
+            return .F.
+        endif
+    next II
+
+
+    for II := 1 to len(laNumber)
+        if WGet(laNumber[II],'N') == 0
+            WAlert('O campo '+ lblfscreen(laNumber[II]) + ' deve ser preenchido !')
+            return .F.
+        endif
+    next II
+
+
+return .T.
+
+
+
+
+
+
+
+
+
+
+
+
+
+

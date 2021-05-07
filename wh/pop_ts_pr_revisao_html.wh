@@ -1,0 +1,78 @@
+/*
+
+Project      : gr5
+Program      : pop.ts.pr.revisao.html
+Function     : pop_ts_pr_revisao_html
+Created on   : 17-Oct-2002   16:00:46
+Descripition : PopUp para Revisão do Timesheet
+
+*/
+
+   local lcACTION     := '' ,;
+         lcNR_PASTA   := '' ,;
+         lcNR_SERVICO := '' as string
+
+   local laFIELDS_RO := {} ,;
+         laUPDATE    := {} as array
+
+   lcACTION     := upper(WGet('ACTION','C'))
+   lcNR_PASTA   := WGet('NR_PASTA','C')
+   lcNR_SERVICO := WGet('NR_SERVICO','C')
+   wPut('VAR_OK',alltrim(WGet('VAR_OK','C')))
+
+   if empty(lcACTION)
+      lcACTION := 'ALTER'
+   endif
+   if lcACTION = 'ALTER'
+      /* Pasta -----------------------------------------------------------------------------------------------------------*/
+      laFIELDS_RO := {'pasta.NR_PASTA',;
+                      'pasta.FL_PASTA',;
+                      'pasta.CIP_EMPRESA',;
+                      'pfpj.PFPJ'}
+      if db_select(laFIELDS_RO,'pasta,pfpj',,;
+                   {'NR_PASTA = '+lcNR_PASTA+' and pasta.CIP_EMPRESA=pfpj.CIP'}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2put(laRESULT)
+      endif
+
+      /* Servico ---------------------------------------------------------------------------------------------------------*/
+      laFIELDS_RO := {'mvt_servico.DT_REF',;
+                      'mvt_servico.LOGIN',;
+                      'mvt_servico.LOGIN_RESP',;
+                      'mvt_servico.CD_SERVICO',;
+                      'servico.NM_SERVICO',;
+                      'mvt_servico.RETIFICACAO',;
+                      'mvt_servico.CIP_CONSULENTE',;
+                      'mvt_servico.CONSULTA',;
+                      'mvt_servico.TIMESHEET',;
+                      'mvt_servico.EXTRA'}
+      if db_select(laFIELDS_RO,'mvt_servico,servico',,;
+                   {'NR_PASTA = '+lcNR_PASTA+' and mvt_servico.NR_SERVICO='+lcNR_SERVICO+;
+                    ' and mvt_servico.CD_SERVICO=servico.CD_SERVICO'}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2put(laRESULT)
+      endif
+      laRESULT := {}
+   endif
+
+   if lcACTION = 'ALTER'
+      wPut('NR_PASTA',lcNR_PASTA)
+      wPut('NR_SERVICO',lcNR_SERVICO)
+      wPut('DT_REVISAO',date())
+      wPut('LOGIN_REVISOR',gcLOGIN)
+   elseif lcACTION = 'SAVE'
+      aadd(laUPDATE,{'DT_REVISAO','LOGIN_REVISOR','RETIFICACAO'})
+      aadd(laUPDATE,{WGet('DT_REVISAO'),WGet('LOGIN_REVISOR','C'),WGet('RETIFICACAO','C')})
+      if db_update(laUPDATE,'mvt_servico',;
+                   {'NR_PASTA='+lcNR_PASTA+' and NR_SERVICO='+lcNR_SERVICO}) == -1
+         error_sys(db_error())
+      endif
+      wPut('BODY_ACTION','self.close();opener.document.mntform.'+alltrim(WGet('VAR_OK','C'))+'.value="OK";')
+   endif
+return

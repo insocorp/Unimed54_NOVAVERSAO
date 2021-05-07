@@ -1,0 +1,88 @@
+/*
+
+Project      : gr5
+Program      : setup.html
+Function     : setup_html
+Created on   : 12-Jun-2006   15:30:38
+Descripition : Configurações gerais do sistema.
+
+*/
+
+   local lcHTML_CODE := '' ,;
+         lcACTION    := '' as string
+   local laRESULT    := {} ,;
+         laSAVE      := {} ,;
+         laWHERE     := {} as array
+   local ii := 0 as int
+
+   lcACTION     := upper(WGet('ACTION','C'))
+   lcDATA_GROUP := WGet('DATA_GROUP','C')
+
+   /* Selecionando os Grupos */
+   if db_select({'distinct DATA_GROUP'},'wsetup') == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+
+      WPut('doDATA_GROUP',laRESULT)
+      if empty(lcDATA_GROUP)
+         lcDATA_GROUP := laRESULT[2,1]
+      endif
+   endif
+
+   WPut('DATA_GROUP',lcDATA_GROUP)
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      /* Selecionando dados de wsetup */
+      if db_select({'PROJECT','WFIELD'},'wsetup',,{'DATA_GROUP='+DLAP+lcDATA_GROUP+DLAP}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         laSAVE := {{'PROJECT','WFIELD','WVALUE'}}
+         for ii := 2 to len(laRESULT)
+            aadd(laSAVE,{laRESULT[ii,db_fetchncol(laRESULT,'PROJECT')],;
+                         laRESULT[ii,db_fetchncol(laRESULT,'WFIELD')],;
+                         WGet(laRESULT[ii,db_fetchncol(laRESULT,'WFIELD')])})
+            aadd(laWHERE,'WFIELD='+DLAP+laRESULT[ii,db_fetchncol(laRESULT,'WFIELD')]+DLAP)
+         next ii
+         if len(laSAVE) > 1
+            if db_replace(laSAVE,'wsetup',laWHERE) == -1
+               error_sys(db_error())
+            endif
+            if db_replace(laSAVE,'wsetup_customer',laWHERE) == -1
+               error_sys(db_error())
+            endif
+         endif
+      endif
+
+   endif
+
+   /* Selecionando dados de wsetup */
+   if db_select({'WFIELD','LABEL_SCREEN','WVALUE','WPARAMETERS'},'wsetup',,{'DATA_GROUP='+DLAP+lcDATA_GROUP+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      for ii := 2 to len(laRESULT)
+         lcHTML_CODE += '<tr>'+CRLF
+         lcHTML_CODE += '   <td>'+laRESULT[ii,2]+'</td>'+CRLF
+         lcHTML_CODE += '   <td>'+CRLF
+         lcHTML_CODE += xbinput(laRESULT[ii,1],laRESULT[ii,4])
+         lcHTML_CODE += '   </td>'+CRLF
+         lcHTML_CODE += '</tr>'+CRLF
+      next ii
+      WPut('HTML_CODE',lcHTML_CODE)
+   endif
+
+   if db_select({'WFIELD','WVALUE'},'wsetup_customer') == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      for ii := 2 to len(laRESULT)
+         WPut(laRESULT[ii,1],laRESULT[ii,2])
+      next ii
+   endif
+return

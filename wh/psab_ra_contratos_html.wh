@@ -1,0 +1,127 @@
+/*
+
+Project      : gr5
+Program      : psab.ra.contratos.html
+Function     : psab_ra_contratos_html
+Created on   : 14-Jun-2005   18:04:43
+Descripition : Visualização de Contratos
+
+*/
+
+   local lcACTION        := WGet('ACTION'  ,'C')      ,;
+         lcNR_PASTA      := WGet('NR_PASTA','C')      ,;
+         lcTP_PASTA      := WGet('TP_PASTA','C')      ,;
+         lcRA_CD_PRODUTO := WGet('RA_CD_PRODUTO','C') ,;
+         lcNR_CONTRATO   := WGet('NR_CONTRATO','C')   ,;
+         lcWHERE         := ''                        as string
+   local laRESULT := {} as array
+   local ii    := 0 ,;
+         lnPOS := 0 as int
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   pasta_abas(lcTP_PASTA)
+   // Glauber 06/01/2011
+   AbasPerfil(lcTP_PASTA, {'RA_CD_PRODUTO',;
+                    'NR_CONTRATO',;
+                    'VL_COMPRA',;
+                    'VL_ENTRADA',;
+                    'DT_CONTRATO',;
+                    'QTD_PRESTACAO',;
+                    'NM_MOEDA',;
+                    'PC_JUROS',;
+                    'DT_NEGATIVA',;
+                    'DT_REABILITA',;
+                    'FL_SERASA',;
+                    'NM_BEMFINANCIADO'})
+
+   lcWHERE := 'NR_PASTA='+lcNR_PASTA+' and '
+   lcWHERE += 'RA_CD_PRODUTO='+DLAP+lcRA_CD_PRODUTO+DLAP+' and '
+   lcWHERE += 'NR_CONTRATO='+DLAP+lcNR_CONTRATO+DLAP
+//    WPut('TITLE','Contratos')
+
+   if db_select({'DT_CONTRATO',;
+                 'RA_CD_PRODUTO',;
+                 'NR_CONTRATO',;
+                 'VL_COMPRA',;
+                 'FL_SERASA'},;
+                'ra_contrato',;
+                ,;
+                {'NR_PASTA='+lcNR_PASTA},;
+                {'DT_CONTRATO',;
+                 'RA_CD_PRODUTO',;
+                 'NR_CONTRATO'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      lnPOS := db_fetchncol(laRESULT,'FL_SERASA')
+      for ii := 2 to len(laRESULT)
+         if laRESULT[ii,lnPOS] == 'N'
+            laRESULT[ii,lnPOS] := 'Negativado'
+         elseif laRESULT[ii,lnPOS] == 'R'
+            laRESULT[ii,lnPOS] := 'Reabilitado'
+         elseif laRESULT[ii,lnPOS] == 'I'
+            laRESULT[ii,lnPOS] := 'Inconsistente'
+         else
+            laRESULT[ii,lnPOS] := 'Não enviado'
+         endif
+      next ii
+      WPut('lstRA_CONTRATOS',laRESULT)
+   endif
+
+   if lcACTION == 'VIEW'
+      if db_select({'RA_CD_PRODUTO',;
+                    'NR_CONTRATO',;
+                    'VL_COMPRA',;
+                    'VL_ENTRADA',;
+                    'DT_CONTRATO',;
+                    'QTD_PRESTACAO',;
+                    'NM_MOEDA',;
+                    'PC_JUROS',;
+                    'DT_NEGATIVA',;
+                    'DT_REABILITA',;
+                    'FL_SERASA',;
+                    'NM_BEMFINANCIADO'},;
+                   'ra_contrato',,;
+                   {lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      db2Put(laRESULT)
+      lnPOS := db_fetchncol(laRESULT,'FL_SERASA')
+      // Foi criado no HTML o campo NMFL_SERASA para não conflitar com o FL_SERASA
+      // Para evitar problema com o maxlenght.
+      if laRESULT[2,lnPOS] == 'N'
+         WPut('NMFL_SERASA','Negativado')
+      elseif laRESULT[2,lnPOS] == 'R'
+         WPut('NMFL_SERASA','Reabilitado')
+      elseif laRESULT[2,lnPOS] == 'I'
+         WPut('NMFL_SERASA','Inconsistente')
+      else
+         WPut('NMFL_SERASA','Não enviado')
+      endif
+
+      if db_select({'DT_VENCTO',;
+                    'NR_PRESTACAO',;
+                    'DT_CORRECAO',;
+                    'VL_PRINCIPAL',;
+                    'VL_CORRIGIDO',;
+                    'VL_MIN_COBRADO'},;
+                   'ra_contrato_prestacao',,;
+                   {lcWHERE},;
+                   {'DT_VENCTO'}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         WPut('lstRA_CONTRATO_PRESTACAO',laRESULT)
+      endif
+   endif
+return
+
+
+
+
+

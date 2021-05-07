@@ -1,0 +1,378 @@
+/*
+
+Project      : gr5
+Program      : seg_habit_export.html
+Function     : seg_habit_export_html
+Created on   : 10-Oct-2006   10:30:15
+Descripition : Exporta acoes do seguro habit. - caixa
+*/
+
+    WSet('_USER_INTERFACE','none.wic')
+
+    #define NEWLINE chr(13) + chr(10)
+
+    local lcFILEOUT := WSet("FILESEG_HABIT") as string
+
+    local lcPARAM := pcPARAM
+
+    local lcWHERE   := '' ,;
+          lcLINE    := '' ,;
+          lcOCORRENCIA := '',;
+          lcOCOR := '' as string
+
+    local ii        := 0 ,;
+          zz        := 0 ,;
+          ab        := 0 ,;
+          lnHAND    := 0  as int
+
+    local laFIELDS   := {},;
+          laRESULT   := {},;
+          laDETVAL   := {},;
+          laJOIN     := {},;
+          laIMOVEL   := {},;
+          laANDAMENTO:= {},;
+          laSEGURADO := {} as array
+
+    lcFILEOUT := strtran(lcFILEOUT,'[date]',dtos(date()))   // substitui [date] se houver no nome do arquivo.
+    lcFILEOUT := strtran(lcFILEOUT,'[DATE]',dtos(date()))   // substitui [date] se houver no nome do arquivo.
+    lcFILEOUT := strtran(lcFILEOUT,'[time]',strtran(time(),':','-'))  // substitui [time] se houver no nome do arquivo.
+    lcFILEOUT := strtran(lcFILEOUT,'[TIME]',strtran(time(),':','-'))  // substitui [time] se houver no nome do arquivo.
+
+    if Empty(lcFILEOUT)
+       qout('Arquivo não Informado.')
+       return(.f.)
+    endif
+
+    if !datevalid(ctod('01/'+lcPARAM))
+       qout('Informe uma data válida.')
+       return(.f.)
+    endif
+
+    lcWHERE := 'pasta_seguro.dt_cadastro >= '+DLAP+dtos(ctod('01/'+lcPARAM))+DLAP
+    lcWHERE += ' and '
+    if (val(substr(lcPARAM,1,2))+1) > 12
+       lcWHERE += 'pasta_seguro.dt_cadastro < '+DLAP+dtos(ctod('01/01/'+alltrim(str(val(substr(lcPARAM,4))+1))))+DLAP
+    else
+       lcWHERE += 'pasta_seguro.dt_cadastro < '+DLAP+dtos(ctod('01/'+strzero(val(substr(lcPARAM,1,2))+1,2)+substr(lcPARAM,3)))+DLAP
+    endif
+
+    laJOIN := { {2,'pasta'                       ,'pasta.nr_pasta = pasta_seguro.nr_pasta'},;
+                {2,'pasta_cip as pasta_cip1'     ,"pasta.nr_pasta = pasta_cip1.nr_pasta and pasta_cip1.wfield = 'CIP_EMPRESA'"},;
+                {2,'pfpj as pfpj1'               ,'pasta_cip1.cip = pfpj1.cip'},;
+                {2,'pasta_cip as pasta_cip2'     ,"pasta.nr_pasta = pasta_cip2.nr_pasta and pasta_cip2.wfield = 'CIP_PARTE_CONTRARIA'"},;
+                {2,'pfpj as pfpj2'               ,'pasta_cip2.cip = pfpj2.cip'},;
+                {2,'pfpj as pfpj3'               ,'pasta_seguro.cip_empresa_lider = pfpj3.cip'},;
+                {2,'pfpj as pfpj4'               ,'pasta_seguro.cip_agente        = pfpj4.cip'} }
+
+    laFIELDS := { 'pasta.nr_pasta'                       ,;
+                  'pasta.nr_processo'                    ,;
+                  'pasta.dt_citacao'                     ,;
+                  'pasta.nr_vara'                        ,;
+                  'pasta.tp_vara'                        ,;
+                  'pasta.comarca'                        ,;
+                  'pasta.causaacao'                      ,;
+                  'pasta.resumo_acao'                    ,;
+                  'pasta.pc_risco'                       ,;
+                  'pasta.posicao_empresa'                ,;
+                  'pasta.posicao_parte'                  ,;
+                  'pasta_seguro.dt_cadastro'             ,;
+                  'pasta_seguro.nr_pasta'                ,;
+                  'pasta_seguro.nr_controle'             ,;
+                  'pasta_seguro.dt_vlestimado'           ,;
+                  'pasta_seguro.vl_estimado'             ,;
+                  'pasta_seguro.cip_empresa_lider'       ,;
+                  'pasta_seguro.cip_agente'              ,;
+                  'pasta_seguro.nr_sinistro'             ,;
+                  'pasta_seguro.dt_sinistro'             ,;
+                  'pasta_seguro.tp_sinistro'             ,;
+                  'pasta_seguro.fl_vicioconstr'          ,;
+                  'pasta_cip1.cip as cip_empresa'        ,;
+                  'pfpj1.pfpj as autor'                  ,;
+                  'pasta_cip2.cip as cip_parte_contraria',;
+                  'pfpj2.pfpj as reu'                    ,;
+                  'pfpj3.cd_legado as cosegu'            ,;
+                  'pfpj3.pfpj as nosegu'                 ,;
+                  'pfpj4.cd_legado as 	matagente'         }
+
+    // Buscando os Dados a serem exportados.
+
+    if db_select(laFIELDS,'pasta_seguro',laJOIN,{lcWHERE}) == -1
+       db_error()
+    endif
+    laRESULT := db_fetchall()
+    if len(laRESULT) > 1
+       // cria arquivo para exportacao
+       lnHAND := fcreate(lcFILEOUT, 0)
+       if lnHAND < 0
+          qout('Problemas na criacao do arquivo de envio: '+lcFILEOUT)
+          return
+       endif
+       for xx := 1 to 4    // para a impressão dos 4 layouts
+           laDETVAL := cria_array(alltrim(str(xx)))
+           if len(laDETVAL) = 0
+              exit
+           endif
+           for ii := 2 to len(laRESULT)
+
+               if !empty(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'FL_VICIOCONSTR')]))
+                  laRESULT[ii,db_fetchncol(laRESULT,'FL_VICIOCONSTR')] := '1'
+               endif
+
+               if xx = 1
+                  if upper(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'POSICAO_EMPRESA')])) == 'REU' .or.;
+                     upper(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'POSICAO_EMPRESA')])) == 'RÉU'
+                     laDETVAL[5,7] := 'REU'
+                     laDETVAL[6,7] := 'AUTOR'
+                  else
+                     laDETVAL[5,7] := 'AUTOR'
+                     laDETVAL[6,7] := 'REU'
+                  endif
+               endif
+
+               if xx = 3 // Contratos (Relacao de contratos que compoem o processo judicial cadastrado)
+
+                  laJOIN := {{2,'pfpj' ,'pasta_seguro_segurado.cip_segurado = pfpj.cip'}}
+                  if db_select({'pasta_seguro_segurado.nr_contrato','pfpj.pfpj','pfpj.cnpj_cpf'},;
+                               'pasta_seguro_segurado',;
+                               laJOIN,;
+                               {'PASTA_SEGURO_SEGURADO.NR_PASTA   ='+str(laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')])+;
+                                ' and PASTA_SEGURO_SEGURADO.NR_CONTROLE='+str(laRESULT[ii,db_fetchncol(laRESULT,'NR_CONTROLE')])};
+                               ,,,,{0,1}) == -1
+                     db_error()
+                  endif
+                  laSEGURADO := db_fetchall()
+
+                  if db_select({'ENDERECO_IMOVEL','MUNICIPIO_IMOVEL'},;
+                               'pasta_seguro_endereco_imovel',,;
+                               {'NR_PASTA   ='+str(laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')])+;
+                                ' and NR_CONTROLE='+str(laRESULT[ii,db_fetchncol(laRESULT,'NR_CONTROLE')])};
+                               ,,,,{0,1}) == -1
+                     db_error()
+                  endif
+                  laIMOVEL := db_fetchall()
+
+               elseif xx = 4 // Ocorrencias do processo ( Andamentos do processo )
+                  if db_select({'DT_ANDAMENTO','ANDAMENTO','TP_ANDAMENTO'},;
+                               'pasta_andamento',,;
+                               {'NR_PASTA='+str(laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')])},;
+                               {'DT_ANDAMENTO'},'D',,{0,1}) == -1
+                     db_error()
+                  endif
+                  laANDAMENTO := db_fetchall()
+               endif
+
+               lcLINE := ''
+               for zz := 1 to len(laDETVAL)
+                   if laDETVAL[zz,8] == 'F'
+                      if empty(laDETVAL[zz,1])
+                         if laDETVAL[zz,9] == 'N'
+                            lcLINE += replicate('0', laDETVAL[zz,4])
+                         else
+                            lcLINE += replicate(' ', laDETVAL[zz,4])
+                         endif
+                      else
+                         lcLINE += laDETVAL[zz,1]
+                      endif
+                   elseif laDETVAL[zz,8] == 'S'
+                      if laDETVAL[zz,2] == 'A'                // campos string
+                         if len(alltrim(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])])) > 0
+                            if  len(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]) > laDETVAL[zz,4]
+                                lcLINE += substr(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )] , 1,laDETVAL[zz,4])
+                            else
+                                lcLINE += laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])] + replicate(' ', (laDETVAL[zz,4] - len(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )])) )
+                            endif
+                         else
+                            if laDETVAL[zz,9] == 'N'
+                               lcLINE += replicate('0', laDETVAL[zz,4])
+                            else
+                               lcLINE += replicate(' ', laDETVAL[zz,4])
+                            endif
+                         endif
+                      elseif laDETVAL[zz,2] == 'D'             // campos data
+                         lcLINE += dtoc(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])])
+                      elseif laDETVAL[zz,2] == 'N'      // campos numericos
+                         if laDETVAL[zz,5] = 0          // não contem casas decimais
+                            if laDETVAL[zz,9] == 'N'
+                               lcLINE += strzero(val(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]), laDETVAL[zz,4],laDETVAL[zz,5])
+                            else
+                               lcLINE += alltrim(str(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]))+;
+                               replicate(' ', (laDETVAL[zz,4] - len(alltrim(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]))))
+                            endif
+
+                         else                                 // se contem casas decimais   retira o . das casas decimais
+                            lcLINE += strzero(val(strtran( str(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])]) , '.','0')), laDETVAL[zz,4])
+                         endif
+                      endif
+                   elseif laDETVAL[zz,8] == 'N'         // casos especiais, pesquisa em outras tabelas
+                      if laDETVAL[zz,7] = 'POLO_ATIVO'
+                         if upper(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'POSICAO_EMPRESA')])) == 'AUTOR'
+                            if upper(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'AUTOR')])) $ 'CAIXA'
+                               lcLINE += '1'
+                            else
+                               lcLINE += '0'
+                            endif
+                         else
+                            lcLINE += '0'
+                         endif
+                      elseif laDETVAL[zz,7] = 'DAULTOCORR'              // andamentos
+                         if len(laANDAMENTO) > 1
+                            lcLINE += dtoc(laANDAMENTO[2,1])
+                         else
+                            lcLINE += '  /  /    '
+                         endif
+                      elseif laDETVAL[zz,7] = 'ULTOCORR'                // andamentos
+                         if len(laANDAMENTO) > 1
+                         	  // manja so a gambiarra feita abaixo... olha que porcaria
+                         	  lcOCORRENCIA := laANDAMENTO[2,2]
+                         	  lcOCORRENCIA := strtran(lcOCORRENCIA,chr(10),'')
+                         	  lcOCORRENCIA := strtran(lcOCORRENCIA,chr(12),'')
+                         	  lcOCORRENCIA := strtran(lcOCORRENCIA,chr(13),'')
+                         	  lcOCORRENCIA := strtran(lcOCORRENCIA,chr(09),'')
+
+                         	  lcOCOR := alltrim(substr(lcOCORRENCIA,1,255))
+                         	  if len(lcOCOR) < 255
+                         	  	 lcOCOR += replicate(' ', (255 - len(lcOCOR)))
+                         	  endif
+                         	  lcLINE += lcOCOR
+                         else
+                            lcLINE += replicate(' ', 255)
+                         endif
+                      elseif laDETVAL[zz,7] = 'STATUS'                 // andamentos
+                         if len(laANDAMENTO) > 1
+                            if  len(laANDAMENTO[2,2]) > 100
+                                lcLINE += substr(laANDAMENTO[2,3], 1,100)
+                            else
+                                lcLINE += laANDAMENTO[2,3] + replicate(' ', (100 - len(laANDAMENTO[2,3])))
+                            endif
+                         else
+                            lcLINE += replicate(' ', 100)
+                         endif
+                      elseif laDETVAL[zz,7] = 'NR_CONTRATO'
+                         if len(laSEGURADO) > 1
+                            if  len(laSEGURADO[2,1]) > 15
+                                lcLINE += substr(laSEGURADO[2,1], 1,15)
+                            else
+                                lcLINE += laSEGURADO[2,1]+replicate(' ',(15-len(laSEGURADO[2,1])))
+                            endif
+                         else
+                            lcLINE += replicate(' ',15)
+                         endif
+                      elseif laDETVAL[zz,7] = 'SEGURADO'
+                         if len(alltrim(laSEGURADO)) > 1
+                            if  len(alltrim(laSEGURADO[2,2])) > 50
+                                lcLINE += substr(laSEGURADO[2,2], 1,50)
+                            else
+                                lcLINE += alltrim(laSEGURADO[2,2])+replicate(' ',(50-len(alltrim(laSEGURADO[2,2]))))
+                            endif
+                         else
+                            lcLINE += replicate(' ',50)
+                         endif
+
+                      elseif laDETVAL[zz,7] = 'CNPJ_CPF'
+                         if len(laSEGURADO) > 1
+                            if  len(laSEGURADO[2,3]) > 11
+                                lcLINE += substr(laSEGURADO[2,3], 1,11)
+                            else
+                            	  lcLINE += strzero(val(laSEGURADO[2,3],11))
+                            endif
+                         else
+                            lcLINE += replicate('0',11)
+                         endif
+                      elseif laDETVAL[zz,7] = 'ENDERECO_IMOVEL'
+                         if len(laIMOVEL) > 1
+                            if  len(laIMOVEL[2,1]) > 100
+                                lcLINE += substr(laIMOVEL[2,1], 1,100)
+                            else
+                                lcLINE += laIMOVEL[2,1]+replicate(' ',(100-len(laIMOVEL[2,1])))
+                            endif
+                         else
+                            lcLINE += replicate(' ',100)
+                         endif
+                      elseif laDETVAL[zz,7] = 'MUNICIPIO_IMOVEL'        // buscar codigo do municipio na tabela que vai ser fornecida pela CAIXA.
+                         if len(laIMOVEL) > 1
+                            if  len(laIMOVEL[2,2]) > 7
+                                lcLINE += substr(laIMOVEL[2,2], 1,7)
+                            else
+                                lcLINE += laIMOVEL[2,2]+replicate(' ',(7-len(laIMOVEL[2,2])))
+                            endif
+                         else
+                            lcLINE += replicate(' ',100)
+                         endif
+                      endif
+                   endif
+               next zz
+               lcLINE += NEWLINE
+               if FWrite(lnHAND,lcLINE) <= 0
+                  walert("Erro na gravação do arquivo.")
+                  return(.f.)
+               endif
+           next ii
+       next xx
+       fclose(lnHAND)
+    endif
+return
+
+
+static function cria_array(fcTIPO)
+
+   local laESTRU := {} as array
+
+   if fcTIPO == '1'  // LayOut 1 - Processos (Cadastro de processos Judiciais)
+
+      aadd(laESTRU,{ "P"   , "A",   1,   1, 0, ""            , ""                  ,"F" ,'A' } ) // 1
+      aadd(laESTRU,{ ""    , "A",   2,  40, 0, "pasta"       , "NR_PROCESSO"       ,"S" ,'A' } ) // 2
+      aadd(laESTRU,{ "5631", "A",  42,   4, 0, ""            , ""                  ,"F" ,'A' } ) // 3
+      aadd(laESTRU,{ ""    , "D",  46,  10, 0, "pasta"       , "DT_CITACAO"        ,"S" ,'D' } ) // 4
+      aadd(laESTRU,{ ""    , "A",  56,  70, 0, "pfpj"        , "AUTOR"             ,"S" ,'A' } ) // 5
+      aadd(laESTRU,{ ""    , "A", 126,  70, 0, "pfpj"        , "REU"               ,"S" ,'A' } ) // 6
+      aadd(laESTRU,{ ""    , "A", 196,  50, 0, "pfpj"        , "NOSEGU"            ,"S" ,'A' } ) // 7
+      aadd(laESTRU,{ ""    , "N", 246,  40, 0, "pasta"       , "NR_VARA"           ,"S" ,'A' } ) // 8
+      aadd(laESTRU,{ "0000000"  , "A", 286,   7, 0, "pasta"       , "COMARCA"           ,"F" ,'N' } ) // 9
+      aadd(laESTRU,{ ""    , "A", 293,   2, 0, "pasta"       , "CAUSAACAO"         ,"S" ,'N' } ) // 10
+      aadd(laESTRU,{ ""    , "D", 295,  10, 0, "pasta_seguro", "DT_VLESTIMADO"     ,"S" ,'D' } ) // 11
+      aadd(laESTRU,{ ""    , "N", 305,  15, 2, "pasta_seguro", "VL_ESTIMADO"       ,"S" ,'N' } ) // 12
+      aadd(laESTRU,{ ""    , "A", 320, 100, 0, "pasta"       , "RESUMO_ACAO"       ,"S" ,'A' } ) // 13
+      aadd(laESTRU,{ ""    , "N", 420,   3, 0, "pasta"       , "PC_RISCO"          ,"S" ,'N' } ) // 14
+      aadd(laESTRU,{ ""    , "A", 423,   1, 0, ""            , "POLO_ATIVO"        ,"N" ,'A' } ) // 15
+      aadd(laESTRU,{ ""    , "A", 424,   7, 0, ""            , ""                  ,"F" ,'A' } ) // 16
+
+   elseif fcTIPO == '2'  // LayOut 2 - Sinistros (Sinistros que compoem o cadastro judicial)
+
+      aadd(laESTRU,{ "S"   , "A",   1,   1, 0, ""            , ""                  ,"F" ,'A' } ) // 1
+      aadd(laESTRU,{ ""    , "A",   2,  40, 0, "pasta"       , "NR_PROCESSO"       ,"S" ,'A' } ) // 2
+      aadd(laESTRU,{ "5631", "A",  42,   4, 0, ""            , ""                  ,"F" ,'A' } ) // 3
+      aadd(laESTRU,{ ""    , "D",  46,  10, 0, "pasta"       , "DT_CITACAO"        ,"S" ,'D' } ) // 4
+      aadd(laESTRU,{ ""    , "A",  56,  10, 0, "pasta_seguro", "NR_SINISTRO"       ,"S" ,'N' } ) // 5
+      aadd(laESTRU,{ ""    , "D",  66,  10, 0, "pasta_seguro", "DT_SINISTRO"       ,"S" ,'D' } ) // 6
+      aadd(laESTRU,{ ""    , "A",  76,   3, 0, "pasta_seguro", "TP_SINISTRO"       ,"S" ,'A' } ) // 7
+      aadd(laESTRU,{ ""    , "A",  79,   1, 0, "pasta_seguro", "FL_VICIOCONSTR"    ,"S" ,'A' } ) // 8
+      aadd(laESTRU,{ ""    , "A",  80,   1, 0, ""            , ""                  ,"F" ,'A' } ) // 9
+
+   elseif fcTIPO == '3'  // LayOut 3 - Contratos (Relacao de contratos que compoem o processo judicial cadastrado)
+
+      aadd(laESTRU,{ "C"   , "A",   1,   1, 0, ""            , ""                ,"F" ,'A' } ) // 1
+      aadd(laESTRU,{ ""    , "A",   2,  40, 0, "pasta"       , "NR_PROCESSO"     ,"S" ,'A' } ) // 2
+      aadd(laESTRU,{ "5631", "A",  42,   4, 0, ""            , ""                ,"F" ,'A' } ) // 3
+      aadd(laESTRU,{ ""    , "D",  46,  10, 0, "pasta"       , "DT_CITACAO"      ,"S" ,'D' } ) // 4
+      aadd(laESTRU,{ ""    , "N",  56,   5, 0, "pasta_seguro", "MATAGENTE"       ,"S" ,'N' } ) // 5
+      aadd(laESTRU,{ ""    , "A",  61,  15, 0, ""            , "NR_CONTRATO"     ,"N" ,'A' } ) // 6  nr_contrato
+      aadd(laESTRU,{ ""    , "A",  76,  50, 0, ""            , "SEGURADO"        ,"N" ,'N' } ) // 7  cip_segurado
+      aadd(laESTRU,{ ""    , "N", 126,  11, 0, ""            , "CNPJ_CPF"        ,"N" ,'N' } ) // 8  cpf segurado
+      aadd(laESTRU,{ ""    , "A", 137, 100, 0, ""            , "ENDERECO_IMOVEL" ,"N" ,'A' } ) // 9  endereco imovel
+      aadd(laESTRU,{ "0000000"    , "F", 237,   7, 0, ""            , "MUNICIPIO_IMOVEL","F" ,'A' } ) // 10 municipio imovel
+      aadd(laESTRU,{ ""    , "A", 244,   7, 0, ""            , ""                ,"F" ,'A' } ) // 11 filler
+
+   elseif fcTIPO == '4'  // LayOut 4 - Ocorrencias (Ocorrencias do processo cadastrado quando da tramitacao na justica)
+
+      aadd(laESTRU,{ "O"   , "A",   1,   1, 0, ""            , ""               ,"F" ,'A' } ) // 1
+      aadd(laESTRU,{ ""    , "A",   2,  40, 0, "pasta"       , "NR_PROCESSO"    ,"S" ,'A' } ) // 2
+      aadd(laESTRU,{ "5631", "A",  42,   4, 0, ""            , ""               ,"F" ,'A' } ) // 3
+      aadd(laESTRU,{ ""    , "D",  46,  10, 0, "pasta"       , "DT_CITACAO"     ,"S" ,'D' } ) // 4
+      aadd(laESTRU,{ ""    , "A",  56,  10, 0, ""            , "DAULTOCORR"     ,"N" ,'D' } ) // 5  data da ultima ocorrencia
+      aadd(laESTRU,{ ""    , "A",  76, 255, 0, ""            , "ULTOCORR"       ,"N" ,'A' } ) // 6  explicacao da ultima ocorrencia
+      aadd(laESTRU,{ ""    , "A", 321, 100, 0, ""            , "STATUS"         ,"N" ,'A' } ) // 7  status fase_processual
+      aadd(laESTRU,{ ""    , "A", 421,  10, 0, ""           , ""                ,"F" ,'A' } ) // 8  filler
+
+   endif
+
+return(laESTRU)

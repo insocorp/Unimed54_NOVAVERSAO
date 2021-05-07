@@ -1,0 +1,211 @@
+/*
+
+Project      : isj_393
+Program      : psab.renovacao.html
+Function     : psab_renovacao_html
+Created on   : 16-Jun-2010   12:10:44
+Created by   : Glauber
+Descripition : Renovação Automática de Procurações
+
+*/
+
+   local lcACTION   := '',;
+         lcTP_PASTA := '',;
+         lcNR_PASTA := '' as string
+   local lnII       := 0,;
+         lnXX       := 0,;
+         lnPOS      := 0,;
+         lnNR_PASTA := 0 as int
+   local laRESULT   := {},;
+         laFIELDS   := {},;
+         laLOG      := {},;
+         laTABLES   := {} as array
+
+   lcACTION   := Wget('ACTION')
+   lcNR_PASTA := Wget('NR_PASTA','C')
+   lcTP_PASTA := Wget('TP_PASTA','C')
+   laTABLES   := {'PASTA_CIP',;
+                  'PASTA_PODERES',;
+                  'PASTA_PODERES_OUTORGADO',;
+                  'PASTA_PRCP_OUTORGADO',; 
+                  'PASTA_PRC_OUTORGANTE',;
+                  'PASTA_PRC_PODER',;
+                  'PASTA_OUTRASPARTES',;
+                  'PASTA_EMPRESA',;
+                  'PASTA_EMPRESA_REPR',;
+                  'PASTA_TIPO_PODERES',;
+                  'PASTA_PROC_ALCADA'}
+
+  //Exibe os botÃµes permitidos
+   if gbWAC_CREATE
+      WPut('ifWAC_CREATE',.t.)
+   endif
+   if gbWAC_DELETE
+      WPut('ifWAC_DELETE',.t.)
+   endif
+   if gbWAC_WRITE
+      WPut('ifWAC_WRITE',.t.)
+   endif
+//   wout("tp_pasta:" + lctp_pasta)
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   pasta_abas(lcTP_PASTA)
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   lcNR_PASTA := Wget('NR_PASTA','C')
+   // Glauber 06/01/2011
+   AbasPerfil(lcTP_PASTA,structtable(WSet("DB_ACTIVE"),'pasta',1,'N'))
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+
+      // Recuperando os dados da pasta
+      laFIELDS := structtable(WSet("DB_ACTIVE"),'pasta',1,'N')
+      if db_select(laFIELDS,'pasta',,{'NR_PASTA ='+lcNR_PASTA}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()      
+      /* Glauber: Verifica se a pasta em questão ja não é uma renovação 
+         Alteração solicitada em 29/06/2010 */
+//      if (laRESULT[2,db_fetchncol(laRESULT,'FL_RENOVACAO')] == 'S') .or. ! empty(dtos(laRESULT[2,db_fetchncol(laRESULT,'DT_RENOVACAO')]))
+//      debug2(laRESULT,,30)
+      if (laRESULT[2,ascan(laRESULT[1],'FL_RENOVACAO')] == 'S') .or. ! empty(dtos(laRESULT[2,ascan(laRESULT[1],'DT_RENOVACAO')]))
+         WAlert('Esta pasta ja foi renovada.')
+         Get2Put()
+         make_psthead(lcNR_PASTA,lcTP_PASTA)
+         pasta_abas(lcTP_PASTA)
+         return
+      endif
+
+      /* Remove a coluna NR_PASTA */
+      lnII := ascan(laRESULT[1],'NR_PASTA')
+
+      adel(laRESULT[1],lnII)
+      asize(laRESULT[1], len(laRESULT[1]) -1)
+      adel(laRESULT[2],lnII)
+      asize(laRESULT[2], len(laRESULT[2]) -1)
+
+      /* Verificar se as colunas que armazenam dados da renovação estão sendo alimentadas */
+      lnII := ascan(laRESULT[1],'FL_RENOVACAO')
+      if lnII > 0
+         laRESULT[2,lnII] := 'S' 
+      else
+         aadd(laRESULT[1],'FL_RENOVACAO')
+         aadd(laRESULT[2],'S')
+      endif
+      lnII := ascan(laRESULT[1],'DT_RENOVACAO')
+      if lnII > 0
+         laRESULT[2,lnII] := Date() 
+      else
+         aadd(laRESULT[1],'DT_RENOVACAO')
+         aadd(laRESULT[2],Date())
+      endif
+
+      /* Glauber: os campos data de assinatura e data de vencimento sempre devem vir em branco na inclusão da nova pasta.
+                  A nova pasta gerada deve sempre vir como ativa
+         Alteração solicitada em 29/06/2010 */
+      laRESULT[2,db_fetchncol(laRESULT,'DT_ASSINATURA')] := ctod('')
+      laRESULT[2,db_fetchncol(laRESULT,'DT_VENCTO')]     := ctod('')
+      laRESULT[2,db_fetchncol(laRESULT,'FL_PASTA')]      := 'Ativa'
+/* sonia - 2010-07-14 19:07:11   */   
+      laRESULT[2,db_fetchncol(laRESULT,'FL_RENOVACAO')]  := 'N'
+      laRESULT[2,db_fetchncol(laRESULT,'DT_RENOVACAO')]  := ctod('')
+      /* insere uma nova pasta */
+//debug2(laresult)
+      if db_insert(laRESULT,'pasta') == -1
+         error_sys(db_error())
+      endif
+      lnNR_PASTA := db_insert_id()
+
+      /* Glauber: Salvar no log de alteração, o número da nova pasta gerada pela renovação automática.
+         Alteração solicitada em 29/06/2010 */
+
+      laLOG := {{'NR_PASTA',     'LOGIN',      'WFIELD', 'CONTEUDO_ANTERIOR','CONTEUDO_NOVO',    'DT_ALTERACAO','HR_ALTERACAO','LOCAL_ALTERACAO'},;
+                {val(lcNR_PASTA),WSet('LOGIN'),'NR_PASTA',lcNR_PASTA,         alltrim(lnNR_PASTA),date(),        time(),       'Aba renovação automática'}}
+
+      if db_insert(laLOG,'pasta_log_altera') == -1
+         error_sys(db_error())
+      endif
+
+      /* Atualiza as colunas fl_renovacao e dt_renovacao da pasta corrente */
+      // Glauber 27/10
+      // Encerrar a pasta automaticamente
+      if db_update({{'FL_RENOVACAO','DT_RENOVACAO','FL_PASTA'},{'S',Date(),'Encerrada'}}, 'pasta', {'NR_PASTA = ' +  lcNR_PASTA}) == -1
+         error_sys(db_error())
+      endif
+
+      /* Executa o relacionamento entre as pastas (Aba Relacionamento) */
+      if db_insert({{'NR_PASTA','NR_PASTA_FILHO','TP_PASTA_RELACIONAMENTO'},{val(lcNR_PASTA),lnNR_PASTA,'Pasta Renovada'}},'pasta_relacionamento') == -1
+         error_sys(db_error())
+      endif
+      /* Processar as outras tabelas */
+      for lnXX := 1 to len(laTABLES)
+          /* Selecionando os dados das tables */
+          laFIELDS := structtable(WSet("DB_ACTIVE"),laTABLES[lnXX],1,'N')
+          if db_select(laFIELDS,laTABLES[lnXX],,{'NR_PASTA ='+lcNR_PASTA}) == -1
+             error_sys(db_error())
+          endif
+          laRESULT := db_fetchall()      
+          // Atualizando o número da pasta para a pasta nova
+          lnPOS := ascan(laRESULT,{|X| X[1] == 'NR_PASTA'})
+          for lnII := 2 to len(laRESULT)
+              laRESULT[lnII,lnPOS] := lnNR_PASTA
+          next lnII
+          // Certificar que não sera passado para a função db_insert colunas auto incremento
+          lnPOS := ascan(laRESULT[1],'NR_CONTROLE')         
+          if lnPOS > 0
+             adel(laRESULT[1],lnII)
+             asize(laRESULT[1], len(laRESULT[1]) -1)
+             for lnII := 2 to len(laRESULT)
+                 adel(laRESULT[2],lnII)
+                 asize(laRESULT[2], len(laRESULT[2]) -1)
+             next lnII
+          endif
+          // Insere os novos dados nas tabelas
+          if db_insert(laRESULT,laTABLES[lnXX]) == -1
+             error_sys(db_error())
+          endif
+          // Mostra o número da nova pasta
+          WPut('NR_PASTA',lnNR_PASTA)
+          newNR_PASTA := str(lnNR_PASTA)
+      next lnXX
+      WAlert('O número da nova pasta é:' + alltrim(lnNR_PASTA))
+      lcNR_PASTA := str(lnNR_PASTA)
+      WPut('NR_PASTA',lnNR_PASTA)
+      WPut('ACTION','ALTER')
+      WPut('TP_PASTA',lcTP_PASTA)
+      make_psthead(lcNR_PASTA,lcTP_PASTA)
+      pasta_abas(lcTP_PASTA)
+   endif
+
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

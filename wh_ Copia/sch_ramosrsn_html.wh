@@ -1,0 +1,48 @@
+/*
+
+Project      : gr5
+Program      : sch.ramosrsn.html
+Function     : sch_ramosrsn_html
+Created on   : 04-Nov-2004   11:06:48
+Descripition :
+
+*/
+
+local laFIELDS       := {},;
+      laJAVA         := {},;
+      laQUICK_SEARCH := {} as array
+
+laFIELDS       := {'CD_RAMOSRSN','SEGURORAMO','SEGUROPRODUTO','SEGUROPROFIT'}
+laJAVA         := {'mntform',{{'CD_RAMOSRSN','CD_RAMOSRSN'},;
+                              {'SEGURORAMO','SEGURORAMO'},;
+                              {'SEGUROPRODUTO','SEGUROPRODUTO'},;
+                              {'SEGUROPROFIT','SEGUROPROFIT'}}}
+
+laQUICK_SEARCH := {'CD_RAMOSRSN','SEGURORAMO','SEGUROPRODUTO','SEGUROPROFIT'}
+
+laWHERE        := {'FL_ATIVO <> '+DLAP+'I'+DLAP}
+
+build_program('ramosrsn',;              //Tabela Alvo
+              ,;                        //Join
+              laWHERE,;                        //Where
+              ,;                        //Order by
+              ,;                        //Sort [A]-Ascendente [D]-Descentende
+              ,;                        //Group by
+              ,;                        //Limit
+              ,;                        //Banco de Dados
+              3,;                       //Modo de funcionamento [1]-Listagem/Form para manutenção [2]-Listagem e Manutenção [3]-Search
+              'gr5',;                  //Modulo do programa chamador
+              WSet('_USER_INTERFACE'),; //Programa chamador
+              ,;                        //Parametros para linhas clicáveis
+              ,;                        //Botoes (nil)
+              'mnt.ramosrsn.html',;     //Programa chamado pelos links (linhas clicáveis)
+              'gr5',;                  //Módulo do programa chamado pelos links
+              laJAVA,;                  //Retorno java (nil) - usado apenas no search
+              laQUICK_SEARCH,;          //Campos usados na pesquisa rápida
+              ,;                        //Campos ocultos. Usado apenas em manutenções    ***
+              ,;                        //Campos da área de manutenção/entrada de dados  ***
+              laFIELDS,;                //Campos mostratos no grid
+              laFIELDS)                 //Campos usados no select
+return
+
+

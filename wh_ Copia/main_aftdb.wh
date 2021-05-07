@@ -1,0 +1,84 @@
+/*
+Project      : gr5
+Program      : main.aftdb
+Function     : main_aftdb
+Created on   : 15-Dec-2003   14:41:14
+Descripition : Source to include after database connection
+*/
+
+   /* Verifica Data de Vencimento da Licença */
+   if ctod(WSet('DT_VENCTO')) <= date()
+      error_sys('Licença de uso expirada.')
+   endif
+
+   //gcAC_RESTRICT := upper(WSet('AC_RESTRICT'))
+   //temporario
+   //mkfieldredef()
+   //verifica usuário
+   gchklogin()
+   wfmktriggers()  // cria as triggers WF
+   make_fu()
+
+
+/*
+*
+* Glauber 09/04/2012
+*
+* Conforme erro detectado pela Sonia e pela Célia em  28 e 29/03 a redefinição de campos pela wfield_perfil esta se mantendo em outras partes do sistema.
+* Estou fazendo isto como medida paleativa até quando tivermos tempo de mexer na nova lib xharbour
+*
+*/
+
+
+ // Verificar se existem registros na tabela wfield_perfil, caso exista, sempre processar o catálogo wfield
+
+
+   if db_select({'count(*) as TOTAL'},'wfield_perfil') == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if (len(laRESULT) > 1) .and. (laRESULT[2,1] > 0)
+       if (! file("wfield.mf"))
+           // Glauber 12/04/2012
+           // Conforme foi detectado pela Célia, quando existe redefinação de campos na tabela acfieldredef, esta redefinição nãoe estava sendo
+           // respeitada, pelo fato que eu tinha me esquecido deste detalhe.
+           if db_select({'distinct(wfield.WFIELD)',;
+                         'wfield.LABEL_SCREEN'},;
+                         'wfield',;
+                         ,;
+                         {"lower(wfield.PROJECT)='gr5' AND (WFIELD NOT IN(SELECT WFIELD FROM ACFIELDREDEF ) )" }) == -1
+              error_sys(db_error())
+           endif
+           laRESULT := db_fetchall()
+           if len(laRESULT) > 1
+              save to wfield.mf all like laRESULT
+           endif
+       else
+           restore from wfield.mf additive
+       endif
+       for lnindRES := 2 to len(laRESULT)
+           WDataGlobal('_FIELDREDEF_'+laRESULT[lnindRES,1],'S|&'+laRESULT[lnindRES,2]+'|&|&S|&|&|&|&')
+       next lnindRES
+   endif       
+   // Preservando as redefinições de campos, caso a mesma exista em acfieldredef
+   if db_select({'distinct(acfieldredef.WFIELD)',;
+                 'acfieldredef.WLABEL_CONTENT'},;
+                 'acfieldredef') == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   for lnindRES := 2 to len(laRESULT)
+       WDataGlobal('_FIELDREDEF_'+laRESULT[lnindRES,1],'S|&'+laRESULT[lnindRES,2]+'|&|&S|&|&|&|&')
+   next lnindRES       
+   // Forçar a escrita e leitura da dataglobal
+   WriteDataGlobal()
+   ReadDataGlobal()
+   
+   wput('WSAJAX',WSet('WSAJAX'))
+   
+
+   // Glauber 11/2017 - Implementação dos fitros SQL e XSS para prevensão de ataques
+
+   xsqlfilter() // Função presente na func.wic
+   xhttpfilter() // Função presente na func.wic
+   

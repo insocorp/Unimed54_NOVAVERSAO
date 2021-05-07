@@ -1,0 +1,50 @@
+/*
+
+Project      : gr5
+Program      : mark_calc_html
+Function     : mark_calc_html
+Created on   : 04/05/2017 17:24:21
+Descripition : Calculo de Markup
+
+*/
+
+   WSet('_WDEBUG','ENABLED')
+
+   local laRESULT       := {}  as array
+
+   local ii          := 0  as int
+
+  
+
+   /*
+   * Calculando os markups
+   */
+   
+ 
+   if db_select({'CD_INDICE'},'indice_reajuste',,,{'CD_INDICE'}) == -1
+
+         error_sys(db_error())
+   endif
+
+
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      walert('Aguarde!!!')
+      for ii := 2 to len(laRESULT)
+         if mkmarkup(laRESULT[ii,1],date2ym(date()),'N')
+         else
+         endif
+      next ii
+      walert('Executado')
+   else
+      db_query('ROLLBACK')
+
+      return (nil)
+      walert('Rollback')
+   endif
+ 
+ 
+return (nil)
+
+
+

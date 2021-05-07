@@ -1,0 +1,4005 @@
+/*
+Project      : gr5
+Program      : psab.2despesa.html
+Function     : psab_2despesa_html
+Created on   : 04-Jul-2006   11:04:00
+Descripition : Despesas
+Alterado em  : 07/06/2017 14:47:13
+
+*/
+   local laRESULT          := {} ,;
+         laRESULT1         := {} ,;
+         laRESULTPAS       := {} ,;
+         laRESDP           := {} ,;
+         laRESPGTO         := {} ,;
+         laRESPED          := {} ,;
+         laRES             := {} ,;
+         laRES_DESPESA     := {} ,;
+         laRes1            := {} ,;
+         laRes2            := {} ,;
+         laSAVE            := {} ,;
+         laSAVE_AUX        := {} ,;
+         laSAVEAUX         := {} ,;
+         laSAVE_DESP_PAG   := {} ,;
+         laSaveM           := {} ,;
+         laSaveP           := {} ,;
+         laMVTSAVE         := {} ,;
+         laAUX1            := {} ,;
+         laAUX2            := {} ,;
+         laVALIDA          := {} ,;
+         laMvt             := {} ,;
+         laPed             := {} ,;
+         laPED_RATEIO      := {} ,;
+         laVA_PEDIDO       := {} ,;
+         laWHERE           := {} ,;
+         laFieldsM         := {} ,;
+         laFIELDS_DESP_PAG := {} ,;
+         laFIELDS          := {} as array
+
+   local lcNR_ROW           := '1',;
+         lcDT_PGTO          := wget('DT_PAGAMENTO','C'),;
+         lcNR_PASTA         := '' ,;
+         lcTP_PASTA         := '' ,;
+         lcTable            := '' ,;
+         lcUSUARIO          := '' ,;
+         lcWHERE            := '' ,;
+         lcWHEREM           := '' ,;
+         lcWHERE_MVTPED     := '' ,;
+         lcWHERE_PGOMVT     := '' ,;
+         lcfavorecido       := '' ,;
+         lcpagadora         := '' ,;
+         lcACTION           := '' ,;
+         lcNR_SINISTRO      := '' ,;
+         lcNR_CONTROLE      := '' ,;
+         lcNR_SEGURO        := '' ,;
+         lcFLPASTA          := '' ,;
+         lcFl_escolha       := '' ,;
+         lcFL_AJUSTA_PEDIDO := '' ,;
+         lcCIP_ESCRITORIO   := '' ,;
+         lcCIP_EMPRESA_PAGADORA  := '' ,;
+         lcFL_PEDIDO        := '' ,;
+         lcOCOR_PEDIDO      := '' ,;
+         lcnrCont           := '' ,;
+         lcCD_DESPESA       := '' ,;
+         lcPARAM            := '' ,;
+         lcABA_PED_NOVA     := '' ,;
+         lcDEPJUD           := '' ,;
+         lcAJUSPED          := '' ,;
+         lcFAV              := '' ,;
+         lcNR_DESPESA       := '' as string
+
+// alterada a quantidade default para 1
+// Sonia Perdigão - 20/7/2011 11:09:32
+// Alfa - Solicitante - Celia
+   local lnQUANTIDADE       := 1 ,;
+         lnelemento         := 0 ,;
+         lnCOLUNA           := 0 ,;
+         lnSET_VL_REVISAO   := 0 ,;
+         lnSET_VL_APROVACAO := 0 ,;
+         lnNr_vl_tt_rateio  := 0 ,;
+         lnNR_PGTO          := 0 ,;
+         lnXX               := 0 as int
+
+   local lnVTR           := 0.00 ,; //Total VL_RISCO
+         lnVTC           := 0.00 ,; //Total VL_CORRECAO
+         lnVTJ           := 0.00 ,; //Total VL_JURO
+         lnVTA           := 0.00 ,; //Total VL_ATUALIZADO
+         lnVA            := 0.00 ,;
+         TOTAL_PEDIDO    := 0.00 ,;
+         TOTAL_PAGO      := 0.00 ,;
+         TOTAL_RATEADO   := 0.00 ,;
+         lnVTRC          := 0.00 ,;
+         lnVRC           := 0.00 ,;
+         lnvlatu         := 0.00 ,;
+         lnVLAPED        := 0.00 ,;
+         lnVC            := 0.00 ,;
+         lnVJ            := 0.00 ,;
+         lnVCSUC         := 0.00 ,;
+         lnVL_RATEIO     := 0.00 ,;
+         lnRISCO_CALC    := 0.00 ,;
+         lnCORRECAO      := 0.00 ,;
+         lnJUROS         := 0.00 ,;
+         lnVL_TT_DESPESA := 0.00 ,;
+         lnVL_TT_PEDIDOS := 0.00 ,;
+         lnSLD_RATEIO    := 0.00 ,;
+         lnVL_PEDIDO     := 0.00 ,;
+         lnPORC_RATEIO   := 0.00 ,;
+         lnVL_TOTAL      := wget('VL_TOTAL','N') ,;
+         lnVL_PAGO       := wget('VL_PAGO','N') ,;
+         lnACUMULADO     := 0.00 ,;
+         lnVJSUC         := 0.00 as numeric
+
+   local lnVL_UNIT as numeric
+
+   local llAUX      := .t. ,;
+         lErro      := .f. ,;
+         lltempagto := .F. ,;
+         llVALIDATOTALPEDIDOS := .f.,;
+         llERROR    := .f. as logical
+    local ii     := 0 as int
+    local xx     := 0 as int
+
+   local ldDTSUC as date
+
+   wPut('TITLE','Despesa / Risco')
+
+   lcACTION := upper(Wget('ACTION'))
+   
+   wPut('ultima_ACTION',lcACTION)
+   
+   laMVTSAVE := {'NR_PASTA','NR_DESPESA','CIP_ESCRITORIO','CIP_EMPRESA_PAGADORA','DT_REF','LOGIN','CD_DESPESA',;
+                'CD_GRP_DESPESA','QUANTIDADE','VL_UNIT','VL_TOTAL','DT_PREVISAO_PAGTO',;
+                'FORMA_PAGAMENTO','NR_CONTROLE_SEGURO','CIP_FAVORECIDO','TP_FAVORECIDO',;
+                'TP_DOCFISCAL','DT_EMISSAO_DOCFISCAL','NR_DOCFISCAL','CD_CCUSTO',;
+                'DT_ENVIO_CTPAG','EXTRA','FL_REVISAO','DT_REVISAO','LOGIN_REVISAO',;
+                'FL_APROVACAO','DT_APROVACAO','LOGIN_APROVACAO','VL_TT_RATEIO',;
+                'CD_BANCO','BANCO_AGENCIA','BANCO_CONTA','BANCO_CONTA_DIGITO',;
+                'COD_AUXILIAR1','VL_AUXILIAR1','DT_AUXILIAR1',;
+                'COD_AUXILIAR2','VL_AUXILIAR2','DT_AUXILIAR2',;
+                'COD_AUXILIAR3','VL_AUXILIAR3','DT_AUXILIAR3','DIGITAVEL'}
+
+   laFIELDS_DESP_PAG := {'NR_PASTA','NR_DESPESA','NR_CONTROLE','DT_PAGAMENTO','VL_PAGO','DT_CADASTRO',;
+                         'LOGIN_CADASTRO','FL_PAGAMENTO'}
+
+   laSAVE_DESPP_PAG := {{'NR_PASTA','NR_DESPESA','NR_CONTROLE','DT_PAGAMENTO','VL_PAGO','DT_CADASTRO',;
+                         'LOGIN_CADASTRO','FL_PAGAMENTO'}}
+
+   laVALIDA := {'NR_PASTA','CD_DESPESA','QUANTIDADE','VL_UNIT','CIP_FAVORECIDO'}
+//
+// Glauber 22/06/2010
+*** rufino 20/09/2012 Glauber tinha comentado a alinha abaixo, mas os campos NR_SINISTRO,CIP_ESCRITORIO devem permitir incluir informações pois esse campo e amarrado
+*** com o seguro
+**    laREADONLY := {'CD_DESPESA','QUANTIDADE','VL_UNIT','DT_REF','CIP_FAVORECIDO','CIP_ESCRITORIO'}
+*** laREADONLY := {'CD_DESPESA','QUANTIDADE','VL_UNIT','DT_REF','CIP_FAVORECIDO','NR_SINISTRO','CIP_ESCRITORIO'}
+
+   if gbWAC_DELETE == .t. // Usuario tem permissão para excluir registros, então ativar os botões
+      Wput('ifEXCLUIR',.t.)
+      Wput('ifWAC_DELETE',.t.)
+     else
+      Wput('ifEXCLUIR',.f.)
+      Wput('ifWAC_DELETE',.f.)
+   endif
+
+   MgrFields(1) // Funcao no final deste programa
+
+   lcUSUARIO := wSet('LOGIN')
+   Wput('LOGIN',lcUSUARIO)
+   Wput('LOGIN_CADASTRO',lcUSUARIO)
+   Wput('DT_CADASTRO',DATE())
+   Wput('ACTION','NEW')
+   Wput('CIP_ESCRITORIO_PFPJ',' ')
+
+   lcTP_PASTA    := wGet('TP_PASTA','C')
+   lcNR_PASTA    := wGet('NR_PASTA','C')
+   lcNR_DESPESA  := wGet('NR_DESPESA','C')
+   lcWHERE       := 'NR_PASTA = '+lcNR_PASTA
+   lcNR_SINISTRO := wGet('NR_SINISTRO','C')
+   lcNR_SEGURO   := alltrim(str(wGet('NR_CONTROLE_SEGURO','N')))
+   lcQUANTIDADE  := wGet('QUANTIDADE','C')
+   if val(lcQUANTIDADE) == 0
+         Wput('QUANTIDADE',1)
+   endif
+   
+
+
+   lcPARAM:=busca_parametros(lcTP_PASTA)    
+   
+   WPut('PARAM',lcPARAM)
+
+// Sonia _ Customização Tokio - 25/09/2012 09:57:34
+
+  //---------- Verificando o Layout de Tela para Cobertura/Ramo.
+
+   if db_select({'FL_COBERTURA_RAMO','GERA_EST_AUT'},'pasta_config',,{'TP_PASTA = '+DLAP+lcTP_PASTA+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRES_EXP := db_fetchall()
+   IF len(laRES_EXP) > 1
+      if laRES_EXP[2,1] = 'S'
+         lnCOBRAMO := 1
+         WPut('ifCOBRAMO',.t.)
+      else
+         lnCOBRAMO := 0
+         WPut('ifCOBRAMO',.f.)
+      endif
+
+      ***26/11/2014 rufino verifica layout de pedidos com rateio ou sem rateio
+
+
+      if laRES_EXP[2,2] = 'S'
+        lcABA_PED_NOVA:='S'
+         WPut('ABA_PED_NOVA','S')
+         WPut('ifABA_PED_NOVA',.f.)
+      else
+         lcABA_PED_NOVA:='N'
+         WPut('ABA_PED_NOVA','N')
+         WPut('ifABA_PED_NOVA',.t.)
+      endif
+
+
+   endif
+
+  //---------- Verificando o Layout de Codigos Auxiliares.
+   if db_select({'FL_CODAUX'},'pasta_config',,{'TP_PASTA = '+DLAP+lcTP_PASTA+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRES_EXP := db_fetchall()
+   IF len(laRES_EXP) > 1
+      if laRES_EXP[2,1] = 'S'
+         WPut('ifCODAUX',.t.)
+      else
+         WPut('ifCODAUX',.f.)
+      endif
+   endif
+
+  //---------- Verificando o Layout de Inserir Despesas em Pastas Encerradas.
+    if db_select({'FL_PASTA'},'pasta',,{'NR_PASTA = '+lcNR_PASTA}) == -1
+       error_sys(db_error())
+    endif
+    laRESULTPAS := db_fetchrow()
+
+   if laRESULTPAS[1] == 'Encerrada'
+      if db_select({'FL_DESPESA'},'pasta_config',,{'TP_PASTA = '+DLAP+lcTP_PASTA+DLAP}) == -1
+         error_sys(db_error())
+      endif
+      laRES_EXP := db_fetchall()
+      IF len(laRES_EXP) > 1
+         if laRES_EXP[2,1] = 'S'
+            WPut('ifINSEREDESPESAS',.t.)
+            ifDESPESA    := .t.
+          else
+             WPut('ifINSEREDESPESAS',.f.)
+             ifDESPESA    := .f.
+          endif
+      endif
+   else
+      WPut('ifINSEREDESPESAS',.t.)
+      ifDESPESA    := .t.
+   endif
+
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+
+   // Glauber 05/01/2011
+
+   AbasPerfil(lcTP_PASTA, laSAVE_DESPP_PAG[1])  
+
+   // Todos os campos utilizados nas grids
+
+   
+   AbasPerfil(lcTP_PASTA,{'NR_CONTROLE',;
+                 'PEDIDO_PROCESSO',;
+                 'NR_CONTROLE_SEGURO',;
+                 'TP_EXPEDIENTE',;
+                 'NR_SINISTRO',;
+                 'VL_RISCO',;
+                 'PC_RISCO',;
+                 'RISCOPERDA',;
+                 'DT_RISCO',;
+                 'VL_RISCO_CALC',;
+                 'VL_CORRECAO',;
+                 'VL_JUROS',;
+                 'DT_MOVTO_PED',;
+                 'FL_PEDIDO_DESPESA',;
+                 'CIP_ESCRITORIO',;
+                 'CIP_EMPRESA_PAGADORA',;
+                 'DT_REF',;
+                 'LOGIN',;
+                 'CD_DESPESA',;
+                 'CD_GRP_DESPESA',;
+                 'QUANTIDADE',;
+                 'VL_UNIT',;
+                 'VL_TOTAL',;
+                 'DT_PREVISAO_PAGTO',;
+                 'FORMA_PAGAMENTO',;
+                 'NR_CONTROLE_SEGURO',;
+                 'CIP_FAVORECIDO',;
+                 'TP_FAVORECIDO',;
+                 'TP_DOCFISCAL',;
+                 'DT_EMISSAO_DOCFISCAL',;
+                 'NR_DOCFISCAL',;
+                 'CD_CCUSTO',;
+                 'DT_ENVIO_CTPAG',;
+                 'EXTRA',;
+                 'PFPJ',;
+                 'FL_APROVACAO',;
+                 'FL_REVISAO',;
+                 'DT_APROVACAO',;
+                 'DT_REVISAO',;
+                 'LOGIN_APROVACAO',;
+                 'LOGIN_REVISAO',;
+                 'FL_PGINTERFACE',;
+                 'FL_INTERFACEGEM',;
+                 'FL_INTERFACEWEB',;
+                 'NM_DESPESA',;
+                 'NM_GRP_DESPESA',;
+                 'TP_FAVORECIDO',;
+                 'TP_DOCFISCAL',;
+                 'NM_CCUSTO',;
+                 'FL_AJUSTA_PEDIDO',;
+                 'VL_TT_RATEIO',;
+                 'NR_SINISTRO',;
+                 'COD_AUXILIAR1',;
+                 'VL_AUXILIAR1',;
+                 'DT_AUXILIAR1',;
+                 'COD_AUXILIAR2',;
+                 'VL_AUXILIAR2',;
+                 'DT_AUXILIAR2',;
+                 'COD_AUXILIAR3',;
+                 'VL_AUXILIAR3',;
+                 'DT_AUXILIAR3',;
+                 'CD_BANCO',;
+                 'BANCO_AGENCIA',;
+                 'BANCO_CONTA',;
+                 'BANCO_CONTA_DIGITO',;
+                 'DIGITAVEL'})
+           
+                 
+
+//-------        Setar o usuario corrente
+
+   laFIELDS := {'PFPJ_TIPOS'}
+   lcwhere := 'PFPJ_TABLE_FIELD = '+DLAP+'pasta.CIP_ESCRITORIO'+DLAP
+   if db_select(laFIELDS,'pfpj_conftipocampo',,{lcWHERE},,,,,) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT)>= 2
+      laAUX1 := str2array(laRESULT[2,1],',')
+   endif
+   laFIELDS := {'PFPJ_TIPOS'}
+   lcwhere := 'PFPJ_TABLE_FIELD = '+DLAP+'pasta.CIP_EMPRESA_PAGADORA'+DLAP
+   if db_select(laFIELDS,'pfpj_conftipocampo',,{lcWHERE},,,,,) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT)>= 2
+      laAUX1 := str2array(laRESULT[2,1],',')
+   endif
+
+   laFIELDS := {'PFPJ_TIPOS','PFPJ'}
+   lcWHERE := 'CIP = '+ DLAP+ WSET('CIP_EMPRESA') + DLAP
+   if db_select(laFIELDS,'pfpj',,{lcWHERE},,,,,) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) >= 2
+      laAUX2 := str2array(laRESULT[2,1],',')
+   endif
+
+   for xx := 1 to len(laAUX2)
+       lnelemento := ascan(laAUX1,laAUX2[xx])
+       if lnelemento > 0
+          wPut('CIP_ESCRITORIO',WSET('CIP_EMPRESA'))
+          lcCIP_ESCRITORIO :=  WSET('CIP_EMPRESA')
+          wPUT('CIP_ESCRITORIO_PFPJ',laRESULT[2,2])
+          WPUT('CIP_ESCRITORIO.readonly',.T.)
+          WPUT('CIP_ESCRITORIO.class','winputreadonly')
+          wPut('ifBUTTON',.F.)
+          exit
+       endif
+   next xx
+
+   lcWHERE := 'NR_PASTA = ' + lcNR_PASTA
+
+//---    Monta o header
+//---    Wput('NR_DESPESA','New')
+//---    Monta os combos
+
+   carrega_cbox({{'forma_pagamento','forma_pagamento','Y'}})
+   carrega_cbox({{'tipo_favorecido','tp_favorecido','Y'}})
+   carrega_cbox({{'tipo_docfiscal','tp_docfiscal','Y'}})
+   carrega_cbox({{'cod_auxiliar1','cod_auxiliar1','Y'}})
+   carrega_cbox({{'cod_auxiliar2','cod_auxiliar2','Y'}})
+   carrega_cbox({{'cod_auxiliar3','cod_auxiliar3','Y'}})
+
+   cargacbox('despesa',{'CD_DESPESA','NM_DESPESA'},{'NM_DESPESA'},'NM_DESPESA')
+
+//-----    Alimenta combo do filtro
+   WPut('FT_IMP_REVISAO.option',{'','Aprovada','Pendente','Rejeitado'})
+   WPut('FT_IMP_REVISAO.optionvalue',{'','A','P','R'})
+   WPut('FT_REVISAO.option',{'','Aprovada','Pendente','Rejeitado'})
+   WPut('FT_REVISAO.optionvalue',{'','A','P','R'})
+   WPut('FT_APROVACAO.option',{'','Aprovada','Pendente','Rejeitado'})
+   WPut('FT_APROVACAO.optionvalue',{'','A','P','R'})
+   lcFT_REVISAO   := WGet('FT_REVISAO','C')
+   lcFT_APROVACAO := WGet('FT_APROVACAO','C')
+//   lcFT_IMP_REVISAO   := WGet('FT_REVISAO','C')
+
+   WPut('FT_REVISAO',lcFT_REVISAO)
+   WPut('FT_APROVACAO',lcFT_APROVACAO)
+//   WPut('FT_IMP_REVISAO',lcFT_REVISAO)
+
+
+      *** marca em vermelho campos obrigatorios       **
+      ** Sonia - 01/10/2014 17:38:34
+    
+     init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+
+   if lcACTION = ''
+      Wput('ifDESPESAS', .f.)
+   else
+      Wput('ifDESPESAS', .t.)
+   endif
+   //wPut('ifPEDIDOS',.f.)
+   //----   Novo Registro
+   if empty(lcACTION)
+      //lcACTION := 'NEW'
+   endif
+
+   if lcACTION == 'NEW' .OR. val(lcNR_DESPESA) == 0
+      wput('ifPGTO',.f.)
+      //wPut('ifPEDIDOS',.f.)
+      MgrFields(1) // Função estatica no final deste programa
+   else
+      wput('ifPGTO',.t.)
+      //wPut('ifPEDIDOS',.t.)
+   endif
+
+
+   //---------------- Inclusão de despesas  -------------------------------------
+   if lcACTION == 'NEW' .and. gbWAC_CREATE
+
+
+      laFIELDS := {'DISTINCT mvt_despesa.NR_PASTA',;
+                   'mvt_despesa.NR_DESPESA',;
+                   'mvt_despesa.CD_DESPESA',;
+                   'despesa.FL_AJUSTA_PEDIDO',;
+                   'mvt_desprat.NR_PASTA as PASTA_RATEIO',;
+                   'mvt_despesa.FL_APROVACAO',;
+                   'mvt_despesa.FL_REVISAO',;
+                   'mvt_despesa.FL_CANCELADO',;
+                   'despesa.FL_DEPOSITO_JUDICIAL'}
+
+      laJOIN   :={{2,'despesa','despesa.CD_DESPESA = mvt_despesa.CD_DESPESA'},;
+                  {2,'mvt_desprat','mvt_desprat.NR_PASTA = mvt_despesa.NR_PASTA and mvt_desprat.NR_CONTROLE_DESPESA = mvt_despesa.NR_DESPESA'}}
+
+      lcWHERE :='mvt_despesa.NR_PASTA='+DLAP+wGet('NR_PASTA','C')+DLAP+' and despesa.fl_ajusta_pedido ='+DLAP+'S'+DLAP+'and mvt_desprat.nr_pasta is null'
+
+      if db_select(laFIELDS,'mvt_despesa',laJOIN,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchrow()
+      
+      
+      if len(laRESULT)>0              
+         if laRESULT[8] != 'S'
+            if (laRESULT[6] != 'R' .and. laRESULT[7] != 'R' .and. laRESULT[8] != 'S')
+               *** quando rejeitada o rateio realmente não existe pois e excluido libetando para outra despesa
+               *** encontrou despesa sem pedido rateado
+               walert('Atenção a despesa '+ alltrim(str(laRESULT[2])) + ' esta sem pedido rateado.')
+            endif
+         endif
+      endif
+      
+      lcTP_PASTA := wGet('TP_PASTA','C')
+      lcNR_PASTA := wGet('NR_PASTA','C')
+
+/* Sonia - 21/08/2014 13:55:04 */
+      if !empty(wget('CIP_EMPRESA','C'))
+
+         if db_select({'CIP'},'pasta_cip',,{'NR_PASTA = '+lcNR_PASTA+' and WFIELD = '+DLAP+'CIP_EMPRESA'+DLAP}) == -1
+            error_sys(db_error())
+         endif
+         laRESULTPAS := db_fetchrow()
+
+         if len(laRESULTPAS) > 0
+            LCCIP_EMPRESA_PAGADORA := laRESULTPAS[1]
+            wPUT('CIP_EMPRESA_PAGADORA',LCCIP_EMPRESA_PAGADORA)
+         endif
+
+         if db_select({'CIP','PFPJ'},'pfpj',,{'CIP = '+LCCIP_EMPRESA_PAGADORA}) == -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchall()
+
+         if len(laRESULT) >= 2
+            wPut('CIP_EMPRESA_PAGADORA_PFPJ',laRESULT[2,2])
+         endif
+      endif
+
+      if db_select({'CIP'},'pasta_cip',,{'NR_PASTA = '+lcNR_PASTA+' and WFIELD = '+DLAP+'CIP_ESCRITORIO'+DLAP}) == -1
+         error_sys(db_error())
+      endif
+      laRESULTPAS := db_fetchrow()
+
+      if len(laRESULTPAS) > 0
+         LCCIP_ESCRITORIO := laRESULTPAS[1]
+         wPUT('CIP_ESCRITORIO',LCCIP_ESCRITORIO)
+      endif
+
+      if !empty(LCCIP_ESCRITORIO)
+         if db_select({'CIP','PFPJ'},'pfpj',,{'CIP = '+LCCIP_ESCRITORIO}) == -1
+             error_sys(db_error())
+         endif
+         laRESULT := db_fetchall()
+         if len(laRESULT) >= 2
+            wPut('CIP_ESCRITORIO_PFPJ',laRESULT[2,2])
+         endif
+       endif
+
+
+      **wout('display empresa pagadora')
+      **wout(debug(laRESULT),,200)
+      init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+      if pcORIGEM <> 'PSMVT' .and. pcORIGEM <> 'PSESC'
+         make_psthead(lcNR_PASTA,lcTP_PASTA)
+
+      endif
+
+      Wput('NR_DESPESA','New')
+
+      carrega_cbox({{'forma_pagamento','forma_pagamento','Y'}})
+      carrega_cbox({{'tipo_favorecido','tp_favorecido','Y'}})
+      carrega_cbox({{'tipo_docfiscal','tp_docfiscal','Y'}})
+
+      wput('ifDT_REF_RO',.f.)
+      wput('ifDT_REF_NO_RO',.t.)
+      wput('ifDTREF',.t.) // Botão da Data
+      wput('ifCD_DESPESA_RO',.f.)
+      wput('ifCD_DESPESA_NO_RO',.t.)
+      wput('ifCD_DESPESA',.t.)  // Botão da Despesa
+      wput('ifQUANTIDADE_RO',.f.)
+      wput('ifQUANTIDADE_NO_RO',.t.)
+      wput('ifVL_UNIT_RO',.f.)
+      wput('ifVL_UNIT_NO_RO',.t.)
+      wput('ifCIP_FAVORECIDO_RO',.f.)
+      wput('ifCIP_FAVORECIDO_NO_RO',.t.)
+      wput('ifCIP_FAVORECIDO',.t.) // Botão do Favorecido
+      wput('ifCIP_ESCRITORIO_RO',.f.)
+      wput('ifCIP_ESCRITORIO_NO_RO',.t.)
+      wput('ifCIP_ESCRITORIO',.t.) // Botão do Escritorio
+
+      make_psthead(lcNR_PASTA,lcTP_PASTA)
+
+      if empty(alltrim(lcCIP_ESCRITORIO))
+          wPUT('CIP_ESCRITORIO_PFPJ',' ')
+      endif
+
+
+   //--------------        Botão Pedido   ----------------------------------------
+   elseif lcACTION == 'PEDIDO'
+
+      get2put()
+
+      if empty(wget('CD_DESPESA','C')) // Glauber 17/12
+         WAlert('Despesa não selecionada, verifique.')
+         make_psthead(lcNR_PASTA,lcTP_PASTA)
+
+         //get2put()
+         return
+      endif
+
+      LC_despesa := wget('CD_DESPESA','C')
+
+      *** procura codigo da despesa
+      if db_select({'despesa.NM_DESPESA',;
+                    'despesa.CD_MOEDA',;
+                    'moeda.NM_MOEDA',;
+                    'despesa.CD_GRP_DESPESA',;
+                    'grupo_despesa.NM_GRP_DESPESA',;
+                    'despesa.SET_VL_REVISAO',;
+                    'despesa.SET_VL_APROVACAO',;
+                    'despesa.FL_AJUSTA_PEDIDO',;
+                    'despesa.FL_ZERAR_PROVISAO',;
+                    'despesa.FL_DEPOSITO_JUDICIAL',;
+                    'despesa.FL_CONTABILIZA_LANCTOS_CONT',;
+                    'despesa.CD_DESPESA_INTERFACE',;
+                    'despesa.INCIDENCIA_IMPOSTOS',;
+                    'despesa.OCOR_PEDIDO_QUITA'},;
+                    'despesa',;
+                    {{2,'moeda','moeda.CD_MOEDA=despesa.CD_MOEDA'},;
+                     {2,'grupo_despesa','grupo_despesa.CD_GRP_DESPESA=despesa.CD_GRP_DESPESA'}},;
+                     {'CD_DESPESA ='+DLAP+LC_DESPESA+DLAP}) == -1
+
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+
+      if len(laRES) == 1
+         WAlert("Despesa não cadastrada, verifique.")
+         return
+      endif
+
+      lcDEPJUD  :=laRES[2,db_fetchncol(laRES,'FL_DEPOSITO_JUDICIAL')] 
+      lcAJUSPED :=laRES[2,db_fetchncol(laRES,'FL_AJUSTA_PEDIDO')]    
+
+
+      if (lcAJUSPED=='S'  .AND. lcABA_PED_NOVA == 'S') .OR. (lcAJUSPED=='S'  .AND. lcABA_PED_NOVA == 'N')
+         wPut('ifPEDIDOS', .t.)
+
+         carrega_pedido(lcNR_PASTA,lcTP_PASTA,lcNR_DESPESA,lcACTION,laPED_RATEIO,lcNR_SEGURO,llERROR,laVA_PEDIDO,lcABA_PED_NOVA,lcPARAM,lcAJUSPED,lcDEPJUD)
+
+         if db_select({'count(*)'},'mvt_desprat',,{'NR_PASTA = '+lcNR_PASTA+' and NR_CONTROLE_DESPESA = '+lcNR_DESPESA}) == -1
+            error_sys(db_error())
+         endif
+         laRES1 := db_fetchrow()
+
+         if laRES1[1] > 0
+            wput('ifPGTO',.t.)
+            Grid_DespPG(lcNR_PASTA,lcNR_DESPESA)
+         else
+            wput('ifPGTO',.f.)
+         endif
+       else
+         wPut('ifPEDIDOS', .f.)
+     endif
+     
+     if lcDEPJUD=='S'
+        wPut('ifPEDIDOS', .t.)
+      
+        carrega_pedido(lcNR_PASTA,lcTP_PASTA,lcNR_DESPESA,lcACTION,laPED_RATEIO,lcNR_SEGURO,llERROR,laVA_PEDIDO,lcABA_PED_NOVA,lcPARAM,lcAJUSPED,lcDEPJUD)
+     
+     endif
+
+      wput('CD_DESPESA',LC_despesa)
+      wput('NM_DESPESA',LC_despesa)
+      wput('CD_GRP_DESPESA',laRES[2,db_fetchncol(laRES,'CD_GRP_DESPESA')])
+      wput('NM_GRP_DESPESA',laRES[2,db_fetchncol(laRES,'NM_GRP_DESPESA')])
+      wput('FL_AJUSTA_PEDIDO',laRES[2,db_fetchncol(laRES,'FL_AJUSTA_PEDIDO')])
+      wput('CD_MOEDA',laRES[2,db_fetchncol(laRES,'CD_MOEDA')])
+      wput('NM_MOEDA',laRES[2,db_fetchncol(laRES,'NM_MOEDA')])
+      wput('SET_VL_REVISAO',laRES[2,db_fetchncol(laRES,'SET_VL_REVISAO')])
+      wput('SET_VL_APROVACAO',laRES[2,db_fetchncol(laRES,'SET_VL_APROVACAO')])
+      wput('FL_ZERAR_PROVISAO',laRES[2,db_fetchncol(laRES,'FL_ZERAR_PROVISAO')])
+      wput('FL_DEPOSITO_JUDICIAL',laRES[2,db_fetchncol(laRES,'FL_DEPOSITO_JUDICIAL')])
+      wput('FL_CONTABILIZA_LANCTOS_CONT',laRES[2,db_fetchncol(laRES,'FL_CONTABILIZA_LANCTOS_CONT')])
+      wput('CD_DESPESA_INTERFACE',laRES[2,db_fetchncol(laRES,'CD_DESPESA_INTERFACE')])
+      wput('INCIDENCIA_IMPOSTOS',laRES[2,db_fetchncol(laRES,'INCIDENCIA_IMPOSTOS')])
+      wput('OCOR_PEDIDO_QUITA',laRES[2,db_fetchncol(laRES,'OCOR_PEDIDO_QUITA')])
+      wput('FL_AJUSTA_PEDIDO',laRES[2,db_fetchncol(laRES,'FL_AJUSTA_PEDIDO')])
+      wput('NR_CONTROLE_SEGURO',wget('NR_CONTROLE_SEGURO','C'))
+      wput('NR_SINISTRO',wget('NR_SINISTRO','C'))
+
+      //wput('VL_TOTAL',lnVL_TOTAL)
+
+      if wget('EXRAT') == 'S'
+         lcWHERE := '(NR_PASTA='+lcNR_PASTA+' and '+ 'NR_CONTROLE_DESPESA='+lcNR_DESPESA+' and FL_PAGO='+DLAP+'N'+DLAP+')'
+         if db_delete('mvt_desprat',lcWHERE)  == -1
+            error_sys(db_error())
+         endif
+
+      endif
+   elseif lcACTION == 'CANCEL'
+      wPut('ifDESPESAS',.f.)
+
+   //----------------   Alteração     -------------------------------------------
+   elseif lcACTION == 'ALTER'
+
+      lcTP_PASTA := wGet('TP_PASTA','C')
+      lcNR_PASTA := wGet('NR_PASTA','C')
+      carrega_cbox({{'forma_pagamento','forma_pagamento','Y'}})
+      carrega_cbox({{'tipo_favorecido','tp_favorecido','Y'}})
+      carrega_cbox({{'tipo_docfiscal','tp_docfiscal','Y'}})
+      
+      lcDEPJUD  := wGet('FL_DEPOSITO_JUDICIAL','C')
+      lcAJUSPED := wGet('FL_AJUSTA_PEDIDO','C') 
+     
+// Sonia - 25/09/2012 11:26:16
+// Customização Tokio Resolução 395
+
+      dadosinterface(lcNR_PASTA)
+
+   //--------------        Salvar        ----------------------------------------
+   elseif lcACTION == 'SAVE'  .and. gbWAC_WRITE
+
+      llERROR := .f.
+
+      lnVL_TOTAL := WGet('QUANTIDADE','N') * ROUND(WGet('VL_UNIT','N'),2) //Valor total da Despesa
+
+      Wput('VL_TOTAL',lnVL_TOTAL)
+
+    
+      lcDEPJUD  := WGet('FL_DEPOSITO_JUDICIAL','C')
+      lcAJUSPED := WGet('FL_AJUSTA_PEDIDO','C') 
+
+      if lcAJUSPED == 'S'  .or. lcDEPJUD == 'S'
+
+         lcNR_ROW  := '1'
+         do while (WGet('VAR_PEDIDO_PROCESSO_'+lcNR_ROW,'B'))
+            TOTAL_RATEADO += WGet('VAR_VL_RATEADO_'+lcNR_ROW,'N')
+            lcNR_ROW     := alltrim(str(val(lcNR_ROW)+1))
+         enddo
+
+         if (wget('NR_DESPESA','C') == 'New') .or. empty((wget('NR_DESPESA','C')))
+            lcNR_DESPESA := '0'
+         endif
+
+         if verifica(TOTAL_RATEADO,lnVL_TOTAL,lcNR_PASTA,lcNR_DESPESA,lcAJUSPED,lcDEPJUD) == .f.
+             
+            laSAVE_AUX    := {{'NR_PASTA','NR_CONTROLE_DESPESA','NR_CONTROLE_PEDIDO','VL_RATEADO','FL_PAGO'}}
+
+            lcNR_ROW:= '1'
+            ii      := 1
+
+            do while WGet('VAR_PEDIDO_PROCESSO_'+lcNR_ROW,'B')
+               laSAVEAUX := {}
+               
+               if lcAJUSPED == "S"
+                  if val(WGet('VAR_VL_RATEADO_'+lcNR_ROW)) > 0
+                     aadd(laSAVEAUX,lcNR_PASTA)
+                     aadd(laSAVEAUX,lcNR_DESPESA)
+                     aadd(laSAVEAUX,WGet('VAR_NR_CONTROLE_'+lcNR_ROW,'N'))
+                     aadd(laSAVEAUX,WGet('VAR_VL_RATEADO_'+lcNR_ROW,'N'))
+                     aadd(laSAVEAUX,'N')
+                     aadd(laSAVE_AUX,laSAVEAUX)
+                  endif
+               endif
+               
+               if lcDEPJUD == "S"              
+                  if WGet('VAR_CHK_'+lcNR_ROW,'C') == '1'
+                     aadd(laSAVEAUX,lcNR_PASTA)
+                     aadd(laSAVEAUX,lcNR_DESPESA)
+                     aadd(laSAVEAUX,WGet('VAR_NR_CONTROLE_'+lcNR_ROW,'N'))                       
+                     aadd(laSAVEAUX,WGet('VAR_VL_RATEADO_'+lcNR_ROW,'N'))                    
+                     aadd(laSAVEAUX,'N')
+                     aadd(laSAVE_AUX,laSAVEAUX)
+                  endif
+                  
+               endif               
+
+               ii++
+               lcNR_ROW    := alltrim(str(ii))
+            enddo
+
+          else
+
+            llERROR := .t.
+         endif
+      endif
+
+      if !llERROR
+
+      if db_select({'FL_PASTA'},'pasta',,{'NR_PASTA = '+lcNR_PASTA}) == -1
+         error_sys(db_error())
+      endif
+      laRESULTPAS := db_fetchrow()
+
+
+      if laRESULTPAS[1] == 'Encerrada'
+         if db_select({'FL_DESPESA'},'pasta_config',,{'TP_PASTA = '+DLAP+lcTP_PASTA+DLAP}) == -1
+              error_sys(db_error())
+         endif
+         laRES_EXP := db_fetchall()
+         IF len(laRES_EXP) > 1
+            if laRES_EXP[2,1] = 'S'
+               WPut('ifINSEREDESPESAS',.t.)
+               ifDESPESA    := .t.
+             else
+                WPut('ifINSEREDESPESAS',.f.)
+                ifDESPESA    := .f.
+             endif
+         endif
+      else
+         WPut('ifINSEREDESPESAS',.t.)
+         ifDESPESA    := .t.
+      endif
+      if ifdespesa == .f.
+            walert('A Pasta No. '+lcNR_PASTA+'  está Encerrada! \n Não é permitido Atualizações')
+            wPut('ifDESPESAS',.t.)
+            if lcAJUSPED == 'S' .or. lcDEPJUD == 'S'
+               wPut('ifPEDIDOS',.t.)
+               carrega_pedido(lcNR_PASTA,lcTP_PASTA,lcNR_DESPESA,lcACTION,laPED_RATEIO,lcNR_SEGURO,llERROR,laVA_PEDIDO,lcABA_PED_NOVA,lcPARAM,lcAJUSPED,lcDEPJUD)
+            endif
+            get2put()
+      else
+         *** rufino 21/05/2012 11:28 trexo abaixo foi colocado porque se o cliente cadastra cd_despesa=01,02, ate 09 e digitar 2 ao invez de 02 o combo aceita
+         *** a funcao sch_auto deve transformar em numero e encontra, so que ao salvar salva 2 e ao recuperar a informação não encontra o 2 pois esta cadastrado 02
+         *** não tem como alterar a funcao sch_auto pois esta em uma lib.
+         lcWHERE :='CD_DESPESA='+DLAP+WGet('CD_DESPESA','C')+DLAP
+         if db_select({'CD_DESPESA'},'despesa',,{lcWHERE}) == -1
+            error_sys(db_error())
+         endif
+         laRES := db_fetchrow()
+         if len(laRES)=0
+            walert('Codigo da despesa não foi localizado.')
+            wput('CD_DESPESA','')
+            wput('NM_DESPESA','')
+            wput('CD_GRP_DESPESA','')
+            wput('NM_GRP_DESPESA','')
+            wput('ID_FL_AJUSTA_PEDIDO','')
+            wput('NR_CONTROLE_SEGURO','')
+            wPut('ifDESPESAS',.t.)
+            llERROR := .t.
+
+         else
+         
+            laPARAM  := str2array(lcPARAM,'|')
+            
+            if val(laPARAM[13]) == 48 // = Prudential
+            
+               lcFAV := WGet('CIP_FAVORECIDO')                  
+               if db_select({'CNPJ_CPF','ENDERECO','BAIRRO','CIDADE','CEP','UF','NR_ENDERECO'},'pfpj',,{'CIP = '+lcFAV}) == -1
+                  error_sys(db_error())
+               endif
+               laRES := db_fetchall()
+
+               for xx:=1 to 6                  
+                  if len(alltrim(laRES[2,xx])) == 0
+                     walert('Atenção endereço do Favorecido incompleto!') 
+                  
+                     llERROR := .t.
+                     exit
+                  endif
+               next xx          
+               
+               if !llERROR .and. laRES[2,7] == 0 
+                  walert('Atenção endereço do Favorecido incompleto!')
+
+                  llERROR := .t.             
+               endif
+               
+               if !llERROR            
+                   if lower(WGet('FORMA_PAGAMENTO','C')) == 'boleto'             
+                      aadd(laVALIDA,'DIGITAVEL')
+                   endif
+               endif
+               
+               if ascan({"crédito em conta","depósito em conta","gru","ordem de pagamento","ted"} , lower(WGet('FORMA_PAGAMENTO','C'))) > 0                                   
+                  aadd(laVALIDA,'CD_BANCO')
+                  aadd(laVALIDA,'BANCO_AGENCIA')
+                  aadd(laVALIDA,'BANCO_CONTA')
+                  aadd(laVALIDA,'BANCO_CONTA_DIGITO')
+               endif
+
+               init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+            endif
+
+
+/* Equiparação Unimed - 26/04/2013 10:03:35 - Sonia */
+         if !llERROR .and. verif_reqfield(WSET('_USER_INTERFACE'),laVALIDA) == .T.
+
+            laSAVE := {{'NR_PASTA','NR_DESPESA','CIP_ESCRITORIO','CIP_EMPRESA_PAGADORA','DT_REF','LOGIN','CD_DESPESA',;
+                        'CD_GRP_DESPESA','QUANTIDADE','VL_UNIT','VL_TOTAL','DT_PREVISAO_PAGTO',;
+                        'FORMA_PAGAMENTO','NR_CONTROLE_SEGURO','CIP_FAVORECIDO','TP_FAVORECIDO',;
+                        'TP_DOCFISCAL','DT_EMISSAO_DOCFISCAL','NR_DOCFISCAL','CD_CCUSTO',;
+                        'DT_ENVIO_CTPAG','EXTRA','FL_REVISAO','DT_REVISAO','LOGIN_REVISAO',;
+                        'FL_APROVACAO','DT_APROVACAO','LOGIN_APROVACAO','VL_TT_RATEIO',;
+                        'CD_BANCO','BANCO_AGENCIA','BANCO_CONTA','BANCO_CONTA_DIGITO',;
+                        'COD_AUXILIAR1','VL_AUXILIAR1','DT_AUXILIAR1',;
+                        'COD_AUXILIAR2','VL_AUXILIAR2','DT_AUXILIAR2',;
+                        'COD_AUXILIAR3','VL_AUXILIAR3','DT_AUXILIAR3','DIGITAVEL'}}
+            laSAVEAUX := {}
+/*            laSAV2 := {} */
+
+            /* Pegando Valores De faixa de Revisão e Aprovação */
+
+            if db_select({'SET_VL_REVISAO','SET_VL_APROVACAO'},'despesa',,{'CD_DESPESA='+DLAP+WGet('CD_DESPESA','C')+DLAP}) == -1
+               error_sys(db_error())
+            endif
+            laRES := db_fetchrow()
+            if len(laRES) > 0
+               lnSET_VL_REVISAO   := laRES[1]                                     //Valor de Revisão
+               lnSET_VL_APROVACAO := laRES[2]                                     //Valor de Aprovação
+            else
+               lnSET_VL_REVISAO   := 0
+               lnSET_VL_APROVACAO := 0
+            endif
+
+            //lnVL_TOTAL         := WGet('QUANTIDADE','N') * WGet('VL_UNIT','N') //Valor total da Despesa
+            //Wput('VL_TOTAL',lnVL_TOTAL) // Atualiza o valor total
+
+            for lnXX := 1 to len(laMVTSAVE)
+               if laMVTSAVE[lnXX] == 'NR_DESPESA'
+                  if (wget('NR_DESPESA','C') == 'New') .or. empty((wget('NR_DESPESA','C')))
+                     lcNR_DESPESA := '0'
+                     aadd(laSAVEAUX, 0)
+                  else
+                     aadd(laSAVEAUX, wget('NR_DESPESA'))
+                     lcNR_DESPESA := wget('NR_DESPESA','C')                      
+                  endif
+
+               elseif laMVTSAVE[lnXX] == 'VL_TT_RATEIO'
+                  aadd(laSAVEAUX, wget('VL_TT_RATEIO','N'))
+
+               elseif laMVTSAVE[lnXX] == 'VL_TOTAL'
+                  aadd(laSAVEAUX, wget('QUANTIDADE','N') *  wget('VL_UNIT','N'))
+                  Wput('VL_TOTAL', wget('QUANTIDADE','N') *  wget('VL_UNIT','N')) // Atualiza o valor total
+
+               elseif laMVTSAVE[lnXX] == 'FL_REVISAO'
+                  if substr(wget('FL_REVISAO','C'),1,1) <> 'A'
+                     if lnVL_TOTAL <= lnSET_VL_REVISAO // Caso o Valor Total seja menor que Valor de Revisão
+                        aadd(laSAVEAUX,'A')            // Define FL_REVISAO para A-Automatica
+                     else
+                        aadd(laSAVEAUX,'P') //PENDENTE
+                     endif
+                  else
+                     aadd(laSAVEAUX,wGet(laMVTSAVE[lnXX]))
+                  endif
+
+               elseif laMVTSAVE[lnXX] == 'DT_REVISAO'
+                  if substr(wget('FL_REVISAO','C'),1,1) <> 'A'
+                     if lnVL_TOTAL <= lnSET_VL_REVISAO
+                        aadd(laSAVEAUX,date())
+                     else
+                        aadd(laSAVEAUX,CTOD('  /  /    '))
+                     endif
+                  else
+                     aadd(laSAVEAUX,wGet(laMVTSAVE[lnXX]))
+                  endif
+
+               elseif laMVTSAVE[lnXX] == 'LOGIN_REVISAO'
+                  if substr(wget('FL_REVISAO','C'),1,1) <> 'A'
+                     if lnVL_TOTAL <= lnSET_VL_REVISAO
+                        aadd(laSAVEAUX,WSet('LOGIN'))
+                     else
+                        aadd(laSAVEAUX,'')
+                     endif
+                  else
+                     aadd(laSAVEAUX,wGet(laMVTSAVE[lnXX]))
+                  endif
+
+               elseif laMVTSAVE[lnXX] == 'FL_APROVACAO'
+                  if substr(wget('FL_APROVACAO','C'),1,1) <> 'A'
+                     if lnVL_TOTAL <= lnSET_VL_APROVACAO //Caso o Valor Total seja menor que Valor de Aprovação
+                        aadd(laSAVEAUX,'A')              //Define FL_REVISAO para A-Automatica
+                        if empty(laSAVEAUX[ascan(laMVTSAVE,'FL_REVISAO')])
+                           laSAVEAUX[ascan(laMVTSAVE,'FL_REVISAO')] := 'A'
+                           laSAVEAUX[ascan(laMVTSAVE,'DT_REVISAO')] := date()
+                           laSAVEAUX[ascan(laMVTSAVE,'LOGIN_REVISAO')] := WSet('LOGIN')
+                        endif
+                     else
+                        aadd(laSAVEAUX,'P') //PENDENTE
+                     endif
+                  else
+                     aadd(laSAVEAUX,wGet(laMVTSAVE[lnXX]))
+                  endif
+
+               elseif laMVTSAVE[lnXX] == 'DT_APROVACAO'
+                  if substr(wget('FL_APROVACAO','C'),1,1) <> 'A'
+                     if lnVL_TOTAL <= lnSET_VL_APROVACAO
+                        aadd(laSAVEAUX,date())
+                     else
+                        aadd(laSAVEAUX,CTOD('  /  /    '))
+                     endif
+                  else
+                     aadd(laSAVEAUX,wGet(laMVTSAVE[lnXX]))
+                  endif
+               elseif laMVTSAVE[lnXX] == 'DIGITAVEL'
+                     aadd(laSAVEAUX,wget('DIGITAVEL'))  
+                     
+               elseif laMVTSAVE[lnXX] == 'LOGIN_APROVACAO'
+                  if substr(wget('FL_APROVACAO','C'),1,1) <> 'A'
+                     if lnVL_TOTAL <= lnSET_VL_APROVACAO
+                        aadd(laSAVEAUX,WSet('LOGIN'))
+                     else
+                        aadd(laSAVEAUX,'')
+                     endif
+                  else
+                     aadd(laSAVEAUX,wget('LOGIN_APROVACAO'))
+                  endif
+               else
+                  aadd(laSAVEAUX,wGet(laMVTSAVE[lnXX]))
+               endif
+              
+            next lnXX
+            aadd(laSAVE,laSAVEAUX)
+
+//
+// Glauber 22/12/2014
+//
+// Em decorrencia da solicitação da pasta 2239 no portal de ocorrencias, conforme definido pelo renan, não pode perder os dados de revisão e aprovação de uma despesa
+// existente e que ja foi aprovada e revisada
+//
+//
+
+            // Caso a operação seja alteração de uma despesa e a mesma encontra-se aprovada, remover do laSAVE
+            if WGet('NR_DESPESA','N') > 0  .and. substr(wget('FL_REVISAO','C'),1,1) == 'A'
+               lnCOLUNA := ascan(laSAVE[1],'FL_REVISAO')
+               if lnCOLUNA > 0
+                  adel(laSAVE[1],lnCOLUNA)
+                  asize(laSAVE[1], len(laSAVE[1]) -1)
+                  adel(laSAVE[2],lnCOLUNA)
+                  asize(laSAVE[2], len(laSAVE[2]) -1)
+               endif
+               lnCOLUNA := ascan(laSAVE[1],'LOGIN_REVISAO')
+               if lnCOLUNA > 0
+                  adel(laSAVE[1],lnCOLUNA)
+                  asize(laSAVE[1], len(laSAVE[1]) -1)
+                  adel(laSAVE[2],lnCOLUNA)
+                  asize(laSAVE[2], len(laSAVE[2]) -1)
+               endif
+               lnCOLUNA := ascan(laSAVE[1],'DT_REVISAO')
+               if lnCOLUNA > 0
+                  adel(laSAVE[1],lnCOLUNA)
+                  asize(laSAVE[1], len(laSAVE[1]) -1)
+                  adel(laSAVE[2],lnCOLUNA)
+                  asize(laSAVE[2], len(laSAVE[2]) -1)
+               endif
+
+            endif
+            // Caso a operação seja alteração de uma despesa e a mesma encontra-se aprovada, remover do laSAVE
+            if WGet('NR_DESPESA','N') > 0  .and. substr(wget('FL_APROVACAO','C'),1,1) == 'A'
+               lnCOLUNA := ascan(laSAVE[1],'FL_APROVACAO')
+               if lnCOLUNA > 0
+                  adel(laSAVE[1],lnCOLUNA)
+                  asize(laSAVE[1], len(laSAVE[1]) -1)
+                  adel(laSAVE[2],lnCOLUNA)
+                  asize(laSAVE[2], len(laSAVE[2]) -1)
+               endif
+               lnCOLUNA := ascan(laSAVE[1],'LOGIN_APROVACAO')
+               if lnCOLUNA > 0
+                  adel(laSAVE[1],lnCOLUNA)
+                  asize(laSAVE[1], len(laSAVE[1]) -1)
+                  adel(laSAVE[2],lnCOLUNA)
+                  asize(laSAVE[2], len(laSAVE[2]) -1)
+               endif
+               lnCOLUNA := ascan(laSAVE[1],'DT_APROVACAO')
+               if lnCOLUNA > 0
+                  adel(laSAVE[1],lnCOLUNA)
+                  asize(laSAVE[1], len(laSAVE[1]) -1)
+                  adel(laSAVE[2],lnCOLUNA)
+                  asize(laSAVE[2], len(laSAVE[2]) -1)
+               endif
+            endif
+
+
+            *** grava despesa
+            lcWHERE := 'NR_PASTA='+lcNR_PASTA+' AND NR_DESPESA='+lcNR_DESPESA
+            psab_logs(laSAVE,'mvt_despesa',lcWHERE, lcNR_PASTA,'Despesas')
+            if db_replace(laSAVE,'mvt_despesa',{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+
+            if val(lcNR_DESPESA) == 0
+               lcNR_DESPESA := alltrim(str(db_insert_id()))
+            endif
+
+            *** grava rateio
+            if WGet('FL_AJUSTA_PEDIDO','C') == 'S'
+
+               if len(laSAVE_AUX)>1
+
+                  *** se for novo lançamento regrava numero da despesa
+                  if wget('NR_DESPESA','N') == 0
+
+                     //laSAV2 := {}
+
+                     for lnXX := 2 to len(laSAVE_AUX)
+                         laSAVE_AUX[lnXX,2]:=lcNR_DESPESA
+                     next lnXX
+                  endif
+
+                  if db_insert(laSAVE_AUX,'mvt_desprat')= -1
+                     error_sys(db_error())
+                  endif
+               endif
+            endif
+            
+            *** grava deposito judicial
+            if WGet('FL_DEPOSITO_JUDICIAL','C') == 'S'
+
+               if len(laSAVE_AUX)>1
+
+                  *** se for novo lançamento regrava numero da despesa
+                  if wget('NR_DESPESA','N') == 0
+
+                     //laSAV2 := {}
+
+                     for lnXX := 2 to len(laSAVE_AUX)
+                         laSAVE_AUX[lnXX,2]:=lcNR_DESPESA
+                     next lnXX
+                     
+                  endif
+                  
+                  laWHERE:={}
+                  for lnXX := 2 to len(laSAVE_AUX)
+                      ***
+                      ***lcWHERE := 'NR_PASTA='+lcNR_PASTA+' AND NR_CONTROLE_DESPESA='+lcNR_DESPESA 
+                      ***psab_logs(laSAVE_AUX,'mvt_depjud',lcWHERE, lcNR_PASTA,'Despesas')
+
+                      lcWHERE := 'NR_PASTA='+lcNR_PASTA+' AND NR_CONTROLE_DESPESA='+lcNR_DESPESA +' AND NR_CONTROLE_PEDIDO='+str(laSAVE_AUX[lnXX,3])
+                      aadd(laWHERE,lcWHERE)
+                     
+                  next lnXX    
+
+                  if db_replace(laSAVE_AUX,'mvt_depjud',laWHERE) == -1
+                     error_sys(db_error())
+                  endif
+               endif
+            endif            
+
+            //------   Fim da consistencia   --------------------------------------------
+         else
+            llERROR := .t.
+            get2put()
+         endif //Campos obrigatórios
+
+         endif
+
+         //---------------   Totalizando VL_RISCO   ----------------------------------
+         if !llERROR
+            lnVTR    += WGet('VAR_VL_RISCO_'+lcNR_ROW,'N')
+            lcDT     := dtos(WGet('VAR_DT_MOVTO_PED_'+lcNR_ROW,'D'))
+            lnVRC    := 0.00
+            lnVC     := 0.00
+            lnVJ     := 0.00
+            lnVLATU  := 0.00
+            ii       := 1
+            lcNR_ROW := '1'
+            do while WGet('VAR_PEDIDO_PROCESSO_'+lcNR_ROW,'B')
+               lcWHEREM           := 'NR_PASTA='+lcNR_PASTA+'and  NR_CONTROLE_PEDIDO='+str(WGet('VAR_NR_CONTROLE_'+lcNR_ROW,'N'))+' and NR_CONTROLE_DESPESA ='+lcNr_despesa
+               if db_select({'NR_PASTA','NR_CONTROLE_PEDIDO','FL_PEDIDO_PAGO','VL_RISCO_CAL_RAT','VL_CORRECAO_RAT','VL_JUROS_RAT'},'mvt_despped',,{lcWherem}) == -1
+                  error_sys(db_error())
+               endif 
+               laMvt        := db_fetchrow()
+               
+               lcFL_ESCOLHA := WGet('VAR_FL_ESCOLHA_'+lcNR_ROW,'C')
+               lnVLATU      := WGet('VAR_VL_ATUALIZADO_'+lcNR_ROW,'N')
+
+               //-----------   Movendo as chaves da Mvt_despped  -----------------------------------
+               if lcFL_ESCOLHA == 'S' .and. iif(len(laMVT)>0,laMVT[3] <> 'S',.t.)
+                  if db_select({'OCOR_PEDIDO_QUITA'},'despesa',,{'CD_DESPESA='+DLAP+WGet('CD_DESPESA','C')+DLAP}) == -1
+                     error_sys(db_error())
+                  endif
+                  laRES1 := db_fetchrow()
+                  if len(laRES1) > 0
+                     lcOCOR_PEDIDO:= laRES1[1]
+                  else
+                     lcOCOR_PEDIDO:= ''
+                  endif
+                  lnVL_RATEIO := round(Wget('VL_TT_RATEIO','N'),2)
+                  if lnVLATU <> iif(len(laMVT) > 0, laMVT[7],0)
+                     if lnVL_RATEIO > 0
+                        lnVRC :=  wGet('VAR_VL_RISCO_CALC_'+lcNR_ROW,'N')
+                        lnVC  :=  wGet('VAR_VL_CORRECAO_'+lcNR_ROW,'N')
+                        lnVJ  :=  wGet('VAR_VL_JUROS_'+lcNR_ROW,'N')
+                     else
+                        lnVLAPED      := wGet('VAR_VL_RISCO_CALC_'+lcNR_ROW,'N') + wGet('VAR_VL_CORRECAO_'+lcNR_ROW,'N') + wGet('VAR_VL_JUROS_'+lcNR_ROW,'N')
+                        lnPORC_RATEIO := round(lnVLATU / lnVLAPED,2)
+                        lnSLD_RATEIO  := lnVLATU
+                        lnVRC         := round(wGet('VAR_VL_RISCO_CALC_'+lcNR_ROW,'N') * lnPORC_RATEIO,2)
+                        lnSLD_RATEIO  -= lnVRC
+                        lnVC          := round(wGet('VAR_VL_CORRECAO_'+lcNR_ROW,'N') * lnPORC_RATEIO,2)
+                        lnSLD_RATEIO  -= lnVC
+                        lnVJ          := lnSLD_RATEIO
+                     endif
+                  else
+                     lnVRC :=  laMVT[4]
+                     lnVC  :=  laMVT[5]
+                     lnVJ  :=  laMVT[6]
+                  endif
+
+                  aadd(laSAVE_AUX,val(lcNR_PASTA))
+                  aadd(laSAVE_AUX,lcNR_DESPESA)
+                  aadd(laSAVE_AUX,WGet('VAR_NR_CONTROLE_'+lcNR_ROW,'N'))  // este e o nr_pedido
+
+                  aadd(laSAVE_AUX,lnVLATU)                                // valor total da despesa a Pagar
+
+                  aadd(laSAVE_AUX,lnVRC)                                  // valor risco
+                  aadd(laSAVE_AUX,lnVC)                                   // valor da correção
+                  aadd(laSAVE_AUX,lnVJ)                                   // valor juros
+
+                  aadd(laSAVE_AUX,WGet('VAR_DT_MOVTO_PED_'+lcNR_ROW,'D'))
+                  aadd(laSAVE_AUX,WGet('VAR_NR_CONTROLE_SEGURO_'+lcNR_ROW,'N'))
+                  aadd(laSAVE_AUX,WGet('CD_DESPESA','C'))                 // codigo da despesa
+                  aadd(laSAVE_AUX,WGet('VAR_DT_RISCO_'+lcNR_ROW,'D'))
+                  aadd(laSAVE_AUX,lcOCOR_PEDIDO)
+                  aadd(laSAVE_AUX,0)                                      // pc-calc_rateio
+                  aadd(laSAVE_AUX,0)                                      // Vl atualizado
+                  aadd(laSAVE_AUX,iif(len(laMVT)>0,laMVT[3],'N'))         // fl_pedido_pago
+                  aadd(laSAVE_AUX,'S')                                    // fl_escolha
+
+                  aadd(laSAVEM,laSAVE_AUX)
+                  lcWHEREM  := 'NR_PASTA='+lcNR_PASTA+'and NR_CONTROLE_DESPESA='+lcNr_DESPESA+' and NR_CONTROLE_PEDIDO='+str(WGet('VAR_NR_CONTROLE_'+lcNR_ROW,'N'))
+                  //---------------------- Efetuar Log de Alterações das Despesas     ------------------------------------------------
+                  //                       efetua_log(laPEDIDO_ATUAL,laSAVE_AUX,fcNR_PASTA,lcWHEREM,val(lcNR_ROW))
+                  if db_replace(laSAVEM,'mvt_despped',{lcWHEREM}) == -1
+                     error_sys(db_error())
+                  endif
+
+
+                  laSAVE_AUX := {}
+                  laSAVEM    := {}
+                  //------------ Salvando flag (FL_PEDIDO_DESPESA) na Tabela Pedidos  ------------------------
+                  lcWHEREM   := 'NR_PASTA='+lcNR_PASTA+'and  NR_CONTROLE='+str(WGet('VAR_NR_CONTROLE_'+lcNR_ROW,'N'))
+                  laSAVEM    := {{'FL_PEDIDO_DESPESA'}}
+                  aadd(laSAVE_aux,'S')
+                  aadd(laSAVEM,laSAVE_aux)
+
+                  if db_replace(laSAVEM,'pasta_pedidos',{lcWHEREM},) == -1
+                     error_sys(db_error())
+                  endif
+                  laSAVE_AUX := {}
+                  laSAVEM    := {}
+                  aadd(laSAVEM,laFIELDSM)
+               endif
+               
+               ii++
+               lcNR_ROW := alltrim(str(ii))
+            enddo
+            wPut('ifDESPESAS',.f.)
+         else
+
+               wPut('ifDESPESAS',.t.)
+
+               if lcAJUSPED == 'S'  .or. lcDEPJUD == 'S'
+                  wPut('ifPEDIDOS',.t.)
+                  carrega_pedido(lcNR_PASTA,lcTP_PASTA,lcNR_DESPESA,lcACTION,laPED_RATEIO,lcNR_SEGURO,llERROR,laVA_PEDIDO,lcABA_PED_NOVA,lcPARAM,lcAJUSPED,lcDEPJUD)
+               endif
+
+         endif
+         
+         
+        //-----BLoco do save do Pedido
+        //---   Fim da gravação de pedido   --------------------------------
+      endif    // Pasta Encerrada
+
+    else   
+                     
+            get2put()
+            wPut('ifDESPESAS',.t.)
+
+            if lcAJUSPED == 'S'  .or. lcDEPJUD == 'S'
+               wPut('ifPEDIDOS',.t.)
+               carrega_pedido(lcNR_PASTA,lcTP_PASTA,lcNR_DESPESA,lcACTION,laPED_RATEIO,lcNR_SEGURO,llERROR,laVA_PEDIDO,lcABA_PED_NOVA,lcPARAM,lcAJUSPED,lcDEPJUD)
+            endif
+        
+         
+    endif // erro rateio
+
+   elseif lcACTION == 'INCLUIR_PG'
+
+     lcWHERE := 'NR_PASTA = ' + lcNR_PASTA + ' AND NR_DESPESA = '+ lcNR_DESPESA
+
+      // Verifica se o registro é do tipo despesa_pagamento e salva na tabela
+
+      if !empty(lcDT_PGTO) .and. lnVL_PAGO > 0
+         // Verifica se a Despesa esta aprovada para permitir a gravação do pagamento
+         if db_select({'FL_REVISAO','FL_APROVACAO','FL_PGINTERFACE','DT_ENVIO_CTPAG'},'mvt_despesa',,{lcWHERE},,,,,) == -1
+            error_sys(db_error())
+         endif
+         laRESULT1 := db_fetchall()
+
+         // verifica se o lançamento ja foi feito via PAG-NET
+         if dtoc(laRESULT1[2,ascan(laRESULT1[1],'DT_ENVIO_CTPAG')]) <> '  /  /    '
+            walert('Pagamento não pode ser lançado manualmente, pagamento feito via PAG_NET')
+            llERROR := .t.
+         endif
+
+         make_psthead(lcNR_PASTA,lcTP_PASTA)
+
+         if (laRESULT1[2,ascan(laRESULT1[1],'FL_REVISAO')] == 'A' .or. laRESULT1[2,ascan(laRESULT1[1],'FL_REVISAO')] == 'S') .and. (laRESULT1[2,ascan(laRESULT1[1],'FL_APROVACAO')] == 'A' .or. laRESULT1[2,ascan(laRESULT1[1],'FL_APROVACAO')] == 'S')
+            // Pega a flag de tipo de lançamento na configuração da Pasta
+            if db_select({'FL_CTPAG'},'pasta_config',,{'TP_PASTA = '+DLAP+lcTP_PASTA+DLAP},,,,,) == -1
+               error_sys(db_error())
+            endif
+            laRESULT := db_fetchall()
+            if len(laRESULT) >= 2
+               lcFLPASTA := laRESULT[2,1]
+            else
+               lcFLPASTA := ' '
+            endif
+
+            // verifica se o lançamento pode ser feito manualmente
+            if lcFLPASTA == 'I'
+               if laRESULT1[2,ascan(laRESULT1[1],'FL_PGINTERFACE')] == 'S'
+                  walert('Pagamento não pode ser lançado manualmente')
+                  llERROR := .t.
+               endif
+            endif
+          else
+            walert('Pagamento não pode ser lançado, \n a Despesa ainda não foi Revisada / Aprovada.')
+            llERROR := .t.
+          endif
+
+         if !llERROR
+
+            laFIELDS_DESP_PAG := {'NR_PASTA','NR_DESPESA','NR_CONTROLE','DT_PAGAMENTO','VL_PAGO','DT_CADASTRO',;
+                                  'LOGIN_CADASTRO','FL_PAGAMENTO'}
+
+            laSAVE_DESP_PAG   := {{'NR_PASTA','NR_DESPESA','NR_CONTROLE','DT_PAGAMENTO','VL_PAGO','DT_CADASTRO',;
+	                                 'LOGIN_CADASTRO','FL_PAGAMENTO'}}
+/* equiparação Unimed - 26/04/2013 09:59:58
+            laSAV2 := {}
+            for lnXX := 1 to len(laFIELDS_DESP_PAG)
+               if laFIELDS_DESP_PAG[lnXX] == 'NR_CONTROLE'
+                  aadd(laSAV2,0)
+               elseif laFIELDS_DESP_PAG[lnXX] == 'FL_PAGAMENTO'
+                  aadd(laSAV2,'A')
+               else
+                  aadd(laSAV2,wGet(laFIELDS_DESP_PAG[lnXX]))
+               endif
+            next lnXX
+
+            aadd(laSAVE_DESP_PAG,laSAV2)
+*/
+         laSAVEAUX := {}
+         for lnXX := 1 to len(laFIELDS_DESP_PAG)
+            if laFIELDS_DESP_PAG[lnXX] == 'NR_CONTROLE'
+               aadd(laSAVEAUX,0)
+            elseif laFIELDS_DESP_PAG[lnXX] == 'FL_PAGAMENTO'
+               aadd(laSAVEAUX,'A')
+            else
+               aadd(laSAVEAUX,wGet(laFIELDS_DESP_PAG[lnXX]))
+            endif
+         next lnXX
+         aadd(laSAVE_DESP_PAG,laSAVEAUX)
+
+
+            lnCOLUNA := ascan(laSAVE_DESP_PAG[1],'VL_PAGO')
+
+            // Verifica o valor pago das despesas
+            laFIELDS := {'sum(VL_PAGO)'}
+            lcWHERE  := 'NR_PASTA = '+lcNR_PASTA+' AND NR_DESPESA = '+lcNR_DESPESA+;
+                        ' AND FL_PAGAMENTO = '+DLAP+'A'+DLAP
+
+            if db_select({'VL_TOTAL','CD_DESPESA'},'mvt_despesa',,{'NR_PASTA = '+lcNR_PASTA+' AND NR_DESPESA = '+lcNR_DESPESA}) == -1
+               error_sys(db_error())
+            endif
+            laRESULT     := db_fetchrow()
+
+            lnVL_TOTAL   := laRESULT[1]
+            lcCD_DESPESA := laRESULT[2]
+
+            if db_select(laFIELDS,'mvt_despesa_pagamento',,{lcWHERE},,,{'NR_PASTA','NR_DESPESA'}) == -1
+               error_sys(db_error())
+            endif
+            laRESULT    := db_fetchrow()
+
+            lnACUMULADO += iif(len(laRESULT) > 0, laRESULT[1],0) + laSAVE_DESP_PAG[2,lnCOLUNA]
+
+            if round(lnACUMULADO,2) > round(lnVL_TOTAL,2)
+               Walert('Atenção: Valor pago não deve ultrapassar o valor total da despesa.')
+               llERROR := .t.
+            endif
+         endif
+
+         if !llERROR
+  	        lnCOLUNA     := ascan(laSAVE_DESP_PAG[1],'NR_DESPESA')
+            lnNR_DESPESA := 0
+	          if laSAVE_DESP_PAG[2,lnCOLUNA] == 0
+	             laSAVE_DESP_PAG[2,lnCOLUNA] := db_insert_id()
+	             lnNR_DESPESA                := alltrim(str(db_insert_id()))
+	             lcWHERE := 'NR_PASTA = ' + lcNR_PASTA + ' AND NR_DESPESA = '+ alltrim(str(db_insert_id()))
+	          else
+ 	             lnNR_DESPESA := alltrim(wget('NR_DESPESA','C'))
+	          endif
+
+            if db_select({'FL_AJUSTA_PEDIDO','FL_CONTABILIZA_LANCTOS_CONT','OCOR_PEDIDO_QUITA','FL_ZERAR_PROVISAO','FL_DEPOSITO_JUDICIAL'},'despesa',,{'CD_DESPESA='+DLAP+lcCD_DESPESA+DLAP}) == -1
+    	         error_sys(db_error())
+    	      endif
+            laRES_DESPESA := db_fetchrow()
+
+            if laRES_DESPESA[1] == 'S' // AJUSTA_PEDIDO
+               lcWHERE  := 'NR_PASTA = '+lcNR_PASTA+' AND NR_CONTROLE_DESPESA = '+lcNR_DESPESA
+
+               if db_select({'sum(VL_RATEADO)'},'mvt_desprat',,{lcWHERE},,,{'NR_PASTA','NR_CONTROLE_DESPESA'}) == -1
+                  error_sys(db_error())
+               endif
+               laRESULT    := db_fetchrow()
+
+               if round(lnACUMULADO,2) <> round(iif(len(laRESULT) > 0,laRESULT[1],0),2)
+                  Walert('Atenção: Valor pago não pode ser diferente do total do rateio.')
+                  llERROR := .t.
+               endif
+            endif
+
+            if !llERROR
+            
+                 
+               if laRES_DESPESA[5] == 'S'  // DEPOSITO JUDICIAL 
+                  *** obriga dados deposito 
+                  laVALIDA:={'TP_DEPOSITO','CD_INDICE'}
+               else
+                  laVALIDA:={}
+               endif
+
+               
+              if verif_reqfield(WSET('_USER_INTERFACE'),laVALIDA) == .T.
+
+               lcWHERE  := 'NR_PASTA = '+lcNR_PASTA+' AND NR_DESPESA = '+lcNR_DESPESA
+               psab_logs(laSAVE_DESP_PAG,'mvt_despesa_pagamento',lcWHERE,lcNR_PASTA,'Despesas')
+
+  	           if db_insert(laSAVE_DESP_PAG,'mvt_despesa_pagamento') == -1
+	                error_sys(db_error())
+    	         endif
+
+               if db_select({'max(NR_CONTROLE)'},'mvt_despesa_pagamento') == -1
+	                error_sys(db_error())
+    	         endif
+               laRES     := db_fetchrow()
+
+               lnNR_PGTO := laRES[1]
+
+               if len(laRES_DESPESA) > 0
+                  *** EFETUA LANÇAMENTOS NO PASTA_PEDIDO E PASTA_DETAL_PEDIDO
+                  if laRES_DESPESA[1] == 'S'  // AJUSTA_PEDIDO
+                     contabiliza_pedido(lcNR_PASTA,lcTP_PASTA,lcNR_DESPESA,wget('VL_PAGO','N'),laRES_DESPESA[2],laRES_DESPESA[3],lnNR_PGTO,laRES_DESPESA[4],lcABA_PED_NOVA)
+                  endif
+                  
+                  *** cria rateio deposito judicial                   
+                  if laRES_DESPESA[5] == 'S'  // DEPOSITO JUDICIAL
+                     
+                     *** lança pago no rateio
+                     *** pagamento e feito na tela de deposito
+                     *** cria_ratdjud(lcNR_PASTA,lcTP_PASTA,lcNR_DESPESA) 
+                     
+                     ***  AQUI CRIAR O DEPOSITO GERADO NO PAGAMENTO
+                     gera_deposito(lcNR_DESPESA)
+                     
+                  endif
+                  
+               endif
+              endif  
+               
+            endif
+         endif
+      endif
+
+
+         lcDEPJUD  := WGet('FL_DEPOSITO_JUDICIAL','C')
+         lcAJUSPED := WGet('FL_AJUSTA_PEDIDO','C') 
+         
+         wPut('ifDESPESAS',.t.)
+         
+         *** refaz grid pedido
+         if (lcAJUSPED == 'S' .OR. lcDEPJUD == 'S')
+            wPut('ifPEDIDOS', .t.)
+            carrega_pedido(lcNR_PASTA,lcTP_PASTA,lcNR_DESPESA,lcACTION,laPED_RATEIO,lcNR_SEGURO,llERROR,laVA_PEDIDO,lcABA_PED_NOVA,lcPARAM,lcAJUSPED,lcDEPJUD)
+         endif
+
+   //-------------- Botão Calcular  ----------------------------------------
+
+   elseif lcACTION == 'CALCULAR'
+
+      get2put()
+
+      wPut('ifDESPESAS',.t.)
+      wPut('ifPEDIDOS',.t.)
+      
+      lcDEPJUD  := WGet('FL_DEPOSITO_JUDICIAL','C')
+      lcAJUSPED := WGet('FL_AJUSTA_PEDIDO','C')    
+
+      carrega_pedido(lcNR_PASTA,lcTP_PASTA,lcNR_DESPESA,lcACTION,laPED_RATEIO,lcNR_SEGURO,llERROR,laVA_PEDIDO,lcABA_PED_NOVA,lcPARAM,lcAJUSPED,lcDEPJUD)
+
+   //---------- Excluir Registro Principal e Pagamentos e mov_despesas
+   elseif lcACTION == 'DELETE'
+      lcTP_PASTA       := wGet('TP_PASTA','C')
+      lcNR_PASTA       := wGet('NR_PASTA','C')
+      lcNR_DESPESA     := wGet('NR_DESPESA','C')
+      lcCIP_ESCRITORIO := wGet('CIP_ESCRITORIO','C')
+      llERROR          := .f.
+      lcWHERE_PGOMVT   := 'NR_PASTA = '+lcNR_PASTA+' and NR_DESPESA = '+lcNR_DESPESA
+// Ajuste em 24/05/2013 16:27:45 por Sonia Perdigão
+// Solicitado por Alexandre di Alexandri
+
+      if db_select({'FL_REVISAO'},'mvt_despesa',,{lcWHERE_PGOMVT}) == -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchrow()
+
+      if len(laRES) > 0
+         if laRES[1] = 'A'
+            // Já foram efetuados pagamentos e a despesa contabiliza Pedidos
+            // Não pode ser excluida.
+            walert('A Despesa já está REVISADA/APROVADA! \n Não pode ser Excluída')
+            llERROR := .t.
+         endif
+      endif
+
+      if db_select({'sum(VL_PAGO)'},'mvt_despesa_pagamento',,{lcWHERE_PGOMVT}) == -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchrow()
+
+      if len(laRES) > 0
+         if laRES[1] > 0
+            // Já foram efetuados pagamentos e a despesa contabiliza Pedidos
+            // Não pode ser excluida.
+            walert('A Despesa não pode ser Excluída, \n já foram efetuados Pagamentos.')
+            llERROR := .t.
+         endif
+      endif
+
+      if !llERROR
+         if db_delete('mvt_despesa_pagamento',lcWHERE_PGOMVT) = -1
+            error_sys(db_error())
+         endif
+         psab_logdel(wGet('VL_PAG','C'),'VL_PAG',lcNR_DESPESA,,'Despesa')
+         if db_delete('mvt_despesa',lcWHERE_PGOMVT) = -1
+            error_sys(db_error())
+         endif
+
+         if WGet('FL_AJUSTA_PEDIDO','C') == 'S'
+            //----- Deletando movto despesas --------------------------------------
+            deleta_mvt_despped(lcNR_PASTA, lcNR_DESPESA)
+         endif
+         
+         if WGet('FL_DEPOSITO_JUDICIAL','C') == 'S'            
+            if db_delete('mvt_depjud',lcWHERE_PGOMVT) = -1
+               error_sys(db_error())
+            endif     
+         endif
+
+         wput('ifDESPESAS',.f.)
+      endif
+
+   //---------- Excluir Somente Pagamentos
+   elseif lcACTION == 'DELETE_PG'  .and. gbWAC_DELETE
+      lcTP_PASTA     := wGet('TP_PASTA','C')
+      lcNR_PASTA     := wGet('NR_PASTA','C')
+      lcNR_DESPESA   := wGet('NR_DESPESA','C')
+      lcNR_CONTROLE  := wGet('NR_CONTROLE','C')
+      llERROR        := .f.
+      lcWHERE_PGOMVT := 'NR_PASTA = '+lcNR_PASTA+' and NR_DESPESA = '+lcNR_DESPESA
+
+      if db_select({'sum(VL_PAGO)'},'mvt_despesa_pagamento',,{lcWHERE_PGOMVT}) == -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchrow()
+
+      if len(laRES) > 0
+         if laRES[1] > 0
+            // Já foram efetuados pagamentos e a despesa contabiliza Pedidos
+            // Não pode ser excluida.
+            llERROR := .t.
+            walert('O Pagamento não pode ser Excluído.')
+         endif
+      endif
+      if !llERROR
+         lcWHERE := 'NR_CONTROLE = ' + lcNR_CONTROLE
+         psab_logdel(lcNR_PASTA,'NR_DESPESA',lcNR_DESPESA,,'Despesa')
+         if db_delete('mvt_despesa_pagamento',lcWHERE_PGOMVT) = -1
+            error_sys(db_error())
+         endif
+      endif
+
+   //---------- Ativar/Cancelar Pagamento
+   elseif ((lcACTION == 'ATIVAR') .or. (lcACTION == 'CANCELAR')) .and. gbWAC_WRITE
+      lcTP_PASTA    := wGet('TP_PASTA','C')
+      lcNR_PASTA    := wGet('NR_PASTA','C')
+      lcNR_DESPESA  := wGet('NR_DESPESA','C')
+      lcNR_CONTROLE := wGet('NR_CONTROLE','C')
+      lcACAO        := wGet('FL_PAGAMENTO','C')
+      laSAVE        := {}
+      laFIELDS      := {}
+      laRESULT      := {}
+      laFIELDS      := {'NR_PASTA','NR_DESPESA','NR_CONTROLE','FL_PAGAMENTO','VL_PAGO'}
+      laSAVE        := {{'FL_PAGAMENTO'}}
+      lcWHERE       := 'NR_PASTA = ' + lcNR_PASTA + ' and NR_DESPESA = '+ lcNR_DESPESA +;
+                       ' AND NR_CONTROLE = '+lcNR_CONTROLE
+      if db_select(laFIELDS,'mvt_despesa_pagamento',,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+
+      if len(laRESULT) >= 2
+         lnELEMENTO := ascan(laRESULT[1],'FL_PAGAMENTO')
+         if laRESULT[2,lnELEMENTO] == 'A'
+            laRESULT[2,lnELEMENTO] := 'C'
+         else
+
+            // Verifica o valor pago das despesas
+            laFIELDS := {'VL_PAGO'}
+            lcWHERE := 'NR_PASTA = '+lcNR_PASTA+' AND NR_DESPESA = '+lcNR_DESPESA+;
+                       ' AND FL_PAGAMENTO = '+DLAP+'A'+DLAP
+
+            if db_select(laFIELDS,'mvt_despesa_pagamento',,{lcWHERE},,,,,) == -1
+               error_sys(db_error())
+            endif
+            laRESULT1 := db_fetchall()
+
+            lnelemento := ascan(laRESULT1[1],'VL_PAGO')
+            for lnXX := 2 to len(laRESULT1)
+                lnACUMULADO := lnACUMULADO + laRESULT1[lnXX,lnelemento]
+            next lnXX
+            lnACUMULADO += laRESULT[2,ascan(laRESULT[1],'VL_PAGO')]
+
+            if db_select({'VL_TOTAL'},'mvt_despesa',,{'NR_PASTA = '+lcNR_PASTA+' AND NR_DESPESA = '+lcNR_DESPESA}) == -1
+               error_sys(db_error())
+            endif
+            laRESULT1 := db_fetchrow()
+
+            if len(laRESULT1) > 0
+               lnVL_TOTAL := laRESULT1[1]
+            else
+               lnVL_TOTAL := 0
+            endif
+
+            if lnACUMULADO > lnVL_TOTAL //wGet('VL_TOTAL','N')
+               Walert('Atenção: Valor pago não deve ultrapassar o valor total da despesa.')
+               llERROR := .t.
+            endif
+            laRESULT[2,lnELEMENTO] := 'A'
+         endif
+      endif
+
+      if laRESULT[2,lnELEMENTO] == 'C' .and. !empty(wGet('DT_ENVIO_CTPAG'))
+         walert('Pagamento não pode ser Cancelado, já foi enviado para pagamento.')
+         llERROR := .t.
+      endif
+
+      if !llERROR
+         aadd(laSAVE,{laRESULT[2,lnELEMENTO]})
+
+         //---------- Gravar Log de Alteração de Pasta Antes de executar o db_replace
+         psab_logs(laSAVE,'mvt_despesa_pagamento',lcWHERE,lcNR_PASTA,'Despesas')
+         lcWHERE := 'NR_PASTA = ' + lcNR_PASTA + ' and NR_DESPESA = '+ lcNR_DESPESA+' AND NR_CONTROLE = '+lcNR_CONTROLE
+         if db_replace(laSAVE,'mvt_despesa_pagamento',{lcWHERE}) == -1
+            error_sys(db_error())
+         endif
+
+         //---------- Lançar ou Extornar valor pago
+         if db_select({'CD_DESPESA'},'mvt_despesa',,{'NR_PASTA='+lcNR_PASTA+' and NR_DESPESA='+lcNR_DESPESA}) == -1
+            error_sys(db_error())
+         endif
+         laRES_DESPESA := db_fetchrow()
+
+         lcCD_DESPESA  := laRES_DESPESA[1]
+
+         if db_select({'FL_AJUSTA_PEDIDO','FL_CONTABILIZA_LANCTOS_CONT','OCOR_PEDIDO_QUITA','FL_ZERAR_PROVISAO'},'despesa',,{'CD_DESPESA='+DLAP+lcCD_DESPESA+DLAP}) == -1
+    	      error_sys(db_error())
+    	   endif
+         laRES_DESPESA := db_fetchrow()
+
+         wPut('ifDESPESAS',.t.)
+
+      endif    // encontrou Erro para ativar / cancelar do pagamento.
+
+      elseif lcACTION == 'GED' .and. gbWAC_READ
+
+        wURL := mkgedruf('mvt_despesa',{WGet('NR_PASTA','C'),WGet('TP_PASTA','C'),WGet('NR_DESPESA','C'),'',''})
+
+        WPut('ATIVAGED','S')
+        WPut('URLGED',wURL)
+        wPut('ifDESPESAS',.f.)
+
+   endif      // Action
+
+
+***** aqui termina os lcACTION
+
+
+
+      make_psthead(lcNR_PASTA,lcTP_PASTA)
+
+      if lcNR_DESPESA <> '' .AND. lcNR_DESPESA <> '0'
+         Grid_DespPG(lcNR_PASTA,lcNR_DESPESA)
+
+         lcNR_DESPESA       := wGet('NR_DESPESA','C')
+
+         lcFl_AJUSTA_PEDIDO := MostraPG(lcNR_PASTA,lcNR_DESPESA,lcACTION,lnVL_RATEIO,@lcNR_SINISTRO,@lcNR_SEGURO)
+
+         *** RUFINO 17/06/2016 14:26:29 alteração mantem a nova digitação do CD_DESPESA refaz dados ref ao novo codigo de despesa
+         if lcACTION == 'PEDIDO' .AND. (lcNR_DESPESA <> '' .AND. lcNR_DESPESA <> '0')
+
+
+            lcWHERE :='CD_DESPESA='+DLAP+wget('CD_DESPESA','C')+DLAP
+
+            if db_select({'despesa.FL_AJUSTA_PEDIDO','despesa.CD_GRP_DESPESA','grupo_despesa.NM_GRP_DESPESA','despesa.FL_DEPOSITO_JUDICIAL'},'despesa',{{2,'grupo_despesa','despesa.CD_GRP_DESPESA = grupo_despesa.CD_GRP_DESPESA'}},{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+            laRES2 := db_fetchrow()
+
+            wput('CD_DESPESA',wget('CD_DESPESA','C'))
+            wput('NM_DESPESA',wget('CD_DESPESA','C'))
+
+            wput('FL_AJUSTA_PEDIDO',laRES2[1])
+            wput('FL_DEPOSITO_JUDICIAL',laRES2[4])
+            
+            wput('CD_GRP_DESPESA',laRES2[2])
+            wput('NM_GRP_DESPESA',laRES2[3])  
+            
+            wput('NR_CONTROLE_SEGURO',alltrim(str(wGet('NR_CONTROLE_SEGURO','N'))) )
+            wput('NR_SINISTRO',wGet('NR_SINISTRO','C'))                       
+
+            *** rufino 06/07/2016 17:46:11 mantem a quantidade e valor unitario digitado
+            if WGet('QTD','N') > 0 .and. WGet('VT','N') > 0
+               wput('QUANTIDADE',WGet('QTD','N'))
+               wput('VL_UNIT',WGet('VT','N'))
+               lnVA = WGet('QTD','N') * WGet('VT','N')
+
+               wput('VL_TOTAL',lnVA)
+            endif
+         endif             
+         
+         if lcACTION == 'ALTER'
+            if (lcAJUSPED == 'S' .OR. lcDEPJUD == 'S')
+               wPut('ifPEDIDOS',.t.)
+               carrega_pedido(lcNR_PASTA,lcTP_PASTA,lcNR_DESPESA,lcACTION,laPED_RATEIO,lcNR_SEGURO,llERROR,laVA_PEDIDO,lcABA_PED_NOVA,lcPARAM,lcAJUSPED,lcDEPJUD)
+            else
+               wPut('ifPEDIDOS',.f.)
+            endif         
+         endif
+
+      endif
+
+return
+
+
+/*
+* Data da Criação: 03/07/2006 - Glauber Vicente Duma
+* Function.......: Grid_DespPG()
+* Objetivo.......: Montar a Grade de Despesa / Pagamentos
+* Parâmetros.....:
+*                  <pcpasta>        número da pasta
+*                  <pcnr_despesa>   número da despesa
+*
+* Retorno........: Nenhum
+*/
+
+Static Function Grid_DespPG(pcPASTA,pcNR_DESPESA)
+
+   local laFIELDS := {},;
+         laRES1   := {},;
+         laRES2   := {},;
+         laRESULT := {} as array
+
+   local xx         := 0,;
+         lnelemento := 0 as numeric
+
+   laFIELDS := {'NR_PASTA','NR_DESPESA','NR_CONTROLE','DT_PAGAMENTO','VL_PAGO',;
+                'DT_CADASTRO','LOGIN_CADASTRO','FL_PAGAMENTO'}
+
+   lcWHERE := 'NR_PASTA = '+pcPASTA + ' AND NR_DESPESA = '+pcNR_DESPESA
+
+   if db_select(laFIELDS,'mvt_despesa_pagamento',,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   if len(laRESULT) >= 2
+
+      if db_select({'CD_DESPESA'},'mvt_despesa',,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRES1 := db_fetchrow()
+
+      lcWHERE :='CD_DESPESA='+DLAP+laRES1[1]+DLAP
+
+      if db_select({'FL_AJUSTA_PEDIDO'},'despesa',,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRES2 := db_fetchrow()
+
+      if laRES2[1]='S' //AJUSTA PEDIDO=S
+         wPut('ifNAJUSTA', .f.)
+      else
+         wPut('ifNAJUSTA', .t.)
+      endif
+
+      wPut('ifATIVAR', .T.)
+      aadd(laRESULT[1],'STYLE_CANCELADO')
+      lnelemento := ascan(laRESULT[1],'FL_PAGAMENTO')
+      lnelem2 := ascan(laRESULT[1],'DT_PAGAMENTO')
+      for xx := 2 to len(laRESULT)
+         if laRESULT[xx,lnelemento] == 'C'
+            laRESULT[xx,lnelem2] := '(Cancelado)' + dtoc(laRESULT[xx,lnelem2])
+            aadd(laRESULT[XX],'color:red')
+         else
+            laRESULT[xx,lnelemento2] := dtoc(laRESULT[xx,lnelem2])
+            aadd(laRESULT[XX],'color:black')
+         endif
+      next xx
+      Wput('lstPAGAMENTO',laRESULT)
+   endif
+return
+
+/*
+* Data da Criação: 03/07/2006 - Glauber Vicente Duma
+* Function.......: MostraPG()
+* Objetivo.......: Mostra o conteudo do registro na ui. A partir da escolha
+*                  na grid joga o conteudo para os campos na tela
+* Parâmetros.....:
+*                  <pc_nr_pasta>    número da pasta.
+*                  <pc_nr_despesa>  número da despesa.
+*                  <fcACTION>       Ação do Botão
+*                  <fnVL_RATEIO>    VL digitado do Rateio
+*
+* Retorno........: Nenhum
+*
+*   Alteração - Valdimari Martins - 14/05/2009
+*               Inclusão do Parametro fcACTION e fnVL_RATEIO
+*               para alimentar o valor do rateio conforme o Action
+*               se CALCULAR recebe fnVL_RATEIO se não recebe da base.
+*               15/05/2009
+*               Parametros de NR_SINISTRO E NR_CONTROLE_SEGURO para receber os dados
+*               destes campos.
+*/
+
+Static Function MostraPG(pcNR_PASTA,pcNR_DESPESA,fcACTION,fnVL_RATEIO,@lcNR_SINISTRO,@lcNR_SEGURO)
+
+   local lcWHERE := '' as string
+
+   local laFIELDS   := {},;
+         laJOIN     := {},;
+         laREADONLY := {},;
+         laRESAUX   := {},;
+         laRESULT   := {} as array
+
+   local lnelemento := 0,;
+         ii         := 0 as numeric
+
+   local lcFl_ajusta_pedido := '' as string
+
+   lcWHERE := 'mvt_despesa.NR_PASTA = '+pcNR_PASTA+' AND mvt_despesa.NR_DESPESA = '+pcNR_DESPESA
+   // Glauber 22/06/2010
+
+/*
+   laFIELDS := {'mvt_despesa.NR_PASTA','mvt_despesa.NR_DESPESA','mvt_despesa.CIP_ESCRITORIO','mvt_despesa.CIP_EMPRESA_PAGADORA',;
+                'mvt_despesa.DT_REF','mvt_despesa.LOGIN','mvt_despesa.CD_DESPESA',;
+                'mvt_despesa.CD_GRP_DESPESA','mvt_despesa.QUANTIDADE','mvt_despesa.VL_UNIT',;
+                'mvt_despesa.VL_TOTAL','mvt_despesa.DT_PREVISAO_PAGTO','mvt_despesa.FORMA_PAGAMENTO',;
+                'mvt_despesa.NR_CONTROLE_SEGURO','mvt_despesa.CIP_FAVORECIDO','mvt_despesa.TP_FAVORECIDO',;
+                'mvt_despesa.TP_DOCFISCAL','mvt_despesa.DT_EMISSAO_DOCFISCAL','mvt_despesa.NR_DOCFISCAL',;
+                'mvt_despesa.CD_CCUSTO','mvt_despesa.DT_ENVIO_CTPAG','mvt_despesa.EXTRA','pfpj.PFPJ',;
+                'mvt_despesa.FL_APROVACAO','mvt_despesa.FL_REVISAO','mvt_despesa.DT_APROVACAO',;
+                'mvt_despesa.DT_REVISAO','mvt_despesa.LOGIN_APROVACAO','mvt_despesa.LOGIN_REVISAO',;
+                'despesa.NM_DESPESA','grupo_despesa.NM_GRP_DESPESA','tipo_favorecido.TP_FAVORECIDO',;
+                'tipo_docfiscal.TP_DOCFISCAL','centrocusto.NM_CCUSTO','despesa.FL_AJUSTA_PEDIDO','mvt_despesa.VL_TT_RATEIO',;
+                'pasta_seguro.NR_SINISTRO'}
+*/
+
+   laFIELDS := {'mvt_despesa.NR_PASTA','mvt_despesa.NR_DESPESA','mvt_despesa.CIP_ESCRITORIO','mvt_despesa.CIP_EMPRESA_PAGADORA',;
+                'mvt_despesa.DT_REF','mvt_despesa.LOGIN','mvt_despesa.CD_DESPESA',;
+                'mvt_despesa.CD_GRP_DESPESA','mvt_despesa.QUANTIDADE','mvt_despesa.VL_UNIT',;
+                'mvt_despesa.VL_TOTAL','mvt_despesa.DT_PREVISAO_PAGTO','mvt_despesa.FORMA_PAGAMENTO',;
+                'mvt_despesa.NR_CONTROLE_SEGURO','mvt_despesa.CIP_FAVORECIDO','mvt_despesa.TP_FAVORECIDO',;
+                'mvt_despesa.TP_DOCFISCAL','mvt_despesa.DT_EMISSAO_DOCFISCAL','mvt_despesa.NR_DOCFISCAL',;
+                'mvt_despesa.CD_CCUSTO','mvt_despesa.DT_ENVIO_CTPAG','mvt_despesa.EXTRA','pfpj.PFPJ',;
+                'mvt_despesa.FL_APROVACAO','mvt_despesa.FL_REVISAO','mvt_despesa.DT_APROVACAO',;
+                'mvt_despesa.DT_REVISAO','mvt_despesa.LOGIN_APROVACAO','mvt_despesa.LOGIN_REVISAO',;
+                'mvt_despesa.FL_PGINTERFACE','mvt_despesa.FL_INTERFACEGEM','mvt_despesa.FL_INTERFACEWEB',;
+                'despesa.NM_DESPESA','grupo_despesa.NM_GRP_DESPESA','tipo_favorecido.TP_FAVORECIDO',;
+                'tipo_docfiscal.TP_DOCFISCAL','centrocusto.NM_CCUSTO','despesa.FL_AJUSTA_PEDIDO','mvt_despesa.VL_TT_RATEIO',;
+                'pasta_seguro.NR_SINISTRO',;
+                'mvt_despesa.CD_BANCO','mvt_despesa.BANCO_AGENCIA','mvt_despesa.BANCO_CONTA','mvt_despesa.BANCO_CONTA_DIGITO',;
+                'mvt_despesa.COD_AUXILIAR1','mvt_despesa.VL_AUXILIAR1','mvt_despesa.DT_AUXILIAR1',;
+                'mvt_despesa.COD_AUXILIAR2','mvt_despesa.VL_AUXILIAR2','mvt_despesa.DT_AUXILIAR2',;
+                'mvt_despesa.COD_AUXILIAR3','mvt_despesa.VL_AUXILIAR3','mvt_despesa.DT_AUXILIAR3',;
+                'pasta_seguro.NR_SINISTRO','mvt_despesa.FL_CANCELADO','mvt_despesa.LOGIN_CANCELAMENTO','mvt_despesa.DT_CANCELAMENTO','mvt_despesa.CANCELAMENTO_MOTIVO',;
+                'despesa.FL_DEPOSITO_JUDICIAL','mvt_despesa.DIGITAVEL'}
+
+   laJOIN   := {{2,'pfpj','mvt_despesa.CIP_ESCRITORIO = pfpj.CIP'},;
+                {2,'pfpj pfpj_pagadora','mvt_despesa.CIP_EMPRESA_PAGADORA = pfpj_pagadora.CIP'},;
+                {2,'despesa','mvt_despesa.CD_DESPESA = despesa.CD_DESPESA'},;
+                {2,'grupo_despesa','mvt_despesa.CD_GRP_DESPESA = grupo_despesa.CD_GRP_DESPESA'},;
+                {2,'tipo_favorecido','mvt_despesa.TP_FAVORECIDO = tipo_favorecido.TP_FAVORECIDO'},;
+                {2,'tipo_docfiscal','mvt_despesa.TP_DOCFISCAL = tipo_docfiscal.TP_DOCFISCAL'},;
+                {2,'pasta_seguro','mvt_despesa.NR_CONTROLE_SEGURO = pasta_seguro.NR_CONTROLE'},;
+                {2,'centrocusto','mvt_despesa.CD_CCUSTO = centrocusto.CD_CCUSTO'}}
+// Glauber 22/06/2010
+*** rufino 20/09/2012 Glauber tinha comentado a alinha abaixo, mas os campos NR_SINISTRO,CIP_ESCRITORIO devem permitir incluir informações pois esse campo e amarrado
+*** com o seguro
+**   laREADONLY := {'CD_DESPESA','QUANTIDADE','VL_UNIT','DT_REF','CIP_FAVORECIDO','CIP_ESCRITORIO'}
+*** laREADONLY := {'CD_DESPESA','QUANTIDADE','VL_UNIT','DT_REF','CIP_FAVORECIDO','NR_SINISTRO','CIP_ESCRITORIO'}
+   if db_select(laFIELDS,'mvt_despesa',laJOIN,{lcWHERE},,,,,) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   
+   wput('ifINCPAG',.f.)
+   wput('ifJINCPAG',.f.)
+   
+   if len(laRESULT) >= 2
+
+      db2put(laRESULT)
+
+      lcNR_SINISTRO := laRESULT[2,ascan(laRESULT[1],'NR_SINISTRO')]
+      lcNR_SEGURO   := alltrim(str(laRESULT[2,ascan(laRESULT[1],'NR_CONTROLE_SEGURO')]))
+
+      wput('NM_DESPESA',laRESULT[2,ascan(laRESULT[1],'CD_DESPESA')])
+
+      if laRESULT[2,ascan(laRESULT[1],'VL_TT_RATEIO')]
+         if fcACTION == 'CALCULAR'
+            wput('VL_TT_RATEIO',str(fnVL_RATEIO))
+         endif
+      endif
+      if laRESULT[2,ascan(laRESULT[1],'FL_APROVACAO')] == 'A'
+         wput('NM_FL_APROVACAO','Aprovada')
+      elseif laRESULT[2,ascan(laRESULT[1],'FL_APROVACAO')] == 'R'
+         wput('NM_FL_APROVACAO','Reprovada')
+      elseif laRESULT[2,ascan(laRESULT[1],'FL_APROVACAO')] == 'P'
+         wput('NM_FL_APROVACAO','Pendente')
+      endif
+      if laRESULT[2,ascan(laRESULT[1],'FL_REVISAO')] == 'A'
+         wput('NM_FL_REVISAO','Aprovada')
+      elseif laRESULT[2,ascan(laRESULT[1],'FL_REVISAO')] == 'R'
+         wput('NM_FL_REVISAO','Reprovada')
+      elseif laRESULT[2,ascan(laRESULT[1],'FL_REVISAO')] == 'P'
+         wput('NM_FL_REVISAO','Pendente')
+      endif
+
+      if laRESULT[2,ascan(laRESULT[1],'FL_CANCELADO')] == 'S'
+         wput('NM_FL_CANCELADO','Cancelado')
+        elseif laRESULT[2,ascan(laRESULT[1],'FL_CANCELADO')] == ''
+         wput('NM_FL_CANCELADO','Ativo')
+      endif
+
+//      if laRESULT[2,ascan(laRESULT[1],'FL_IMP_REVISAO')] == 'A'
+//         wput('NM_FL_IMP_REVISAO','Aprovada')
+//      elseif laRESULT[2,ascan(laRESULT[1],'FL_IMP_REVISAO')] == 'R'
+//         wput('NM_FL_IMP_REVISAO','Reprovada')
+//      elseif laRESULT[2,ascan(laRESULT[1],'FL_IMP_REVISAO')] == 'P'
+//         wput('NM_FL_IMP_REVISAO','Pendente')
+//      endif
+
+       wPut('DT_APROVACAO2',laRESULT[2,26])
+       wPut('DT_REVISAO2'  ,laRESULT[2,27])
+       wPut('DT_CANCELAMENTO2'  ,laRESULT[2,57])
+       wPut('LOGIN_APROVACAO2',laRESULT[2,28])
+       wPut('LOGIN_REVISAO2'  ,laRESULT[2,29])
+
+
+      lnelemento := ascan(laRESULT[1],'FL_AJUSTA_PEDIDO')
+      if lnelemento  > 0
+         lcFL_ajusta_pedido:=laRESULT[2,lnelemento]
+      endif
+      lnelemento := ascan(laRESULT[1],'PFPJ')
+      if lnelemento  > 0
+         wPut('CIP_ESCRITORIO_PFPJ',laRESULT[2,lnelemento])
+      endif
+      lnelemento := ascan(laRESULT[1],'NM_GRP_DESPESA')
+      if lnelemento  > 0
+         wPut('NM_GRP_DESPESA',laRESULT[2,lnelemento])
+      endif
+      lnelemento := ascan(laRESULT[1],'CIP_FAVORECIDO')
+      if lnelemento  > 0
+         lcfavorecido := DLAP+laRESULT[2,lnelemento]+DLAP
+      else
+         lcfavorecido := DLAP+' '+DLAP
+      endif
+      lnelemento := ascan(laRESULT[1],'CIP_EMPRESA_PAGADORA')
+      if lnelemento  > 0
+         lcpagadora := DLAP+laRESULT[2,lnelemento]+DLAP
+      else
+         lcpagadora := DLAP+' '+DLAP
+      endif
+
+
+
+      // Regra para alteração de despesa quando a mesma ja foi aprovada, deixar os campos abaixo read-only
+
+      // Glauber 22/06/2010
+
+      // Regra para alteração de despesa quando a mesma ja foi aprovada, deixar os campos abaixo read-only
+      // A despesa que ainda não foi revisada, aprovada, paga ou que estão dispensadas de aprovação/revisão podem sofrer alterações em qualquer campo desta aba.
+      // Item 2.3 do documento
+      //  laREADONLY := {'CD_DESPESA','QUANTIDADE','VL_UNIT','DT_REF','CIP_FAVORECIDO','CIP_ESCRITORIO'}
+
+      if db_select({'NR_PASTA'},'mvt_despesa_pagamento',,{'mvt_despesa_pagamento.NR_PASTA = '+pcNR_PASTA+' AND mvt_despesa_pagamento.NR_DESPESA = '+pcNR_DESPESA},,,,,) == -1
+         error_sys(db_error())
+      endif
+      laRESAUX := db_fetchall()
+
+      if laRESULT[2,ascan(laRESULT[1],'FL_APROVACAO')] == 'A' .OR. laRESULT[2,ascan(laRESULT[1],'FL_REVISAO')] == 'A' 
+          MgrFields(5) // Função estatica no final deste programa
+
+         if dtoc(laRESULT[2,ascan(laRESULT[1],'DT_ENVIO_CTPAG')]) <> '  /  /    ' .OR. laRESULT[2,ascan(laRESULT[1],'FL_CANCELADO')] == 'S'
+            wput('ifINCPAG',.F.)
+            wput('ifJINCPAG',.F.)
+           else
+            wput('ifINCPAG',.T.)              
+            wput('ifJINCPAG',.F.)
+            if laRESULT[2,ascan(laRESULT[1],'FL_DEPOSITO_JUDICIAL')] == "S"
+            
+               wput('ifJINCPAG',.T.)   
+               wput('ifINCPAG',.F.)
+            
+               carrega_auto(pcNR_PASTA)
+               carrega_cbox({{'tipo_deposito','TP_DEPOSITO','Y','TP_PASTA='+DLAP+WGet('TP_PASTA','C')+DLAP}})
+
+               cargacbox('indice_reajuste',{'CD_INDICE','NM_INDICE'},{'CD_INDICE'},'NM_INDICE')
+               carrega_cbox({{'deposito_status','FL_DEPOSITO','Y'},;
+                            {'tp_garantia_deposito','TP_GARANTIA','Y'}})            
+            endif           
+            
+            
+         endif
+
+         if laRESULT[2,ascan(laRESULT[1],'FL_DEPOSITO_JUDICIAL')] == "N"
+             wput('ifINCPAG',.t.)
+             wput('ifJINCPAG',.f.)          
+         endif
+         
+         if laRESULT[2,ascan(laRESULT[1],'FL_DEPOSITO_JUDICIAL')] == "S"
+             wput('ifINCPAG',.f.)
+             wput('ifJINCPAG',.t.)          
+         endif         
+         
+         
+         
+         
+
+         // Item 2.5
+         // Excessao: A despesa foi revisada e aprovada mas não foi paga ou não tem interface , então se o usuário tiver alçada poderá excluir.
+         if (val(laRESULT[2,ascan(laRESULT[1],'FL_PGINTERFACE')]) < 2 .and. val(laRESULT[2,ascan(laRESULT[1],'FL_INTERFACEGEM')]) < 2 .and. val(laRESULT[2,ascan(laRESULT[1],'FL_INTERFACEWEB')]) < 2) .and. gbWAC_DELETE == .t.
+            // Verificar se a despesa não tem nenhum registro de pagamento
+            if len(laRESAUX) < 2
+               MgrFields(7) // Função estatica no final deste programa
+            endif
+         else
+               MgrFields(6) // Função estatica no final deste programa
+         endif
+         
+         
+      else
+            // A despesa que ainda não foi revisada, aprovada, paga ou que estão dispensadas de aprovação/revisão podem sofrer alterações em qualquer campo desta aba.
+            // Verificar se a despesa não tem nenhum registro de pagamento
+            if len(laRESAUX) < 2
+               MgrFields(8) // Função estatica no final deste programa
+            endif
+      endif
+      
+      
+      // Item 2.1
+      // Despesas pagas por Interface ou Manualmente não podem sofrer alterações em nenhum campo desta aba.
+//      if (val(laRESULT[2,ascan(laRESULT[1],'FL_PGINTERFACE')]) >= 2 .or. val(laRESULT[2,ascan(laRESULT[1],'FL_INTERFACEGEM')]) >= 2 .or. val(laRESULT[2,ascan(laRESULT[1],'FL_INTERFACEWEB')]) >= 2) .or. len(laRESAUX) > 1
+// alteração Sonia - 15/03/2016 17:27:20
+// Solicitante Márcia - Banco Alfa
+// Acrescentado ao readonly a coluna fl_cancelado = 'S'
+     if (val(laRESULT[2,ascan(laRESULT[1],'FL_PGINTERFACE')]) >= 2 .or. val(laRESULT[2,ascan(laRESULT[1],'FL_INTERFACEGEM')]) >= 2 .or. val(laRESULT[2,ascan(laRESULT[1],'FL_INTERFACEWEB')]) >= 2 .or. laRESULT[2,ascan(laRESULT[1],'FL_CANCELADO')] == 'S') .or. len(laRESAUX) > 1
+         MgrFields(9) // Função estatica no final deste programa
+      endif
+
+      if db_select({'CIP','PFPJ'},'pfpj',,{'CIP = '+lcfavorecido}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) >= 2
+         wPut('CIP_FAVORECIDO_PFPJ',laRESULT[2,2])
+      endif
+     if db_select({'CIP','PFPJ'},'pfpj',,{'CIP = '+lcpagadora}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) >= 2
+         wPut('CIP_EMPRESA_PAGADORA_PFPJ',laRESULT[2,2])
+      endif
+
+   endif
+return(lcFl_ajusta_pedido)
+
+*********************************************************************
+Static Function deleta_mvt_despped(fcNr_pasta, fcNr_despesa)
+* Função para excluir mvt_despped - pedidos do movimento de despesa
+*********************************************************************
+
+      local laRes       := {},;
+            laRes1      := {},;
+            laSave      := {},;
+            laSaveaux   := {} as array
+//            laSAV2   := {} as array
+
+      local ii          := 0 as int
+      local lcNrcontrole:='' as string
+      local lcWhere     := '' as string
+      local flag        := .F. as logical
+
+      lcWHERE := 'NR_PASTA = ' + fcNR_PASTA + ' AND NR_CONTROLE_DESPESA = '+ fcNR_DESPESA
+
+//--- lendo mvt_desprat para pegar os registros pertencentes a despesa -----------------------------------
+
+      if db_select({'NR_PASTA','NR_CONTROLE_DESPESA','NR_CONTROLE_PEDIDO'},'mvt_desprat',,{lcwhere}) == -1
+         error_sys(db_error())
+      endif
+
+      laRes:=db_fetchall()
+
+      if len(laRes) > 1
+
+//--- Lendo mvt_desprat para verificar se existe lancamentos do mesmo pedido em outra pasta se existir nao posso
+//     desflegar o fl_pedido_despesa
+
+         flag:=.F.
+         for ii:= 2 to len(lares)
+             lcNrcontrole:=str(laRes[ii,3])
+             lcWHERE := 'NR_PASTA <> ' + fcNR_PASTA +' and NR_CONTROLE_PEDIDO = ' + lcNrcontrole
+             if db_select({'NR_PASTA','NR_CONTROLE_DESPESA','NR_CONTROLE_PEDIDO'},'mvt_desprat',,{lcWHERE}) == -1
+                error_sys(db_error())
+             endif
+             laRes1:=db_fetchrow()
+             if len(laRes1) > 0
+                flag:=.T.
+             endif
+         next ii
+
+         laSAVE := {{'FL_PEDIDO_DESPESA'},;
+                    {''}}
+
+         db_begin()
+         for ii:=2 to len(laRes)
+             //------ Se o campo flag = .t. não posso desflegar o campo FL_PEDIDO_DESPESA
+             if !flag
+                lcNrcontrole:=str(laRes[ii,3])
+                lcWhere:= 'NR_PASTA ='+fcNr_pasta+ ' and NR_CONTROLE ='+lcNrcontrole
+                // Glauber 22/06/2010 - Implementação do log de exclusão conforme item 2.4 do documento de correções da aba despesa.
+                psab_logs(laSAVE,'pasta_pedidos',lcWHERE, fcNr_pasta,'Despesas')
+                if db_update(laSave,'pasta_pedidos',{lcWhere}) == -1
+                   error_sys(db_error())
+                endif
+             endif
+             // Glauber 22/06/2010 - Implementação do log de exclusão conforme item 2.4 do documento de correções da aba despesa.
+
+             psab_logdel(str(laRES[ii,2]),'NR_CONTROLE_DESPESA',str(laRES[ii,2]),,'Lancamento de pedidos em despesa')
+             psab_logdel(str(laRES[ii,3]),'NR_CONTROLE_PEDIDO',str(laRES[ii,3]),,'Lancamento de pedidos em despesa')
+
+             if db_delete('mvt_desprat','NR_PASTA = ' + fcNR_PASTA + ' AND NR_CONTROLE_DESPESA = '+ fcNR_DESPESA)  == -1 //+ ' and NR_CONTROLE_PEDIDO ='+ lares[ii,3]}) == -1
+                error_sys(db_error())
+             endif
+         next ii
+         db_commit()
+      endif
+return
+
+
+/*
+* Data da Criação: 19/06/2012 - rufino
+* Function.......: contabiliza_pedido(fcNR_PASTA,fcTP_PASTA,fcNR_DESPESA,fnVL_PAGO,fcCONT_LCTO,fcOCOR_PEDIDO,fcNR_PGTO,fcZERA_PROV)
+* Objetivo.......: Contabilizar o valor pago da despesa na grid de Pedidos
+* Parâmetros.....:
+*                  <fcNR_PASTA>    Número da Pasta
+*                  <fcTP_PASTA>    Tipo da Pasta
+*                  <fcNR_DESPESA>  Número da Despesa
+*                  <fnVL_PAGO>     Valor Pago
+*                  <fcCONT_LCTO>   Contabiliza Lançamentos Contábeis <S/N/''>
+*                  <fcOCOR_PEDIDO> Ocorrência de Pagamento do Pedido
+*                  <fcNR_PGTO>     Numero do Pagamento
+*                  <fcZERA_PROV>   Zerar Provisão
+*
+* Retorno........: Nenhum
+*/
+***********************************************************************************************************************************************
+Static Function contabiliza_pedido(fcNR_PASTA,fcTP_PASTA,fcNR_DESPESA,fnVL_PAGO,fcCONT_LCTO,fcOCOR_PEDIDO,fcNR_PGTO,fcZERA_PROV,fcABA_PED_NOVA)
+***********************************************************************************************************************************************
+/* Versao equiparada em 25/04/2013 14:52:42 - Sonia Perdigão */
+** Atualizada com a Customização efetuada para Unimed
+local lcWHERE_MVTRAT := '' ,;
+      lcWHERE2       := '' ,;
+      lcWHERE3       := '' ,;
+      querysql       := '' ,;
+      lcOCOR         := '' ,;
+      lcWHERE        := '' as string
+
+local laSAVE1A     := {} ,;
+      laSAVE1B     := {} ,;
+      laSAVE2      := {} ,;
+      laSAVE3      := {} ,;
+      laRES        := {} ,;
+      laRESULT     := {} ,;
+      laRES_OCOR   := {} ,;
+      laRES_MVTRAT := {} as array
+
+local vlRISCO        := 0 ,;
+      vlRISCON       := 0 ,;
+      vlRISCO_C      := 0 ,;
+      vlCORR         := 0 ,;
+      vlJUROS        := 0 ,;
+      vlRISCO_CP     := 0 ,;
+      vlCORRP        := 0 ,;
+      vlJUROSP       := 0 ,;
+      vlRISCO_CAB    := 0 ,;
+      vlCORRAB       := 0 ,;
+      vlTAB          := 0 ,;
+      vlDIF          := 0 ,;
+      vlJUROSAB      := 0 as numeric
+
+local ii := 0 as int
+
+
+aadd(laSAVE1A,{'FL_CALCULO',;
+               'VL_RISCO_CALC',;
+               'VL_CORRECAO',;
+               'VL_JUROS'})
+
+aadd(laSAVE1B,{'VL_RISCO',;
+               'PC_RISCO',;
+               'VL_RISCO_CALC',;
+               'VL_CORRECAO',;
+               'VL_JUROS'})
+
+
+aadd(laSAVE2,{'NR_DETAL',;
+            'NR_PASTA',;
+            'NR_CONTROLE',;
+            'PEDIDO_PROCESSO',;
+            'DT_MOVTO_PED',;
+            'DT_RISCO',;
+            'VL_RISCO',;
+            'VL_RISCO_CALC',;
+            'PC_RISCO',;
+            'VL_CORRECAO',;
+            'VL_JUROS',;
+            'FL_CALCULO',;
+            'COMENTARIOS_PED',;
+            'OCOR_PEDIDO',;
+            'DT_ALTERACAO',;
+            'HR_ALTERACAO',;
+            'LOGIN_CADASTRO'})
+
+lcWHERE_MVTRAT := 'NR_PASTA = '+fcNR_PASTA+' and NR_CONTROLE_DESPESA = '+fcNR_DESPESA
+
+if db_select({'NR_CONTROLE_PEDIDO','VL_RATEADO'},'mvt_desprat',,{lcWHERE_MVTRAT}) == -1
+   error_sys(db_error())
+endif
+laRES_MVTRAT := db_fetchall()
+
+for ii := 2 to len(laRES_MVTRAT)
+
+   vlRISCO        := 0
+   vlRISCON       := 0
+
+   vlRISCO_C      := 0
+   vlCORR         := 0
+   vlJUROS        := 0
+   vlPAGO         := 0
+   lnVLA          := 0
+
+   vlRISCO_CP     := 0
+   vlCORRP        := 0
+   vlJUROSP       := 0
+
+   vlRISCO_CAB    := 0
+   vlCORRAB       := 0
+   vlJUROSAB      := 0
+
+
+   if fcABA_PED_NOVA == 'N'
+      lcWHERE        := 'NR_CONTROLE = '+alltrim(str(laRES_MVTRAT[ii,1]))
+
+      if db_select({'NR_CONTROLE',;
+                    'PEDIDO_PROCESSO',;
+                    'VL_RISCO',;
+                    'VL_RISCO_CALC',;
+                    'VL_CORRECAO',;
+                    'VL_JUROS',;
+                    'FL_CALCULO',;
+                    'DT_MOVTO_PED',;
+                    'DT_RISCO',;
+                    'PC_RISCO',;
+                    'COMENTARIOS_PED',;
+                    'OCOR_PEDIDO',;
+                    'NR_CONTROLE_SEGURO'},;
+                    'pasta_pedidos',,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+
+   else
+
+      querysql := 'SELECT '
+      querysql += 'est.nr_controle as NR_CONTROLE,'
+      querysql += 'pasta_pedidos.PEDIDO_PROCESSO,'
+      querysql += 'pasta_pedidos.VL_RISCO,'
+      querysql += 'est.VL_RISCO_CALC,'
+      querysql += 'est.VL_CORRECAO,'
+      querysql += 'est.VL_JUROS,'
+      querysql += 'pasta_pedidos.FL_CALCULO,'
+      querysql += 'pasta_pedidos.DT_MOVTO_PED,'
+      querysql += 'pasta_pedidos.DT_RISCO,'
+      querysql += 'est.PC_RISCO,'
+      querysql += 'est.COMENTARIOS_PED,'
+      querysql += 'est.OCOR_PEDIDO,'
+      querysql += 'pasta_pedidos.NR_CONTROLE_SEGURO'
+      querysql += ' FROM '
+      querysql += 'pasta_pedidos'
+      querysql += ' left join pasta_pedidos est on est.nr_pasta=pasta_pedidos.nr_pasta and est.nr_pedido_origem=pasta_pedidos.nr_controle'
+      querysql += ' where est.nr_controle ='+alltrim(str(laRES_MVTRAT[ii,1]))
+
+      if db_query(querysql) == -1
+         error_sys(db_error())
+      endif
+
+   endif
+   laRESULT := db_fetchrow()
+
+   vlRISCO  :=laRESULT[3] //vl_risco
+
+   vlRISCO_C:=laRESULT[4] //vl_risco_calc
+   vlCORR   :=laRESULT[5] //vl_correcao
+   vlJUROS  :=laRESULT[6] //vl_juros
+
+   lnVLA    :=vlRISCO_C + vlCORR + vlJUROS  //valor atualizado
+
+   vlPAGO   :=laRES_MVTRAT[ii,2] //valor rateado pago
+
+   *** PROPORÇÃO DOS VALORES ATUAIS SOBRE O VALOR ATUALIZADO
+   vlRISCO_CP:=round((vlRISCO_C * 100)/lnVLA,2)
+   vlCORRP   :=round((vlCORR * 100)/lnVLA,2)
+   vlJUROSP  :=round((vlJUROS * 100)/lnVLA,2)
+
+   *** VALOR A ABATER PROPORCIONAMENTE EM CADA CAMPO
+   vlRISCO_CAB:=round((vlPAGO * vlRISCO_CP)/100,2) //valor a abater do vl_risco_calc
+   vlCORRAB   :=round((vlPAGO * vlCORRP)/100,2)  //valor a abater do vl_correcao
+   vlJUROSAB  :=round((vlPAGO * vlJUROSP)/100,2) //valor a abater do vl_juros
+
+   *** a diferença no rateio joga no risco_calc
+   vlTAB := vlCORRAB + vlJUROSAB
+   vlDIF := vlPAGO - vlTAB
+   vlRISCO_CAB := vlDIF
+
+   if lnVLA == vlPAGO
+      *** pagou total não rateia baixa valor da coluna
+       vlRISCO_CAB:= vlRISCO_C
+       vlCORRAB   := vlCORR
+       vlJUROSAB  := vlJUROS
+   endif
+
+
+   lcWHERE2:= 'NR_PASTA = '+fcNR_PASTA+' AND NR_CONTROLE = '+str(laRES_MVTRAT[ii,1])
+
+
+      vlRISCON := 0
+
+
+   if fcZERA_PROV == 'S' .or. vlPAGO > lnVLA
+
+   *** rufino 25/09/2012 conf. email da celia 06/09/2012 as 17:16
+   *** Se os valores da pasta_pedidos foram zerados, o Campo FL_CALCULO deve ser desflegado e o conteúdo dos campos pasta_pedidos.VL_RISCO e
+   *** pasta_pedidos.PC_RISCO não devem ser alterados, portanto, nos lançamentos da pasta_detal_pedidos.VL_RISCO deve ser 0,00 e na pasta_detal_pedidos.PC_RISCO
+   *** deve ser o mesmo conteúdo que existe no pedido da pasta_pedidos.PC_RISCO.
+
+
+      laSAVE1B:={}
+
+      aadd(laSAVE1B,{'VL_RISCO',;
+                     'VL_RISCO_CALC',;
+                     'VL_CORRECAO',;
+                     'VL_JUROS'})
+
+
+      aadd(laSAVE1B,{ vlRISCO,;
+                      0,;
+                      0,;
+                      0})
+
+      psab_logs(laSAVE1B,'pasta_pedidos',lcWHERE2, fcNR_PASTA,'Despesas')
+
+
+      if db_update(laSAVE1B,'pasta_pedidos',{lcWHERE2}) == -1
+         error_sys(db_error())
+      endif
+
+   else
+
+      laSAVE1B:={}
+
+      aadd(laSAVE1B,{'VL_RISCO_CALC',;
+                    'VL_CORRECAO',;
+                    'VL_JUROS'})
+
+      aadd(laSAVE1B,{(vlRISCO_C - vlRISCO_CAB),;
+                     (vlCORR - vlCORRAB),;
+                     (vlJUROS - vlJUROSAB)})
+
+      psab_logs(laSAVE1B,'pasta_pedidos',lcWHERE2, fcNR_PASTA,'Despesas')
+
+      if db_update(laSAVE1B,'pasta_pedidos',{lcWHERE2}) == -1
+         error_sys(db_error())
+      endif
+
+   endif
+
+   if vlPAGO > lnVLA
+
+      *** aumento de provisão
+      *** cria lançamento de aumento
+
+      if db_select({'OCOR_PROV_AUTO','OCOR_PEDIDO_RATEIO'},'pasta_config',,{'TP_PASTA ='+DLAP+fcTP_PASTA+DLAP}) == -1
+         error_sys(db_error())
+      endif
+      laRES_OCOR := db_fetchrow()
+
+      lcOCOR:= iif(len(laRES_OCOR) > 0,laRES_OCOR[1],fcOCOR_PEDIDO)
+
+      laSAVE2:={}
+
+      aadd(laSAVE2,{'NR_DETAL',;
+                   'NR_PASTA',;
+                   'NR_CONTROLE',;
+                   'PEDIDO_PROCESSO',;
+                   'DT_MOVTO_PED',;
+                   'DT_RISCO',;
+                   'VL_RISCO',;
+                   'VL_RISCO_CALC',;
+                   'PC_RISCO',;
+                   'VL_CORRECAO',;
+                   'VL_JUROS',;
+                   'FL_CALCULO',;
+                   'COMENTARIOS_PED',;
+                   'OCOR_PEDIDO',;
+                   'DT_ALTERACAO',;
+                   'HR_ALTERACAO',;
+                   'LOGIN_CADASTRO'})
+
+      aadd(laSAVE2,{0,;
+                   val(fcNR_PASTA),;
+                   laRESULT[1],;
+                   laRESULT[2],;
+                   date(),;
+                   laRESULT[9],;
+                   vlRISCON,;
+                   (vlRISCO_C - vlRISCO_CAB)*-1,;
+                   laRESULT[10],;    //pasta_pedidos.PC_RISCO
+                   (vlCORR - vlCORRAB)*-1,;
+                   (vlJUROS - vlJUROSAB)*-1,;
+                   laRESULT[7],;
+                   '',;
+                   lcOCOR,;
+                   date(),;
+                   time(),;
+                   gcLOGIN})
+
+      if db_insert(laSAVE2,'pasta_detal_pedidos') == -1
+         error_sys(db_error())
+      endif
+   endif
+
+   laSAVE2:={}
+
+   aadd(laSAVE2,{'NR_DETAL',;
+                'NR_PASTA',;
+                'NR_CONTROLE',;
+                'PEDIDO_PROCESSO',;
+                'DT_MOVTO_PED',;
+                'DT_RISCO',;
+                'VL_RISCO',;
+                'VL_RISCO_CALC',;
+                'PC_RISCO',;
+                'VL_CORRECAO',;
+                'VL_JUROS',;
+                'FL_CALCULO',;
+                'COMENTARIOS_PED',;
+                'OCOR_PEDIDO',;
+                'DT_ALTERACAO',;
+                'HR_ALTERACAO',;
+                'LOGIN_CADASTRO'})
+
+   aadd(laSAVE2,{0,;
+                val(fcNR_PASTA),;
+                laRESULT[1],;
+                laRESULT[2],;
+                date(),;
+                laRESULT[9],;
+                vlRISCON,;
+                vlRISCO_CAB*-1,;
+                laRESULT[10],;    //pasta_pedidos.PC_RISCO
+                vlCORRAB*-1,;
+                vlJUROSAB*-1,;
+                laRESULT[7],;
+                '',;
+                fcOCOR_PEDIDO,;
+                date(),;
+                time(),;
+                gcLOGIN})
+
+   if db_insert(laSAVE2,'pasta_detal_pedidos') == -1
+      error_sys(db_error())
+   endif
+
+   if fcZERA_PROV == 'S'  .and. vlPAGO <= lnVLA
+
+      if db_select({'OCOR_PROV_AUTO','OCOR_PEDIDO_RATEIO'},'pasta_config',,{'TP_PASTA ='+DLAP+fcTP_PASTA+DLAP}) == -1
+         error_sys(db_error())
+      endif
+      laRES_OCOR := db_fetchrow()
+
+      lcOCOR:= iif(len(laRES_OCOR) > 0,laRES_OCOR[2],fcOCOR_PEDIDO)
+
+      laSAVE2:={}
+
+      aadd(laSAVE2,{'NR_DETAL',;
+                   'NR_PASTA',;
+                   'NR_CONTROLE',;
+                   'PEDIDO_PROCESSO',;
+                   'DT_MOVTO_PED',;
+                   'DT_RISCO',;
+                   'VL_RISCO',;
+                   'VL_RISCO_CALC',;
+                   'PC_RISCO',;
+                   'VL_CORRECAO',;
+                   'VL_JUROS',;
+                   'FL_CALCULO',;
+                   'COMENTARIOS_PED',;
+                   'OCOR_PEDIDO',;
+                   'DT_ALTERACAO',;
+                   'HR_ALTERACAO',;
+                   'LOGIN_CADASTRO'})
+
+      aadd(laSAVE2,{0,;
+                   val(fcNR_PASTA),;
+                   laRESULT[1],;
+                   laRESULT[2],;
+                   date(),;
+                   laRESULT[9],;
+                   vlRISCON,;
+                   (vlRISCO_C - vlRISCO_CAB)*-1,;
+                   laRESULT[10],;    //pasta_pedidos.PC_RISCO
+                   (vlCORR - vlCORRAB)*-1,;
+                   (vlJUROS - vlJUROSAB)*-1,;
+                   laRESULT[7],;
+                   '',;
+                   lcOCOR,;
+                   date(),;
+                   time(),;
+                   gcLOGIN})
+
+      if db_insert(laSAVE2,'pasta_detal_pedidos') == -1
+         error_sys(db_error())
+      endif
+   endif
+
+   laSAVE3:={}
+
+   aadd(laSAVE3,{'FL_PAGO',;
+                 'VL_ATUALIZADO',;
+                 'VL_RISCO',;
+                 'PC_RISCO',;
+                 'VL_RISCO_CALC',;
+                 'VL_CORRECAO',;
+                 'VL_JUROS'})
+
+   aadd(laSAVE3,{'S',;
+                 lnVLA,;
+                 vlRISCO,;
+                 laRESULT[10],;
+                 vlRISCO_C,;
+                 vlCORR,;
+                 vlJUROS})
+
+   lcWHERE3 := 'NR_PASTA = '+fcNR_PASTA+' and NR_CONTROLE_DESPESA = '+fcNR_DESPESA +' and NR_CONTROLE_PEDIDO = '+alltrim(str(laRES_MVTRAT[ii,1]))
+
+   if db_update(laSAVE3,'mvt_desprat',{lcWHERE3}) == -1
+      error_sys(db_error())
+   endif
+
+next ii
+
+
+return(nil)
+
+***************************************************************
+Static Function cria_ratdjud(fcNR_PASTA,fcTP_PASTA,fcNR_DESPESA)  
+*************************************************************** 
+local lcNR_ROW      := '' ,;
+      lcWHERE       := '' as string
+
+local laSAVE_AUX    := {} ,;
+      laWHERE       := {} ,;
+      laSAVEAUX     := {} as array
+                   
+local lnNR_PEDIDO   := 0 as numeric
+
+local ii            := 0 as int
+
+aadd(laSAVE_AUX,{'FL_PAGO',;
+                 'VL_ATUALIZADO'})                
+
+lcNR_ROW:= '1'
+ii:=1
+laWHERE:={}
+
+do while WGet('VAR_PEDIDO_PROCESSO_'+lcNR_ROW,'B')
+   laSAVEAUX := {}  
+   
+   
+   lnNR_PEDIDO := WGet('VAR_NR_CONTROLE_'+lcNR_ROW,'N')
+          
+   if val(WGet('VAR_VL_RATEADO_'+lcNR_ROW)) > 0   
+      aadd(laSAVEAUX,'S') 
+      aadd(laSAVEAUX,WGet('VAR_VL_ATUALIZADO_'+lcNR_ROW,'N'))
+      
+      aadd(laSAVE_AUX,laSAVEAUX)
+      
+      lcWHERE := 'NR_PASTA='+fcNR_PASTA+' AND NR_CONTROLE_DESPESA='+fcNR_DESPESA +' AND NR_CONTROLE_PEDIDO='+str(lnNR_PEDIDO)
+      aadd(laWHERE,lcWHERE)
+   else
+   
+      lcWHERE := 'NR_PASTA='+fcNR_PASTA+' AND NR_CONTROLE_DESPESA='+fcNR_DESPESA +' AND NR_CONTROLE_PEDIDO='+str(lnNR_PEDIDO) 
+      if db_delete('mvt_depjud',lcWHERE) = -1
+         error_sys(db_error())
+      endif
+
+   endif
+   
+   ii++
+   lcNR_ROW    := alltrim(str(ii))
+enddo
+
+*** marca pago no deposito judicial 
+if len(laSAVE_AUX)>1                
+   if db_update(laSAVE_AUX,'mvt_depjud',laWHERE) == -1
+      error_sys(db_error())
+   endif
+endif
+
+return(nil)
+
+/*
+* Data da Criação: 20/08/2009 - Valdimari Martins
+* Function.......: cancela_pgto_desp(fcNR_PASTA,fcTP_PASTA,fcNR_DESPESA,fnVL_PAGO,fcCONT_LCTO,fcOCOR_PEDIDO,fcNR_PGTO)
+* Objetivo.......: Cancela e Extorna o valor pago da despesa na grid de Pedidos
+* Parâmetros.....:
+*                  <fcNR_PASTA>    Número da Pasta
+*                  <fcTP_PASTA>    Tipo da Pasta
+*                  <fcNR_DESPESA>  Número da Despesa
+*                  <fnVL_PAGO>     Valor Pago
+*                  <fcCONT_LCTO>   Contabiliza Lançamentos Contábeis <S/N/''>
+*                  <fcOCOR_PEDIDO> Ocorrência de Pagamento do Pedido.
+*                  <fcNR_PGTO>     Numero do Pagamento
+*
+* Retorno........: Nenhum
+*/
+Static Function cancela_pgto_desp(fcNR_PASTA,fcTP_PASTA,fcNR_DESPESA,fnVL_PAGO,fcCONT_LCTO,fcOCOR_PEDIDO,fcNR_PGTO)
+
+   local lcWHERE_MVTPED := '' ,;
+         lcWHERE_UPDMVT := '' ,;
+         lcWHERE        := '' as string
+
+   local laSAVE       := {} ,;
+         laRES        := {} ,;
+         laRESULT     := {} ,;
+         laRES_PEDIDO := {} ,;
+         laRES_MVTPED := {} as array
+
+   local lnVL_PAGO_PED := 0.00 ,;
+         lnRISCO_CALC  := 0.00 ,;
+         lnCORRECAO    := 0.00 ,;
+         lnJUROS       := 0.00 as numeric
+  local ii            := 0 as int
+
+   if db_replace({{'DESCR_OCOR'},{'Estorno '+fcOCOR_PEDIDO}},'ocorrencia_pedido',{'DESCR_OCOR = '+DLAP+'Estorno '+fcOCOR_PEDIDO+DLAP}) == -1
+      error_sys(db_error())
+   endif
+
+   lcWHERE_MVTPED := 'NR_PASTA = '+fcNR_PASTA+' and NR_CONTROLE_DESPESA = '+fcNR_DESPESA+' and NR_CONTROLE_PAGAMENTO ='+fcNR_PGTO
+
+   if db_select({'sum(VL_RISCO_CAL_RAT)'},'mvt_despped',,{lcWHERE_MVTPED}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchrow()
+
+   if len(laRES) < 1
+      walert('Não foram encontrado(s) Pedido(s) Pagos')
+   else
+      if db_select({'NR_CONTROLE_PEDIDO','VALOR_ATUAL_PAGO','VL_RISCO_CAL_PAGO','VL_CORR_PAGO','VL_JUROS_PAGO'},'mvt_despped',,{lcWHERE_MVTPED}) == -1
+         error_sys(db_error())
+      endif
+      laRES_MVTPED := db_fetchall()
+
+      for ii := 2 to len(laRES_MVTPED)
+         if db_select({'NR_CONTROLE_SEGURO','PEDIDO_PROCESSO','VL_RISCO_CALC','VL_CORRECAO',;
+                       'VL_JUROS','DT_RISCO','PC_RISCO','FL_CALCULO'},'pasta_pedidos',,{'NR_CONTROLE='+alltrim(str(laRES_MVTPED[ii,1]))}) == -1
+            error_sys(db_error())
+         endif
+         laRES_PEDIDO := db_fetchrow()
+
+         lnRISCO_CALC := laRES_MVTPED[ii,db_fetchncol(laRES_MVTPED,'VL_RISCO_CAL_PAGO')]
+         lnCORRECAO   := laRES_MVTPED[ii,db_fetchncol(laRES_MVTPED,'VL_CORR_PAGO')]
+         lnJUROS      := laRES_MVTPED[ii,db_fetchncol(laRES_MVTPED,'VL_JUROS_PAGO')]
+
+         laSAVE := {{'NR_CONTROLE',;
+                     'NR_CONTROLE_SEGURO',;
+                     'PEDIDO_PROCESSO',;
+                     'DT_MOVTO_PED',;
+                     'VL_RISCO_CALC',;
+                     'VL_CORRECAO',;
+                     'VL_JUROS',;
+                     'OCOR_PEDIDO'}}
+
+         aadd(laSAVE,{laRES_MVTPED[ii,1],;
+                      laRES_PEDIDO[1],;
+                      laRES_PEDIDO[2],;
+                      date(),;
+                      laRES_PEDIDO[3]+lnRISCO_CALC,;
+                      laRES_PEDIDO[4]+lnCORRECAO,;
+                      laRES_PEDIDO[5]+lnJUROS,;
+                      ''})
+
+         //---------- A despesa contabiliza os Lançamentos Contábeis
+         if fcCONT_LCTO == 'S'
+            xcont(laSAVE,fcNR_PASTA,fcTP_PASTA)
+         endif
+         if db_update(laSAVE,'pasta_pedidos',{'NR_PASTA = '+fcNR_PASTA+' AND NR_CONTROLE = '+alltrim(str(laRES_MVTPED[ii,1]))}) == -1
+            error_sys(db_error())
+         endif
+
+         laSAVE := {{'NR_DETAL',;
+                     'NR_PASTA',;
+                     'NR_CONTROLE',;
+                     'PEDIDO_PROCESSO',;
+                     'DT_MOVTO_PED',;
+                     'DT_RISCO',;
+                     'VL_RISCO',;
+                     'VL_RISCO_CALC',;
+                     'PC_RISCO',;
+                     'VL_CORRECAO',;
+                     'VL_JUROS',;
+                     'FL_CALCULO',;
+                     'COMENTARIOS_PED',;
+                     'OCOR_PEDIDO',;
+                     'DT_ALTERACAO',;
+                     'HR_ALTERACAO',;
+                     'LOGIN_CADASTRO'}}
+
+         aadd(laSAVE,{0,;
+                      val(fcNR_PASTA),;
+                      laRES_MVTPED[ii,1],;
+                      laRES_PEDIDO[2],;
+                      date(),;
+                      laRES_PEDIDO[6],;
+                      0,;
+                      lnRISCO_CALC,;
+                      laRES_PEDIDO[7],;
+                      lnCORRECAO,;
+                      lnJUROS,;
+                      laRES_PEDIDO[8],;
+                      '',;
+                      'Estorno '+fcOCOR_PEDIDO,;
+                      date(),;
+                      time(),;
+                      gcLOGIN})
+
+         if db_insert(laSAVE,'pasta_detal_pedidos') == -1
+            error_sys(db_error())
+         endif
+      next ii
+
+      //---------- Cancelar Pagamento na tabela mvt_despped
+      lnVL_PAGO_PED  := lnRISCO_CALC + lnCORRECAO + lnJUROS
+      lcWHERE_UPDMVT := 'NR_PASTA = '+fcNR_PASTA+' and NR_CONTROLE_PAGAMENTO ='+fcNR_PGTO
+      laSAVE         := {{'VALOR_ATUAL_PAGO','FL_PEDIDO_PAGO','NR_CONTROLE_PAGAMENTO',;
+                          'VL_RISCO_CAL_PAGO','VL_CORR_PAGO','VL_JUROS_PAGO'}}
+      aadd(laSAVE,{0,;
+                   'N',;
+                   0,;
+                   0,;
+                   0,;
+                   0})
+      if db_update(laSAVE,'mvt_despped',{lcWHERE_UPDMVT}) == -1
+         error_sys(db_error())
+      endif
+   endif
+return(nil)
+
+/*
+* Data da Criação: 22/06/2010 - Glauber Vicente Duma
+* Function.......: MgrFields()
+* Objetivo.......: Gerenciar a edição de campos e visualização dos botões conforme as regras de permissões.
+*
+* Parâmetros.....:
+*                  <fnOpcao>    Opção de acordo com a regra, sendo:
+*                  1 = Inicializacao padrao dos campos
+*                  5 = Deixa os campos readonly caso a despesa seja aprovada ou revisada
+*                  6 = Exibe o botao excluir
+*                  7 = Oculta o botao excluir
+*                  8 = Habilita o campo cip_escritorio, o botao de pesquisa e o botao excluir
+*                  9 = Todos os campos ficam readonly e os botões salvar e excluir ficam invisível.
+*
+*
+* Retorno........: Nenhum
+*/
+
+Static Function MgrFields(fnOpcao)
+
+    if fnOpcao == 1
+       Wput('ifWAC_WRITE', .t.)
+       wput('ifBUTTON', .t.)
+
+       wput('ifCIP_EMPRESA_PAGADORA_RO',.f.)
+       wput('ifCIP_EMPRESA_PAGADORA_NO_RO',.t.)
+       wput('ifCIP_EMPRESA_PAGADORA',.t.)
+
+       wput('ifCIP_ESCRITORIO_RO',.f.)
+       wput('ifCIP_ESCRITORIO_NO_RO',.t.)
+       wput('ifCIP_ESCRITORIO',.t.)
+
+       wput('ifNR_SINISTRO',.t.)
+
+       wput('ifDT_REF_RO',.f.)
+       wput('ifDT_REF_NO_RO',.t.)
+       wput('ifCD_DESPESA_RO',.f.)
+       wput('ifCD_DESPESA_NO_RO',.t.)
+       wput('ifQUANTIDADE_RO',.f.)
+       wput('ifQUANTIDADE_NO_RO',.t.)
+       wput('ifVL_UNIT_RO',.f.)
+       wput('ifVL_UNIT_NO_RO',.t.)
+       wput('ifCIP_FAVORECIDO_RO',.f.)
+       wput('ifCIP_FAVORECIDO_NO_RO',.t.)
+
+// sonia  - 04/10/2012 14:40:33
+       wput('ifCIP_ESCRITORIO_RO',.f.)
+       wput('ifCIP_ESCRITORIO_NO_RO',.t.)
+       wput('ifDTREF',.T.)
+       wput('ifCD_DESPESA',.T.)
+       wput('ifCIP_FAVORECIDO',.T.)
+         wput('ifCD_BANCO_RO',.f.)
+         wput('ifCD_BANCO_NO_RO',.t.)
+         wput('ifBANCO_AGENCIA_RO',.f.)
+         wput('ifBANCO_AGENCIA_NO_RO',.t.)
+         wput('ifBANCO_CONTA_RO',.f.)
+         wput('ifBANCO_CONTA_NO_RO',.t.)
+         wput('ifBANCO_CONTA_DIGITO_RO',.f.)
+         wput('ifBANCO_CONTA_DIGITO_NO_RO',.t.)
+       *WPut('CD_DESPESA.label.style.color','#FF0000')
+       *WPut('CD_DESPESA.label.style.font-weight','bold')
+       WPut('CD_DESPESA.style.border','2px solid red')
+
+       *WPut('CIP_FAVORECIDO.label.style.color','#FF0000')
+       *WPut('CIP_FAVORECIDO.label.style.font-weight','bold')
+       WPut('CIP_FAVORECIDO.style.border','2px solid red')
+
+       *WPut('QUANTIDADE.label.style.color','#FF0000')
+       *WPut('QUANTIDADE.label.style.font-weight','bold')
+       WPut('QUANTIDADE.style.border','2px solid red')
+
+       *WPut('VL_UNIT.label.style.color','#FF0000')
+       *WPut('VL_UNIT.label.style.font-weight','bold')
+       WPut('VL_UNIT.style.border','2px solid red')
+       wput('ifTP_FAVORECIDO_RO',.F.)
+       wput('ifTP_FAVORECIDO_NO_RO',.T.)
+    elseif fnOpcao == 5
+           wput('ifCIP_EMPRESA_PAGADORA_RO',.t.)
+           wput('ifCIP_EMPRESA_PAGADORA_NO_RO',.f.)
+           wput('ifCIP_EMPRESA_PAGADORA',.f.)
+
+           wput('ifCIP_ESCRITORIO_RO',.t.)
+           wput('ifCIP_ESCRITORIO_NO_RO',.f.)
+           wput('ifCIP_ESCRITORIO',.f.)
+
+            wput('ifNR_SINISTRO',.f.)
+
+           wput('ifDT_REF_RO',.t.)
+           wput('ifDT_REF_NO_RO',.f.)
+           wput('ifDTREF',.f.) // Botão da Data
+           wput('ifCD_DESPESA_RO',.t.)
+           wput('ifCD_DESPESA_NO_RO',.f.)
+           wput('ifCD_DESPESA',.f.)  // Botão da Despesa
+           wput('ifQUANTIDADE_RO',.t.)
+           wput('ifQUANTIDADE_NO_RO',.f.)
+           wput('ifVL_UNIT_RO',.t.)
+           wput('ifVL_UNIT_NO_RO',.f.)
+           wput('ifCIP_FAVORECIDO_RO',.t.)
+           wput('ifCIP_FAVORECIDO_NO_RO',.f.)
+           wput('ifCIP_FAVORECIDO',.f.) // Botão do Favorecido
+
+           wPut('ifBUTTON',.T.)
+
+/* sonia 20/09/2016 11:08:48 */
+
+       wput('ifCD_BANCO_RO',.t.)
+         wput('ifCD_BANCO_NO_RO',.f.)
+         wput('ifBANCO_AGENCIA_RO',.t.)
+         wput('ifBANCO_AGENCIA_NO_RO',.f.)
+         wput('ifBANCO_CONTA_RO',.t.)
+         wput('ifBANCO_CONTA_NO_RO',.f.)
+         wput('ifBANCO_CONTA_DIGITO_RO',.t.)
+         wput('ifBANCO_CONTA_DIGITO_NO_RO',.f.)
+         wput('ifDT_REF_RO',.t.)
+         wput('ifDT_REF_NO_RO',.f.)
+         wput('ifDTREF',.f.) // Botão da Data
+
+         wput('ifCD_DESPESA_RO',.t.)
+         wput('ifCD_DESPESA_NO_RO',.f.)
+         wput('ifCD_DESPESA',.f.)  // Botão da Despesa
+         wput('ifQUANTIDADE_RO',.t.)
+         wput('ifQUANTIDADE_NO_RO',.f.)
+         wput('ifVL_UNIT_RO',.t.)
+         wput('ifVL_UNIT_NO_RO',.f.)
+         wput('ifCIP_FAVORECIDO_RO',.t.)
+         wput('ifCIP_FAVORECIDO_NO_RO',.f.)
+         wput('ifCIP_FAVORECIDO',.f.) // Botão do Favorecido
+         WPUT('CIP_ESCRITORIO.readonly',.T.) // Botao de pesquisa de escritorios e textbox de digitacao do cip
+         WPUT('CIP_ESCRITORIO.class','winputreadonly')
+//Sonia - 18/08/2016 15:11:43 - teste bloqueio cip_empresa_pagadora - solicitante Jaq
+         WPUT('CIP_EMPRESA_PAGADORA.readonly',.T.) // Botao de pesquisa de escritorios e textbox de digitacao do cip
+         WPUT('CIP_EMPRESA_PAGADORA.class','winputreadonly')
+         wPut('ifBUTTON',.F.) // Botao de search do CIP_ESCRITORIO / cip_empresa_pagadora
+         // Tipo favorecido
+         wput('ifTP_FAVORECIDO_RO',.t.)
+         wput('ifTP_FAVORECIDO_NO_RO',.f.)
+         WPUT('TP_FAVORECIDO.readonly',.T.) // Botao de pesquisa de escritorios e textbox de digitacao do cip
+         WPUT('TP_FAVORECIDO.class','winputreadonly')
+         // Tipo de documento fiscal
+         WPUT('TP_DOCFISCAL.readonly',.F.) // Botao de pesquisa de escritorios e textbox de digitacao do cip
+         WPUT('TP_DOCFISCAL.class','winput')
+         // Data de emissao do documento fiscal
+          WPUT('DT_PREVISAO_PAGTO.readonly',.T.) // Botao de pesquisa de escritorios e textbox de digitacao do cip
+         WPUT('DT_PREVISAO_PAGTO.class','winputreadonly')
+         //wPut('ifBUTTON',.F.) // Botao de search do CIP_ESCRITORIO
+          // Data de emissao do documento fiscal
+         WPUT('DT_EMISSAO_DOCFISCAL.readonly',.T.) // Botao de pesquisa de escritorios e textbox de digitacao do cip
+         WPUT('DT_EMISSAO_DOCFISCAL.class','winputreadonly')
+         // Numero do documento fiscal
+         WPUT('NR_DOCFISCAL.readonly',.T.) // Botao de pesquisa de escritorios e textbox de digitacao do cip
+         WPUT('NR_DOCFISCAL.class','winputreadonly')
+         // Centro de Custo
+         WPUT('CD_CCUSTO.readonly',.T.) // Botao de pesquisa de escritorios e textbox de digitacao do cip
+         WPUT('CD_CCUSTO.class','winputreadonly')
+         // Forma de Pagamento
+         // Botao salvar
+         WPUT('ifWAC_WRITE',.T.)
+         
+         WPUT('DIGITAVEL.readonly',.T.) 
+         WPUT('DIGITAVEL.class','winputreadonly')         
+
+    elseif fnOpcao == 6
+           Wput('ifEXCLUIR',.f.) // Botao excluir
+           Wput('ifWAC_DELETE',.f.)
+    elseif fnOpcao == 7
+           Wput('ifEXCLUIR',.t.) // Botao excluir
+           Wput('ifWAC_DELETE',.t.)
+    elseif fnOpcao == 8
+           //WPUT('CIP_ESCRITORIO.readonly',.F.) // Botao de pesquisa de escritorios e textbox de digitacao do cip
+           //WPUT('CIP_ESCRITORIO.class','winput')
+           //wPut('ifBUTTON',.T.)
+
+           wput('ifCIP_ESCRITORIO_RO',.f.)
+           wput('ifCIP_ESCRITORIO_NO_RO',.t.)
+           wput('ifCIP_ESCRITORIO',.t.)
+           Wput('ifEXCLUIR',.t.) // Exibicao do botao excluir
+           Wput('ifWAC_DELETE',.t.)
+           wPut('ifBUTTON',.F.)
+
+     elseif fnOpcao == 9
+         wput('ifCD_BANCO_RO',.t.)
+         wput('ifCD_BANCO_NO_RO',.f.)
+         wput('ifBANCO_AGENCIA_RO',.t.)
+         wput('ifBANCO_AGENCIA_NO_RO',.f.)
+         wput('ifBANCO_CONTA_RO',.t.)
+         wput('ifBANCO_CONTA_NO_RO',.f.)
+         wput('ifBANCO_CONTA_DIGITO_RO',.t.)
+         wput('ifBANCO_CONTA_DIGITO_NO_RO',.f.)
+         wput('ifDT_REF_RO',.t.)
+         wput('ifDT_REF_NO_RO',.f.)
+         wput('ifDTREF',.f.) // Botão da Data
+// sonia 17/03/2016 14:01:48
+// Customização Alfa
+         wput('ifNAJUSTA',.f.) // Botão de Cancelamento/Ativação de pagamento
+// termino da customização do alfa
+         wput('ifCD_DESPESA_RO',.t.)
+         wput('ifCD_DESPESA_NO_RO',.f.)
+         wput('ifCD_DESPESA',.f.)  // Botão da Despesa
+         wput('ifQUANTIDADE_RO',.t.)
+         wput('ifQUANTIDADE_NO_RO',.f.)
+         wput('ifVL_UNIT_RO',.t.)
+         wput('ifVL_UNIT_NO_RO',.f.)
+         wput('ifCIP_FAVORECIDO_RO',.t.)
+         wput('ifCIP_FAVORECIDO_NO_RO',.f.)
+         wput('ifCIP_FAVORECIDO',.f.) // Botão do Favorecido
+         WPUT('CIP_ESCRITORIO.readonly',.T.) // Botao de pesquisa de escritorios e textbox de digitacao do cip
+         WPUT('CIP_ESCRITORIO.class','winputreadonly')
+//Sonia - 18/08/2016 15:11:43 - teste bloqueio cip_empresa_pagadora - solicitante Jaq
+         WPUT('CIP_EMPRESA_PAGADORA.readonly',.T.) // Botao de pesquisa de escritorios e textbox de digitacao do cip
+         WPUT('CIP_EMPRESA_PAGADORA.class','winputreadonly')
+         wPut('ifBUTTON',.F.) // Botao de search do CIP_ESCRITORIO / cip_empresa_pagadora
+         // Data de previsao de pagamento
+         WPUT('DT_PREVISAO_PAGTO.readonly',.T.) // Botao de pesquisa de escritorios e textbox de digitacao do cip
+         WPUT('DT_PREVISAO_PAGTO.class','winputreadonly')
+         //wPut('ifBUTTON',.F.) // Botao de search do CIP_ESCRITORIO
+         // Tipo favorecido
+         WPUT('TP_FAVORECIDO.readonly',.T.) // Botao de pesquisa de escritorios e textbox de digitacao do cip
+         WPUT('TP_FAVORECIDO.class','winputreadonly')
+         // Tipo de documento fiscal
+         WPUT('TP_DOCFISCAL.readonly',.T.) // Botao de pesquisa de escritorios e textbox de digitacao do cip
+         WPUT('TP_DOCFISCAL.class','winputreadonly')
+         // Data de emissao do documento fiscal
+         WPUT('DT_EMISSAO_DOCFISCAL.readonly',.T.) // Botao de pesquisa de escritorios e textbox de digitacao do cip
+         WPUT('DT_EMISSAO_DOCFISCAL.class','winputreadonly')
+         // Numero do documento fiscal
+         WPUT('NR_DOCFISCAL.readonly',.T.) // Botao de pesquisa de escritorios e textbox de digitacao do cip
+         WPUT('NR_DOCFISCAL.class','winputreadonly')
+         // Centro de Custo
+         WPUT('CD_CCUSTO.readonly',.T.) // Botao de pesquisa de escritorios e textbox de digitacao do cip
+         WPUT('CD_CCUSTO.class','winputreadonly')
+         // Forma de Pagamento
+        WPUT('FORMA_PAGAMENTO.readonly',.T.) // Botao de pesquisa de escritorios e textbox de digitacao do cip
+         WPUT('FORMA_PAGAMENTO.class','winputreadonly')
+         //WPUT('FORMA_PAGAMENTO.class','winputreadonly disabled=true')
+         //WPUT('FORMA_PAGAMENTO.disabled',.t.)
+         // Botao salvar
+         WPUT('ifWAC_WRITE',.F.)
+         // Botao excluir
+         WPUT('ifWAC_DELETE',.F.)
+         
+         WPUT('DIGITAVEL.readonly',.T.) 
+         WPUT('DIGITAVEL.class','winputreadonly')          
+    endif
+
+return
+
+
+*******************************************************************************
+static function verifica(tped,tdesp,fcNR_PASTA,fcNR_DESPESA,lcAJUSPED,lcDEPJUD)
+*******************************************************************************
+local ii       := 1  as int
+local lcNR_ROW := '1' as string
+
+if lcAJUSPED == "S"
+   *** compara o valor do rateio com o total da despesa
+   if VAL(STR(tped,18,2)) <> VAL(STR(tdesp,18,2))
+      *** caso o total da despesa foi redigitado
+      *** procura e deleta caso ja exista rateio anteior para essa despesa
+      *** dessa forma vai reabrir para novo rateio
+      lcWHEREM:= 'NR_PASTA='+fcNR_PASTA+'and NR_CONTROLE_DESPESA ='+fcNR_DESPESA
+
+      psab_logdel(fcNR_PASTA,'NR_CONTROLE_DESPESA',fcNR_DESPESA,'Rateio pedido Despesa','mvt_desprat')
+      if db_delete('mvt_desprat',lcWHEREM) = -1
+         error_sys(db_error())
+      endif
+      
+      walert('Atenção:\ntotal da despesa = R$ ' + STR(tdesp,18,2) + '\ntotal do Rateio = R$ ' + STR(tped,18,2) + '\nDiferença não e permitida!')
+      return(.T.)
+   endif
+
+   *** verifica se ja existe rateio para essa despesa
+   do while WGet('VAR_PEDIDO_PROCESSO_'+lcNR_ROW,'B')
+      *** se o valor rateado for igual ao valor atualizado (pagamento total)
+      if WGet('VAR_VL_RATEADO_'+lcNR_ROW,'N') = WGet('VAR_VL_ATUALIZADO_'+lcNR_ROW,'N')
+
+         *** verifica se ja existe outro pagamento em aberto para esse pedido
+         lcWHEREM  := 'NR_PASTA='+fcNR_PASTA+' and  NR_CONTROLE_PEDIDO='+str(WGet('VAR_NR_CONTROLE_'+lcNR_ROW,'N'))+' and  FL_PAGO='+DLAP+'N'+DLAP
+         
+
+         if db_select({'NR_CONTROLE_DESPESA'},'mvt_desprat',,{lcWHEREM}) == -1
+            error_sys(db_error())
+         endif
+         laRET:= db_fetchall()      
+
+
+         *** se encontrar não permite lançamento total
+         if len(laRET)>1
+            walert('Atenção existe rateio pendente para o pedido: '+ WGet('VAR_PEDIDO_PROCESSO_'+lcNR_ROW,'C') + ' na despesa ' + str(laRET[2,1]))
+            **return(.T.)
+         endif
+      endif
+
+      ii++
+      lcNR_ROW    := alltrim(str(ii))
+   enddo
+
+   *** se estiver tudo ok procura e deleta caso ja exista rateio anteior para essa despesa
+   lcWHEREM:= 'NR_PASTA='+fcNR_PASTA+'and NR_CONTROLE_DESPESA ='+fcNR_DESPESA
+   psab_logdel(fcNR_PASTA,'NR_CONTROLE_DESPESA',fcNR_DESPESA,'Rateio pedido Despesa','mvt_desprat')
+   if db_delete('mvt_desprat',lcWHEREM) = -1
+      error_sys(db_error())
+   endif
+
+endif
+
+if lcDEPJUD == "S" 
+
+
+
+
+
+
+endif 
+
+return(.F.)
+
+***********************************************
+static function abatedeposito(fnr_pasta,fnvatu)
+***********************************************
+local fVALRAT  := 0 as numeric
+local laRETX   := {}   as array
+local lcWHEREM := ''   as string
+local lcORDER  := ''   as string
+lcWHEREM  := 'NR_PASTA='+fnr_pasta
+lcORDER   := 'NR_CONTROLE_DESPESA'
+if db_select({'sum(VL_ATUAL)','sum(VL_LEVANTAMENTO)'},'pasta_deposito',,{lcWHEREM},,,{'NR_PASTA'}) == -1
+   error_sys(db_error())
+endif
+laRETX:= db_fetchrow()
+fVALRAT := 0
+if len(laRETX)>0
+   if laRETX[2] <= laRETX[1] //se o valor do levantamento estiver maior esta errado desconta apenas o deposito
+      fVALRAT:=fnvatu - (laRETX[1]-laRETX[2])
+   else
+      fVALRAT:=fnvatu - laRETX[1]
+   endif
+else //não achou lançamento não desconta nada
+   fVALRAT:=fnvatu
+endif
+return(fVALRAT)
+
+
+******************************************************************
+static function dadosinterface(fnr_pasta)
+******************************************************************
+* Monta grid com dados da interface
+* Customização Tokio Resolução 395
+* Sonia - 25/09/2012 11:19:30
+
+local lcWHERE  := ''   as string
+local lcORDER  := ''   as string
+local lcTABLE  := ''   as string
+
+local laRET    := {}   as array
+
+local TT1      := 0 ,;
+      TT2      := 0 ,;
+      TT3      := 0 ,;
+      TT4      := 0 ,;
+      TT5      := 0 ,;
+      TT6      := 0 ,;
+      TT7      := 0 ,;
+      TTT      := 0 as numeric
+
+lcTABLE  := 'mvt_despesa_interface'
+lcWHERE  := 'NR_PASTA='+fnr_pasta
+lcORDER  := 'MVT_NR_SINISTRO'
+laFIELDS := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+
+if db_select(laFIELDS,lcTABLE,,{lcWHERE},{lcORDER}) == -1
+   error_sys(db_error())
+endif
+laRET:= db_fetchall()
+
+wPut('GRID_MVT_INTERFACE',laRET)
+
+lcWHERE  := 'NR_PASTA='+fnr_pasta
+
+if db_select({'SUM(mvt_despesa_interface.MVT_VL_RESERVA) as VL_TT_RESERVA',;
+              'SUM(mvt_despesa_interface.MVT_VL_CORRECAO) as VL_TT_CORRECAO',;
+              'SUM(mvt_despesa_interface.MVT_VL_MULTA) as VL_TT_MULTA',;
+              'SUM(mvt_despesa_interface.MVT_VL_JUROS) as VL_TT_JUROS',;
+              'SUM(mvt_despesa_interface.MVT_VL_CONTINGENCIA) as VL_TT_CONTINGENCIA' ,;
+              'SUM(mvt_despesa_interface.MVT_VL_HONORARIOS) as VL_TT_HONORARIOS',;
+              'SUM(mvt_despesa_interface.MVT_VL_CUSTAS) as VL_TT_CUSTAS'},;
+              'mvt_despesa_interface',,{lcWHERE},) == -1
+   error_sys(db_error())
+endif
+laRESa := db_fetchall()
+
+
+
+TT1:=laRESa[2,db_fetchncol(laRESa,'VL_TT_RESERVA')]
+TT2:=laRESa[2,db_fetchncol(laRESa,'VL_TT_CORRECAO')]
+TT3:=laRESa[2,db_fetchncol(laRESa,'VL_TT_JUROS')]
+TT4:=laRESa[2,db_fetchncol(laRESa,'VL_TT_MULTA')]
+TT5:=laRESa[2,db_fetchncol(laRESa,'VL_TT_CONTINGENCIA')]
+TT6:=laRESa[2,db_fetchncol(laRESa,'VL_TT_HONORARIOS')]
+TT7:=laRESa[2,db_fetchncol(laRESa,'VL_TT_CUSTAS')]
+TTT:=TT2+TT3+TT4+TT5+TT6+TT7
+
+
+WPut('TRESERVA',wpictrans('VL_TT_RESERVA',TT1))
+WPut('TCORRECAO',wpictrans('VL_TT_CORRECAO',TT2))
+WPut('TJUROS',wpictrans('VL_TT_JUROS',TT3))
+WPut('TMULTA',wpictrans('VL_TT_MULTA',TT4))
+WPut('TCONTINGENCIA',wpictrans('VL_TT_CONTINGENCIA',TT5))
+WPut('THONORARIOS',wpictrans('VL_TT_HONORARIOS',TT6))
+WPut('TCUSTAS',wpictrans('VL_TT_CUSTAS',TT7))
+WPut('TGERAL',wpictrans('VL_TT_CUSTAS',TTT))
+
+
+return
+
+********************************************
+static function busca_parametros(fcTP_PASTA)
+********************************************
+   local laRESULT  := {} as array
+   local fcDESPVLD := '' as string
+
+   if db_select({'GERA_EST_AUT','CPOSSIVEL','CPROVAVEL','CREMOTO','CD_DESP1','CD_DESP2','CD_DESP3','CD_DESP4','CD_DESP5','DIF_REMOTO','OCOR_PROV_AUTO','LIM_MAX','MAX_VAR','OCOR_PEDIDO_CORRECAO','OCOR_PEDIDO_RATEIO','NS_PROV','NS_POSS','NS_REMO','CONTSDXP','CONTSXP','COD_EMPRESA'},'pasta_config',,{'TP_PASTA = '+DLAP+fcTP_PASTA+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+
+   if len(laRESULT) > 1
+      ***if laRESULT[2,1] != 'S'
+      ***   return('F')
+      ***else
+
+         *** RISCOS A CONTABILIZAR 1=Possivel 2=Provavel 3=Remoto | ID OCORRENCIA AUMENTO PROVISÃO AUTOMATICA |LIMITE VALOR MAXIMO|% MAXIMO VARIAÇÃO A MAIOR|ID DESPESAS A CRITICAR |TRANSF DIF.PARA REMOTO|OCORRENCIA PARA CORRECAO MONETARIA|OCORRENCIA PARA ESTORNO
+         ***                            1                         |                        2                  |          3        |             4           |            5          |           6          |                   7              |            8
+
+
+      if laRESULT[2,2]=='S'
+         if fcDESPVLD=''
+            fcDESPVLD:='Possível'
+           else
+            fcDESPVLD:=fcDESPVLD+','+'Possível'
+         endif
+      endif
+
+      if laRESULT[2,3]=='S'
+         if fcDESPVLD=''
+            fcDESPVLD:='Provável'
+           else
+            fcDESPVLD:=fcDESPVLD+','+'Provável'
+         endif
+      endif
+
+      if laRESULT[2,4]=='S'
+         if fcDESPVLD=''
+            fcDESPVLD:='Remota'
+           else
+            fcDESPVLD:=fcDESPVLD+','+'Remota'
+         endif
+      endif
+
+      fcDESPVLD:=fcDESPVLD+'|'+laRESULT[2,11]
+      fcDESPVLD:=fcDESPVLD+'|'+str(laRESULT[2,12])
+      fcDESPVLD:=fcDESPVLD+'|'+str(laRESULT[2,13])
+      fcDESPVLD:=fcDESPVLD+'|'+DLAP+laRESULT[2,5]+DLAP
+      fcDESPVLD:=fcDESPVLD+','+DLAP+laRESULT[2,6]+DLAP
+      fcDESPVLD:=fcDESPVLD+','+DLAP+laRESULT[2,7]+DLAP
+      fcDESPVLD:=fcDESPVLD+','+DLAP+laRESULT[2,8]+DLAP
+      fcDESPVLD:=fcDESPVLD+','+DLAP+laRESULT[2,9]+DLAP
+      fcDESPVLD:=fcDESPVLD+'|'+laRESULT[2,10]
+      fcDESPVLD:=fcDESPVLD+'|'+laRESULT[2,14]
+      fcDESPVLD:=fcDESPVLD+'|'+laRESULT[2,15]
+
+
+      fcDESPVLD:=fcDESPVLD+'|'+DLAP+'Provável'+DLAP
+      fcDESPVLD:=fcDESPVLD+','+DLAP+'Possível'+DLAP
+      fcDESPVLD:=fcDESPVLD+','+DLAP+'Remoto'+DLAP
+      fcDESPVLD:=fcDESPVLD+','+laRESULT[2,16]
+      fcDESPVLD:=fcDESPVLD+','+laRESULT[2,17]
+      fcDESPVLD:=fcDESPVLD+','+laRESULT[2,18]
+      fcDESPVLD:=fcDESPVLD+'|'+laRESULT[2,1]
+      
+      fcDESPVLD:=fcDESPVLD+'|'+laRESULT[2,19]
+      fcDESPVLD:=fcDESPVLD+'|'+laRESULT[2,20]   
+      fcDESPVLD:=fcDESPVLD+'|'+str(laRESULT[2,21])  
+
+      **fcDESPVLD:="Possível,Provável,Remota|1|0.00|100.00|1,2,3,4,5|S|Correção Monetária|Estorno"
+
+      return(fcDESPVLD)
+
+
+      ***endif
+
+   endif
+return(fcDESPVLD)
+
+
+*************************************
+static function verifdesp(fc_DESPESA)
+*************************************
+*** procura codigo da despesa
+
+local laRES := {} as array
+local lcZERA:= '' as string
+
+if db_select({'FL_ZERAR_PROVISAO'},'despesa',,{'CD_DESPESA = '+DLAP+fc_DESPESA+DLAP}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchrow()
+
+if laRES[1]=='S'
+   lcZERA:='S'
+else
+   lcZERA:='N'
+endif
+
+return(lcZERA)
+
+/*
+* Data......: 04/05/2015 10:58:27 - Rufino
+* Function..: mkgedruf(fcWTABLE, faValues)
+* Objetivo..: Verificar a existencia de configurções GED para uma determinada tabela e criar o link para o ícone do GED
+* Parâmetros:
+*   fcWTABLE: Nome da tabela
+*   faValues: Vetor com os valores para WFIELD1,WFIELD2..WFIELD5
+* Retorno...: Nenhum
+*/
+static function mkgedruf(fcWTABLE,faValues)
+   local lcPARAMS  := '' ,;
+         lcHTML    := '' ,;
+         lcCONTENT := '' as string
+
+   local laFIELDS := {} ,;
+         laRESULT := {} as array
+
+   local ii := 0 as int
+
+   if valtype(fcWTABLE) == 'U' .or. empty(fcWTABLE)
+      puterror('mkgedico: Tabela não definida')
+      return(nil)
+   endif
+
+   laFIELDS := {'WTABLE','CD_BUSINESS','WFIELD1','WFIELD2','WFIELD3','WFIELD4','WFIELD5'}
+   if db_select(laFIELDS,'gdrelacionamento',,{'WTABLE='+DLAP+fcWTABLE+DLAP}) == -1
+      puterror('mkgedico: ('+alltrim(str(procline()))+') '+db_error())
+      return(nil)
+   endif
+   laRESULT := db_fetchrow()
+
+   if len(laRESULT) > 0
+      if !empty(laRESULT[2]) .and. !empty(laRESULT[3])
+         lcPARAMS += 'WTABLE='+fcWTABLE
+         lcPARAMS += '&CD_BUSINESS='+alltrim(laRESULT[2])
+         for ii := 1 to 5
+             if !empty(laRESULT[ascan(laFIELDS,'WFIELD'+alltrim(str(ii)))])
+                //lcCONTENT := alltrim(getwput(laRESULT[ascan(laFIELDS,'WFIELD'+alltrim(str(ii)))],'C')) // Recupera dados da UI
+                lcCONTENT := faValues[ii]
+                if !empty(lcCONTENT)
+                   lcPARAMS += '&WFIELD'+alltrim(str(ii))+'='+alltrim(lcCONTENT)
+                else
+                   lcPARAMS += '&WFIELD'+alltrim(str(ii))+'=RELATIONEMPTY.'+laRESULT[ascan(laFIELDS,'WFIELD'+alltrim(str(ii)))]
+                endif
+             endif
+         next ii
+
+         lcPARAMS := wic_action('wicaction_workflow/ged.mgr.html')+'?'+lcPARAMS
+      else
+         lcPARAMS := 'ERRO! Falta relacionamento no GED.'
+      endif
+   endif
+return(lcPARAMS)
+
+**********************************************************
+static function totged(fcNR_PASTA,fcTIPOPASTA,fcANDAMENTO)
+**********************************************************
+local laRESULT:={} as array
+
+if db_select({'count(*)'},'ged',,{'wtable="mvt_despesa"','REFERENCIA1='+fcNR_PASTA,'REFERENCIA2='+DLAP+fcTIPOPASTA+DLAP,'REFERENCIA3='+fcANDAMENTO}) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchrow()
+
+return(alltrim(str(laRESULT[1])))
+
+******************************
+static function carrega_auto(lcNR_PASTA)
+******************************
+local laRESULT     :={} as array
+local paAUTO       :={} as array
+local paAUTO_LABELS:={} as array 
+
+if db_select({'NR_AUTOPROC','AUTOPROC','NUMERO_DOC'},'pasta_auto',,;
+             {'NR_PASTA='+lcNR_PASTA},{'AUTOPROC'}) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchall()
+
+paAUTO        := {'-1'}
+paAUTO_LABELS := {''}
+
+aadd(paAUTO,'0')
+aadd(paAUTO_LABELS,'Processo Principal')
+
+for ii := 2 to len(laRESULT)
+   aadd(paAUTO,alltrim(str(laRESULT[ii,1])))
+   aadd(paAUTO_LABELS,laRESULT[ii,2]+' : '+laRESULT[ii,3])
+next ii
+
+WPut('NR_AUTOPROC.option',paAUTO_LABELS)
+WPut('NR_AUTOPROC.optionvalue',paAUTO)
+
+return
+*************************
+static function busmovp(tipo)
+*************************
+* busca movimentação padrão
+
+local laRESULT:={}
+local lcERRO  :=''
+
+if db_select({'NR_CONTROLE','DESCMOV'},'tipo_movdeposito',,{'FL_DEFAULT='+DLAP+'S'+DLAP}) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchrow()
+
+if len(laRESULT) >0
+   if tipo == 1
+      WPut('DESCMOV',laRESULT[2])
+      WPut('NR_MOVIMENTO',laRESULT[1])
+   endif   
+   lcERRO='S'
+ else
+   walert('Atenção não foi cadastrado o tipo de movimentação padrão!')
+   lcERRO='N'
+endif
+return(lcERRO)
+
+*******************************************
+static function gera_deposito(fcNR_DESPESA)
+*******************************************
+local laFIELDS:={} as array
+local laDADOS:={} as array
+local laSAVEAUX:={} as array
+
+local dd:=0 as int
+
+laFIELDS := {'NR_PASTA',; 
+              'NR_AUTOPROC',; 
+              'NR_CONTROLE',;
+              'DT_DEPOSITO',; 
+              'TP_DEPOSITO',; 
+              'TP_GARANTIA',;
+              'IDENTIFICACAO',;
+              'LOCAL_DEPOSITO',; 
+              'VL_DEPOSITO',;
+              'FL_DEPOSITO',;
+              'VL_ATUAL',;
+              'CD_INDICE',;
+              'FL_CALCULO',;
+              'CD_BCO_DEP',;
+              'BCO_AGE_DEP',;
+              'BCO_CNT_DEP',;
+              'BCO_CNT_DG_DEP',;
+              'PROBABILIDADE',;
+              'TIPO_BLOQUEIO',;
+              'NR_DESPESA',;
+              'NR_DEP_ORIG',;
+              'PC_RISCO',;
+              'DT_VENCTO'}    
+
+
+for dd := 1 to len(laFIELDS)
+    
+    if laFIELDS[dd] == 'DT_DEPOSITO'
+       aadd(laDADOS,WGet('DT_PAGAMENTO','D'))
+       
+    elseif laFIELDS[dd] == 'VL_DEPOSITO'
+       aadd(laDADOS,WGet('VL_PAGO','N'))
+    
+    elseif laFIELDS[dd] == 'VL_ATUAL'
+       aadd(laDADOS,WGet('VL_PAGO','N'))       
+    
+    elseif laFIELDS[dd] == 'FL_CALCULO'   
+       aadd(laDADOS,'S')
+    
+    elseif laFIELDS[dd] == 'DT_VENCTO'
+       aadd(laDADOS,WGet('DT_PREVISAO_PAGTO','D'))          
+   
+    elseif laFIELDS[dd] == 'PC_RISCO'  
+      aadd(laDADOS,100) 
+      
+    elseif laFIELDS[dd] == 'NR_DESPESA'  
+      aadd(laDADOS,fcNR_DESPESA)      
+                 
+    else
+      aadd(laDADOS,WGET(laFIELDS[dd]))
+    endif
+      
+next dd      
+
+
+*** grava deposito pai
+if db_insert({laFIELDS,laDADOS},'pasta_deposito') == -1
+   error_sys(db_error())
+endif
+
+
+
+lnIDDEP := db_insert_id()
+lcNR_CONTROLE := str(db_insert_id())
+
+**laFIELDS[2,ascan(laFIELDS[1],'NR_CONTROLE')] := db_insert_id()
+
+laDADOS[3]:= db_insert_id()
+
+
+if db_update({{'NR_DEP_ORIG'},{lnIDDEP}},'pasta_deposito',{'NR_CONTROLE='+lcNR_CONTROLE}) == -1
+   error_sys(db_error())
+endif
+
+
+   if db_select({'DESCMOV',;
+                 'AJUSDEP',;
+                 'FL_DEFAULT',;
+                 'NR_CONTROLE'},;
+                 'tipo_movdeposito',,;
+                 {'FL_DEFAULT='+DLAP+'S'+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laTP_MOV := db_fetchrow()
+   
+
+
+laFIELDS:={'NR_PASTA',;
+          'NR_CONTDEP',;
+          'DT_MOVIMENTO',;
+          'DT_OCORRIDO',;
+          'NR_CONTTPM',;
+          'TP_MOV',;
+          'VL_MOV',;
+          'AJUSDEP',;
+          'INDICE_MOV',;
+          'VL_COR',;
+          'VL_JUR',;
+          'PROBABILIDADE',;
+          'LOGIN_CADASTRO'}
+          
+laSAVEAUX:={} 
+          
+          
+for ii := 1 to len(laFIELDS)
+
+      if laFIELDS[ii]=='NR_PASTA'  
+         aadd(laSAVEAUX,laDADOS[1])
+
+      elseif laFIELDS[ii]=='NR_CONTDEP'  
+         aadd(laSAVEAUX,lnIDDEP)
+
+      elseif laFIELDS[ii]=='DT_MOVIMENTO'
+         aadd(laSAVEAUX,date())
+
+      elseif laFIELDS[ii]=='DT_OCORRIDO'
+         aadd(laSAVEAUX,date())
+
+      elseif laFIELDS[ii]=='NR_CONTTPM'
+         aadd(laSAVEAUX,laTP_MOV[4])
+
+      elseif laFIELDS[ii]=='TP_MOV'
+         aadd(laSAVEAUX,laTP_MOV[1])
+
+      elseif laFIELDS[ii]=='VL_MOV'
+         aadd(laSAVEAUX,laDADOS[9])
+
+      elseif laFIELDS[ii]=='AJUSDEP'
+         aadd(laSAVEAUX,laTP_MOV[2])
+
+      elseif laFIELDS[ii]=='INDICE_MOV'
+         aadd(laSAVEAUX,laDADOS[12])         
+         
+      elseif laFIELDS[ii]=='VL_COR'
+         aadd(laSAVEAUX,0)
+
+      elseif laFIELDS[ii]=='VL_JUR'
+         aadd(laSAVEAUX,0)         
+
+      elseif laFIELDS[ii]=='PROBABILIDADE'
+         aadd(laSAVEAUX,'')
+
+      elseif laFIELDS[ii]=='LOGIN_CADASTRO'
+         aadd(laSAVEAUX,gcLOGIN)
+
+
+      else
+         aadd(laSAVEAUX,wGet(laFIELD[ii],wmd_wfieldtype(laFIELDS[ii])))
+
+      endif
+next ii          
+
+if db_insert({laFIELDS,laSAVEAUX},'pasta_detal_dep') == -1
+   error_sys(db_error())
+endif
+
+
+return(nil)
+
+
+/*
+* Data da Criação: 06/05/2009 - Valdimari Martins
+* Function.......: carrega_pedido(fcNR_PASTA,fcTP_PASTA,fcNR_DESPESA,fcACTION,faPED_RATEIO,fcNR_CONTROLE_SEGURO,flERROR,faVA_PEDIDO)
+* Objetivo.......: Carregar grid de Pedidos so se ajusta pedidos = S
+* Parâmetros.....:
+*                  <fcNR_PASTA>           Número da Pasta
+*                  <fcTP_PASTA>           Tipo da Pasta
+*                  <fcNR_DESPESA>         Número da Despesa
+*                  <fcACTION>             Ação do Programa
+*                  <faPED_RATEIO>         Array com alterações de Pedidos
+*                  <fcNR_CONTROLE_SEGURO> Número do Seguro
+*                  <flERROR>              Erro de Consistência antes de carregar o Pedido
+*                  <faVA_PEDIDO>          Valor atualizado dos Pedidos Rateados
+*
+* Retorno........: Nenhum
+*/
+Static Function carrega_pedido(fcNR_PASTA,fcTP_PASTA,fcNR_DESPESA,fcACTION,faPED_RATEIO,fcNR_CONTROLE_SEGURO,flERROR,faVA_PEDIDO,fcABA_PED_NOVA,lcPARAM,fcAJUSPED,fcDEPJUD)
+   local lcWHERE_PED  := ''  ,;
+         lcFL_PEDPG   := ''  ,;
+         lcNR_ROW     := '1' ,;
+         lcWHERE      := ''  ,;
+         querysql     := ''  ,;
+         lcRISCOS     := ''  ,;
+         lcFL_ESCOLHA := ''  as string
+   local laRES       := {} ,;
+         laRES1      := {} ,;
+         laRES2      := {} ,;
+         laRES3      := {} ,;
+         laRESULT    := {} ,;
+         laFIELDS    := {} ,;
+         laRAT       := {} ,;
+         laRISCOS    := {} ,;
+         laRESULTPAS := {} as array
+   local lnTOT_LINHAS := 0 as int
+   local lnVTRC := 0.00 ,;
+         lnVTR  := 0.00 ,;
+         lnVTC  := 0.00 ,;
+         lnVTJ  := 0.00 ,;
+         lnVTA  := 0.00 ,;
+         lnVTRA := 0.00 ,;
+         lnVTPG := 0.00 ,;
+         lnFALTA:= 0.00 ,;
+         lnDESCONTAR := 0.00 ,;
+         lnPROPOR    := 0.00 ,;
+         lnVL_TOTAL  := 0.00 ,;
+         lnVA   := 0.00 as numeric
+   local ii     := 0 as int
+   local llESTAPAGO  := .f. as logical
+   local llTEMRAT    := .f. as logical
+   local llTEMDEP    := .f. as logical
+
+   local JUDRAT     := 0.00 as numeric 
+   local DESPRAT    := 0.00 as numeric
+   local VL_RATEADO := 0.00 as numeric
+   
+   local OUTRAT     := 0.00 as numeric 
+   local OUTJUD     := 0.00 as numeric
+   local OUTRAS     := 0.00 as numeric   
+
+   *** verifica se essa despesa esta paga
+   laFIELDS := {'NR_PASTA','NR_DESPESA'}
+   lcWHERE  := 'NR_PASTA = '+fcNR_PASTA+' AND NR_DESPESA = '+fcNR_DESPESA+' AND FL_PAGAMENTO = '+DLAP+'A'+DLAP
+
+   if db_select(laFIELDS,'mvt_despesa_pagamento',,{lcWHERE},,,{'NR_PASTA','NR_DESPESA'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT    := db_fetchall()
+
+   *** como so existe um pagamento para o rateio, encontrando indica que todo os itens do rateio estao pagos
+   if len(laRESULT)>1 //esta paga
+      llESTAPAGO:=.t.
+   else
+      llESTAPAGO:=.f.
+   endif
+ 
+      
+
+
+   if db_select({'FL_PASTA'},'pasta',,{'NR_PASTA = '+fcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+   laRESULTPAS := db_fetchrow()
+
+
+   if psab_find(fcTP_PASTA,'psab.seg.cont.sinistro.html')
+      WPut('ifSINISTRO',.t.)
+      if db_select({'LAYOUT_PASTA'},'pasta_config',,{'TP_PASTA = '+DLAP+fcTP_PASTA+DLAP+'and LAYOUT_PASTA like '+DLAP+'%Exp%'+DLAP}) == -1
+         error_sys(db_error())
+      endif
+      if len(db_fetchrow()) > 0
+         WPut('ifEXPEDIENTE',.t.)
+      else
+         WPut('ifEXPEDIENTE',.f.)
+      endif
+   else
+      WPut('ifSEM_SINISTRO',.t.)
+   endif
+
+   if val(fcNR_CONTROLE_SEGURO) == 0
+      lcWHERE_PED :='pasta_pedidos.NR_PASTA='+fcNR_PASTA
+   else
+      *** se tiver numero do seguro so traz os pedidos com o mesmo numero de seguro ou com seguro igual a zero
+      lcWHERE_PED :='pasta_pedidos.NR_PASTA='+fcNR_PASTA+' and (pasta_pedidos.NR_CONTROLE_SEGURO ='+fcNR_CONTROLE_SEGURO+' or pasta_pedidos.NR_CONTROLE_SEGURO = 0)'
+   endif
+  
+
+   if fcABA_PED_NOVA == 'S'
+      lcWHERE_PED := lcWHERE_PED + ' and ((pasta_pedidos.VL_RISCO=0 and pasta_pedidos.VL_RISCO_CALC<>0) or (pasta_pedidos.VL_RISCO<>0 and pasta_pedidos.VL_RISCO_CALC=0))'
+   endif
+
+   *if fcACTION=='INCLUIR_PG'
+   *   if fcAJUSPED=='S'
+   *      lcWHERE_PED := lcWHERE_PED + ' and mvt_desprat.vl_rateado is not null and mvt_desprat.nr_controle_despesa='+fcNR_DESPESA
+   *   endif
+   *   if fcDEPJUD=='S'
+   *      lcWHERE_PED := lcWHERE_PED + ' and mvt_depjud.vl_rateado is not null and mvt_depjud.nr_controle_despesa='+fcNR_DESPESA      
+   *   endif          
+   *endif        
+
+   laPARAM  := str2array(lcPARAM,'|')
+
+   if fcACTION<>'ALTER'
+
+      laRISCOS := str2array(laPARAM[1],',')
+      lcRISCOS:=''
+
+      for ii=1 to len(laRISCOS)
+          if lcRISCOS==''
+             lcRISCOS:=DLAP+laRISCOS[ii]+DLAP
+          else
+             lcRISCOS:=lcRISCOS+','+DLAP+laRISCOS[ii]+DLAP
+          endif
+      next
+      if fcABA_PED_NOVA == 'S'
+         lcWHERE_PED := lcWHERE_PED + ' and (pasta_pedidos.NR_PEDIDO_ORIGEM=0 or pasta_pedidos.PEDIDO_PROCESSO in ('+lcRISCOS+'))'
+      endif
+   endif
+
+querysql := 'SELECT '
+      
+querysql += ' CASE WHEN pasta_pedidos.NR_PEDIDO_ORIGEM  is null THEN pasta_pedidos.nr_controle' 
+querysql += ' ELSE pasta_pedidos.NR_PEDIDO_ORIGEM' 
+querysql += ' END as NR_CONTROLE_PAI,'
+
+querysql += 'pasta_pedidos.NR_CONTROLE,'
+querysql += 'pasta_pedidos.PEDIDO_PROCESSO,'
+querysql += 'pasta_pedidos.NR_CONTROLE_SEGURO,'
+querysql += 'pasta_pedidos.TP_EXPEDIENTE,'
+querysql += 'pasta_pedidos.VL_RISCO,'
+querysql += 'pasta_pedidos.PC_RISCO,'
+querysql += 'exito_riscoperda.RISCOPERDA,'
+querysql += 'pasta_pedidos.VL_RISCO_CALC,'
+querysql += 'pasta_pedidos.VL_CORRECAO,'
+querysql += 'pasta_pedidos.VL_JUROS,'
+querysql += 'pasta_seguro.NR_SINISTRO,'
+querysql += 'pasta_pedidos.FL_PEDIDO_DESPESA,'
+querysql += 'pasta_pedidos.DT_RISCO,'
+
+querysql += ' CASE'
+querysql += " WHEN mvt_despesa_pagamento.fl_pagamento is null THEN 'A'"
+querysql += ' ELSE mvt_despesa_pagamento.fl_pagamento' 
+querysql += ' END as FL_PAGAMENTO,'
+
+querysql += ' CASE'
+querysql += ' WHEN judrat.vl_rateado is null THEN 0'
+querysql += ' ELSE judrat.vl_rateado'
+querysql += ' END as JUDRAT,'
+
+querysql += ' CASE'
+querysql += ' WHEN desprat.vl_rateado is null THEN 0'
+querysql += ' ELSE desprat.vl_rateado'
+querysql += ' END as DESPRAT,'
+
+querysql += ' CASE'
+querysql += ' WHEN outrat.vl_rateado is null THEN 0'
+querysql += ' ELSE outrat.vl_rateado'
+querysql += ' END as OUTRAT,'
+
+querysql += ' CASE'
+querysql += ' WHEN outjud.vl_rateado is null THEN 0'
+querysql += ' ELSE outjud.vl_rateado' 
+querysql += ' END as OUTJUD,'
+
+querysql += ' pasta_pedidos.NR_PASTA'
+
+querysql += ' from pasta_pedidos' 
+
+querysql += ' left join exito_riscoperda ON exito_riscoperda.PC_RISCO=pasta_pedidos.PC_RISCO'
+querysql += ' left join pasta_seguro ON pasta_seguro.NR_CONTROLE=pasta_pedidos.NR_CONTROLE_SEGURO' 
+querysql += ' left join mvt_despesa_pagamento on mvt_despesa_pagamento.nr_pasta = pasta_pedidos.nr_pasta and mvt_despesa_pagamento.nr_despesa='+fcNR_DESPESA
+
+
+querysql += ' left join('
+querysql += ' select'
+querysql += ' mvt_desprat.NR_CONTROLE_PEDIDO,'
+querysql += ' CASE'
+querysql += ' WHEN sum(mvt_desprat.vl_rateado) is null THEN 0'
+querysql += ' ELSE CAST(sum(mvt_desprat.vl_rateado) AS numeric(18,2))'
+querysql += ' END as vl_rateado'
+querysql += ' from mvt_desprat'
+querysql += ' where mvt_desprat.nr_controle_despesa= '+fcNR_DESPESA+' and mvt_desprat.nr_pasta='+fcNR_PASTA
+querysql += ' group by mvt_desprat.NR_CONTROLE_PEDIDO) desprat on desprat.NR_CONTROLE_PEDIDO = pasta_pedidos.NR_CONTROLE' 
+
+querysql += ' left join('
+querysql += ' select'
+querysql += ' mvt_depjud.NR_CONTROLE_PEDIDO,'
+querysql += ' CASE'
+querysql += ' WHEN sum(mvt_depjud.vl_rateado) is null THEN 0'
+querysql += ' ELSE CAST(sum(mvt_depjud.vl_rateado) AS numeric(18,2))'
+querysql += ' END as vl_rateado'
+querysql += ' from mvt_depjud'
+querysql += ' where mvt_depjud.nr_controle_despesa = '+fcNR_DESPESA+' and mvt_depjud.nr_pasta='+fcNR_PASTA
+querysql += ' group by mvt_depjud.NR_CONTROLE_PEDIDO) judrat on judrat.NR_CONTROLE_PEDIDO = pasta_pedidos.NR_CONTROLE' 
+
+
+
+querysql += ' left join('
+querysql += ' select'
+querysql += ' mvt_desprat.NR_CONTROLE_PEDIDO,'
+querysql += ' CASE'
+querysql += ' WHEN sum(mvt_desprat.vl_rateado) is null THEN 0'
+querysql += ' ELSE CAST(sum(mvt_desprat.vl_rateado) AS numeric(18,2))'
+querysql += ' END as vl_rateado'
+querysql += ' from mvt_desprat'
+querysql += " where mvt_desprat.FL_PAGO = 'N' and mvt_desprat.nr_controle_despesa<>"+fcNR_DESPESA+" and mvt_desprat.nr_pasta="+fcNR_PASTA
+querysql += ' group by mvt_desprat.NR_CONTROLE_PEDIDO) outrat on outrat.NR_CONTROLE_PEDIDO = pasta_pedidos.NR_CONTROLE' 
+
+
+querysql += ' left join('
+querysql += ' select'
+querysql += ' mvt_depjud.NR_CONTROLE_PEDIDO,'
+querysql += ' CASE'
+querysql += ' WHEN sum(mvt_depjud.vl_rateado) is null THEN 0'
+querysql += ' ELSE CAST(sum(mvt_depjud.vl_rateado) AS numeric(18,2))'
+querysql += ' END as vl_rateado'
+querysql += ' from mvt_depjud'
+querysql += " where mvt_depjud.FL_PAGO = 'N' and mvt_depjud.nr_controle_despesa<>"+fcNR_DESPESA+" and mvt_depjud.nr_pasta="+fcNR_PASTA
+querysql += ' group by mvt_depjud.NR_CONTROLE_PEDIDO) outjud on outjud.NR_CONTROLE_PEDIDO = pasta_pedidos.NR_CONTROLE'  
+
+querysql += ' WHERE '+lcWHERE_PED
+querysql += ' ORDER BY pasta_pedidos.NR_CONTROLE' 
+
+
+if db_query(querysql) == -1
+   error_sys(db_error())
+endif
+
+
+
+   laRES := db_fetchall()
+
+   if len(laRES) > 1
+      aadd(laRES[1],'VAR_NR_CONTROLE')
+      aadd(laRES[1],'VAR_PEDIDO_PROCESSO')
+      aadd(laRES[1],'VAR_NR_CONTROLE_SEGURO')
+      aadd(laRES[1],'VAR_TP_EXPEDIENTE')
+      aadd(laRES[1],'VAR_VL_ATUALIZADO')
+      aadd(laRES[1],'VAR_VL_RATEADO')
+      aadd(laRES[1],'VAR_VL_RISCO')
+      aadd(laRES[1],'VAR_PC_RISCO')
+      aadd(laRES[1],'VAR_PC_RISCO_RISCOPERDA')
+      aadd(laRES[1],'VAR_VL_RISCO_CALC')
+      aadd(laRES[1],'VAR_VL_CORRECAO')
+      aadd(laRES[1],'VAR_VL_JUROS')
+      aadd(laRES[1],'VAR_NR_SINISTRO')
+      aadd(laRES[1],'VAR_DT_RISCO')
+      aadd(laRES[1],'VAR_NR_PEDIDO_ORIGEM')
+
+      aadd(laRES[1],'VAR_BT_DET')
+      aadd(laRES[1],'VAR_OCOR_PEDIDO')
+      aadd(laRES[1],'VAR_VL_JA_RATEADO')
+      aadd(laRES[1],'VAR_CHK')
+      aadd(laRES[1],'VAR_FL_PAGO')  
+      aadd(laRES[1],'VAR_DEPJUD')  
+      aadd(laRES[1],'VAR_RATEADO')   
+
+
+      lnVTRC := 0.00 //Total VL_RISCO_CALC
+      lnVTR  := 0.00 //Total VL_RISCO
+      lnVTRA := 0.00 //Total VL_RATEADO
+      lnVTC  := 0.00 //Total VL_CORRECAO
+      lnVTJ  := 0.00 //Total VL_JURO
+      lnVTA  := 0.00 //Total VL_ATUALIZADO
+      lnVTPG := 0.00 //Total VL_ATUAL_PAGO
+      lnVA   := 0.00
+
+      for ii := 2 to len(laRES)
+         aadd(laRES[ii],'VAR_NR_CONTROLE_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_PEDIDO_PROCESSO_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_NR_CONTROLE_SEGURO_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_TP_EXPEDIENTE_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_VL_ATUALIZADO_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_VL_RATEADO_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_VL_RISCO_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_PC_RISCO_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_PC_RISCO_'+lcNR_ROW+'_RISCOPERDA')
+         aadd(laRES[ii],'VAR_VL_RISCO_CALC_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_VL_CORRECAO_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_VL_JUROS_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_NR_SINISTRO_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_DT_RISCO_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_NR_PEDIDO_ORIGEM_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_BT_DET_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_OCOR_PEDIDO_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_VL_JA_RATEADO_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_CHK_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_FL_PAGO_'+lcNR_ROW) 
+         aadd(laRES[ii],'VAR_DEPJUD_'+lcNR_ROW)
+         aadd(laRES[ii],'VAR_RATEADO_'+lcNR_ROW)          
+
+        
+         WPut('VAR_NR_CONTROLE_'+lcNR_ROW,            laRES[ii,db_fetchncol(laRES,'NR_CONTROLE')])
+         WPut('VAR_PEDIDO_PROCESSO_'+lcNR_ROW,        laRES[ii,db_fetchncol(laRES,'PEDIDO_PROCESSO')])
+         WPut('VAR_NR_CONTROLE_SEGURO_'+lcNR_ROW,     laRES[ii,db_fetchncol(laRES,'NR_CONTROLE_SEGURO')])
+         WPut('VAR_TP_EXPEDIENTE_'+lcNR_ROW,          laRES[ii,db_fetchncol(laRES,'TP_EXPEDIENTE')])
+         WPut('VAR_PC_RISCO_'+lcNR_ROW+'_RISCOPERDA', laRES[ii,db_fetchncol(laRES,'RISCOPERDA')])
+         WPut('VAR_NR_SINISTRO_'+lcNR_ROW,            laRES[ii,db_fetchncol(laRES,'NR_SINISTRO')])
+         WPut('VAR_DT_RISCO_'+lcNR_ROW,               laRES[ii,db_fetchncol(laRES,'DT_RISCO')])
+         WPut('VAR_NR_PEDIDO_ORIGEM_'+lcNR_ROW,       laRES[ii,db_fetchncol(laRES,'NR_CONTROLE_PAI')])
+
+         WPut('VAR_BT_DET_'+lcNR_ROW,"D")
+
+         JUDRAT    := laRES[ii,db_fetchncol(laRES,'JUDRAT')]
+         DESPRAT   := laRES[ii,db_fetchncol(laRES,'DESPRAT')]
+         
+         
+         if fcDEPJUD=='S'          
+            * laPARAM[10] == CONTSDXP
+            *'' = NAO CONTROLA
+            *'2'= NÃO PERMITE
+            *'1'= APENAS ALERTA 
+
+            if laPARAM[11] == ''
+               VL_RATEADO:= DESPRAT
+            else
+               VL_RATEADO:= JUDRAT + DESPRAT
+            endif
+         else
+            VL_RATEADO:= DESPRAT      
+         endif   
+            
+            
+
+         WPut('VAR_VL_RATEADO_'+lcNR_ROW,             wpictrans('VL_RISCO_CALC',VL_RATEADO))
+
+         OUTRAT:=laRES[ii,db_fetchncol(laRES,'OUTRAT')]
+         OUTJUD:=laRES[ii,db_fetchncol(laRES,'OUTJUD')]
+         
+         if fcDEPJUD=='S'
+            if laPARAM[11] ==''
+               OUTRAS:= OUTRAT  
+            else
+               OUTRAS:= OUTRAT + OUTJUD    
+            endif 
+         else
+            OUTRAS:= OUTRAT + OUTJUD          
+         endif   
+
+         WPut('VAR_VL_JA_RATEADO_'+lcNR_ROW,          wpictrans('VL_RISCO_CALC',OUTRAS))
+
+
+         lnVA := laRES[ii,db_fetchncol(laRES,'VL_RISCO_CALC')]+;
+                 laRES[ii,db_fetchncol(laRES,'VL_CORRECAO')]+;
+                 laRES[ii,db_fetchncol(laRES,'VL_JUROS')]
+
+         lnVA := lnVA - OUTRAS  
+
+         WPut('VAR_VL_ATUALIZADO_'+lcNR_ROW, wpictrans('VL_RISCO_CALC',lnVA))
+
+
+         WPut('VAR_PC_RISCO_'+lcNR_ROW,               laRES[ii,db_fetchncol(laRES,'PC_RISCO')])
+         WPut('VAR_VL_RISCO_CALC_'+lcNR_ROW,          wpictrans('VL_RISCO_CALC',laRES[ii,db_fetchncol(laRES,'VL_RISCO_CALC')]))
+         WPut('VAR_VL_CORRECAO_'+lcNR_ROW,            wpictrans('VL_RISCO_CALC',laRES[ii,db_fetchncol(laRES,'VL_CORRECAO')]))
+         WPut('VAR_VL_JUROS_'+lcNR_ROW,               wpictrans('VL_RISCO_CALC',laRES[ii,db_fetchncol(laRES,'VL_JUROS')]))
+
+         if fcABA_PED_NOVA =='S'
+            if val(str(laRES[ii,db_fetchncol(laRES,'NR_CONTROLE_PAI')],18,2)) == 0
+               WPut('VAR_VL_RATEADO_'+lcNR_ROW+'.style','display: none')
+               WPut('VAR_VL_ATUALIZADO_'+lcNR_ROW+'.style','display: none')
+               WPut('VAR_BT_DET_'+lcNR_ROW+'.style','display: none')
+               WPut('VAR_VL_JA_RATEADO_'+lcNR_ROW+'.style','display: none')
+               WPut('VAR_PEDIDO_PROCESSO_'+lcNR_ROW+'.class','letrag')
+            endif
+         endif
+
+         if fcACTION=='ALTER' .or. fcACTION=='INCLUIR_PG'
+            if VL_RATEADO <> 0
+               WPut('VAR_VL_RATEADO_'+lcNR_ROW+'.class','winputreadonly_right')
+               WPut('VAR_VL_RATEADO_'+lcNR_ROW+'.readonly',.t.)
+            endif
+         endif
+
+         if fcACTION=='PEDIDO' .and. fcAJUSPED=='S'  .and. fcDEPJUD == "S" 
+
+            if OUTRAS <> 0
+
+               if verifdesp(wget('CD_DESPESA','C')) == 'S'
+
+                  *** rufino 18/09/2017 14:04:34                 
+                  *** se codigo da despesa estiver zera provisão = S e esse pedido ja tiver rateio, não permite nova despesa para esse pedido 
+                  *** simplesmente não abre o campo
+
+                  WPut('VAR_VL_RATEADO_'+lcNR_ROW+'.class','winputreadonly_right')
+                  WPut('VAR_VL_RATEADO_'+lcNR_ROW+'.readonly',.t.)
+                  
+                  
+               endif            
+            endif
+
+            if lnVA == 0   
+               WPut('VAR_VL_RATEADO_'+lcNR_ROW+'.class','winputreadonly_right')
+               WPut('VAR_VL_RATEADO_'+lcNR_ROW+'.readonly',.t.)                                         
+            endif
+ 
+         endif
+         
+         if fcDEPJUD == "S"                     
+            WPut('VAR_CHK_'+lcNR_ROW+'.option','Y') 
+            WPut('VAR_VL_RATEADO_'+lcNR_ROW+'.class','winputreadonly_right')
+            WPut('VAR_VL_RATEADO_'+lcNR_ROW+'.readonly',.t.)                                 
+         endif 
+
+
+
+         lcNR_ROW := alltrim(str(ii))
+      next ii
+
+      if fcDEPJUD == "S"
+         *** busca movimentação padrão
+        busmovp(1)   
+      endif       
+
+
+      WPut('lstPEDIDOS',laRES)
+
+      WPut('PARAM',lcPARAM)
+
+   else
+      wPut('ifPEDIDOS',.f.)
+      if llESTAPAGO == .f.
+         walert('Atenção não foi encontrado pedido para rateio.')
+      endif
+   endif
+return
+
+
+
+

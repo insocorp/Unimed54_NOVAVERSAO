@@ -1,0 +1,955 @@
+/*
+Project      : gr5
+Program      : login.html
+Function     : login_html
+Created on   : 05-Dec-2001   00:02:57
+Descripition : 2010-08-06 15:32:09 -Prevenção contra SQL Injection
+               Sonia Perdigão 
+*/
+#define KEY chr(106)+;
+            chr(101)+;
+            chr(115)+;
+            chr(117)+;
+            chr(115)+;
+            chr(101)+;
+            chr(97)+;
+            chr(99)+;
+            chr(109)+;
+            chr(104)+;
+            chr(104)+;
+            chr(97)+;
+            chr(108)+;
+            chr(118)+;
+            chr(101)+;
+            chr(42)
+
+
+   local lcOPEN_PAGE   := '' ,;
+         lePROG        := '' ,;
+         lcLOGIN_ALIAS := '' ,;
+         lcPASSWD      := '' as string
+   local laRESULT      := {} as array
+   local lnNR_LAEMP    := 0  ,;
+         lnNR_LAACUSER := 0  as int
+   local llFL_PWD   := .f.,;
+         llFL_USER  := .f.
+   local ldDATE := ctod('/ /')
+   
+   local lnEXPIRE      := 8 as int
+
+
+   lcOPEN_PAGE := upper(WGet('OPEN_PAGE','C'))
+
+   if(WSet('KEYBOARDVIRTUAL') == 'ENABLE')
+     WPut('ifTECLADO',.t.)
+   endif
+
+   WPut('_PROJECT_VERSION',WSet('_PROJECT_VERSION'))
+   if ! empty(WSet('URL_LOGO'))
+      WPut('URL_LOGO',WSet('URL_LOGO')+'/logo_login.gif')
+   else
+      WPut('URL_LOGO',WSet('URL_COMPONENTS')+'/logo/logo_login.gif')
+   endif
+
+   if WSet('FL_LOGIN_ALIAS') == 'ENABLE'
+      lcLOGIN_ALIAS := 'LOGIN_ALIAS'
+   else
+      lcLOGIN_ALIAS := 'LOGIN'
+   endif
+
+
+   // GLAUBER 01/2017
+   // Bloco Url externa
+
+   if ! Empty(WSet('URL_EXT'))
+      WPut('ifURL_EXT',.T.)
+      WPut('URL_EXT',WSet('URL_EXT'))
+      WPut('URL_EXT_LABEL',WSet('URL_EXT_LABEL'))
+   endif
+
+
+
+   wPUT('cookie','gravaCookie("'+alltrim(GetWPut('ID'))+'", "1",' + alltrim(lnEXPIRE) + ');')
+
+   //Selecionando Numero de tentaivas de logon e texto padrao da tela de login.
+   if db_select({'NM_EMPRESA','TEXT_LOGIN','NR_LOGIN_ATTEMPT'},'empresa_usuaria',,;
+                                                              {'CD_EMPRESA='+DLAP+'1'+DLAP}) = -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      db2put(laRESULT)
+      lnNR_LAEMP := laRESULT[2,3]
+   endif
+         /* Glauber 06/07/2010 - Bloco de validação sqlinjection */
+     lares1 := {}
+     if db_select({'WREMOTE_HOST','WREMOTE_ADDR','WHTTP_USER_AGENT','WHTTP_ACCEPT_LANGUAGE','WDATEFIRST','WTIMEFIRST'},'waccess',,{'WN_ACCESS = '+str(gnWN_ACS)}) == -1
+        error_sys('WLogin: '+db_error())
+        return(.f.)
+      endif
+
+      lares1 := db_fetchrow()
+      if len(lares1) > 0
+         lcWREMOTE_HOST          := lares1[1]
+         lcWREMOTE_ADDR          := lares1[2]
+         lcWHTTP_USER_AGENT      := lares1[3]
+         lcWHTTP_ACCEPT_LANGUAGE := lares1[4]
+         lcWDATEFIRST            := lares1[5]
+         lcWTIMEFIRST            := lares1[6]
+      endif
+
+    if !Empty(WGet('LOGIN')) .or. !Empty(WGet('PASSWD'))
+      if (is_sqlinjection(WGet('LOGIN'))) .or. (is_sqlinjection(WGet('PASSWD')))
+         // Envia um email para inso avisando da tentativa de sqlinjection
+         lcMENSAGEM:= "Atenção suporte. Houve uma tentativa de login com caracteristicas de sqlinjection." + CRLF +;
+                      "Cliente:"+laRESULT[2,1] + CRLF +;
+                      "Conteúdo do Login:" + WGet('LOGIN') + CRLF +;
+                      "Conteúdo da Senha:" + WGet('PASSWD') + CRLF+;
+                      "Conteúdo do Host :" + alltrim(lcWREMOTE_HOST) + CRLF+;
+                      "Conteúdo do Addr :" + alltrim(lcWREMOTE_ADDR) + CRLF+;
+                      "Conteúdo do Agent:" + alltrim(lcWHTTP_USER_AGENT) + CRLF+;
+                      "Conteúdo do Langu:" + alltrim(lcWHTTP_ACCEPT_LANGUAGE) + CRLF+;
+                      "Conteúdo do Date :" + DTOC(lcWDATEFIRST) + CRLF+;
+                      "Conteúdo do Time :" + alltrim(lcWTIMEFIRST) + CRLF
+
+// alteracao sonia - 21/08/2012 09:45:34
+//                    'glauber@inso.com.br',;        //Cópia para
+
+          wsendmail('suporte@inso.com.br',;        //Endereço origem de envio
+                    'suporte@inso.com.br',;        //Endereço do destinatario
+                    ,;                             //Cópia para
+                    ,;                             //Cópia Oculta para
+                    'ISJ - Mecanismo de Alerta',;  //Assunto
+                    lcMENSAGEM,;                   //Mensagem
+                    'ISJ')                         //Nome do remetente
+
+         walert('Usuário ou senha inválido')
+         return
+      endif
+   endif
+
+
+  // bloco esqueci minha senha
+   if WSet('REMEMBER_PASS') == 'ENABLE'
+      WPut('ifREMEMBER_PASS',.t.)
+      if upper(WGet('ACTION','C')) == 'REMEMBER'
+               /* Glauber 30/06/2010: habilitar novamente a funcionalidade lebrar minha senha, pois como esta funcionalidade foi feita utilizando tquery,
+                                no windows dava problema, pois não temos a classe tquery nele.
+                                Converti tudo para o padrão db_select. */
+         if db_select({'acuser.PASSWD','pfpj.EMAIL','pfpj.PFPJ'},'acuser',{{2,'pfpj','pfpj.CIP=acuser.CIP'}},;
+                                                             {'acuser.LOGIN ='+DLAP+WGet('LOGIN')+DLAP}) = -1
+              error_sys(db_error())
+         endif
+         laRESULT := db_fetchall()
+         if len(laRESULT) > 1
+             if ! empty(laRESULT[2,ascan(laRESULT[1],'EMAIL')])
+                // jesuseacmhhalve
+                 whex2str(laRESULT[2,ascan(laRESULT[1],'PASSWD')],@lcPASSWD)
+                 //wout('Senha cripto:'+laRESULT[2,ascan(laRESULT[1],'PASSWD')]+' - lcPASSWD:' + lcPASSWD + ' - Key: '+ KEY)
+                 cContent := wdecrypt(lcPASSWD,KEY)
+                 lcMENSAGEM:= 'Caro(a) '+ laRESULT[2,ascan(laRESULT[1],'PFPJ')]+CRLF+;
+                              ''+CRLF+;
+                              'Atendendo a sua solicitação, aqui estão seu usuário e senha.'+CRLF+;
+                              ''+CRLF+;
+                              'Seu Login de Usuário é: '+ WGet('LOGIN')+CRLF+;
+                              ''+CRLF+;
+                              ''+CRLF+;
+                              'Sua senha é: '+ cContent+CRLF+;
+                              ''+CRLF+;
+                              'Obrigado.'
+                 wsendmail('suporte@inso.com.br',;         //Endereço origem de envio
+                           laRESULT[2,ascan(laRESULT[1],'EMAIL')],;  //Endereço do destinatario
+                           ,;                             //Cópia para
+                           ,;                             //Cópia Oculta para
+                           'ISJ - Lembrete de Senha',;     //Assunto
+                           lcMENSAGEM,;                    //Mensagem
+                           'ISJ')                        //Nome do remetente                 /*
+                 walert('Sua Senha foi enviada para o email '+laRESULT[2,ascan(laRESULT[1],'EMAIL')])
+             else
+               walert('Seu usuário não possui um e-mail cadastrado, não foi possível enviar o lembrete de senha!')
+               return
+             endif
+         else
+          walert('Usuário não Existe!')
+          return
+         endif
+         return
+      endif
+   endif
+   /* Dados do controle de Licença */
+   WPut('NM_EMPRESA',WSet('NM_EMPRESA'))
+   WPut('CNPJ',WSet('CNPJ'))
+
+   ldDATE := date()+30
+   if empty(alltrim(Wget('LOGIN'))) .and. ! empty(WSet('DT_VENCTO'))
+      if ctod(WSet('DT_VENCTO')) > date()
+         if ctod(WSet('DT_VENCTO')) <= ldDATE
+            walert('Licença expira em '+WSet('DT_VENCTO'))
+         endif
+      endif
+   endif
+
+   // verifica se usuário não está bloqueado
+   if !Empty(WGet('LOGIN')) .and. !Empty(WGet('PASSWD'))
+
+      if db_select({'FL_PWD','FL_USER'},'acuser',,{lcLOGIN_ALIAS+'='+DLAP+lower(WGet('LOGIN'))+DLAP}) = -1
+         error_sys(db_error())
+      endif
+
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         if alltrim(laRESULT[1]) = 'Y'  // se FL_PWD = 'Y' Senha está bloqueado!!!
+            llFL_PWD := .t.
+         endif
+
+         if alltrim(laRESULT[2]) = 'Y'  // se FL_USER = 'Y' Usuário está bloqueado!!!
+            llFL_USER := .t.
+         endif
+      endif
+   endif
+
+   if ! llFL_PWD .and. ! llFL_USER   // Usuário/Senha não estão bloqueados.
+      if wlogin(lower(WGet('LOGIN')),WGet('PASSWD'))
+
+         mkfieldredef()  // ativa Redefinição de Campos
+         make_fu()       // ativa filtro por conteudo
+         wfmktriggers()  // cria as triggers WF
+
+
+         //Verifica se usuario está entre os N usuários liberados
+         if db_select({lcLOGIN_ALIAS},'acuser',,{'FL_USER<>'+DLAP+'Y'+DLAP+;
+                                           ' or FL_USER is null'+;
+                                           ' or FL_USER='+DLAP+'N'+DLAP},{'WUID'},,,{val(WSet('NR_LICENCAS'))}) == -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchall()
+         if len(laRESULT) > 1
+            adel(laRESULT,1)
+            asize(laRESULT,len(laRESULT)-1)
+            if ascan(laRESULT,{| x | X[1] == lower(WGet('LOGIN'))}) == 0
+               walert('Acesso negado: Número máximo de usuários permitidos excedeu!')
+               wlogout()
+               return .f.
+            endif
+         endif
+
+         //Zera tentativas de Login.
+
+         if db_update({{'NR_LOGIN_ATTEMPT'},;
+                       {0}},;
+                      'acuser',;
+                      {lcLOGIN_ALIAS+'='+DLAP+lower(WGet('LOGIN'))+DLAP}) = -1
+            error_sys(db_error())
+         endif
+
+         WSet('_USER_INTERFACE','portal.html')
+
+         //Carrega UI do cabecalho
+
+         mkprojecthead('GR5')
+         if gchklogin()
+            if empty(lcOPEN_PAGE)
+               portal_html()
+            else
+               lePROG := strtran(lcOPEN_PAGE,'.','_')
+               WSet('_USER_INTERFACE',lcOPEN_PAGE)
+               if isfunction(lePROG)
+                  lePROG := lePROG+'()'
+                  eval({||&lePROG})
+               else
+                  ?? "Content-Type: text/html"
+                  ?
+                  puterror('Function not found: '+gmPAGE)
+               endif
+            endif
+         else
+            WSet('_USER_INTERFACE','redirect.wic')
+         endif
+      else
+         //Incrementando acuser.NR_LOGIN_ATTEMPT.
+         if db_query('update acuser set NR_LOGIN_ATTEMPT=NR_LOGIN_ATTEMPT+1 where '+lcLOGIN_ALIAS+'='+DLAP+lower(WGet('LOGIN'))+DLAP) = -1
+            error_sys(db_error())
+         endif
+         //Selecionando numero de tentativas do usuário
+         if db_select({'NR_LOGIN_ATTEMPT'},'acuser',,{lcLOGIN_ALIAS+'='+DLAP+lower(WGet('LOGIN'))+DLAP}) = -1
+            error_sys(db_error())
+         endif
+         laRESULT := db_fetchrow()
+         if len(laRESULT) > 0
+            lnNR_LAACUSER := laRESULT[1]
+         endif
+         if lnNR_LAACUSER > lnNR_LAEMP //Se usuário excedeu numero de tentativas
+            //Bloqueia senha
+            if db_update({{'FL_PWD'},;
+                          {'Y'}},;
+                         'acuser',;
+                         {lcLOGIN_ALIAS+'='+DLAP+lower(WGet('LOGIN'))+DLAP}) = -1
+               error_sys(db_error())
+            endif
+            if WSet('_USER_INTERFACE') = 'login.html'
+               walert('Access Control: Senha Bloqueada!')
+               return(.f.)
+            endif
+         endif
+         //
+         // Glauber 22/05/2012
+         // Customização B2B interface isj & CeC
+         //
+
+         if (Upper(Wset("WSCC")) == "ENABLE") .and. ! empty(WGet("LOGIN"))
+            // Criação do arquivo intermediario para ser chamado com o webservice
+            lcContentFile := WSet("_WTEMP") + "/"+WGet("LOGIN") + ".xml"
+            lcConteudo := "<USUARIO>" + WGet("LOGIN") + "</USUARIO>" +;
+                          "<SENHA>" + WGet('PASSWD')+ "</SENHA>" +;
+                          "<SENHACRIPTO>" +encryptpass(WGet('PASSWD')) + "</SENHACRIPTO>"
+            lnArq := fcreate(lcContentFile)
+            if ferror() != 0
+               walert('C&C B2B: Não foi possível criar o arquivo intermediário para comunicação com o webservice:'+lcContentFile)
+               puterror('C&C B2B: Não foi possível criar o arquivo intermediário para comunicação com o webservice:'+lcContentFile)
+               return(nil)
+            else
+               fwrite(lnArq,lcConteudo)
+               if ferror() != 0
+                  walert('C&C B2B: Não foi possível gravar o arquivo intermediário para comunicação com o webservice:'+lcContentFile)
+                  puterror('C&C B2B: Não foi possível gravar o arquivo intermediário para comunicação com o webservice:'+lcContentFile)
+                  return(nil)
+               endif
+            endif
+            fclose(lnArq)
+            // Execução do client
+            lcComand := WSet('WSCCAPP') + ' ' + lcContentFile + ' ' + WSet('WSCCCFG')
+            Run (lcComand)
+            // Obter o retorno
+            lcRetFile := WSet("_WTEMP") + "/"+WGet("LOGIN") + ".RET"
+            if (! file(lcRetFile))
+               walert('C&C B2B: Não foi possível obter o arquivo de retorno da interface com o webservice:'+lcRetFile)
+               puterror('C&C B2B: Não foi possível obter o arquivo de retorno da interface com o webservice:'+lcRetFile)
+               return(nil)
+            else
+                lnArq := Fopen(lcRetFile)
+                if (lnArq < 1) .or. (ferror() > 0)
+                   walert('Erro ao tentar abrir o arquivo de retorno da interface:'+lcRetFile+ '. Codigo do Erro:'+alltrim(str(ferror())))
+                   puterror('Erro ao tentar abrir o arquivo de retorno da interface:'+lcRetFile+ '. Codigo do Erro:'+alltrim(str(ferror())))
+                   return(nil)
+                else
+                   lnTAM     := fseek(lnArq,0,2)
+                   lcCONTENT := space(lnTAM)
+                   fseek(lnArq,0,0)
+                   fread(lnArq,@lcCONTENT,lnTAM)
+                   fclose(lnArq)
+                endif
+            endif
+            // Processando o conteúdo do retorno
+            //           1         2         3          4          5         6
+            // 012345678901234567890123456789001234567890012345678901234567890
+            // <CODERRO>24</CODERRO><DESCRICAO>Usu?rio n?o encontrado</DESCRICAO>
+
+            lcCodErro  := alltrim(substr(lcCONTENT,10,AT('</CODERRO>',lcCONTENT) -10))
+            lcDescErro := alltrim(substr(lcCONTENT,AT('<DESCRICAO>',lcCONTENT)+11, (AT('</DESCRICAO>',lcCONTENT)-3)))
+            lcDescErro := strtran(lcDescErro, '</DESCRICAO>','')
+            // Caso seja retornado o código de erro 24, significa que o usuário não foi localizado pelo webservice.
+
+            if(alltrim(lcCodErro) == '24')
+               WPut('OPEN_PAGE',lcOPEN_PAGE)
+               walert('Usuário ou senha inválido')
+               return
+            endif
+            // Caso seja outro erro, mostrar ao usuário.
+            if ! empty(lcCodErro) .and. (val(lcCodErro) > 0)
+               walert('Ocorreu um erro ao processar sua requisição.:'+lcDescErro+ '. Codigo do Erro:'+alltrim(lcCodErro))
+               puterror('Ocorreu um erro ao processar sua requisição.:'+lcDescErro+ '. Codigo do Erro:'+alltrim(lcCodErro))
+               return(nil)
+            endif
+            // Chegou aqui, siginifica que o processamento da interface ocorreu tudo ok, então devo validar a sessão do usuário e redirecionar para o portal.
+            xmlret := substr(lcCONTENT,at('<USUARIOEMPRESA>'),len(lcCONTENT))
+            // Processar xml
+            ProcXml(xmlret)
+            // Apagar os arquivos temporário
+            ferase(lcContentFile)
+            ferase(lcRetFile)
+
+            // Carregar o portal
+//            wout('<b><br>Executou a carga nas tabelas:')
+//            wout('<b><br>Usuário:'+WGet('LOGIN'))
+//            wout('<b><br>Senha:'+WGet('PASSWD'))
+            if wlogin(lower(WGet('LOGIN')),WGet('PASSWD'))
+//               wout('<b><br>Passou pela wlogin')
+
+               mkfieldredef()  // ativa Redefinição de Campos
+               make_fu()       // ativa filtro por conteudo
+               wfmktriggers()  // cria as triggers WF
+//               wout('<b><br>Vai sertar userinterface')
+               WSet('_USER_INTERFACE','portal.html')
+
+               //Carrega UI do cabecalho
+
+               mkprojecthead('GR5')
+//               wout('<b><br>Vai chamar gchklogin')
+               if gchklogin()
+                  if empty(lcOPEN_PAGE)
+                     portal_html()
+                  else
+                     lePROG := strtran(lcOPEN_PAGE,'.','_')
+                     WSet('_USER_INTERFACE',lcOPEN_PAGE)
+                     if isfunction(lePROG)
+                        lePROG := lePROG+'()'
+                        eval({||&lePROG})
+                     else
+                        ?? "Content-Type: text/html"
+                        ?
+                        puterror('Function not found: '+gmPAGE)
+                     endif
+                  endif
+               else
+//                  wout('<b><br>Não passou por gchklogin')
+                  WSet('_USER_INTERFACE','redirect.wic')
+               endif
+               return(.f.)
+            endif
+         endif
+
+         WPut('OPEN_PAGE',lcOPEN_PAGE)
+         if ! empty(WGet('LOGIN'))
+            walert('Usuário ou senha inválido')
+         endif
+      endif
+   else
+      if llFL_PWD
+         walert('Access Control: Senha Bloqueada!')
+         return(.f.)
+      endif
+      if llFL_USER
+         walert('Access Control: Usuário Bloqueado!')
+         return(.f.)
+      endif
+   endif
+return
+
+
+/*
+*
+* Glauber 04/01/2010
+* Esta funcao esta aqui como estatica porque a funcao presente na lib foi alterada pelo mahler para experirar
+* 
+*/
+
+Static function wlogin(fcLOGIN,fcPASSWD)
+   local laRES    := {} ,;
+         laFIELDS := {} ,;
+         laRESULT := {} as array
+
+   if empty(fcLOGIN) .or. empty(fcPASSWD)
+      return(.f.)
+   endif
+
+   // Validação de login por apelido
+   if WSet('FL_LOGIN_ALIAS') == 'ENABLE'
+      if db_select({'WUID','WGID'},'acuser',,{"LOGIN_ALIAS='"+esc2db(fcLOGIN)+"'","PASSWD='"+encryptpass(fcPASSWD)+"'"}) < 0
+         error_sys('WLogin: '+db_error())
+      endif
+   else
+      if db_select({'WUID','WGID'},'acuser',,{"LOGIN='"+esc2db(fcLOGIN)+"'","PASSWD='"+encryptpass(fcPASSWD)+"'"}) < 0
+         error_sys('WLogin: '+db_error())
+      endif
+   endif
+   laRES := db_fetchrow()
+// Glauber 04/01/2010 - Mais uma arapuca do Mahler, a sorte eh que eu tinha este trecho da funcao wlogin
+//   if dtos(date()) >= '201'+chr(48)+'010'+chr(49)
+//      walert('Verificar biblioteca wictrix até 01/03/2010')
+//   endif
+//   if dtos(date()) >= '201'+chr(48)+'030'+chr(49)
+//      walert('Biblioteca wictrix expirou')
+//      return(.f.)
+//   endif
+    if len(laRES) > 0
+       if laRES[1] = 0 .or. laRES[2] = 0
+        return(.f.)
+     endif
+         
+      if db_update({{'WUID','WGID'},{laRES[1],laRES[2]}},'waccess',{'WN_ACCESS = '+str(gnWN_ACS)}) < 0
+         error_sys('WLogin: '+db_error())
+      endif
+
+      // Transferencia registros da waccess para waccess_out. Transfere todos os registros de sessões anteriores a atual
+      laFIELDS := {'WN_ACCESS',;
+                   'WKEY_ACCESS',;
+                   'WDATEFIRST',;
+                   'WTIMEFIRST',;
+                   'WDATELAST',;
+                   'WTIMELAST',;
+                   'WUID',;
+                   'WGID',;
+                   'WLANGUAGE',;
+                   'WREMOTE_HOST',;
+                   'WREMOTE_ADDR',;
+                   'WHTTP_USER_AGENT',;
+                   'WHTTP_ACCEPT_LANGUAGE',;
+                   'WHTTP_X_FORWARDED_FOR',;
+                   'WHTTP_VIA',;
+                   'TSTP_CACHE',;
+                   'PROGRAM',;
+                   'WDATAGLOBAL',;
+                   'WPUT',;
+                   'WLOG'}
+      if db_select(laFIELDS,'waccess',,{'WUID='+str(laRES[1])+' and WN_ACCESS <> '+str(gnWN_ACS)}) == -1
+         error_sys('WLogin: '+db_error())
+         return(.f.)
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 0
+         if db_insert(laRESULT,'waccess_out') == -1
+            error_sys('WLogin: '+db_error())
+            return(.f.)
+         endif
+
+         if db_delete('waccess','WUID='+str(laRES[1])+' and WN_ACCESS <> '+str(gnWN_ACS)) == -1
+            error_sys('WLogin: '+db_error())
+            return(.f.)
+         endif
+      endif
+      laRESULT := {}
+
+      // Atualiza Data e Hora de acesso na tabela acuser
+      if db_update({{'DT_ULTIMO_ACESSO','HR_ULTIMO_ACESSO'},;
+      				  {date()            ,time()            }},'acuser',{'LOGIN='+DLAP+fcLOGIN+DLAP}) == -1
+			error_sys('WLogin: '+db_error())
+      endif
+      wAccess_control()
+
+      // 28/08/2007 - Marcos: Dataglobal é gravada em banco de dados ao invés de arquivos
+      // limpa cache
+      gaWDATAGLOBAL := {}
+      WriteDataGlobal()
+      //SaveWCache()
+      return(.t.)
+   else
+      putError('Login not found: '+transform(fcLOGIN))
+   endif
+return(.f.)
+
+/*
+* Data Criação: 05.07.2010 - Glauber
+* Function.....: is_sqlinjection(fcCONTEUDO)
+* Objetivo.....: retorna .t. caso fcCONTEUDO contenha algum caracter sqlinjection
+* Parâmetros:
+*    fcCONTEUDO.: Conteúdo a ser analisado
+*
+* Retorno: retorna .t. caso fcCONTEUDO contenha algum caracter sqlinjection, caso contrario retorna .f.
+*/
+
+
+Static Function is_sqlinjection(fcCONTEUDO)
+
+    local llReturn := .f.
+    local laPESQ   := {'from',;
+                       'alter',;
+                       'table',;
+                       'select',;
+                       'insert',;
+                       'delete',;
+                       'update',;
+                       'create',;
+                       'drop',;
+                       'where',;
+                       'show',;
+                       'tables',;
+                       'union',;
+                       'version',;
+                       'using',;
+                       'latin',;
+                       'converte',;
+                       'replace',;
+                       'count',;
+                       'like',;
+                       'recover',;
+                       'database',;
+                       'automatic',;
+                       'standby',;
+                       'cascade',;
+                       'modify',;
+                       'analyse',;
+                       'call',;
+                       'grant',;
+                       'look',;
+                       'exec',;
+                       '@@',;
+                       '#',;
+                       '\',;
+                       '*',;
+                       '--',;
+                       '\',;
+                       "'"}
+     for ii := 1 to len(laPESQ)
+         if at(laPESQ[ii],lower(fcCONTEUDO)) > 0
+            llReturn := .t.
+            exit
+         endif
+     next ii
+
+     return(llReturn)
+
+
+
+/*
+* Data Criação: 28.05.2012 - Glauber
+* Function.....: ProcXml(xmlret)
+* Objetivo.....: Processa o xml retornado pela interface C&C, fazendo a inserção nas tabelas necessária no ISJ
+* Parâmetros:
+*    xmlret....: Conteúdo do xml
+*
+* Retorno: nada
+*/
+
+
+Static Function ProcXml(xmlret)
+
+
+local lcUserEmpresa := '',;
+      lcUser        := '',;
+      lcEmpresa     := '',;
+      lcTMP         := '',;
+      lcCIPUSER     := '',;
+      lcCIPEMP      := '' as String
+
+local laSaveUser    := {},;
+      laSavePfpj    := {},;
+      laSaveEmpresa := {},;
+      laTMP         := {} as array
+
+local lnWuid        := 0,;
+      lnCipUser     := 0,;
+      lnCipEmpresa  := 0 as int
+
+   // Recuperar os dados do usuário para inclusão na tabela PFPJ
+
+   lcTMP := substr(xmlret,at('<USUARIOEMPRESA>',xmlret), (at('</USUARIOEMPRESA>',xmlret) -  at('<USUARIOEMPRESA>',xmlret)))
+
+   laSavePfpj := {{'PFPJ',;
+                   'PFPJ_CHAR',;
+                   'EMAIL',;
+                   'DT_NASCIMENTO',;
+                   'FL_SEXO',;
+                   'CARTEIRA_IDENTIDADE',;
+                   'CNPJ_CPF',;
+                   'PFPJ_NATUREZA',;
+                   'PFPJ_TIPOS',;
+                   'DT_CADASTRO',;
+                   'LOGIN_CADASTRO',;
+                   'DDD',;
+                   'TELEFONE',;
+                   'RAMAL_FONE'}}
+   laTMP := { GetTagXml('NOME', xmlret),;
+              lower(Lat2Char(GetTagXml('NOME', xmlret))),;
+              GetTagXml('EMAIL', xmlret),;
+              iif(! empty(GetTagXml('NASCIMENTO', xmlret)),TrataData(GetTagXml('NASCIMENTO', xmlret)),ctod('')),;
+              GetTagXml('SEXO', xmlret),;
+              GetTagXml('RG', xmlret),;
+              GetTagXml('CPF', xmlret),;
+              GetTagXml('NATUREZAPESSOA', xmlret),;
+              GetTagXml('TIPOPESSOA', xmlret),;
+              iif(! empty(GetTagXml('DTCADASTRO', xmlret)),TrataData(GetTagXml('DTCADASTRO', xmlret)),ctod('')),;
+              GetTagXml('LOGINCADASTRO', xmlret),;
+              val('0'+GetTagXml('DDD', xmlret)),;
+              GetTagXml('TELEFONE', xmlret),;
+              val('0'+GetTagXml('RAMAL_FONE', xmlret))}
+
+   // Salvar dados na Pfpj
+   aadd(laSavePfpj,laTMP)
+
+   if db_replace(laSavePfpj,'pfpj',{"pfpj_char = "+ DLAP + lower(Lat2Char(GetTagXml('NOME', xmlret))) + DLAP}) = -1
+      error_sys(db_error())
+   endif
+   // Caso a operação seja inserção, atualizar o campo CIP com o insert_id
+   lnTmp := db_insert_id()
+   if (lnTmp > 0)
+      if db_replace({{'CIP'},{alltrim(lnTmp)}},'pfpj',{"pfpj_char = "+ DLAP + lower(Lat2Char(GetTagXml('NOME', xmlret))) + DLAP}) = -1
+         error_sys(db_error())
+      endif
+   endif
+   // resgatar o cip do usuário para incluir na acuser
+   if db_select({'CIP'},'pfpj',,{"pfpj_char = "+ DLAP + lower(Lat2Char(GetTagXml('NOME', xmlret))) + DLAP}) = -1
+      error_sys(db_error())
+   endif
+   laTMP := db_fetchall()
+   if len(laTMP) > 1
+      lcCIPUSER := laTMP[2,1]
+   endif
+
+   // Recuperar os dados da empresa para inclusão na tabela PFPJ
+
+   lcTMP := substr(xmlret,at('<EMPRESA>',xmlret), (at('</EMPRESA>',xmlret) -  at('<EMPRESA>',xmlret)))
+
+   laSaveEmpresa := {{ 'PFPJ',;
+                       'PFPJ_CHAR',;
+                       'CNPJ_CPF',;
+                       'IE',;
+                       'ENDERECO',;
+                       'NR_ENDERECO',;
+                       'EXTRA_ENDERECO',;
+                       'CEP',;
+                       'BAIRRO',;
+                       'CIDADE',;
+                       'UF',;
+                       'DDD',;
+                       'TELEFONE',;
+                       'FAX',;
+                       'DT_ENTRADA',;
+                       'PFPJ_NATUREZA',;
+                       'PFPJ_TIPOS',;
+                       'DT_CADASTRO',;
+                       'LOGIN_CADASTRO'}}
+
+   laTMP := { GetTagXml('PFPJ', xmlret),;
+              lower(Lat2Char(GetTagXml('PFPJ', xmlret))),;
+              GetTagXml('CNPJ', xmlret),;
+              GetTagXml('IE', xmlret),;
+              GetTagXml('ENDERECO', xmlret),;
+              VAL('0'+GetTagXml('NRENDERECO', xmlret)),;
+              GetTagXml('EXTRAENDERECO', xmlret),;
+              GetTagXml('CEP', xmlret),;
+              GetTagXml('BAIRRO', xmlret),;
+              GetTagXml('CIDADE', xmlret),;
+              GetTagXml('UF', xmlret),;
+              val("0"+GetTagXml('FONEDDD', xmlret)),;
+              GetTagXml('TELEFONE', xmlret),;
+              GetTagXml('FAX', xmlret),;
+              iif(! empty(GetTagXml('DTENTRADA', xmlret)),TrataData(GetTagXml('DTENTRADA', xmlret)),ctod('')),;
+              GetTagXml('NATUREZA', xmlret),;
+              GetTagXml('PFPJTIPOS', xmlret),;
+              iif(! empty(GetTagXml('DTCADASTRO', xmlret)),TrataData(GetTagXml('DTCADASTRO', xmlret)),ctod('')),;
+              GetTagXml('LOGINCADASTRO', xmlret)}
+
+   // Salvar dados na Pfpj
+   aadd(laSaveEmpresa,laTMP)
+
+   if db_replace(laSaveEmpresa,'pfpj',{"pfpj_char = "+ DLAP + lower(Lat2Char(GetTagXml('PFPJ', xmlret))) + DLAP}) = -1
+      error_sys(db_error())
+   endif
+   // Caso a operação seja inserção, atualizar o campo CIP com o insert_id
+   lnTmp := db_insert_id()
+   if (lnTmp > 0)
+      if db_replace({{'CIP'},{alltrim(lnTmp)}},'pfpj',{"pfpj_char = "+ DLAP + lower(Lat2Char(GetTagXml('PFPJ', xmlret))) + DLAP}) = -1
+         error_sys(db_error())
+      endif
+   endif
+   // resgatar o cip do usuário para incluir na acuser
+   if db_select({'CIP'},'pfpj',,{"pfpj_char = "+ DLAP + lower(Lat2Char(GetTagXml('PFPJ', xmlret))) + DLAP}) = -1
+      error_sys(db_error())
+   endif
+   laTMP := db_fetchall()
+   if len(laTMP) > 1
+      lcCIPEMPRESA := laTMP[2,1]
+   endif
+
+   // Salvar os dados da aba conta
+
+   if ! empty(alltrim(GetTagXml('BANCO', xmlret)))
+      laTMP := {{'NR_CONTROLE',;
+                 'BANCO_AGENCIA',;
+                 'BANCO_CONTA',;
+                 'EXTRA'},;
+                {lcCIPEMPRESA,;
+                 GetTagXml('BANCOAGENCIA', xmlret),;
+                 GetTagXml('BANCOCONTA', xmlret),;
+                 GetTagXml('EXTRA', xmlret)}}
+      if db_replace(laTMP,'pfpj_conta',{"NR_CONTROLE = "+ DLAP + lcCIPEMPRESA + DLAP + ' and BANCO_CONTA = ' + DLAP + GetTagXml('BANCOCONTA', xmlret) + DLAP}) = -1
+         error_sys(db_error())
+      endif
+   endif
+
+   // Recuperar os dados do usuario para inclusão na tabela ACUSER
+
+   lcTMP := substr(xmlret,at('<USUARIO>',xmlret), (at('</USUARIO>',xmlret) -  at('<USUARIO>',xmlret)))
+
+   laSaveUser := {{'LOGIN',;
+                   'WUSER',;
+                   'WGID',;
+                   'WTIME_OUT',;
+                   'WTIME_TASK',;
+                   'EMAIL',;
+                   'PORTAL_PADRAO',;
+                   'DT_CADASTRO',;
+                   'DT_VALIDADE_PSW',;
+                   'DT_VALIDADE_USER',;
+                   'LOGIN_CADASTRO',;
+                   'LOGIN_RESP',;
+                   'PASSWD',;
+                   'PSW_DIASSEMANA',;
+                   'PSW_HR_FIM',;
+                   'PSW_HR_INICIO',;
+                   'WPORTAL',;
+                   'CIP',;
+                   'CIP_EMPRESA',;
+                   'LOGIN_ALIAS'}}
+
+   laTMP := { GetTagXml('LOGIN', xmlret),;
+              GetTagXml('LOGIN', xmlret),;
+              VAL('0'+GetTagXml('WGID', xmlret)),;
+              GetTagXml('WTIMEOUT', xmlret),;
+              GetTagXml('WTIMETASK', xmlret),;
+              GetTagXml('EMAIL', xmlret),;
+              GetTagXml('PORTALPADRAO', xmlret),;
+              iif(! empty(GetTagXml('DTCADASTRO', xmlret)),TrataData(GetTagXml('DTCADASTRO', xmlret)),ctod('')),;
+              iif(! empty(GetTagXml('DTVALIDADE', xmlret)),TrataData(GetTagXml('DTVALIDADE', xmlret)),ctod('')),;
+              iif(! empty(GetTagXml('DTVALIDADE', xmlret)),TrataData(GetTagXml('DTVALIDADE', xmlret)),ctod('')),;
+              GetTagXml('LOGINCADASTRO', xmlret),;
+              GetTagXml('LOGINRESP', xmlret),;
+              GetTagXml('PASSWD', xmlret),;
+              GetTagXml('DIASSEMANA', xmlret),;
+              GetTagXml('PSWHRFIM', xmlret),;
+              GetTagXml('PSWHRINICIO', xmlret),;
+              GetTagXml('WPORTAL', xmlret),;
+              lcCIPUSER,;
+              lcCIPEMPRESA,;
+              GetTagXml('LOGINALIAS', xmlret)}
+
+
+   // Salvar dados na Pfpj
+   aadd(laSaveUser,laTMP)
+
+   if db_replace(laSaveUser,'acuser',{"login = "+ DLAP + GetTagXml('LOGIN', xmlret) + DLAP}) = -1
+      error_sys(db_error())
+   endif
+
+   // Recuperar o ID do usuário que foi inserido
+
+   if db_select({'WUID'},'acuser',,{"LOGIN = "+ DLAP + GetTagXml('LOGIN', xmlret) + DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laTMP := db_fetchall()
+   if len(laTMP) > 1
+      lnWUID := laTMP[2,1]
+   endif
+
+   // Verificar se a empresa ja contém alguma pasta.
+   // Caso isto ocorra não deverá ser inserido pasta e filtro do usuário
+
+   if db_select({'NR_PASTA'},'pasta_cip',,{"CIP = "+ DLAP + lcCIPEMPRESA + DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laTMP := db_fetchall()
+   if len(laTMP) > 1
+      return
+   endif
+
+   // Inserir a nova pasta
+
+   lATMP := {{'FL_PASTA',;
+              'TP_PASTA',;
+              'LOGIN_CADASTRO',;
+              'DT_CADASTRO',;
+              'HR_CADASTRO',;
+              'TP_CONSULTA'},;
+              {'Ativa',;
+               'Aprovação de Crédito',;
+               'Interface',;
+               date(),;
+               time(),;
+               iif(! empty(GetTagXml('TPCONSULTA', xmlret)),GetTagXml('LOGINALIAS', xmlret),'Não retornado pelo webservice.' )}}
+   if db_insert(laTMP,'pasta') == -1
+      error_sys(db_error())
+   endif
+   lnPASTA := db_insert_id()
+
+   // Inserir o tipo de consulta na tabela tipo_consulta caso a mesma não exista
+
+   laTMP := {{'TP_PASTA',;
+              'TP_CONSULTA'},;
+             {'Aprovação de Crédito',;
+             iif(! empty(GetTagXml('TPCONSULTA', xmlret)),GetTagXml('LOGINALIAS', xmlret),'Não retornado pelo webservice.' )}}
+
+   if db_replace(laTMP,'tipo_consulta',{"TP_PASTA = 'Aprovação de Crédito' and TP_CONSULTA = "+ DLAP + iif(! empty(GetTagXml('TPCONSULTA', xmlret)),GetTagXml('LOGINALIAS', xmlret),'Não retornado pelo webservice.' ) + DLAP}) = -1
+      error_sys(db_error())
+   endif
+
+   // Inserir o solicitante da pasta na tabela pasta_cip
+
+   laTMP := {{'CIP',;
+              'NR_PASTA',;
+              'WFIELD'},;
+             {lcCIPEMPRESA,;
+              lnPASTA,;
+              'CIP_SOLICITANTE'}}
+
+   if db_insert(laTMP,'pasta_cip') == -1
+      error_sys(db_error())
+   endif
+
+   // Inserir a filial da pasta na tabela pasta_cip
+
+   laTMP := {{'CIP',;
+              'NR_PASTA',;
+              'WFIELD'},;
+             {WSet('WSCCFILIAL'),;
+              lnPASTA,;
+              'CIP_FILIAL'}}
+
+   if db_insert(laTMP,'pasta_cip') == -1
+      error_sys(db_error())
+   endif
+
+   // Gerar o filtro do usuário na tabela acuser_filter
+   
+   laTMP := {{'WUID',;
+              'WTABLE',;
+              'FUCONTENT'},;
+             {lnWUID,;
+              'pasta',;
+              lnPASTA}}
+   if db_replace(laTMP,'acuser_filter',{"WUID = "+str(lnWUID) + " and WTABLE = 'pasta'"}) = -1
+      error_sys(db_error())
+   endif
+
+return
+
+/*
+* Data Criação: 28.05.2012 - Glauber
+* Function.....: GetTagXml(tag, conteudo)
+* Objetivo.....: Retorna o conteudo dentro de uma tag.
+*                Exemplo: <tag>valor</tag>
+* Parâmetros:
+*    xmlret....: Conteúdo entre a tag
+*
+* Retorno: nada
+*/
+
+Function GetTagXml(tag, conteudo)
+
+local lcRet := '' as String
+
+if ! empty(tag)
+   lcRet := substr(conteudo,at('<'+tag+'>',xmlret) + len(tag)+2, (at('</'+tag+'>',xmlret) -  (at('<'+tag+'>',xmlret) + len(tag)+2) ))
+endif
+return (lcRet)
+
+/*
+* Data Criação: 28.05.2012 - Glauber
+* Function.....: TrataData(sdata)
+* Objetivo.....: Converte a data do formato vindo do xml para o formato wictrix.
+*
+* Parâmetros:
+*    sdata....: String no formato data
+*
+* Retorno: nada
+*/
+
+Static function TrataData(sdata)
+
+loca ldRet := ctod('')
+
+if ! empty(sdata)
+// 1234567890
+// 2012-05-28
+   ldRet := ctod(substr(sdata,9,2)+ '/' +substr(sdata,6,2)+'/'+ substr(sdata,1,4))
+endif
+
+
+return(ldRet)
+
+
+
+
+
+
+
+

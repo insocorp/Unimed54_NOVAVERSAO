@@ -1,0 +1,717 @@
+/*
+Project      : gr5
+Program      : rel_vpar_societarios_html
+Function     : rel_vpar_societarios_html
+Created on   : 24-janeiro-2013
+Descripition : Relatório Societários
+Alteracao    : 
+Solicitante  : Célia
+Projeto      : 
+*/
+
+   local lcACTION       := '' ,;
+         lcTABLE        := '' ,;
+         lcFIELD        := '' ,;
+         lcTABLE0       := '' ,;
+         lcINI0         := '' ,;
+         lcINI1         := '' ,;
+         lcFIM0         := '' ,;
+         lcFIM1         := '' ,;
+         lcLINHA        := '' ,;
+         lcRELATORIO    := '' ,;
+         lcPASTAS       := '' ,;
+         lcTP_PASTA     := '' as string
+
+   local ii           := 0  as int
+
+   local laRES         := {} ,;
+         laPASTAS      := {} ,;
+         laPUT         := {} ,;
+         laFIELDS0     := {} ,;
+         laJOIN0       := {} ,;
+         laORDER0      := {} ,;
+         laWHERED      := {} ,;
+         laWHEREC      := {} ,;
+         laWHERE0      := {} as array
+         
+    
+   lcACTION     := WGet('ACTION','C')
+
+   WPut('ifGRID',.T.)
+   
+   *** Carregando o combo de Tipo de Pasta
+   *if db_select({'TP_PASTA'},'pasta_config',,{'TP_PASTA<>'+DLAP+'Padrao'+DLAP},{'TP_PASTA'}) == -1
+   *   error_sys(db_error())
+   *endif
+   *laRES := db_fetchall()
+   *if len(laRES) > 1
+   *   laPUT := {''}
+   *   for ii := 2 to len(laRES)
+   *      aadd(laPUT,laRES[ii,1])
+   *   next ii
+   *   WPut('TP_PASTA_OPT',laPUT)
+   *endif
+
+   *** Combo Status da Pasta
+   laPUT := loadcbox_build('pasta_status','FL_PASTA',.T.)
+   for ii := 1 to len(laPUT)
+      laPUT[ii] := alltrim(laPUT[ii])
+   next ii
+   WPut('FL_PASTA_OPT',laPUT)
+   
+   *** Carregando o combo de EMPRESA
+   if db_select({'distinct EMPRESA'},'vw_vpar_pst_emp',,{'EMPRESA is not null and TP_PASTA=' + DLAP + 'Societário' + DLAP},{'EMPRESA'}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 1
+      laPUT := {''}
+      for ii := 2 to len(laRES)
+         aadd(laPUT,laRES[ii,1])
+      next ii
+      WPut('CIP_EMPRESA_OPT',laPUT)
+   endif
+   
+   *** Carregando o combo de ATIVIDADES
+   *
+   if db_select({'distinct PFPJ_ATIVIDADE'},'pasta',,{'PFPJ_ATIVIDADE IS NOT NULL'},{'PFPJ_ATIVIDADE'}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 1
+      laPUT := {''}
+      for ii := 2 to len(laRES)
+         aadd(laPUT,laRES[ii,1])
+      next ii
+      WPut('PFPJ_ATIVIDADE_OPT',laPUT)
+   endif 
+    
+    
+   *** Carregando o combo de DIRETOR
+   if db_select({'distinct DIRETOR'},'vw_vpar_sct_diretoria',,{'DIRETOR IS NOT NULL'},{'DIRETOR'}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 1
+      laPUT := {''}
+      for ii := 2 to len(laRES)
+         aadd(laPUT,laRES[ii,1])
+      next ii
+      WPut('CIP_DIRETOR_OPT',laPUT)
+   endif 
+   
+   *** Carregando o combo de CONSELHEIRO
+   if db_select({'distinct CONSELHEIRO'},'vw_vpar_sct_conselhos',,{'CONSELHEIRO IS NOT NULL'},{'CONSELHEIRO'}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 1
+      laPUT := {''}
+      for ii := 2 to len(laRES)
+         aadd(laPUT,laRES[ii,1])
+      next ii
+      WPut('CIP_CONSELHEIRO_OPT',laPUT)
+   endif
+
+   wPut('TITLE','Relatório de Societários')
+   WPut('ifIMPRIMIR',.F.)
+
+   
+   if lcACTION == 'BUSCA'
+
+     lcTABLE0   := 'vw_vpar_pst_emp'
+     
+     laFIELDS0  :=    {'vw_vpar_pst_emp.NR_PASTA',;
+                       'vw_vpar_pst_emp.TP_PASTA',;
+                       'vw_vpar_pst_emp.FL_PASTA',;
+                       'vw_vpar_pst_emp.CAPITAL_SOCIAL',;
+                       'vw_vpar_pst_emp.EMPRESA',;
+                       'vw_vpar_pst_emp.ENDERECO',;
+                       'vw_vpar_pst_emp.CIDADE',;
+                       'vw_vpar_pst_emp.UF',;
+                       'vw_vpar_pst_emp.CEP',;
+                       'vw_vpar_pst_emp.CNPJ_CPF',;
+                       'vw_vpar_pst_emp.IE',;
+                       'vw_vpar_pst_emp.CCM',;
+                       'vw_vpar_pst_emp.PFPJ_ATIVIDADE',;
+                       'vw_vpar_pst_emp.NIRE',;
+                       'vw_vpar_pst_emp.DT_NASCIMENTO',;
+                       'vw_vpar_pst_emp.EXTRA_ENDERECO',;
+                       'vw_vpar_pst_emp.NR_ENDERECO',;
+                       'vw_vpar_pst_emp.PAIS',;
+                       'vw_vpar_pst_emp.FORMA_ATUACAO',;
+                       'vw_vpar_emp_pfpj_extra.EXTRA as EXTRAEMP',;
+                       'vw_vpar_pasta.CAPITAL_SOCIAL',;
+                       'vw_vpar_pasta.TP_CAPITAL_SOCIAL',;
+                       'vw_vpar_pasta.VL_ACOES',;
+                       'pasta.EXTRA as EXTRAPAS',;
+                       'pasta.DIRETORIA_MINIMO',;
+                       'pasta.DIRETORIA_MAXIMO',;
+                       'pasta.CONSELHO_MINIMO',;
+                       'pasta.CONSELHO_MAXIMO'}
+
+
+
+     if WGet('NR_PASTA','N') > 0
+         lcPASTAS=WGet('NR_PASTA','C')
+     endif
+
+     *** filtro diretor *****************************************************
+     *aadd(laWHERED,'DIRETOR IS NOT NULL AND length(LTRIM(RTRIM(DIRETOR)))>0')
+
+     laWHERED:={}
+     if !empty(WGet('CIP_DIRETOR','C'))
+
+        aadd(laWHERED,'DIRETOR =' + DLAP + WGet('CIP_DIRETOR','C') + DLAP)
+
+        if db_select({'distinct NR_PASTA'},'vw_vpar_sct_diretoria',,laWHERED,{'NR_PASTA'}) == -1
+           error_sys(db_error())
+        endif
+        laPASTAS := db_fetchall()
+
+        for ii=2 to len(laPASTAS)
+            if lcPASTAS=''
+               lcPASTAS:=str(laPASTAS[ii,1])
+            else
+               lcPASTAS+=','+str(laPASTAS[ii,1])
+            endif
+        next ii
+     endif
+
+     laWHERED:={}
+     if !empty(WGet('DT_MANDATO_DIRI','D')) .AND. !empty(WGet('DT_MANDATO_DIRF','D'))
+
+        aadd(laWHERED,'DT_MANDATO_FIM between ' + DLAP + dtos(WGet('DT_MANDATO_DIRI','D')) + DLAP + ' and ' + DLAP + dtos(WGet('DT_MANDATO_DIRF','D')) + DLAP )
+
+        if db_select({'distinct NR_PASTA'},'vw_vpar_sct_diretoria',,laWHERED,{'NR_PASTA'}) == -1
+           error_sys(db_error())
+        endif
+        laPASTAS := db_fetchall()
+
+        for ii=2 to len(laPASTAS)
+            if lcPASTAS=''
+               lcPASTAS:=str(laPASTAS[ii,1])
+            else
+               lcPASTAS+=','+str(laPASTAS[ii,1])
+            endif
+        next ii
+     endif
+
+     ***********************************************************************
+
+     *** filtro conselheiro ************************************************
+     *aadd(laWHEREC,'CONSELHEIRO IS NOT NULL AND length(LTRIM(RTRIM(CONSELHEIRO)))>0')
+
+     laWHEREC:={}
+     if !empty(WGet('CIP_CONSELHEIRO','C'))
+
+        aadd(laWHEREC,'CONSELHEIRO =' + DLAP + WGet('CIP_CONSELHEIRO','C') + DLAP)
+
+        if db_select({'distinct NR_PASTA'},'vw_vpar_sct_conselhos',,laWHEREC,{'NR_PASTA'}) == -1
+           error_sys(db_error())
+        endif
+        laPASTAS := db_fetchall()
+
+        for ii=2 to len(laPASTAS)
+            if lcPASTAS=''
+               lcPASTAS:=str(laPASTAS[ii,1])
+            else
+               lcPASTAS+=','+str(laPASTAS[ii,1])
+            endif
+        next ii
+     endif
+
+     laWHEREC:={}
+     if !empty(WGet('DT_MANDATO_CONI','D')) .AND. !empty(WGet('DT_MANDATO_CONF','D'))
+
+        aadd(laWHEREC,'DT_MANDATO_FIM between ' + DLAP + dtos(WGet('DT_MANDATO_CONI','D')) + DLAP + ' and ' + DLAP + dtos(WGet('DT_MANDATO_CONF','D')) + DLAP )
+
+        if db_select({'distinct NR_PASTA'},'vw_vpar_sct_conselhos',,laWHEREC,{'NR_PASTA'}) == -1
+           error_sys(db_error())
+        endif
+        laPASTAS := db_fetchall()
+
+        for ii=2 to len(laPASTAS)
+            if lcPASTAS=''
+               lcPASTAS:=str(laPASTAS[ii,1])
+            else
+               lcPASTAS+=','+str(laPASTAS[ii,1])
+            endif
+        next ii
+     endif
+     ***********************************************************************
+
+     *if !empty(WGet('TP_PASTA','C'))
+     *   aadd(laWHERE0,'vw_vpar_pst_emp.TP_PASTA =' + DLAP+WGet('TP_PASTA','C')+DLAP)
+     *endif
+
+     aadd(laWHERE0,'vw_vpar_pst_emp.TP_PASTA = ' + DLAP + 'Societário' + DLAP)
+
+
+     if lcPASTAS<>''
+         aadd(laWHERE0,'vw_vpar_pst_emp.NR_PASTA in (' + lcPASTAS + ')')
+     endif
+
+     if lcPASTAS=='' .AND. (!empty(WGet('DT_MANDATO_CON','D')) .OR. !empty(WGet('DT_MANDATO_DIR','D')))
+        aadd(laWHERE0,'vw_vpar_pst_emp.NR_PASTA = ' + DLAP + '0' + DLAP )
+     endif
+
+     if !empty(WGet('FL_PASTA','C'))
+        aadd(laWHERE0,'vw_vpar_pst_emp.FL_PASTA =' + DLAP+WGet('FL_PASTA','C')+DLAP)
+     endif
+
+     if !empty(WGet('CIP_EMPRESA','C'))
+        aadd(laWHERE0,'vw_vpar_pst_emp.EMPRESA =' + DLAP+WGet('CIP_EMPRESA','C')+DLAP)
+     endif
+
+     if !empty(WGet('PFPJ_ATIVIDADE','C'))
+        aadd(laWHERE0,'vw_vpar_pst_emp.PFPJ_ATIVIDADE =' + DLAP+WGet('PFPJ_ATIVIDADE','C')+DLAP)
+     endif
+
+     laJOIN0    := {{2,'vw_vpar_emp_pfpj_extra','vw_vpar_emp_pfpj_extra.NR_PASTA = vw_vpar_pst_emp.NR_PASTA'},;
+                    {2,'vw_vpar_pasta','vw_vpar_pasta.NR_PASTA = vw_vpar_pst_emp.NR_PASTA'},;
+                    {2,'pasta','pasta.NR_PASTA = vw_vpar_pst_emp.NR_PASTA'}}
+
+     laORDER0   := {'vw_vpar_pst_emp.NR_PASTA'}
+
+     if db_select(laFIELDS0,lcTABLE0,laJOIN0,laWHERE0,laORDER0) == -1
+        error_sys(db_error())
+     endif   
+     laRES := db_fetchall()
+
+     if len(laRES)==1 //so tem o nome dos campos
+
+        walert('Não foi localizada nenhuma pasta que satisfaça a condição escolhida!')
+
+     else
+
+        walert('Localizada ' + STR(len(laRES)-1) + ' pastas.' + chr(13) + 'Clique em OK para continuar!')
+
+        lcINI0 := '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">'
+        lcINI0 += '<html>'
+        lcINI0 += '<head>'
+        lcINI0 += '<meta http-equiv="content-type" content="text/html; charset=iso-8859-1">'
+        lcINI0 += '<meta name="generator" content="PSPad editor, www.pspad.com">'
+        lcINI0 += '</head>'
+        lcINI0 += '<body>'
+        lcINI0 += '<div class="folha">'
+        lcINI0 += '<h1 align="center" class="titulo"><p>Relatório Societário</p></h1>'
+        lcINI0 += '<table width="100%" border="0" cellspacing="0" cellpadding="0">'
+        lcINI0 += '<tr><td>'
+
+
+        lcFIM0 += '</td></tr>'
+        lcFIM0 += '</table>'
+        lcFIM0 += '</div>'
+        lcFIM0 += '</body>'
+        lcFIM0 += '</html>'
+
+        for ii:=2 to len(laRES)
+
+            lcLINHA := ''
+            lcLINHA := '<tr><td BGCOLOR=silver><strong>' + 'Empresa : ' + laRES[ii,db_fetchncol(laRES,'EMPRESA')] + '</strong></td></tr>'
+            lcLINHA += '<tr><td>' + '</td></tr>'
+            lcLINHA += '<tr><td>' + 'N.Pasta : '     + str(laRES[ii,db_fetchncol(laRES,'NR_PASTA')]) + '</td></tr>'
+            lcLINHA += '<tr><td>' + 'Endereço : '    + laRES[ii,db_fetchncol(laRES,'ENDERECO')] + '</td></tr>'
+            lcLINHA += '<tr><td>' + 'N. : '          + str(laRES[ii,db_fetchncol(laRES,'NR_ENDERECO')]) + '</td></tr>'
+            lcLINHA += '<tr><td>' + 'Complemento : ' + laRES[ii,db_fetchncol(laRES,'EXTRA_ENDERECO')] + '</td></tr>'
+            lcLINHA += '<tr><td>' + 'Cidade : '      + laRES[ii,db_fetchncol(laRES,'CIDADE')] + '</td></tr>'
+            lcLINHA += '<tr><td>' + 'UF : '          + laRES[ii,db_fetchncol(laRES,'UF')] + '</td></tr>'
+            lcLINHA += '<tr><td>' + 'País : '        + laRES[ii,db_fetchncol(laRES,'PAIS')] + '</td></tr>'
+            lcLINHA += '<tr><td>' + 'CEP : '         + laRES[ii,db_fetchncol(laRES,'CEP')] + '</td></tr>'
+            lcLINHA += '<tr><td>' + 'CNPJ : '        + laRES[ii,db_fetchncol(laRES,'CNPJ_CPF')] + '</td></tr>'
+            lcLINHA += '<tr><td>' + 'IE : '          + laRES[ii,db_fetchncol(laRES,'IE')] + '</td></tr>'
+            lcLINHA += '<tr><td>' + 'CCM : '         + laRES[ii,db_fetchncol(laRES,'CCM')] + '</td></tr>'
+            lcLINHA += '<tr><td>' + 'Jurídico Responsável : ' + laRES[ii,db_fetchncol(laRES,'PFPJ_ATIVIDADE')] + '</td></tr>'
+            lcLINHA += '<tr><td>' + 'NIRE : '                 + laRES[ii,db_fetchncol(laRES,'NIRE')] + '</td></tr>'
+            lcLINHA += '<tr><td>' + 'Data da Constituição : ' + dtoc(laRES[ii,db_fetchncol(laRES,'DT_NASCIMENTO')]) + '</td></tr>'
+            
+            lcLINHA += '<tr><td BGCOLOR=silver><strong>' + 'OUTROS DOCUMENTOS (Pastas Pessoas)' + '</strong></td></tr>'
+            lcLINHA += '<tr><td>' + laRES[ii,db_fetchncol(laRES,'EXTRAEMP')] + '</td></tr>'
+            lcLINHA += '<tr><td><br></td></tr>'
+
+            
+            lcLINHA += '<tr><td BGCOLOR=silver><strong>' + 'OBJETO SOCIAL' + '</strong></td></tr>'
+            lcLINHA += '<tr><td>' + laRES[ii,db_fetchncol(laRES,'FORMA_ATUACAO')] + '</td></tr>'
+            lcLINHA += '<tr><td><br></td></tr>'
+
+            lcLINHA += '<tr><td BGCOLOR=silver><strong>' + 'DIRETORES' + '</strong></td></tr>'
+            lcLINHA += '<tr><td>' + 'Qtde Minima Diretores : ' + str(laRES[ii,db_fetchncol(laRES,'DIRETORIA_MINIMO')],0) + '</td></tr>'
+            lcLINHA += '<tr><td>' + 'Qtde Maxima Diretores : ' + str(laRES[ii,db_fetchncol(laRES,'DIRETORIA_MAXIMO')],0) + '</td></tr>'
+
+            lcLINHA += '<tr><td>' + diretores(laRES[ii,db_fetchncol(laRES,'NR_PASTA')]) + '</td></tr>'
+
+            lcLINHA += '<tr><td BGCOLOR=silver><strong>' + 'CONSELHEIROS' + '</strong></td></tr>'
+            lcLINHA += '<tr><td>' + 'Qtde Minima Conselheiros : ' + str(laRES[ii,db_fetchncol(laRES,'CONSELHO_MINIMO')],0) + '</td></tr>'
+            lcLINHA += '<tr><td>' + 'Qtde Maxima Conselheiros : ' + str(laRES[ii,db_fetchncol(laRES,'CONSELHO_MAXIMO')],0) + '</td></tr>'
+
+            lcLINHA += '<tr><td>' + conselheiros(laRES[ii,db_fetchncol(laRES,'NR_PASTA')]) + '</td></tr>'
+
+            lcLINHA += '<tr><td BGCOLOR=silver><strong>' + 'QUADRO DE COMPOSIÇÃO DO CAPITAL SOCIAL' + '</strong></td></tr>'
+            lcLINHA += '<tr><td>' + 'Capital Social Subscrito : ' + transform(laRES[ii,db_fetchncol(laRES,'CAPITAL_SOCIAL')],"@E 99,999,999.99") +'</td></tr>'
+            lcLINHA += '<tr><td>' + 'Capital Social Integralizado : ' + laRES[ii,db_fetchncol(laRES,'TP_CAPITAL_SOCIAL')] + '</td></tr>'
+            lcLINHA += '<tr><td>' + 'Valor Nominal (R$) : ' + transform(laRES[ii,db_fetchncol(laRES,'VL_ACOES')],"@E 99,999,999.99") + '</td></tr>'
+
+            lcLINHA += '<tr><td BGCOLOR=silver><strong>' + 'TIPO DE EMISSÃO (Aba de Informações Principais)' + '</strong></td></tr>'
+            lcLINHA += '<tr><td>' + emissao(laRES[ii,db_fetchncol(laRES,'NR_PASTA')]) + '</td></tr>'
+
+
+            lcLINHA += '<tr><td BGCOLOR=silver><strong>' + 'ACIONISTAS' + '</strong></td></tr>'
+            lcLINHA += '<tr><td>' + acionistas(laRES[ii,db_fetchncol(laRES,'NR_PASTA')]) + '</td></tr>'
+
+
+            lcLINHA += '<tr><td BGCOLOR=silver><strong>' + 'ATOS SOCIETÁRIOS' + '</strong></td></tr>'
+            lcLINHA += '<tr><td>' + atos(laRES[ii,db_fetchncol(laRES,'NR_PASTA')]) + '</td></tr>'
+
+            lcLINHA += '<tr><td BGCOLOR=silver><strong>' + 'OBSERVAÇÕES (Aba Informações Principais)' + '</strong></td></tr>'
+            lcLINHA += '<tr><td>' + laRES[ii,db_fetchncol(laRES,'EXTRAPAS')] + '</td></tr>'
+
+            lcRELATORIO+= lcINI0 + lcLINHA + lcFIM0
+
+        next ii
+
+
+
+     endif
+
+     WPut('ifGRID',.F.)
+     WPut('ifIMPRIMIR',.T.)
+     WPut('RELATORIO',lcRELATORIO)
+
+   endif
+return
+
+
+*************************************
+static function diretores(fnNR_PASTA)
+*************************************
+
+local laRES       := {} ,;
+      laFIELDS1   := {} ,;
+      laWHERE1    := {} ,;
+      laJOIN1     := {} ,;
+      laORDER1    := {} as array
+      
+local lcTABLE1    := '' ,;
+      lcLINHA1    := '' as string
+
+local ii1         := 0  as int
+      
+
+lcTABLE1   := 'vw_vpar_sct_diretoria'  
+
+laFIELDS1  :=    {'CIP_DIRETOR',;
+                  'DIRETOR',;
+                  'DT_MANDATO_INICIO',;
+                  'DT_MANDATO_FIM',;
+                  'CARGO'}
+
+laWHERE1   := {'vw_vpar_sct_diretoria.NR_PASTA=' + str(fnNR_PASTA)}
+
+laJOIN1    := {}
+
+laORDER1   := {'vw_vpar_sct_diretoria.DT_MANDATO_INICIO'}
+
+
+if db_select(laFIELDS1,lcTABLE1,laJOIN1,laWHERE1,laORDER1) == -1
+   error_sys(db_error())
+endif   
+laRES := db_fetchall()
+
+if len(laRES)>1
+   lcLINHA1 := '<tr><td>'
+   lcLINHA1 += '<table border="0" cellpadding="0" cellspacing="1" width="100%">'
+   lcLINHA1 += '  <tr BGCOLOR=silver>'
+   lcLINHA1 += '    <td>Diretor</td>'
+   lcLINHA1 += '    <td>Cargo</td>'
+   lcLINHA1 += '    <td align="center">Data Inicio do Mandato</td>'
+   lcLINHA1 += '    <td align="center">Data Final do Mandato</td>'
+   lcLINHA1 += '  </tr>'  
+
+   for ii1:=2 to len(laRES)
+       lcLINHA1 += '  <tr>'
+       lcLINHA1 += '    <td>'+laRES[ii1,db_fetchncol(laRES,'DIRETOR')]+'</td>'
+       lcLINHA1 += '    <td>'+laRES[ii1,db_fetchncol(laRES,'CARGO')]+'</td>'
+       lcLINHA1 += '    <td align="center">'+dtoc(laRES[ii1,db_fetchncol(laRES,'DT_MANDATO_INICIO')])+'</td>'
+       lcLINHA1 += '    <td align="center">'+dtoc(laRES[ii1,db_fetchncol(laRES,'DT_MANDATO_FIM')])+'</td>'
+       lcLINHA1 += '  </tr>'
+   next ii1
+
+   lcLINHA1 += '</table>'
+   lcLINHA1 += '</td></tr>'
+
+endif
+
+return(lcLINHA1)
+
+****************************************
+static function conselheiros(fnNR_PASTA)
+****************************************
+
+local laRES       := {} ,;
+      laFIELDS2   := {} ,;
+      laWHERE2    := {} ,;
+      laJOIN2     := {} ,;
+      laORDER2    := {} as array
+
+local lcTABLE2    := '' ,;
+      lcLINHA2    := '' as string
+
+local ii2         := 0  as int
+
+
+lcTABLE2   := 'vw_vpar_sct_conselhos'
+
+laFIELDS2  :=    {'CIP_CONSELHEIRO',;
+                  'CONSELHEIRO',;
+                  'DT_MANDATO_INICIO',;
+                  'DT_MANDATO_FIM',;
+                  'CARGO',;
+                  'CONSELHO'}
+
+laWHERE2   := {'vw_vpar_sct_conselhos.NR_PASTA=' + str(fnNR_PASTA)}
+
+laJOIN2    := {}
+
+laORDER2   := {'vw_vpar_sct_conselhos.DT_MANDATO_INICIO'}
+
+
+if db_select(laFIELDS2,lcTABLE2,laJOIN2,laWHERE2,laORDER2) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+if len(laRES)>1
+   lcLINHA2 := '<tr><td>'
+   lcLINHA2 += '<table border="0" cellpadding="0" cellspacing="1" width="100%">'
+   lcLINHA2 += '  <tr BGCOLOR=silver>'
+   lcLINHA2 += '    <td>Conselheiro</td>'
+   lcLINHA2 += '    <td>Cargo</td>'
+   lcLINHA2 += '    <td>Tipo de Conselho</td>'
+   lcLINHA2 += '    <td align="center">Data Inicio do Mandato</td>'
+   lcLINHA2 += '    <td align="center">Data Final do Mandato</td>'
+   lcLINHA2 += '  </tr>'
+
+   for ii2:=2 to len(laRES)
+       lcLINHA2 += '  <tr>'
+       lcLINHA2 += '    <td>'+laRES[ii2,db_fetchncol(laRES,'CONSELHEIRO')]+'</td>'
+       lcLINHA2 += '    <td>'+laRES[ii2,db_fetchncol(laRES,'CARGO')]+'</td>'
+       lcLINHA2 += '    <td>'+laRES[ii2,db_fetchncol(laRES,'CONSELHO')]+'</td>'
+       lcLINHA2 += '    <td align="center">'+dtoc(laRES[ii2,db_fetchncol(laRES,'DT_MANDATO_INICIO')])+'</td>'
+       lcLINHA2 += '    <td align="center">'+dtoc(laRES[ii2,db_fetchncol(laRES,'DT_MANDATO_FIM')])+'</td>'
+       lcLINHA2 += '  </tr>'
+   next ii2
+
+   lcLINHA2 += '</table>'
+   lcLINHA2 += '</td></tr>'
+endif
+
+return(lcLINHA2)
+
+
+****************************************
+static function emissao(fnNR_PASTA)
+****************************************
+
+local laRES       := {} ,;
+      laFIELDS3   := {} ,;
+      laWHERE3    := {} ,;
+      laJOIN3     := {} ,;
+      laORDER3    := {} as array
+
+local lcTABLE3    := '' ,;
+      lcLINHA3    := '' as string
+
+local ii3         := 0  as int
+
+local total3      := 0.00
+
+
+lcTABLE3   := 'pasta_emissao_acoes'
+
+laFIELDS3  :=    {'TP_PARTICIPACAO',;
+                  'QTD_QUOTAS_ACOES'}
+
+laWHERE3   := {'pasta_emissao_acoes.NR_PASTA=' + str(fnNR_PASTA)}
+
+laJOIN3    := {}
+
+laORDER3   := {'pasta_emissao_acoes.TP_PARTICIPACAO'}
+
+
+if db_select(laFIELDS3,lcTABLE3,laJOIN3,laWHERE3,laORDER3) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+if len(laRES)>1
+   lcLINHA3 := '<tr><td>'
+   lcLINHA3 += '<table border="0" cellpadding="0" cellspacing="1" width="100%">'
+   lcLINHA3 += '  <tr BGCOLOR=silver>'
+   lcLINHA3 += '    <td>Participação</td>'
+   lcLINHA3 += '    <td align="right">QTD</td>'
+   lcLINHA3 += '  </tr>'
+
+   for ii3:=2 to len(laRES)
+       lcLINHA3 += '  <tr>'
+       lcLINHA3 += '    <td>'+laRES[ii3,db_fetchncol(laRES,'TP_PARTICIPACAO')]+'</td>'
+       lcLINHA3 += '    <td align="right">'+str(laRES[ii3,db_fetchncol(laRES,'QTD_QUOTAS_ACOES')])+'</td>'
+       lcLINHA3 += '  </tr>'
+       total3 += laRES[ii3,db_fetchncol(laRES,'QTD_QUOTAS_ACOES')]
+   next ii3
+
+   lcLINHA3 += '  <tr>'
+   lcLINHA3 += '    <td> Total : </td>'
+   lcLINHA3 += '    <td align="right">'+str(total3,0)+'</td>'
+   lcLINHA3 += '  </tr>'
+
+   lcLINHA3 += '</table>'
+   lcLINHA3 += '</td></tr>'
+endif
+
+return(lcLINHA3)
+
+****************************************
+static function acionistas(fnNR_PASTA)
+****************************************
+
+local laRES       := {} ,;
+      laFIELDS4   := {} ,;
+      laWHERE4    := {} ,;
+      laJOIN4     := {} ,;
+      laORDER4    := {} as array
+
+local lcTABLE4    := ''  ,;
+      lcMUDO      := 'N' ,;
+      lcLINHA4    := '' as string
+
+local ii4         := 0  as int
+
+local total4      := 0.00
+
+
+lcTABLE4   := 'vw_vpar_sct_socios'
+
+laFIELDS4  :=    {'CIP_SOCIO_ACIONISTA',;
+                  'SOCIO_ACIONISTA',;
+                  'PC_PARTICIPACAO',;
+                  'QTD_QUOTAS_ACOES',;
+                  'FL_ATIVO',;
+                  'TP_PARTICIPACAO'}
+
+laWHERE4   := {'vw_vpar_sct_socios.NR_PASTA=' + str(fnNR_PASTA)}
+
+laJOIN4    := {}
+
+laORDER4   := {'vw_vpar_sct_socios.TP_PARTICIPACAO,vw_vpar_sct_socios.SOCIO_ACIONISTA'}
+
+
+if db_select(laFIELDS4,lcTABLE4,laJOIN4,laWHERE4,laORDER4) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+if len(laRES)>1
+   lcLINHA4 := '<tr><td>'
+   lcLINHA4 += '<table border="0" cellpadding="0" cellspacing="1" width="100%">'
+   lcLINHA4 += '  <tr BGCOLOR=silver>'
+   lcLINHA4 += '    <td>Tipo de Emissão</td>'
+   lcLINHA4 += '    <td>Acionistas/Cotistas</td>'
+   lcLINHA4 += '    <td align="center">Qtde</td>'
+   lcLINHA4 += '    <td align="center">%</td>'
+   lcLINHA4 += '  </tr>'
+
+   lcPART:=ALLTRIM(laRES[2,db_fetchncol(laRES,'TP_PARTICIPACAO')])
+   for ii4:=2 to len(laRES)
+       lcLINHA4 += '  <tr>'
+       lcLINHA4 += '    <td>'+laRES[ii4,db_fetchncol(laRES,'TP_PARTICIPACAO')]+'</td>'
+       lcLINHA4 += '    <td>'+laRES[ii4,db_fetchncol(laRES,'SOCIO_ACIONISTA')]+'</td>'
+       lcLINHA4 += '    <td align="right">'+str(laRES[ii4,db_fetchncol(laRES,'QTD_QUOTAS_ACOES')])+'</td>'
+       lcLINHA4 += '    <td align="right">'+str(laRES[ii4,db_fetchncol(laRES,'PC_PARTICIPACAO')])+'</td>'
+       lcLINHA4 += '  </tr>'
+
+       if ii4 < len(laRES)
+          if lcPART <> ALLTRIM(laRES[ii4+1,db_fetchncol(laRES,'TP_PARTICIPACAO')])
+             lcLINHA4 += '<tr><td><br></td></tr>'
+             lcPART:=ALLTRIM(laRES[ii4+1,db_fetchncol(laRES,'TP_PARTICIPACAO')])
+          endif
+       endif
+       total4 += laRES[ii4,db_fetchncol(laRES,'QTD_QUOTAS_ACOES')]
+   next ii4
+
+   lcLINHA4 += '  <tr>'
+   lcLINHA4 += '    <td>Total : </td>'
+   lcLINHA4 += '    <td></td>'
+   lcLINHA4 += '    <td align="right">'+str(total4,0)+'</td>'
+   lcLINHA4 += '    <td></td>'
+   lcLINHA4 += '  </tr>'
+
+   lcLINHA4 += '</table>'
+   lcLINHA4 += '</td></tr>'
+endif
+
+return(lcLINHA4)
+
+****************************************
+static function atos(fnNR_PASTA)
+****************************************
+
+local laRES       := {} ,;
+      laFIELDS5   := {} ,;
+      laWHERE5    := {} ,;
+      laJOIN5     := {} ,;
+      laORDER5    := {} as array
+
+local lcTABLE5    := '' ,;
+      lcLINHA5    := '' as string
+
+local ii5         := 0  as int
+
+
+lcTABLE5   := 'vw_vpar_sct_ata'
+
+laFIELDS5  :=   {'SOCIETARIO_ATO',;
+                 'DT_ASSEMBLEIA',;
+                 'ASSEMBLEIA_DELIBERACAO',;
+                 'OBSERVACAO'}
+
+laWHERE5   := {'vw_vpar_sct_ata.NR_PASTA=' + str(fnNR_PASTA)}
+
+laJOIN5    := {}
+
+laORDER5   := {'vw_vpar_sct_ata.DT_ASSEMBLEIA'}
+
+
+if db_select(laFIELDS5,lcTABLE5,laJOIN5,laWHERE5,laORDER5) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+
+if len(laRES)>1
+   lcLINHA5 := '<tr><td>'
+   lcLINHA5 += '<table border="0" cellpadding="0" cellspacing="1" width="100%">'
+   lcLINHA5 += '  <tr BGCOLOR=silver>'
+   lcLINHA5 += '    <td width="5%">Data Assembléia</td>'
+   lcLINHA5 += '    <td width="10%">Ato Societário</td>'
+   lcLINHA5 += '    <td width="10%">Deliberação</td>'
+   lcLINHA5 += '    <td>Observações</td>'
+   lcLINHA5 += '  </tr>'
+
+   for ii5:=2 to len(laRES)
+       lcLINHA5 += '  <tr>'
+       lcLINHA5 += '    <td>'+dtoc(laRES[ii5,db_fetchncol(laRES,'DT_ASSEMBLEIA')])+'</td>'
+       lcLINHA5 += '    <td>'+laRES[ii5,db_fetchncol(laRES,'SOCIETARIO_ATO')]+'</td>'
+       lcLINHA5 += '    <td>'+laRES[ii5,db_fetchncol(laRES,'ASSEMBLEIA_DELIBERACAO')]+'</td>'
+       lcLINHA5 += '    <td>'+laRES[ii5,db_fetchncol(laRES,'OBSERVACAO')]+'</td>'
+       lcLINHA5 += '  </tr>'
+   next ii5
+
+   lcLINHA5 += '</table>'
+   lcLINHA5 += '</td></tr>'
+endif
+
+return(lcLINHA5)
+
+
+
+

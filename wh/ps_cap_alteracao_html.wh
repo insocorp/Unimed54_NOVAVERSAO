@@ -1,0 +1,172 @@
+/*
+
+Project      : gr5
+Program      : ps.cap.alteracao.html
+Function     : ps_cap_alteracao_html
+Created on   : 20/09/2013 14:00
+Descripition : Lista alteração Capital Social
+Projeto      :
+*/
+
+   local lcWHERE       := '' ,;
+         lcNR_PASTA    := '' ,;
+         lcTABLE       := '' ,;
+         lcTP_PASTA    := '' ,;
+         lcWFIELD      := '' ,;
+         lcCOR_LIN     := '' ,;
+         lcNR_CONTROLE := '' ,;
+         lcAUX         := '' as string
+
+   local laRES     := {} ,;
+         laRES1    := {} ,;
+         laOPTIONS := {} ,;
+         laLABELS  := {} ,;
+         laFIELDS  := {} as array
+
+   local ii    := 0 ,;
+         xx    := 0 ,;
+         lnPOS := 0 as int
+
+   lcNR_PASTA    := WGet('NR_PASTA','C')
+   lcTP_PASTA    := WGet('TP_PASTA','C')
+   lcNR_CONTROLE := WGet('NR_CONTROLE','C')
+
+   WPut('NR_PASTA',lcNR_PASTA)
+   WPut('TP_PASTA',lcTP_PASTA)
+
+   lcTABLE    := 'pasta_cap_altera'
+
+
+   laFIELDS   := {'DT_ATUA_CAPITAL_SOCIAL',;
+                  'CAPITAL_SOCIAL',;
+                  'VL_CAPITAL_SOCIAL',;
+                  'DT_ALTERACAO',;
+                  'HR_ALTERACAO',;
+                  'LOGIN',;
+                  'FL_CANCELA',;
+                  'NR_CONTROLE'}
+
+   lcACTION   := WGet('ACTION','C')
+             
+   WPut('TITLE','Histórico Capital Social')
+
+   init_reqfield(WSet('_USER_INTERFACE'))
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   pasta_abas(lcTP_PASTA)   // Função coloca abas lado esquerdo
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+
+
+
+   if lcACTION == 'ATIVAR' .and. gbWAC_DELETE
+      lcWHERE := 'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE
+
+      psab_logs({{'FL_CANCELA'},{''}},lcTABLE,lcWHERE,lcNR_PASTA,'Histórico Capital Social')
+
+      if db_update({{'FL_CANCELA'},{''}},lcTABLE,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+
+
+
+   elseif lcACTION == 'CANCELAR' .and. gbWAC_DELETE
+      lcWHERE := 'NR_PASTA='+lcNR_PASTA+' and NR_CONTROLE='+lcNR_CONTROLE
+
+      psab_logs({{'FL_CANCELA'},{'C'}},lcTABLE,lcWHERE,lcNR_PASTA,'Histórico Capital Social')
+
+      if db_update({{'FL_CANCELA'},{'C'}},lcTABLE,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+
+   endif
+
+   lcWHERE := 'NR_PASTA='+lcNR_PASTA
+   if db_select(laFIELDS,lcTABLE,,{lcWHERE},{'DT_ATUA_CAPITAL_SOCIAL'},'D') == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+
+   if len(laRES) > 0
+      aadd(laRES[1],'COR_LIN')
+      aadd(laRES[1],'TITBOTAO')
+      aadd(laRES[1],'BT_CANATI')
+      aadd(laRES[1],'LIBERADO')
+      aadd(laRES[1],'VAR_NR_CONTROLE')
+
+      for ii := 2 to len(laRES)
+          lcNR_ROW := alltrim(str(ii))
+          if laRES[ii,db_fetchncol(laRES,'FL_CANCELA')] == 'C'
+                lcCOR_LIN := 'red'
+             else
+                lcCOR_LIN := 'black'
+          endif
+
+          aadd(laRES[ii],lcCOR_LIN)
+
+          if laRES[ii,db_fetchncol(laRES,'FL_CANCELA')] == 'C'
+                aadd(laRES[ii],'Ativar')
+             else
+                aadd(laRES[ii],'Cancelar')
+          endi
+          aadd(laRES[ii],'BT_CANATI'+lcNR_ROW)
+
+          if gbWAC_DELETE //esconde ou libera botão
+             aadd(laRES[ii],'display: block')
+          else
+             aadd(laRES[ii],'display: none')
+          endif
+
+          aadd(laRES[ii],'VAR_NR_CONTROLE'+lcNR_ROW)
+
+          WPut('VAR_NR_CONTROLE'+lcNR_ROW,laRES[ii,db_fetchncol(laRES,'NR_CONTROLE')])
+
+      next ii
+    endif
+    WPut('lstCAPSOCI',laRES)
+
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

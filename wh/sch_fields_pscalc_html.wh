@@ -1,0 +1,104 @@
+/*
+
+Project      : gr5
+Program      : sch.fields.pscalc.html
+Function     : sch_fields_pscalc_html
+Created on   : 02-Dec-2004   15:37:37
+Descripition :
+
+*/
+
+   local lcWFIELDS        := '' ,;
+         lcQUERY          := '' ,;
+         lcFILTER_CONTENT := '' ,;
+         lcQTABLES        := '' ,;
+         lcOP             := '' as string
+   local laRES  := {} ,;
+         laRES2 := {} ,;
+         laPUT  := {} ,;
+         laPUT2 := {} as array
+   local xx    := 0 ,;
+         yy    := 0 ,;
+         jj    := 0 ,;
+         lnPOS := 0 as int
+
+   lcWFIELDS        := alltrim(wGet('WFIELDS','C'))
+   lcFILTER_CONTENT := wGet('FILTER_CONTENT','C')
+
+   get2put({'FILTER_CONTENT','NM_FIELD','WFIELDS'})
+
+   if !empty(lcWFIELDS)
+      laRES := str2array(lcWFIELDS,',')
+      if len(laRES) > 0
+         aadd(laPUT,{'WFIELD'})
+         for xx:= 1 to len(laRES)
+            lcOP  := laRES[xx]
+            lnPOS := at('.',lcOP)
+            if lnPOS > 0
+               lcOP := substr(lcOP, lnPOS + 1) // Se encontrar um . remove o nome da tabela
+            endif
+            aadd(laPUT,{'<option value="'+laRES[xx]+'">'+laRES[xx]+'</option>'}) //Na Lista joga tabela.Campo
+            lcQUERY += ' and WFIELD<>'+DLAP+lcOP+DLAP //Na Query joga somenteo Campo
+         next xx
+         wPut('lstSELECTED_FIELDS',laPUT)
+      endif
+   endif
+
+   if !empty(lcFILTER_CONTENT)
+      lcQUERY+= ' and WFIELD like"%'+lcFILTER_CONTENT+'%"'
+   endif
+
+   /* Se for enviado uma string com nomes de tabelas separados por virgula */
+
+
+   /* Gera uma QUERY de acordo com com as tabelas contidas as tabelas pasta% */
+   if db_select({'WTABLE'},'wtable',,{'WTABLE like'+DLAP+'pasta%'+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   laPUT := {}
+   for xx:= 2 to len(laRES)
+      aadd(laPUT,laRES[xx,1])
+   next xx
+
+   lcQTABLES := 'WTABLE in ('
+   for xx := 1 to len(laPUT)
+      if xx > 1
+         lcQTABLES += ','
+      endif
+      lcQTABLES += DLAP+laPUT[xx]+DLAP
+   next xx
+   lcQTABLES += ')'
+
+   /* Seleciona o campo WFIELDS da db_table */
+   if db_select({'WTABLE','WFIELDS'},'wtable',,{lcQTABLES}) = -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   laPUT := {}
+
+   /* Gera array (laRES) unidimensional com todos os campos encontrados na pesquisa anterior */
+   if len(laRES) > 0
+      for xx := 2 to len(laRES)
+         laPUT := comma2array(laRES[xx,2])
+         lcWFIELDS := '(WFIELD='+DLAP+laPUT[1]+DLAP
+         for jj := 2 to len(laPUT)
+            lcWFIELDS += ' or WFIELD='+DLAP+laPUT[jj]+DLAP
+         next jj
+         lcWFIELDS += ')'
+
+         if db_select({'WFIELD'},'wfield',,{lcWFIELDS+lcQUERY}) = -1
+            error_sys(db_error())
+         endif
+         laRES2 := db_fetchall()
+         if len(laRES2) > 0
+            aadd(laPUT2,{laRES2[1,1]})
+            for yy:= 2 to len(laRES2)
+               aadd(laPUT2,{'<option value="'+laRES2[yy,1]+'">'+laRES[xx,1]+'.'+laRES2[yy,1]+'</option>'})
+            next yy
+         endif
+      next xx
+      wPut('lstALL_FIELDS',laPUT2)
+   endif
+
+return

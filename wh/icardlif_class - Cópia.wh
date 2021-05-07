@@ -1,0 +1,3231 @@
+/*
+
+Project      : isj_50
+Program      : icardlif.class
+Function     : icardlif_class
+Created on   : 31-Mar-2016   07:35:00
+Descripition : Interface de integração Isj X Life.
+               Classe principal para comunicação.
+
+*/
+
+
+// Glauber - 04/2016
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Classe...........: IsjLifeConfig
+*
+* Objetivo.........: Classe que manipula as configurações do Life.
+*
+* Atributos........:
+*
+*    EXPORT Usuario
+*    EXPORT Senha
+*    EXPORT XmlConsulta
+*    EXPORT XmlEfetiva
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD SalvarConfiguracao()
+*    METHOD getConfiguracao()
+*
+*
+* Classes Ligadas..:
+*
+*    IsjLife
+*
+*/
+
+
+CLASS IsjLifeConfig
+
+    // Atributos privado
+
+    EXPORT Usuario
+    EXPORT Senha
+    EXPORT XmlConsulta
+    EXPORT XmlEfetiva
+
+
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()                 CLASS IsjLifeConfig
+    PROTOTYPE METHOD Destroy()              CLASS IsjLifeConfig
+    PROTOTYPE METHOD SalvarConfiguracao()   CLASS IsjLifeConfig
+    PROTOTYPE METHOD getConfiguracao()      CLASS IsjLifeConfig
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS IsjLifeConfig
+
+    self:Usuario     := ''
+    self:Senha       := ''
+    self:XmlConsulta := ''
+    self:XmlEfetiva  := ''
+
+return(self)
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS IsjLifeConfig
+
+    self:Usuario     := nil
+    self:Senha       := nil
+    self:XmlConsulta := nil
+    self:XmlEfetiva  := nil
+
+
+return(nil)
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: SalvarConfiguracoes()
+* Objetivo..: Salvar as configurações.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             self
+*
+*/
+
+METHOD SalvarConfiguracao() CLASS IsjLifeConfig
+
+   local laFIELDS   := {},;
+         laSAVE     := {},;
+         laSAVEAUX  := {} as Array
+
+
+
+   laFIELDS  := {'USUARIO','SENHA','XMLCONSULTA','XMLEFETIVA'}
+
+   laSAVEAUX := {self:Usuario,;
+                 self:Senha,;
+                 self:XmlConsulta,;
+                 self:XmlEfetiva}
+
+   aadd(laSAVE,laFIELDS)
+   aadd(laSAVE,laSAVEAUX)
+
+   if db_replace(laSAVE,'isjlifecfg',{"USUARIO='ISJ'" }) == -1
+       error_sys(db_error())
+   endif
+
+return (self)
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: getConfiguracao()
+* Objetivo..: Obtem as configurações.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             self
+*
+*/
+
+METHOD getConfiguracao() CLASS IsjLifeConfig
+
+   local laRESULT   := {} AS Array
+
+   if db_select({'USUARIO','SENHA','XMLCONSULTA','XMLEFETIVA'},'isjlifecfg',,,,,,{0,1}) == -1
+       error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      self:Usuario     := laRESULT[2,db_fetchncol(laRESULT,'USUARIO')]
+      self:Senha       := laRESULT[2,db_fetchncol(laRESULT,'SENHA')]
+      self:XmlConsulta := laRESULT[2,db_fetchncol(laRESULT,'XMLCONSULTA')]
+      self:XmlEfetiva  := laRESULT[2,db_fetchncol(laRESULT,'XMLEFETIVA')]
+   endif
+
+
+return (self)
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Classe...........: RetornoConsultaLife
+*
+* Objetivo.........: Classe que espelha o retorno dos dados de consulta do Life.
+*
+* Atributos........:
+*
+*    EXPORT Enterprise
+*    EXPORT Clain
+*    EXPORT StatusCode
+*    EXPORT StatusMessage
+*    EXPORT CpfSegurado
+*    EXPORT NomeSegurado
+*    EXPORT NumeroCertificado
+*    EXPORT Carencia
+*    EXPORT Franquia
+*    EXPORT Is
+*    EXPORT ValorPagoSinistro
+*    EXPORT DataOcorrencia
+*    EXPORT DataAviso
+*    EXPORT Parceiro
+*    EXPORT StatusSinistro
+*    EXPORT InicioVigencia
+*    EXPORT FimVigencia
+*    EXPORT Cosseguro
+*    EXPORT AceitoCedido
+*    EXPORT PercentualParticipacaoCardif
+*    EXPORT Cobertura
+*    EXPORT ObjetoSinistro
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*
+*
+* Classes Ligadas..:
+*
+*    IsjLife
+*
+*/
+
+
+CLASS RetornoConsultaLife
+
+    // Atributos publico
+
+    EXPORT Enterprise
+    EXPORT Clain
+    EXPORT StatusCode
+    EXPORT StatusMessage
+    EXPORT CpfSegurado
+    EXPORT NomeSegurado
+    EXPORT NumeroCertificado
+    EXPORT Carencia
+    EXPORT Franquia
+    EXPORT Is
+    EXPORT ValorPagoSinistro
+    EXPORT DataOcorrencia
+    EXPORT DataAviso
+    EXPORT Parceiro
+    EXPORT StatusSinistro
+    EXPORT InicioVigencia
+    EXPORT FimVigencia
+    EXPORT Cosseguro
+    EXPORT AceitoCedido
+    EXPORT PercentualParticipacaoCardif
+    EXPORT Cobertura
+    EXPORT ObjetoSinistro
+
+
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()      CLASS RetornoConsultaLife
+    PROTOTYPE METHOD Destroy()   CLASS RetornoConsultaLife
+
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS RetornoConsultaLife
+
+    self:Enterprise                   := ''
+    self:Clain                        := ''
+    self:StatusCode                   := ''
+    self:StatusMessage                := ''
+    self:CpfSegurado                  := ''
+    self:NomeSegurado                 := ''
+    self:NumeroCertificado            := ''
+    self:Carencia                     := ''
+    self:Franquia                     := ''
+    self:Is                           := ''
+    self:ValorPagoSinistro            := ''
+    self:DataOcorrencia               := ''
+    self:DataAviso                    := ''
+    self:Parceiro                     := ''
+    self:StatusSinistro               := ''
+    self:InicioVigencia               := ''
+    self:FimVigencia                  := ''
+    self:Cosseguro                    := ''
+    self:AceitoCedido                 := ''
+    self:PercentualParticipacaoCardif := ''
+    self:Cobertura                    := ''
+    self:ObjetoSinistro               := ''
+
+return(self)
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS RetornoConsultaLife
+
+    self:Enterprise                   := nil
+    self:Clain                        := nil
+    self:StatusCode                   := nil
+    self:StatusMessage                := nil
+    self:CpfSegurado                  := nil
+    self:NomeSegurado                 := nil
+    self:NumeroCertificado            := nil
+    self:Carencia                     := nil
+    self:Franquia                     := nil
+    self:Is                           := nil
+    self:ValorPagoSinistro            := nil
+    self:DataOcorrencia               := nil
+    self:DataAviso                    := nil
+    self:Parceiro                     := nil
+    self:StatusSinistro               := nil
+    self:InicioVigencia               := nil
+    self:FimVigencia                  := nil
+    self:Cosseguro                    := nil
+    self:AceitoCedido                 := nil
+    self:PercentualParticipacaoCardif := nil
+    self:Cobertura                    := nil
+    self:ObjetoSinistro               := nil
+
+return(nil)
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Classe...........: IsjLife
+*
+* Objetivo.........: Interface de comunicação Isj X Life.
+*
+* Atributos........:
+*
+*    EXPORT objSave
+*    EXPORT NrPasta
+*    EXPORT Base
+*    EXPORT NrSinistro
+*    EXPORT NrCertificado
+*    EXPORT TpPasta
+*    EXPORT NrControleSeguro
+*    EXPORT PedidoProcesso
+*    EXPORT DataRisco
+*    EXPORT ValorRisco
+*    EXPORT PcRisco
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD AjustaReservaPedido()
+*    METHOD TrataErroLife(pcCONTEUDO)
+*    METHOD GerarPedidoInicialLife()
+*    METHOD EnviarDespesaLife()
+*    METHOD ConsultarSinistro()
+*    METHOD DespesaBatchLife()
+*    METHOD EhAbaNova(pnNrPasta)
+*
+*
+* Classes Ligadas..:
+*
+*    RetornoConsultaLife
+*
+*/
+
+
+CLASS IsjLife
+
+    // Atributos privado
+
+    HIDDEN PathLife
+    HIDDEN AppLife
+    HIDDEN ErrorCode
+    HIDDEN ErrorMessage
+
+
+    // Atributos público
+
+    EXPORT objSave
+    EXPORT NrPasta
+    EXPORT TpPasta
+    EXPORT Base
+    EXPORT NrSinistro
+    EXPORT NrCertificado
+    EXPORT NrControleSeguro
+    EXPORT FlApolice
+    EXPORT PedidoProcesso
+    EXPORT DataRisco
+    EXPORT ValorRisco
+    EXPORT PcRisco
+
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()                          CLASS IsjLife
+    PROTOTYPE METHOD Destroy()                       CLASS IsjLife
+    PROTOTYPE METHOD AjustaReservaPedido()           CLASS IsjLife
+    PROTOTYPE METHOD TrataErroLife(pcCONTEUDO)       CLASS IsjLife
+    PROTOTYPE METHOD GerarPedidoInicialLife()        CLASS IsjLife
+    PROTOTYPE METHOD EnviarDespesaLife()             CLASS IsjLife
+    PROTOTYPE METHOD ConsultarSinistro()             CLASS IsjLife
+    PROTOTYPE METHOD DespesaBatchLife()              CLASS IsjLife
+    PROTOTYPE METHOD EhAbaNova(pnNrPasta)            CLASS IsjLife
+
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS IsjLife
+
+   self:objSave    := {}
+
+   self:PathLife         := WSet('PATHWSLIFE')
+   self:AppLife          := WSet('APPLIFE')
+   self:ErrorCode        := 0
+   self:ErrorMessage     := ""
+
+   self:NrPasta          := 0
+   self:TpPasta          := ''
+   self:Base             := ''
+   self:NrSinistro       := ''
+   self:NrCertificado    := ''
+   self:PedidoProcesso   := ''
+   self:FlApolice        := ''
+   self:NrControleSeguro := 0
+   self:DataRisco        := Date()
+   self:ValorRisco       := 0.01
+   self:PcRisco          := 100
+
+
+return(self)
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS IsjLife
+
+
+   self:objSave          := nil
+   self:PathLife         := nil
+   self:AppLife          := nil
+   self:ErrorCode        := nil
+   self:ErrorMessage     := nil
+
+   self:NrPasta          := nil
+   self:TpPasta          := nil
+   self:Base             := nil
+   self:NrSinistro       := nil
+   self:NrCertificado    := nil
+   self:PedidoProcesso   := nil
+   self:FlApolice        := nil
+   self:NrControleSeguro := nil
+   self:DataRisco        := nil
+   self:ValorRisco       := nil
+   self:PcRisco          := nil
+
+
+return(nil)
+
+
+
+/*
+*
+* Glauber - 02/2016
+*
+* Metodo....: ACCESS ErroCode
+* Objetivo..: Retorna o codigo de erro.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Código de erro
+*
+*/
+
+ACCESS ErroCode CLASS IsjLife
+   return self:ErrorCode
+
+/*
+*
+* Glauber - 02/2016
+*
+* Metodo....: ACCESS ErroMessage
+* Objetivo..: Retorna a mensagem de erro.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Mensagem de erro
+*
+*/
+
+ACCESS ErroMessage CLASS IsjLife
+   return self:ErrorMessage
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: AjustaReservaPedido()
+* Objetivo..: Envia o ajuste da reserva para cada linha de pedido que contenha sinistro atrelado.
+*
+* Parâmetros:
+*
+* Retorno...:
+*    T. Caso a comunicação ocorra com sucesso.
+*
+*/
+
+
+
+METHOD AjustaReservaPedido() CLASS IsjLife
+
+      local lcEnv    := '',;
+            lcRet    := '',;
+            lcParser := '',;
+            lcRun    := '',;
+            lcTMP    := '',;
+            lcLABEL  := '',;
+            lcWHERE  := '' as String
+      local laRESULT := {},;
+            laWSet   := {},;
+            laSAVE   := {},;
+            laAUX    := {},;
+            laSEGURO := {},;
+            laFIELDS := {},;
+            laJOIN   := {},;
+            laTMP    := {} as array
+      local ii            := 0,;
+            lnii          := 0,;
+            lnPOS         := 0,;
+            lnNR_CONTROLE := 0 as int
+
+      local llErro  := .f.,;
+            llDebug := .f.
+
+      local objetoCfg  := IsjLifeConfigNew() as Object
+            objetoCfg:getConfiguracao()
+            
+      local oldVLRISCOCALC := 0.00
+
+
+//walert('Entrou no ajuste da reserva')
+
+//wout('<br><b> Entrou no ajuste da reserva')
+
+//wout('<br><b> Save do ajuste da reserva')
+//wout(debug2(self:objSave,,50))
+
+
+
+
+      if len(self:objSave) == 1 .or. (self:objSave[2,db_fetchncol(self:objSave,'VL_RISCO_CALC')] == 0 .and. self:objSave[2,db_fetchncol(self:objSave,'VL_CORRECAO')] == 0 .and. self:objSave[2,db_fetchncol(self:objSave,'VL_JUROS')] == 0)
+         return .T.
+      endif
+
+
+
+//wout('<br><b> Save da reserva valido')
+
+      // Recuperar as informações do seguro
+
+      laFIELDS := {'pasta_seguro.FL_APOLICE AS BASE',;
+                   'pasta_seguro.NR_SINISTRO',;
+                   'pasta_seguro.NR_CERTIFICADO',;
+                   'pasta_pedidos.VL_RISCO_CALC'}
+      laJOIN   := {{1,'pasta_seguro','(pasta_pedidos.NR_PASTA = pasta_seguro.NR_PASTA and pasta_pedidos.NR_CONTROLE_SEGURO = pasta_seguro.NR_CONTROLE)'}}
+      lcWHERE  := '(pasta_pedidos.NR_PASTA = ' + alltrim(self:objSave[2,db_fetchncol(self:objSave,'NR_PASTA')]) + ' and pasta_pedidos.NR_CONTROLE = ' + alltrim(self:objSave[2,db_fetchncol(self:objSave,'NR_CONTROLE')]) + ' and pasta_pedidos.NR_CONTROLE_SEGURO > 0)'
+
+      if db_select(laFIELDS,'pasta_pedidos ',laJOIN,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laSEGURO := db_fetchall()
+
+
+
+      if len(laSEGURO) == 1
+         return .T.
+      endif
+
+
+/*
+
+Glauber 08/06/2016 - Detectado pela Célia
+
+Esta correção corresponde a seguinte situação.
+
+O usuario tem um pedido na pasta, este pedido esta atrelado a um sinistro.
+Dai o abençoado vai na aba informações principais e altera da data de citação ou ainda muda o indice de reajuste.
+Após ter feito isto, ele vai na aba pedidos e clica no botão salvar, sem movimentar um pedido específico.
+Este processo só gera o registro de ajuste de juros, ficando o valor do risco calculado e o valor da correção intacto
+
+*/
+
+      oldVLRISCOCALC := self:objSave[2,db_fetchncol(self:objSave,'VL_RISCO_CALC')]
+
+      if self:objSave[2,db_fetchncol(self:objSave,'VL_RISCO_CALC')] == 0
+         self:objSave[2,db_fetchncol(self:objSave,'VL_RISCO_CALC')] := laSEGURO[2,db_fetchncol(laSEGURO,'VL_RISCO_CALC')]
+      endif
+
+
+//wout('<br><b> Achou o seguro')
+
+      self:NrPasta          := alltrim(self:objSave[2,db_fetchncol(self:objSave,'NR_PASTA')])
+      self:TpPasta          := WGet('TP_PASTA')
+      self:NrSinistro       := alltrim(laSEGURO[2,db_fetchncol(laSEGURO,'NR_SINISTRO')])
+      self:Base             := alltrim(laSEGURO[2,db_fetchncol(laSEGURO,'BASE')])
+      self:NrCertificado    := alltrim(laSEGURO[2,db_fetchncol(laSEGURO,'NR_CERTIFICADO')])
+
+
+      llErro := self:ValidaPathAppLife()
+
+      if ( ! llErro)
+
+         laRESULT := {{'USUARIO',;
+                       'SENHA',;
+                       'BASE',;
+                       'NR_SINISTRO',;
+                       'NR_CERTIFICADO',;
+                       'NR_PASTA',;
+                       'AUMENTO_ESTIMATIVA',;
+                       'PEDIDO_AUMENTO_ESTIMATIVA',;
+                       'VL_RISCO_CALC',;
+                       'DT_MOVTO_PED',;
+                       'DT_CITACAO'}}
+
+          if db_select({'DT_CITACAO'},'pasta',,{'NR_PASTA='+Alltrim(self:NrPasta) + ' and DT_CITACAO is not null'}) == -1
+             error_sys(db_error())
+          endif
+          laTMP := db_fetchall()
+
+          if len(laTMP) > 1
+             lcTMP := strzero(year(laTMP[2,1]),4) + '-' + strzero(month(laTMP[2,1]),2) + '-' + strzero(day(laTMP[2,1]),2)
+          endif
+
+          laAUX    := {objetoCfg:Usuario,;
+                       objetoCfg:Senha,;
+                       alltrim(laSEGURO[2,db_fetchncol(laSEGURO,'BASE')]),;
+                       alltrim(laSEGURO[2,db_fetchncol(laSEGURO,'NR_SINISTRO')]),;
+                       alltrim(laSEGURO[2,db_fetchncol(laSEGURO,'NR_CERTIFICADO')]),;
+                       alltrim(self:objSave[2,db_fetchncol(self:objSave,'NR_PASTA')]),;
+                       iif(self:objSave[2,db_fetchncol(self:objSave,'VL_RISCO_CALC')] > 0, 'S','N'),;
+                       lat2char(self:objSave[2,db_fetchncol(self:objSave,'PEDIDO_PROCESSO')]),;
+                       iif(self:objSave[2,db_fetchncol(self:objSave,'VL_RISCO_CALC')] > 0, transform(self:objSave[2,db_fetchncol(self:objSave,'VL_RISCO_CALC')],'999999999.99'),transform(self:objSave[2,db_fetchncol(self:objSave,'VL_RISCO_CALC')] * -1,'999999999.99')),;
+                       strzero(year(date()),4) + '-' + strzero(month(date()),2) + '-' + strzero(day(date()),2),;
+                       lcTMP }
+//wout('<br><b> Save do ajuste da reserva')
+//wout(debug2(self:objSave,,50))
+
+          // Verificar se ocorreu ajuste de correção monetária
+
+          if self:objSave[2,db_fetchncol(self:objSave,'VL_CORRECAO')] != 0
+             aadd(laRESULT[1],'CORRECAO_MONETARIA')
+             aadd(laRESULT[1],'PEDIDO_AUMENTO_CORRECAO')
+             aadd(laRESULT[1],'VL_CORRECAO')
+
+             aadd(laAUX,iif(self:objSave[2,db_fetchncol(self:objSave,'VL_CORRECAO')] > 0, 'M','T'))
+             aadd(laAUX,'Correcao monetaria do pedido:'+lat2char(self:objSave[2,db_fetchncol(self:objSave,'PEDIDO_PROCESSO')]))
+             aadd(laAUX,iif(self:objSave[2,db_fetchncol(self:objSave,'VL_CORRECAO')] > 0, transform(self:objSave[2,db_fetchncol(self:objSave,'VL_CORRECAO')],'999999999.99'),transform(self:objSave[2,db_fetchncol(self:objSave,'VL_CORRECAO')] * -1,'999999999.99')))
+
+          endif
+
+          // Verificar se ocorreu ajuste de juros
+
+          if self:objSave[2,db_fetchncol(self:objSave,'VL_JUROS')] != 0
+             aadd(laRESULT[1],'JUROS')
+             aadd(laRESULT[1],'PEDIDO_AUMENTO_JUROS')
+             aadd(laRESULT[1],'VL_JUROS')
+
+             aadd(laAUX,iif(self:objSave[2,db_fetchncol(self:objSave,'VL_JUROS')] > 0, 'J','I'))
+             aadd(laAUX,'Juros do pedido:'+lat2char(self:objSave[2,db_fetchncol(self:objSave,'PEDIDO_PROCESSO')]))
+             aadd(laAUX,iif(self:objSave[2,db_fetchncol(self:objSave,'VL_JUROS')] > 0, transform(self:objSave[2,db_fetchncol(self:objSave,'VL_JUROS')],'999999999.99'),transform(self:objSave[2,db_fetchncol(self:objSave,'VL_JUROS')] * -1,'999999999.99')))
+
+          endif
+
+
+          aadd(laRESULT,laAUX)
+
+          lcEnv    := self:PathLife + 'ENV_EF_PED_'+ ALLTRIM(WIC_RANDOM()) + Wset('LOGIN') +'_'+alltrim(wic_random()) +'.XML'
+          lcRet    := strtran(lcEnv,'.XML','.RET')
+          lcParser := self:Parser2Str(objetoCfg:XmlEfetiva,laRESULT)
+// debug2(laRESULT,,30)
+// WOUT('lcENV:'+lcENV)
+          GravaArquivo(lcEnv,lcParser) // Função presente na func.wic
+
+          // Executa o pedido das informações
+
+          lcRun := self:AppLife + ' efetivaroperacao ' + lcEnv + ' ' + self:PathLife + 'AppConfig.xml'
+          self:ExecutarPlugIn(lcRun,llDebug)
+
+      endif
+      
+      
+      self:objSave[2,db_fetchncol(self:objSave,'VL_RISCO_CALC')] := oldVLRISCOCALC
+
+      // Obter o conteúdo da pesquisa
+      if (! file(lcRet))
+         Walert('Erro ao receber o arquivo de retorno.Arquivo de retorno não existe:'+lcRet)
+wout('Erro ao receber o arquivo de retorno.Arquivo de retorno não existe:'+lcRet)
+         llErro := .t.
+      endif
+
+      lcTMP  := GetFileContent(lcRet) // Resgata o conteúdo do arquivo de retorno
+      lcERRO := self:TrataErroLife(lcTMP) // Verifica se no conteúdo do retorno contém algum erro.
+      if ! empty(lcERRO)
+wout('ATENÇÃO: '+lcERRO)
+          WAlert('ATENÇÃO: '+lcERRO)
+          llErro := .t.
+      endif
+
+
+      // Glauber 06/11/2015 - Atualizar a linha do pasta detal, indicando que o registro foi transmitido com sucesso
+
+      lnPOS := ascan(self:objSave,'NR_DETAL')
+      if lnPOS > 0
+          lnNR_CONTROLE := self:objSave[2,db_fetchncol(self:objSave,'NR_DETAL')]
+      else
+          lnNR_CONTROLE := db_insert_id()
+      endif
+
+
+      if (llErro == .F.)
+         if db_update({{'DT_ENVIO_INTERFACE','FL_RETINTERFACE','RETORNO_INTERFACE'},;
+                          {date(),'0','OK'}},'pasta_detal_pedidos',;
+                          {'pasta_detal_pedidos.NR_PASTA = ' + alltrim(self:objSave[2,db_fetchncol(self:objSave,'NR_PASTA')]) + ' and pasta_detal_pedidos.NR_DETAL = ' + alltrim(lnNR_CONTROLE) }) == -1
+               error_sys(db_error())
+          endif
+      else
+         if db_update({{'DT_ENVIO_INTERFACE','FL_RETINTERFACE','RETORNO_INTERFACE'},;
+                          {date(),'9',lcERRO}},'pasta_detal_pedidos',;
+                          {'pasta_detal_pedidos.NR_PASTA = ' + alltrim(self:objSave[2,db_fetchncol(self:objSave,'NR_PASTA')]) + ' and pasta_detal_pedidos.NR_DETAL = ' + alltrim(lnNR_CONTROLE) }) == -1
+               error_sys(db_error())
+          endif
+      endif
+//wout('llErro:'+ transform(llErro))
+      if llErro == .T.
+         return .F.
+      endif
+
+
+return .T.
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: GerarPedidoInicialLife()
+* Objetivo..: Gera o pedido inicial do Life.
+*
+* Parâmetros:
+*
+* Retorno...:
+*    T. Caso a comunicação ocorra com sucesso.
+*
+*/
+
+METHOD GerarPedidoInicialLife() CLASS IsjLife
+
+      local lcEnv    := '',;
+            lcRet    := '',;
+            lcParser := '',;
+            lcRun    := '',;
+            lcTMP    := '',;
+            lcLABEL  := '' as String
+
+      local laRESULT := {},;
+            laWSet   := {},;
+            laSAVE   := {},;
+            laAUX    := {},;
+            laTMP    := {} as array
+      local ii   := 0,;
+            lnii := 0,;
+            lnNR_CONTROLE := 0 as int
+
+      local llErro  := .f.,;
+            llDebug := .f.
+
+      local objetoCfg  := IsjLifeConfigNew() as Object
+            objetoCfg:getConfiguracao()
+
+
+      IF WGET('FL_SINISTRO_EXISTE') == 'S'
+         RETURN .T.
+      ENDIF
+
+      llErro := self:ValidaPathAppLife()
+
+      if ( ! llErro)
+
+          laRESULT := {{'USUARIO',;
+                        'SENHA',;
+                        'BASE',;
+                        'NR_SINISTRO',;
+                        'NR_CERTIFICADO',;
+                        'NR_PASTA',;
+                        'AUMENTO_ESTIMATIVA',;
+                        'PEDIDO_AUMENTO_ESTIMATIVA',;
+                        'VL_RISCO_CALC',;
+                        'DT_MOVTO_PED',;
+                        'DT_CITACAO'}}
+
+// Glauber 12/2015 -> Implementar a passagem do campo data de citação conforme solicitação do Jorge e autorização do Alexandre.
+
+           if db_select({'DT_CITACAO'},'pasta',,{'NR_PASTA='+Alltrim(self:NrPasta) + ' and DT_CITACAO is not null'}) == -1
+              error_sys(db_error())
+           endif
+           laTMP := db_fetchall()
+
+           if len(laTMP) > 1
+              lcTMP := strzero(year(laTMP[2,1]),4) + '-' + strzero(month(laTMP[2,1]),2) + '-' + strzero(day(laTMP[2,1]),2)
+           endif
+
+          laAUX    := {objetoCfg:Usuario,;
+                       objetoCfg:Senha,;
+                       self:Base,;
+                       self:NrSinistro,;
+                       self:NrCertificado,;
+                       self:NrPasta,;
+                       'B',;
+                       self:PedidoProcesso,;
+                       Alltrim(self:ValorRisco),;
+                       strzero(year(self:DataRisco),4) + '-' + strzero(month(self:DataRisco),2) + '-' + strzero(day(self:DataRisco),2),;
+                       lcTMP }
+
+          aadd(laRESULT,laAUX)
+
+          lcEnv    := self:PathLife + 'ENV_EF_B_' + Wset('LOGIN') +'_'+alltrim(wic_random()) +'.XML'
+          lcRet    := strtran(lcEnv,'.XML','.RET')
+          lcParser := self:Parser2Str(objetoCfg:XmlEfetiva,laRESULT)
+// debug2(laRESULT,,30)
+// WOUT('lcENV:'+lcENV)
+          GravaArquivo(lcEnv,lcParser) // Função na func_wic
+
+          // Executa o pedido das informações
+
+          lcRun := self:AppLife + ' efetivaroperacao ' + lcEnv + ' ' + self:PathLife + 'AppConfig.xml'
+
+          self:ExecutarPlugIn(lcRun,llDebug)
+
+      endif
+      // Obter o conteúdo da pesquisa
+      if (! file(lcRet))
+         Walert('Erro ao receber o arquivo de retorno.Arquivo de retorno não existe:'+lcRet)
+         llErro := .t.
+      endif
+
+      lcTMP  := GetFileContent(lcRet) // Resgata o conteúdo do arquivo de retorno
+      lcERRO := self:TrataErroLife(lcTMP) // Verifica se no conteúdo do retorno contém algum erro.
+      if ! empty(lcERRO)
+          WAlert('ATENÇÃO: '+lcERRO)
+          llErro := .t.
+      endif
+
+      // Verificar a presença do objeto para que o mesmo seja visualizado na aba pedidos
+
+      self:SalvarObjetoPedido()
+
+      // Caso não ocorra erro, efetivar a inserção do pedido inicial
+
+      if ! llErro
+
+         laSAVE := {{'NR_PASTA',;
+                    'PEDIDO_PROCESSO',;
+                    'NR_CONTROLE_SEGURO',;
+                    'DT_MOVTO_PED',;
+                    'DT_RISCO',;
+                    'VL_RISCO',;
+                    'VL_RISCO_CALC',;
+                    'PC_RISCO',;
+                    'FL_CALCULO'},;
+                    {self:NrPasta,;
+                    self:PedidoProcesso,;
+                    self:NrControleSeguro,;
+                    self:DataRisco,;
+                    self:DataRisco,;
+                    self:ValorRisco,;
+                    self:ValorRisco,;
+                    self:PcRisco,;
+                    'S'}}
+
+         if db_insert(laSAVE,'pasta_pedidos') == -1
+            error_sys(db_error())
+         endif
+
+         // GLAUBER 05/11/2015 - Atualizar as colunas DT_ENVIO_INTERFACE, FL_RETINTERFACE, RETORNO_INTERFACE
+
+         lnNR_CONTROLE := db_insert_id()
+         laSAVE := {{'NR_PASTA',;
+                    'NR_CONTROLE',;
+                    'PEDIDO_PROCESSO',;
+                    'DT_MOVTO_PED',;
+                    'DT_RISCO',;
+                    'VL_RISCO',;
+                    'VL_RISCO_CALC',;
+                    'PC_RISCO',;
+                    'DT_ENVIO_INTERFACE',;
+                    'FL_RETINTERFACE',;
+                    'RETORNO_INTERFACE'},;
+                    {self:NrPasta,;
+                    lnNR_CONTROLE,;
+                    self:PedidoProcesso,;
+                    self:DataRisco,;
+                    self:DataRisco,;
+                    self:ValorRisco,;
+                    self:ValorRisco,;
+                    self:PcRisco,;
+                    self:DataRisco,;
+                    '0',;
+                    'OK'}}
+         if db_insert(laSAVE,'pasta_detal_pedidos') == -1
+            error_sys(db_error())
+         endif
+      endif
+
+return (llErro == .F.)
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: ConsultarSinistro()
+* Objetivo..: Realiza a consulta do Sinistro.
+*
+* Parâmetros:
+*
+* Retorno...:
+*    Objeto do tipo RetornoConsultaLife.
+*
+*/
+
+
+
+METHOD ConsultarSinistro() CLASS IsjLife
+
+      #define BUFFSIZE 4096
+
+      local lcBUFFER        :='' ,;
+            lcFILE          :='' ,;
+            latxt           :='' ,;
+            lcPATH_WPROFILE :='' ,;
+            lcLINE          :='' ,;
+            lcNR_SINISTRO   :='' ,;
+            lcCD_RAMOSRSN   :='' ,;
+            lcTable         :='' ,;
+            lcPath          :='' ,;
+            lcParser        :='' ,;
+            lcRun           :='' ,;
+            lcEnv           :='' ,;
+            lcRet           :='' ,;
+            lcTMP           :='' ,;
+            lcdimesao       :='' as string
+
+      local cch := ' '
+      local liLEN  := 0 ,;
+            lnHAND := 0 ,;
+            ii     := 0 ,;
+            lnPOS  := 0 as int
+
+      local laWSET     := {} ,;
+            lcFields   := {} ,;
+            laRESULT   := {} ,;
+            laDEPARA   := {} ,;
+            laAUX      := {} as array
+
+      local lnid_integracao := 0 ,;
+            lntp_integracao := 0 ,;
+            lnnr_sequencia  := 0
+
+      local llErro  := .F.,;
+            llDebug := .F.
+
+      local objRetLife := NIL
+
+      local objetoCfg  := IsjLifeConfigNew() as Object
+            objetoCfg:getConfiguracao()
+
+      // GLAUBER 05/11/2015 - POR DEFAULT O SINISTRO NÃO EXISTE PARA INTERFACE LIFE
+
+      WPUT('FL_SINISTRO_EXISTE','N')
+
+
+
+/*
+
+      Glauber 19/09/2016
+      Foi informado bug de alguns dados divergir do que webservice.
+      Isto ocorre quando é feito uma pesquisa nos dados existente.
+      Como o Alexandre mandou corrigir os bugs....
+
+      objRetLife := self:VerifSinistro(self:Base, self:NrSinistro, self:NrCertificado, self:NrPasta)
+
+      if ( objRetLife != NIL)
+         WPUT('FL_SINISTRO_EXISTE','S')
+         return objRetLife
+      endif
+*/
+
+
+      llErro := self:ValidaPathAppLife()
+
+      if ( ! llErro)
+
+          laRESULT := {{'USUARIO',;
+                        'SENHA',;
+                        'BASE',;
+                        'NR_SINISTRO',;
+                        'NR_CERTIFICADO',;
+                        'NR_PASTA'}}
+
+          laAUX    := {objetoCfg:Usuario,;
+                       objetoCfg:Senha,;
+                       self:Base,;
+                       self:NrSinistro,;
+                       self:NrCertificado,;
+                       self:NrPasta}
+          aadd(laRESULT,laAUX)
+
+          lcEnv    := self:PathLife + 'ENV' + Wset('LOGIN') +'_'+alltrim(wic_random()) +'.XML'
+          lcRet    := strtran(lcEnv,'.XML','.RET')
+
+          lcParser := self:Parser2Str(objetoCfg:XmlConsulta,laRESULT)
+// debug2(laRESULT,,30)
+// WOUT('lcENV:'+lcENV)
+          GravaArquivo(lcEnv,lcParser) // Função estatica neste programa que grava o xml
+
+          // Executa o pedido das informações
+
+          lcRun := self:AppLife + ' consultarsinistro ' + lcEnv + ' ' + self:PathLife + 'AppConfig.xml'
+          self:ExecutarPlugIn(lcRun,llDebug)
+
+      endif
+      // Obter o conteúdo da pesquisa
+      if (! file(lcRet))
+         Walert('Erro ao receber o arquivo de retorno.Arquivo de retorno não existe:'+lcRet)
+         llErro := .t.
+      endif
+
+      lcTMP  := GetFileContent(lcRet) // Resgata o conteúdo do arquivo de retorno
+      lcERRO := self:TrataErroLife(lcTMP) // Verifica se no conteúdo do retorno contém algum erro.
+      if ! empty(lcERRO)
+          WAlert('ATENÇÃO: '+lcERRO)
+          llErro := .t.
+      endif
+
+      objRetLife := RetornoConsultaLifeNew()
+
+
+      // Efetua o de/para das informações para a tela
+
+
+
+      if ! llErro
+
+         objRetLife:Enterprise                   := self:getTag(lcTMP,'enterprise')
+         objRetLife:Clain                        := self:NrSinistro
+         objRetLife:StatusCode                   := self:getTag(lcTMP,'StatusCode')
+         objRetLife:StatusMessage                := self:getTag(lcTMP,'StatusMessage')
+         objRetLife:CpfSegurado                  := self:getTag(lcTMP,'CpfSegurado')
+         objRetLife:NomeSegurado                 := self:getTag(lcTMP,'NomeSegurado')
+         objRetLife:NumeroCertificado            := self:getTag(lcTMP,'NumeroCertificado')
+         objRetLife:Carencia                     := self:getTag(lcTMP,'Carencia')
+         objRetLife:Franquia                     := self:getTag(lcTMP,'Franquia')
+         objRetLife:Is                           := self:getTag(lcTMP,'Is')
+         objRetLife:ValorPagoSinistro            := self:getTag(lcTMP,'ValorPagoSinistro')
+         objRetLife:DataOcorrencia               := self:TrataDate(self:getTag(lcTMP,'DataOcorrencia'))
+         objRetLife:DataAviso                    := self:TrataDate(self:getTag(lcTMP,'DataAviso'))
+         objRetLife:Parceiro                     := self:getTag(lcTMP,'Parceiro')
+         objRetLife:StatusSinistro               := self:getTag(lcTMP,'StatusSinistro')
+         objRetLife:InicioVigencia               := self:TrataDate(self:getTag(lcTMP,'InicioVigencia'))
+         objRetLife:FimVigencia                  := self:TrataDate(self:getTag(lcTMP,'FimVigencia'))
+         objRetLife:Cosseguro                    := self:getTag(lcTMP,'Cosseguro')
+         objRetLife:AceitoCedido                 := self:getTag(lcTMP,'AceitoCedido')
+         objRetLife:PercentualParticipacaoCardif := self:getTag(lcTMP,'PercentualParticipacaoCardif')
+         objRetLife:Cobertura                    := self:getTag(lcTMP,'Cobertura')
+         objRetLife:ObjetoSinistro               := self:getTag(lcTMP,'ObjetoSinistro')
+
+          // Verifica a existencia do segurado na base do ISJ
+
+/*
+
+Glauber - pasta 8575, andamento 24132
+
+*/
+
+          self:TratarPfpj('SEG', objRetLife)
+          self:TratarPfpj('FIL', objRetLife)
+
+
+         self:LmiCobertura(objRetLife:Cobertura)
+
+      endif
+
+return objRetLife
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: TratarPfPj(pcTIPO, pcTMP, pcWHERE)
+* Objetivo..: Verifica se existe o cadastro da filial e do segurado na tabela pfpj.
+*             Caso não eixta é feito a inclusão automática.
+*
+* Parâmetros:
+*
+* pcTIPO....: Tipo da pessoa
+* poObjLife.: Objeto de retorno da consulta.
+*
+* Retorno...:
+*
+*
+*/
+
+METHOD TratarPfPj(pcTIPO, poObjLife) CLASS IsjLife
+
+      local pfpjTIPO := '',;
+            lcWHERE  := '' as String
+
+
+      lcWHERE := iif(pcTIPO == 'SEG', 'CNPJ_CPF='+DLAP + alltrim(poObjLife:CpfSegurado)+DLAP,
+                                      'PFPJ_CHAR='+DLAP + lower(alltrim(Lat2Char(poObjLife:Parceiro)))+DLAP)
+
+      if db_select({'CIP'},'pfpj',,{lcWHERE}) == -1
+          error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+
+      if len(laRESULT) == 1 // Inserir o PFP
+         laSAVE := {{'PFPJ',;
+                     'PFPJ_CHAR',;
+                     'PFPJ_TIPOS',;
+                     'LOGIN_CADASTRO',;
+                     'DT_CADASTRO',;
+                     'CNPJ_CPF',;
+                     'PFPJ_NATUREZA'}}
+         laAUX  := { iif(pcTIPO == 'SEG', poObjLife:NomeSegurado, poObjLife:Parceiro),;
+                     iif(pcTIPO == 'SEG', lower(lat2char(poObjLife:NomeSegurado)), lower(lat2char(poObjLife:Parceiro))),;
+                    pcTIPO,;
+                    WSet('LOGIN'),;
+                    DATE(),;
+                    iif(pcTIPO == 'SEG', poObjLife:CpfSegurado, ''),;
+                    iif(pcTIPO == 'SEG', iif(len(alltrim(poObjLife:CpfSegurado))  < 14,'Fisica','Juridica'), '')}
+         aadd(laSAVE,laAUX)
+         if db_insert(laSAVE,'pfpj') == -1
+            error_sys(db_error())
+            return(.f.)
+         endif
+         lcNR_CONTROLE := alltrim(str(db_insert_id()))
+         if db_update({{'CIP'},{lcNR_CONTROLE}},'pfpj',{'NR_CONTROLE='+lcNR_CONTROLE}) == -1
+            error_sys(db_error())
+         endif
+         Wput(iif(pcTIPO == 'SEG','CIP_SEGURADO','CIP_FILIAL'),lcNR_CONTROLE)
+      else
+         Wput(iif(pcTIPO == 'SEG','CIP_SEGURADO','CIP_FILIAL'),laRESULT[2,1])
+      endif
+
+
+return
+
+
+
+/*
+*
+* Glauber - 06/2016
+*
+* Metodo....: BuscaPfPj(pcTIPO, pcWHERE)
+* Objetivo..: Verifica se existe o cadastro da filial e do segurado na tabela pfpj.
+*
+* Parâmetros:
+*
+* pcTIPO....: Tipo da pessoa
+* pcWHERE...: Condição where para pesquisa.
+*
+* Retorno...:
+*
+*
+*/
+
+METHOD BuscaPfPj(pcTIPO, pcWHERE) CLASS IsjLife
+
+      local pfpjTIPO := '' as String
+
+
+      if db_select({'CIP'},'pfpj',,{pcWHERE}) == -1
+          error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+
+      if len(laRESULT) > 1 // Inserir o PFP
+         Wput(iif(pcTIPO == 'SEG','CIP_SEGURADO','CIP_FILIAL'),laRESULT[2,1])
+      endif
+
+
+return
+
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: EnviarDespesaLife()
+* Objetivo..: Envia a informação do pagamento de uma despesa ao Life.
+*
+* Parâmetros:
+*
+* Retorno...:
+*    T. Caso a comunicação ocorra com sucesso.
+*
+*/
+
+
+
+METHOD EnviarDespesaLife() CLASS IsjLife
+
+      local lcEnv    := '',;
+            lcRet    := '',;
+            lcParser := '',;
+            lcRun    := '',;
+            lcPath   := '',;
+            lcTMP    := '',;
+            lcLABEL  := '',;
+            lcWHERE  := '',;
+            lcApp    := '' as String
+      local laRESULT := {},;
+            laWSet   := {},;
+            laSAVE   := {},;
+            laAUX    := {},;
+            laSEGURO := {},;
+            laFIELDS := {},;
+            laJOIN   := {},;
+            laTMP    := {} as array
+      local ii            := 0,;
+            lnii          := 0,;
+            lnNR_CONTROLE := 0 as int
+      
+      local llErro  := .f.,;
+            llDebug := .f.
+      
+      local objetoCfg  := IsjLifeConfigNew() as Object
+            objetoCfg:getConfiguracao()
+
+      if len(self:objSave) == 1 .or. self:objSave[2,db_fetchncol(self:objSave,'VL_RISCO_CALC')] == 0
+         return .T.
+      endif
+
+      // Recuperar as informações do seguro
+/*
+)SELECT mvt_despesa.NR_PASTA,       pasta.TP_PASTA,       pasta.DT_CITACAO,       mvt_despesa.NR_DESPESA,       mvt_despesa.VL_TOTAL AS VL_RISCO_CALC,       despesa.FL_CONTABILIZA_LANCTOS_CONT AS CONT_LCTO,       despesa.OCOR_PEDIDO_QUITA AS OCOR_PEDIDO,       '0' AS NR_PGTO,       despesa.FL_ZERAR_PROVISAO AS ZERA_PROV,       mvt_despesa.NR_CONTROLE_SEGURO,       pasta_seguro.FL_APOLICE AS BASE,       pasta_seguro.NR_SINISTRO,       pasta_seguro.NR_CERTIFICADO,       case when (despesa.CD_DESPESA_INTERFACE = '0000000001') THEN 'E' ELSE 'P' end  as AUMENTO_ESTIMATIVA,       'PAGAMENTO ORIUNDO ISJ' as PEDIDO_AUMENTO_ESTIMATIVA,       mvt_despesa.DT_REF as DT_MOVTO_PED,       mvt_despesa.CIP_FAVORECIDO,       substr(pfpj.PFPJ_NATUREZA,1) as PFPJ_TIPO,       case when (despesa.FL_AJUSTA_PEDIDO = 'S') THEN 'B' ELSE 'P' end as PRESTADOR_BENEF,       pfpj.CNPJ_CPF,       pfpj.PFPJ,       mvt_despesa.CD_BANCO,       mvt_despesa.BANCO_AGENCIA,       '0' AS DIG_AGENCIA,       mvt_despesa.BANCO_CONTA,       CASE WHEN (mvt_despesa.BANCO_CONTA_DIGITO = '') THEN '0' ELSE mvt_despesa.BANCO_CONTA_DIGITO END AS BANCO_CONTA_DIGITO,       despesa.CD_DESPESA_INTERFACE AS TIPO_DESPESA,       mvt_despesa.FORMA_PAGAMENTO,       (select count(*) from mvt_desprat where mvt_desprat.NR_PASTA = mvt_despesa.NR_PASTA and mvt_desprat.NR_CONTROLE_DESPESA = mvt_despesa.NR_DESPESA) AS QTD_RATEIO FROM mvt_despesa        INNER JOIN pasta  ON (mvt_despesa.NR_PASTA = pasta.NR_PASTA)       INNER JOIN pasta_seguro  ON (mvt_despesa.NR_PASTA = pasta_seguro.NR_PASTA and mvt_despesa.NR_CONTROLE_SEGURO = pasta_seguro.NR_CONTROLE)       LEFT JOIN pfpj ON (pfpj.CIP = mvt_despesa.CIP_FAVORECIDO)       LEFT JOIN despesa ON (despesa.CD_DESPESA = mvt_despesa.CD_DESPESA) WHERE       (pasta.DT_CITACAO IS NOT NULL ) and         (mvt_despesa.NR_CONTROLE_SEGURO > 0) and       (mvt_despesa.DT_ENVIO_CTPAG is null and (mvt_despesa.FL_PGINTERFACE is null or mvt_despesa.FL_PGINTERFACE = '')) and       (pasta_seguro.FL_APOLICE IS NOT NULL AND Trim(pasta_seguro.FL_APOLICE) != '' ) and       (pasta_seguro.NR_CERTIFICADO IS NOT NULL AND Trim(pasta_seguro.NR_CERTIFICADO) != '' ) and       (pasta_seguro.NR_SINISTRO IS NOT NULL) and (mvt_despesa.FL_REVISAO = 'A' and mvt_despesa.FL_APROVACAO = 'A') and       pasta.TP_PASTA = 'CÃ­vel Seguros' ORDER BY mvt_despesa.NR_PASTA
+*/
+      laFIELDS := {"mvt_despesa.NR_DESPESA",;
+                   "pasta_seguro.FL_APOLICE AS BASE",;
+                   "pasta_seguro.NR_SINISTRO",;
+                   "pasta_seguro.NR_CERTIFICADO",;
+                   "case when (substring(despesa.CD_DESPESA_INTERFACE,10,1) = '1') THEN 'E' ELSE 'P' end  as AUMENTO_ESTIMATIVA",;
+                   "'PAGAMENTO ORIUNDO ISJ' as PEDIDO_AUMENTO_ESTIMATIVA",;
+                   "mvt_despesa.DT_REF as DT_MOVTO_PED",;
+                   "mvt_despesa.CIP_FAVORECIDO",;
+                   "substr(pfpj.PFPJ_NATUREZA,1) as PFPJ_TIPO",;
+                   "case when (despesa.FL_AJUSTA_PEDIDO = 'S') THEN 'B' ELSE 'P' end as PRESTADOR_BENEF",;
+                   "pfpj.CNPJ_CPF",;
+                   "pfpj.PFPJ",;
+                   "mvt_despesa.CD_BANCO",;
+                   "mvt_despesa.BANCO_AGENCIA",;
+                   " '0' AS DIG_AGENCIA",;
+                   " mvt_despesa.BANCO_CONTA",;
+                   "mvt_despesa.BANCO_CONTA_DIGITO",;
+                   "substring(despesa.CD_DESPESA_INTERFACE,1,5) AS TIPO_DESPESA",;
+                   "mvt_despesa.FORMA_PAGAMENTO"}
+      laJOIN   := {{1,'pasta_seguro','pasta_pedidos.NR_PASTA = pasta_seguro.NR_PASTA and pasta_pedidos.NR_CONTROLE_SEGURO = pasta_seguro.NR_CONTROLE'},;
+                   {2,'mvt_despesa','mvt_despesa.NR_PASTA = pasta_pedidos.NR_PASTA and mvt_despesa.NR_DESPESA = '+ Alltrim(self:objSave[2,db_fetchncol(self:objSave,'NR_DESPESA')])},;
+                   {2,'pfpj','pfpj.CIP = mvt_despesa.CIP_FAVORECIDO'},;
+                   {2,'despesa','despesa.CD_DESPESA = mvt_despesa.CD_DESPESA'}}
+      lcWHERE  := '(pasta_pedidos.NR_PASTA = ' + alltrim(self:objSave[2,db_fetchncol(self:objSave,'NR_PASTA')]) + ' and pasta_pedidos.NR_CONTROLE = ' + alltrim(self:objSave[2,db_fetchncol(self:objSave,'NR_CONTROLE')]) + ' and pasta_pedidos.NR_CONTROLE_SEGURO > 0)'
+
+      if db_select(laFIELDS,'pasta_pedidos ',laJOIN,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laSEGURO := db_fetchall()
+
+      if len(laSEGURO) == 1
+         return .T.
+      endif
+
+      // Certifica que existe uma despesa atrelada ao seguro e esteja atrelada a um sinistro
+
+      if laSEGURO[2,db_fetchncol(laSEGURO,'NR_DESPESA')] == 0 .and. ! empty(Alltrim(laSEGURO[2,db_fetchncol(laSEGURO,'NR_SINISTRO')]))
+         return .T.
+      endif
+
+
+      llErro := self:ValidaPathAppLife()
+
+      if ( ! llErro)
+
+
+           if db_select({'DT_CITACAO'},'pasta',,{'NR_PASTA='+Alltrim(self:NrPasta) + ' and DT_CITACAO is not null'}) == -1
+              error_sys(db_error())
+           endif
+           laTMP := db_fetchall()
+
+           if len(laTMP) > 1
+              lcTMP := strzero(year(laTMP[2,1]),4) + '-' + strzero(month(laTMP[2,1]),2) + '-' + strzero(day(laTMP[2,1]),2)
+           endif
+
+
+          laRESULT := {{'USUARIO',;
+                        'SENHA',;
+                        'VL_RISCO_CALC',;
+                        'PEDIDO_PROCESSO',;
+                        'DT_MOVTO_PED',;
+                        'NR_PASTA',;
+                        'DT_CITACAO'},;
+                       {objetoCfg:Usuario,;
+                        objetoCfg:Senha,;
+                        iif(self:objSave[2,db_fetchncol(self:objSave,'VL_RISCO_CALC')] > 0, transform(self:objSave[2,db_fetchncol(self:objSave,'VL_RISCO_CALC')],'999999999.99'),transform(self:objSave[2,db_fetchncol(self:objSave,'VL_RISCO_CALC')] * -1,'999999999.99')),;
+                        self:objSave[2,db_fetchncol(self:objSave,'PEDIDO_PROCESSO')],;
+                        self:objSave[2,db_fetchncol(self:objSave,'DT_MOVTO_PED')],;
+                        ALLTRIM(self:objSave[2,db_fetchncol(self:objSave,'NR_PASTA')]),;
+                        lcTMP }}
+
+
+          // Adicionar dinamicamente as colunas do select do pasta_seguro
+
+          for ii := 1 to len(laSEGURO[1])
+              aadd(laRESULT[1],laSEGURO[1,ii])
+              aadd(laRESULT[2],laSEGURO[2,ii])
+          next ii
+
+          // Formatar as colunas necessárias
+
+          laRESULT[2,db_fetchncol(laRESULT,'PEDIDO_PROCESSO')] := lat2char(laRESULT[2,db_fetchncol(laRESULT,'PEDIDO_PROCESSO')])
+          laRESULT[2,db_fetchncol(laRESULT,'CD_BANCO')] := alltrim(laRESULT[2,db_fetchncol(laRESULT,'CD_BANCO')])
+          laRESULT[2,db_fetchncol(laRESULT,'DT_MOVTO_PED')] := strzero(year(laRESULT[2,db_fetchncol(laRESULT,'DT_MOVTO_PED')]),4) + '-' + strzero(month(laRESULT[2,db_fetchncol(laRESULT,'DT_MOVTO_PED')]),2) +'-' +strzero(day(laRESULT[2,db_fetchncol(laRESULT,'DT_MOVTO_PED')]),2)
+
+          // Verificar se ocorreu ajuste de correção monetária
+
+          if self:objSave[2,db_fetchncol(self:objSave,'VL_CORRECAO')] != 0
+             aadd(laRESULT[1],'CORRECAO_MONETARIA')
+             aadd(laRESULT[1],'PEDIDO_AUMENTO_CORRECAO')
+             aadd(laRESULT[1],'VL_CORRECAO')
+
+             aadd(laRESULT[2],'T')
+             aadd(laRESULT[2],'Reducao de Correcao monetaria devido a pagamento de despesa do pedido:'+lat2char(self:objSave[2,db_fetchncol(self:objSave,'PEDIDO_PROCESSO')]))
+             aadd(laRESULT[2], transform(self:objSave[2,db_fetchncol(self:objSave,'VL_CORRECAO')] * -1,'999999999.99'))
+
+          endif
+
+          // Verificar se ocorreu ajuste de juros
+
+          if self:objSave[2,db_fetchncol(self:objSave,'VL_JUROS')] != 0
+             aadd(laRESULT[1],'JUROS')
+             aadd(laRESULT[1],'PEDIDO_AUMENTO_JUROS')
+             aadd(laRESULT[1],'VL_JUROS')
+
+             aadd(laRESULT[2],'I')
+             aadd(laRESULT[2],'Reducao de Juros devido a pagamento de despesa do pedido:'+lat2char(self:objSave[2,db_fetchncol(self:objSave,'PEDIDO_PROCESSO')]))
+             aadd(laRESULT[2],transform(self:objSave[2,db_fetchncol(self:objSave,'VL_JUROS')] * -1,'999999999.99'))
+
+          endif
+
+          lcEnv    := self:PathLife + 'ENV_EF_PED_'+ ALLTRIM(WIC_RANDOM()) + Wset('LOGIN') +'_'+alltrim(wic_random()) +'.XML'
+          lcRet    := strtran(lcEnv,'.XML','.RET')
+          lcParser := self:Parser2Str(objetoCfg:XmlEfetiva,laRESULT)
+
+// debug2(self:objSave,,30)
+// debug2(laRESULT,,30)
+// WOUT('lcENV:'+lcENV)
+          GravaArquivo(lcEnv,lcParser) // Função estatica neste programa que grava o xml
+
+          // Executa o pedido das informações
+
+          lcRun := self:AppLife + ' efetivaroperacao ' + lcEnv + ' ' + self:PathLife + 'AppConfig.xml'
+          self:ExecutarPlugIn(lcRun,llDebug)
+
+      endif
+      // Obter o conteúdo da pesquisa
+      if (! file(lcRet))
+         Walert('Erro ao receber o arquivo de retorno.Arquivo de retorno não existe:'+lcRet)
+         llErro := .t.
+      endif
+
+      lcTMP  := GetFileContent(lcRet) // Resgata o conteúdo do arquivo de retorno
+      lcERRO := self:TrataErroLife(lcTMP) // Verifica se no conteúdo do retorno contém algum erro.
+      if ! empty(lcERRO)
+          WAlert('ATENÇÃO: '+lcERRO)
+          llErro := .t.
+      endif
+
+
+      // Glauber 06/11/2015 - Atualizar a linha do pasta detal, indicando que o registro foi transmitido com sucesso
+
+      if (llErro == .F.)
+
+         lnPOS := ascan(self:objSave,'NR_DETAL')
+
+         if lnPOS > 0
+            if db_update({{'DT_ENVIO_INTERFACE','FL_RETINTERFACE','RETORNO_INTERFACE'},;
+                          {date(),'0','OK'}},'pasta_detal_pedidos',;
+                          {'pasta_detal_pedidos.NR_PASTA = ' + alltrim(self:objSave[2,db_fetchncol(self:objSave,'NR_PASTA')]) + ' and pasta_detal_pedidos.NR_DETAL = ' + alltrim(self:objSave[2,db_fetchncol(self:objSave,'NR_DETAL')]) }) == -1
+               error_sys(db_error())
+            endif
+         endif
+
+      endif
+
+      if llErro == .T.
+         return .F.
+      endif
+
+
+return .T.
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: ValidaPathAppLife()
+* Objetivo..: Valida a configuração do path e app do plug-in java.
+*
+* Parâmetros:
+*
+* Retorno...:
+*    T. Em caso de erro.
+*
+*/
+
+METHOD ValidaPathAppLife() CLASS IsjLife
+
+      local llErro := .F.
+
+      if empty(self:PathLife)
+         self:ErrorCode    := -1
+         self:ErrorMessage := 'Path da aplicação de consumo webservice não configurada no wprofile.'
+         llErro := .t.
+      endif
+
+      if empty(self:AppLife)
+         self:ErrorCode    := -1
+         self:ErrorMessage := 'Aplicação de consumo webservice não configurada no wprofile.'
+         llErro := .t.
+      endif
+
+      if (llErro)
+         WAlert(self:ErrorMessage)
+      endif
+
+
+return llErro
+
+
+
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: TrataErroLife(pcCONTEUDO)
+* Objetivo..: Verifica o conteúdo do xml a procura de erros.
+*
+* Parâmetros:
+* pcCONTEUDO: Conteúdo do arquivo
+* Retorno...:
+*    String com a descrição do erro.
+*
+*/
+
+METHOD TrataErroLife(pcCONTEUDO) CLASS IsjLife
+
+      local lcRet := '',;
+            lcTMP := '' as String
+      
+      
+      /*
+      <enterprise></enterprise>
+      <claim>327687</claim>
+      <OperationCode>B</OperationCode>
+      <StatusCode>007</StatusCode>
+      <StatusMessage>Campo base ¦ obrigat¦rio</StatusMessage>
+      <errorsys>
+      ^MERROR Classe isjlife.EfetivarOperacao, Metodo ValidarRequest, Linha 460, Descri¦¦o: isjlife.EfetivarOperacao.ValidarRequest(EfetivarOperacao.java:460)
+      ERROR Classe isjlife.EfetivarOperacao, Metodo Executar, Linha 116, Descri¦¦o: isjlife.EfetivarOperacao.Executar(EfetivarOperacao.java:116)
+      ERROR Classe isjlife.ExecutarAcao, Metodo Executar, Linha 59, Descri¦¦o: isjlife.ExecutarAcao.Executar(ExecutarAcao.java:59)
+      ERROR Classe isjlife.IsjLife, Metodo main, Linha 70, Descri¦¦o: isjlife.IsjLife.main(IsjLife.java:70)
+      </errorsys>
+      */
+      
+      if at('<StatusCode>',pcCONTEUDO) > 0
+          lcTMP := Substr(pcCONTEUDO,at('<StatusCode>',pcCONTEUDO) +12,len(pcCONTEUDO))
+          lcTMP := Substr(lcTMP,1,at('</StatusCode>',lcTMP)-1)
+          if val(lcTMP) > 0
+             lcRet := ' Erro retornado do Life: ' + lcTMP
+             lcTMP := Substr(pcCONTEUDO,at('<StatusMessage>',pcCONTEUDO) +15,len(pcCONTEUDO))
+             lcTMP := Substr(lcTMP,1,at('</StatusMessage>',lcTMP)-1)
+             lcRet += ' - ' + lcTMP
+             return (lcRet)
+          endif
+      endif
+      if at('<errorsys>',pcCONTEUDO) > 0
+         lcTMP := Substr(pcCONTEUDO,at('<errorsys>',pcCONTEUDO) +10,len(pcCONTEUDO))
+         lcTMP := Substr(lcTMP,1,at('</errorsys>',lcTMP)-1)
+         lcRet := lcTMP
+      elseif at('<CODERRO>999</CODERRO>',pcCONTEUDO) > 0
+             lcTMP := Substr(pcCONTEUDO,at('<DESCRICAO>',pcCONTEUDO) +12,len(pcCONTEUDO))
+             lcTMP := Substr(lcTMP,1,at('</DESCRICAO>',lcTMP)-1)
+             lcRet := ' Erro retornado do Life: ' + lcTMP
+      endif
+
+return (lcRet)
+
+
+
+/*
+* Data......: 04/2015 - Glauber
+* Metodo....: getTag(pcCONTEUDO,pcTAG)
+* Objetivo..: Retorna o conteúdo da tag pcTAG em pcCONTEUDO.
+* Parâmetros:
+* pcCONTEUDO: Conteúdo do arquivo
+* pcTAG     : Tag a ter seu conteúdo extraido.
+* Retorno...: String com o conteúdo.
+*/
+
+METHOD getTag(pcCONTEUDO,pcTAG) CLASS IsjLife
+
+     local lcRet := '',;
+           lcTMP := '' as String
+
+     if at('<'+lower(pcTAG)+'>',lower(pcCONTEUDO)) > 0
+        lcTMP := Substr(pcCONTEUDO,at('<'+lower(pcTAG)+'>',lower(pcCONTEUDO)) +len('<'+pcTAG+'>'),len(pcCONTEUDO))
+        lcTMP := Substr(lcTMP,1,at('</'+lower(pcTAG)+'>',lower(lcTMP))-1)
+        lcRet := lcTMP
+     endif
+
+return (lcRet)
+
+/*
+* Data......: 04/2015 - Glauber
+* Metodo....: TrataDate(pcData)
+* Objetivo..: Converter a data para o formato flagship.
+* Parâmetros:
+* pcData    : Data retornada pelo ws.
+* Retorno...: Data no formato fs.
+*/
+
+METHOD TrataDate(pcData)  CLASS IsjLife
+
+//123456789
+//2015-03-15
+
+return (substr(pcData,9,2) + '/' + substr(pcData,6,2) + '/' + substr(pcData,1,4))
+
+
+/*
+* Data......: 11/2015 - Glauber
+* Metodo....: VerifSinistro(pBASE, pSINISTRO, pCERTIFICADO, pNR_PASTA)
+* Objetivo..: Verifica a existencia de um seguro / sinistro na tabela pasta_seguro.
+* Parâmetros:
+* pBASE     : Base do Sinistro.
+* pSINISTRO : Número do Sinistro.
+* pNR_PASTA : Número da Pasta.
+* Retorno...:
+*             Retorna NIL caso o sinistro não exista, caso exista retorna um objeto do tipo RetornoConsultaLife.
+*/
+
+METHOD VerifSinistro(pBASE, pSINISTRO, pCERTIFICADO, pNR_PASTA) CLASS IsjLife
+
+
+    local llRET    := .F.
+
+    local ii       := 0 as int
+
+    local laFIELDS := {},;
+          laDEPARA := {},;
+          laJOIN   := {},;
+          laRESULT := {} as Array
+
+    local objRetLife := NIL
+
+//    local lcWHERE  := 'pasta_seguro.NR_PASTA != ' + ALLTRIM(pNR_PASTA) + ' AND pasta_seguro.NR_SINISTRO = ' + DLAP + alltrim(pSINISTRO) + DLAP
+/*
+
+Glauber 07/06/2016 - Solicitação Célia
+
+Glauber e Alexandre,
+
+Segue o que foi informado pelo Jorge da Cardif e nos ajustes que menciono abaixo, peço que o Alexandre confirme se faz da forma como ele mencionou que deve funcionar.
+
+1) Sinistros iguais com bases diferentes
+
+A chave deve ser composta pelo NR_SINISTRO e FL_APOLICE pois existem 3 bases distintas (Life, Garantias e Vida) e o nº do sinistro pode existir em mais de uma base mas tratando de assuntos diferentes (se já existe outra composição na chave, entendo que deve manter e adicionar o FL_APOLICE)
+
+por ex.: o Sinistro 521817 existe na Base Life e na Base Garantias (um trata de um sinistro em um Notebook e o outro sobre falecimento do segurado)
+
+1.1 Aba Seguro
+No exemplo acima, já que são bases diferentes, a interface busca as informações deste sinistro em suas respectivas bases no Life e grava as informações nas pastas onde a consulta está sendo realizada.
+
+1.2 Aba Pedidos
+O Sinistro sendo aceito, a interface cria os pedidos em cada uma das pastas com o nome das respectivas coberturas no valor de 0,01 e no Life este sinistro fica flegado como Judicial
+
+
+*/
+    local lcWHERE  := 'pasta_seguro.NR_PASTA != ' + ALLTRIM(pNR_PASTA) + ' AND pasta_seguro.NR_SINISTRO = ' + DLAP + alltrim(pSINISTRO) + DLAP + ' AND pasta_seguro.FL_APOLICE = ' + DLAP + pBASE + DLAP
+
+    laFIELDS := {'pasta_seguro.FL_APOLICE AS ENTERPRISE,' +;
+                'pasta_seguro.NR_SINISTRO AS CLAIM,' +;
+                "'000' AS STATUSCODE," +;
+                "'Registro processado com sucesso'" + " AS STATUSMESSAGE," +;
+                'pfpj.CNPJ_CPF AS CPFSEGURADO,' +;
+                'pfpj.PFPJ AS NOMESEGURADO,' +;
+                'pasta_seguro.NR_BILHETE AS CARENCIA,' +;
+                'pasta_seguro.NR_CERTIFICADO,' +;
+                'pasta_seguro.NR_PROPOSTA AS FRANQUIA,' +;
+                'pasta_seguro_lmi.LMI_VL AS IS,' +;
+                'pasta_seguro.VL_PREMIO_PAGO AS VALORPAGOSINISTRO,' +;
+                'pasta_seguro.DT_PAGTO_PREMIO AS DATAOCORRENCIA,' +;
+                'pasta_seguro.DT_AVISO AS DATAAVISO,' +;
+                'pasta_seguro.CIP_FILIAL AS CIP_FILIAL,' +;
+                'pfpj_filial.PFPJ AS PARCEIRO,' +;
+                'pasta_seguro.NM_SIT_PAGAMENTO AS STATUSSINISTRO,' +;
+                'pasta_seguro.DT_VIGENCIA_INI AS INICIOVIGENCIA,' +;
+                'pasta_seguro.DT_VIGENCIA_FIN AS FIMVIGENCIA,' +;
+                'pasta_seguro.FL_COSSEGURO AS COSSEGURO,' +;
+                'pasta_seguro.TP_COSSEGURO AS ACEITOCEDIDO,' +;
+                'pasta_seguro.PC_COSSEGURO AS PERCPARTCARDIF,' +;
+                'pasta_seguro.OBJETO_SINISTRO,' +;
+                'pasta_seguro_lmi.LMI_NM_COBERTURA '}
+
+
+   AADD(laJOIN, {2,'PASTA_SEGURO_SEGURADO','pasta_seguro_segurado.NR_PASTA = pasta_seguro.NR_PASTA AND pasta_seguro_segurado.NR_CONTROLE = pasta_seguro.NR_CONTROLE '})
+   AADD(laJOIN, {2,'PASTA_SEGURO_LMI','pasta_seguro_lmi.NR_PASTA = pasta_seguro.NR_PASTA AND pasta_seguro_lmi.NR_CONTROLE = pasta_seguro.NR_CONTROLE '})
+   AADD(laJOIN, {2,'PFPJ','pfpj.CIP = pasta_seguro_segurado.CIP_SEGURADO '})
+   AADD(laJOIN, {2,'PFPJ PFPJ_FILIAL','pfpj_filial.CIP = pasta_seguro.CIP_FILIAL '})
+   AADD(laJOIN, {1,'PASTA','pasta.NR_PASTA= pasta_seguro.NR_PASTA'})
+
+/*
+
+Glauber 30/05/2016
+
+nício: 30/05/2016 11:53:00
+Prazo: 30/05/2016 11:53:00
+Acesse a Pasta Nº 7617 e providencie as informações solicitadas pelo Suporte.
+
+Andamento: Glauber,
+
+Peço que verifique com prioridade alta a demanda abaixo :
+
+A interface com o Life é somente para o TP_PASTA = Cível Seguros
+
+Os usuários não estão conseguindo fazer nenhum tipo de alteração na Aba Seguros das pastas de Procon.
+
+Portanto, todas as interações que envolvem o Life, seja em Pedidos, Despesas ou Seguros é somente para o TP_PASTA = Cível Seguros
+
+Você pode verificar a interface e adicionar esta cláusula?
+
+Aguardo o retorno.
+
+Tks!!!
+Data de cadastro: 30/05/2016
+Solicitado por: Célia Pereira
+
+
+*/
+
+   lcWHERE  += " AND pasta.TP_PASTA = 'Cível Seguros' "
+
+   if db_select(laFIELDS,'PASTA_SEGURO', laJOIN, {lcWHERE}, {'pasta_seguro.NR_CONTROLE '},'D',,{0,1}) == -1
+      error_sys(db_error())
+   endif
+
+   laRESULT := db_fetchall()
+
+   if (len(laRESULT) > 1)
+
+      objRetLife := RetornoConsultaLifeNew()
+
+      objRetLife:Enterprise                   := laRESULT[2,db_fetchncol(laRESULT,'ENTERPRISE')]
+      objRetLife:Clain                        := laRESULT[2,db_fetchncol(laRESULT,'CLAIM')]
+      objRetLife:StatusCode                   := laRESULT[2,db_fetchncol(laRESULT,'STATUSCODE')]
+      objRetLife:StatusMessage                := laRESULT[2,db_fetchncol(laRESULT,'STATUSMESSAGE')]
+      objRetLife:CpfSegurado                  := laRESULT[2,db_fetchncol(laRESULT,'CPFSEGURADO')]
+      objRetLife:NomeSegurado                 := laRESULT[2,db_fetchncol(laRESULT,'NOMESEGURADO')]
+      objRetLife:NumeroCertificado            := laRESULT[2,db_fetchncol(laRESULT,'NR_CERTIFICADO')]
+      objRetLife:Carencia                     := laRESULT[2,db_fetchncol(laRESULT,'CARENCIA')]
+      objRetLife:Franquia                     := laRESULT[2,db_fetchncol(laRESULT,'FRANQUIA')]
+      objRetLife:Is                           := AllTrim(laRESULT[2,db_fetchncol(laRESULT,'IS')])
+      objRetLife:ValorPagoSinistro            := AllTrim(laRESULT[2,db_fetchncol(laRESULT,'VALORPAGOSINISTRO')])
+      objRetLife:DataOcorrencia               := laRESULT[2,db_fetchncol(laRESULT,'DATAOCORRENCIA')]
+      objRetLife:DataAviso                    := laRESULT[2,db_fetchncol(laRESULT,'DATAAVISO')]
+      objRetLife:Parceiro                     := laRESULT[2,db_fetchncol(laRESULT,'PARCEIRO')]
+      objRetLife:StatusSinistro               := laRESULT[2,db_fetchncol(laRESULT,'STATUSSINISTRO')]
+      objRetLife:InicioVigencia               := laRESULT[2,db_fetchncol(laRESULT,'INICIOVIGENCIA')]
+      objRetLife:FimVigencia                  := laRESULT[2,db_fetchncol(laRESULT,'FIMVIGENCIA')]
+      objRetLife:Cosseguro                    := laRESULT[2,db_fetchncol(laRESULT,'COSSEGURO')]
+      objRetLife:AceitoCedido                 := laRESULT[2,db_fetchncol(laRESULT,'ACEITOCEDIDO')]
+      objRetLife:PercentualParticipacaoCardif := laRESULT[2,db_fetchncol(laRESULT,'PERCPARTCARDIF')]
+      objRetLife:Cobertura                    := laRESULT[2,db_fetchncol(laRESULT,'LMI_NM_COBERTURA')]
+      objRetLife:ObjetoSinistro               := laRESULT[2,db_fetchncol(laRESULT,'OBJETO_SINISTRO')]
+
+      // Verifica a existencia do segurado na base do ISJ
+
+      self:BuscaPfPj('SEG', 'CNPJ_CPF='+DLAP + alltrim(laRESULT[2,db_fetchncol(laRESULT,'CPFSEGURADO')])+DLAP)
+      self:BuscaPfPj('FIL', 'PFPJ_CHAR='+DLAP + lower(alltrim(Lat2Char(laRESULT[2,db_fetchncol(laRESULT,'PARCEIRO')])))+DLAP)
+
+      self:LmiCobertura(laRESULT[2,db_fetchncol(laRESULT,'LMI_NM_COBERTURA')])
+
+//debug2(laRESULT,,40)
+
+   endif
+
+/*
+
+<enterprise>GARANTIAS</enterprise>
+<StatusCode>000</StatusCode>
+<StatusMessage>Registro processado com sucesso</StatusMessage>
+<CpfSegurado>00488083850</CpfSegurado>
+<NomeSegurado>NORMA APARECIDA DOS REIS</NomeSegurado>
+<NumeroCertificado>387916399</NumeroCertificado>
+<Carencia>0</Carencia>
+<Franquia>0</Franquia>
+<Is>89.00</Is>
+<ValorPagoSinistro>0.00</ValorPagoSinistro>
+<DataOcorrencia>2015-11-23</DataOcorrencia>
+<DataAviso>2015-11-24</DataAviso>
+<Parceiro>B2W - Companhia Digital</Parceiro>
+<StatusSinistro>Pendente Outros Motivos</StatusSinistro>
+<InicioVigencia>2015-04-24</InicioVigencia>
+<FimVigencia>2016-04-24</FimVigencia>
+<Cosseguro>N</Cosseguro>
+<AceitoCedido></AceitoCedido>
+<PercentualParticipacaoCardif>0.00</PercentualParticipacaoCardif>
+<Cobertura>Reparo</Cobertura>
+<ObjetoSinistro>Tel SFio SecretÃ¡ria EletrÃ´nica Vv-Voz de 50,01 atÃ© 100</ObjetoSinistro>
+
+*/
+
+
+
+return objRetLife
+
+
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: SalvarObjetoPedido()
+* Objetivo..: Verifica se o nome da cobertura existe na tabela pasta_objeto para geração do pedido inicial.
+*             Caso o não exista, o mesmo é incluido automaticamente.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+METHOD SalvarObjetoPedido() CLASS IsjLife
+
+      local laSAVE     := {},;
+            laRESULT   := {} as Array
+
+
+
+      if empty(self:PedidoProcesso)
+         return
+      endif
+
+      self:PedidoProcesso := strtran(self:PedidoProcesso,chr(39),'')
+      self:PedidoProcesso := strtran(self:PedidoProcesso,chr(34),'')
+
+
+      if db_select({'TP_PASTA'},'pasta_objeto',,{'TP_PASTA='+DLAP+ self:TpPasta + DLAP + ' and OBJETO=' + DLAP + self:PedidoProcesso + DLAP}) = -1
+          error_sys()
+      endif
+      laRESULT := db_fetchall()
+
+      if len(laRESULT) == 1
+         laSAVE := {{'TP_PASTA','OBJETO','FL_VISIVEL','FL_ATIVO'},;
+                     {self:TpPasta, self:PedidoProcesso, 'W', 'S'}}
+
+         if db_insert(laSAVE,'pasta_objeto') = -1
+              error_sys()
+         endif
+      endif
+
+return
+
+
+/*
+* Data......: 04/2016 - Glauber
+* Metodo....: parser2str(<expC1>,<expA1>)
+* Objetivo..: Processa o parser em expC1 com base nos dados de expA1.
+* Parâmetros:
+*    expC1: String a processado o parser.
+*    expA1: Array com os dados no formato laRESULT
+* Retorno...: Retorna uma string com os dados processados
+*
+*
+*/
+
+METHOD Parser2Str(pcConteudo,paResult) CLASS IsjLife
+
+     local xx := 0 as int
+     local lcResult := '',;
+           lcTmp    := '' as String
+     lcResult := pcConteudo
+     if len(pcConteudo) > 0 .and. len(paResult) > 1
+        for xx := 1 to len(paResult[1])
+            lcTMP := '[' + paResult[1,xx] + ']'
+            lcResult := StrTran(lcResult,lcTMP,AllTrim(paResult[2,xx]))
+        next xx
+     endif
+
+return (lcResult)
+
+
+/*
+* Data......: 04/2016 - Glauber
+* Metodo....: ExecutarPlugIn(pcRun, pllDebug)
+* Objetivo..: Executa uma chamada externa.
+* Parâmetros:
+*    pcRun   : Instrução externa a ser executada.
+*    pllDebug: Executar em modo debug gerado o arquivo de saida
+* Retorno...:
+*
+*
+*/
+
+METHOD ExecutarPlugIn(pcRun, pllDebug) CLASS IsjLife
+
+      if pllDebug
+         pcRun += ' > LOGWS.LOG'
+      endif
+      if pllDebug
+         wout('<BR> Executando a aplicação:'+pcRun+'</BR>')
+      endif
+
+      ! (pcRun)
+
+return
+
+
+/*
+* Data.........: 05/2016 - Glauber
+* Metodo....   : TratarDigito(pcStr, pcSep)
+* Objetivo..   : Retorna um vetor com duas posições utilizado para separar digito de agencia e conta corrente.
+* Parâmetros   :
+*    pcStr     : Instrução externa a ser executada.
+*    pcSeppcRun: Executar em modo debug gerado o arquivo de saida
+* Retorno......: Vetor no formato {'123','4'}
+*
+*
+*/
+
+METHOD TratarDigito(pcStr, pcSep) CLASS IsjLife
+
+      local laRET := {'0','0'} as Array
+      local lnPOS := 0 as Int
+      local lcSEP := '-' as String
+
+      if (pcStr == NIL) .or. (Empty(pcStr))
+          return laRET
+      endif
+
+      if (pcSep != NIL) .and. (! Empty(pcSep))
+          lcSEP := pcSep
+      endif
+
+      lnPOS := At(lcSEP,pcStr)
+
+      if lnPOS == 0 .and. ! Empty(pcStr)
+         laRET[1] := pcStr
+      else
+         laRET := Str2Array(pcStr,lcSEP)
+      endif
+
+return laRET
+
+
+
+/*
+* Data......: 05/2016 - Glauber
+* Metodo....: DespesaBatchLife()
+* Objetivo..: Envia Despesas para o Life.
+* Parâmetros:
+* Retorno...:
+*
+*
+*/
+
+METHOD DespesaBatchLife() CLASS IsjLife
+
+    local laFIELDS := {},;
+          laJOIN   := {},;
+          laTMP    := {},;
+          laRES    := {},;
+          laCONT   := {},;
+          laRESULT := {} as Array
+
+    local ii       := 0,;
+          xx       := 0,;
+          lnNR_PGTO:= 0,;
+          lnHAND   := 0  as Int
+    local lnVLPAGO := 0.00 as Numeric
+    local lcWHERE  := '',;
+          lcEnv    := '',;
+          lcRet    := '',;
+          lcParser := '',;
+          lcRun    := '',;
+          lcPath   := '',;
+          lcTMP    := '',;
+          lcLABEL  := '',;
+          lcPEDIDO := '',;
+          lcQUERY  := '',;
+          lcERRO   := '',;
+          lcFILE   := '',;
+          lcLOG    := '',;
+          lcLOGERR := '',;
+          lcApp    := '' as String
+
+    local llErro  := .f.,;
+          llDebug := .f.
+
+
+    local objLifeCfg := IsjLifeConfigNew() as Object
+    local objetoLife := IsjLifeNew() as Object
+
+
+
+
+
+/*
+
+
+SELECT mvt_despesa.NR_PASTA,
+       pasta.TP_PASTA,
+       pasta.DT_CITACAO,
+       mvt_despesa.NR_DESPESA,
+       mvt_despesa.VL_TOTAL AS VL_PAGO,
+       despesa.FL_CONTABILIZA_LANCTOS_CONT AS CONT_LCTO,
+       despesa.OCOR_PEDIDO_QUITA AS OCOR_PEDIDO,
+       '0' AS NR_PGTO,
+       despesa.FL_ZERAR_PROVISAO AS ZERA_PROV,
+       mvt_despesa.NR_CONTROLE_SEGURO,
+       pasta_seguro.FL_APOLICE AS BASE,
+       pasta_seguro.NR_SINISTRO,
+       pasta_seguro.NR_CERTIFICADO,
+       case when substring(despesa.CD_DESPESA_INTERFACE,10,1) = '1' THEN 'E' ELSE 'P' end  as AUMENTO_ESTIMATIVA,
+       'PAGAMENTO ORIUNDO ISJ' as PEDIDO_AUMENTO_ESTIMATIVA,
+       mvt_despesa.DT_REF as DT_MOVTO_PED,
+       mvt_despesa.CIP_FAVORECIDO,
+       substr(pfpj.PFPJ_NATUREZA,1) as PFPJ_TIPO,
+       case when (despesa.FL_AJUSTA_PEDIDO = 'S') THEN 'B' ELSE 'P' end as PRESTADOR_BENEF,
+       pfpj.CNPJ_CPF,
+       pfpj.PFPJ,
+       mvt_despesa.CD_BANCO,
+       mvt_despesa.BANCO_AGENCIA,
+       '0' AS DIG_AGENCIA,
+       mvt_despesa.BANCO_CONTA,
+       mvt_despesa.BANCO_CONTA_DIGITO,
+       substring(despesa.CD_DESPESA_INTERFACE,1,5) AS TIPO_DESPESA,
+       mvt_despesa.FORMA_PAGAMENTO,
+       (select count(*) from mvt_desprat where mvt_desprat.NR_PASTA = mvt_despesa.NR_PASTA and mvt_desprat.NR_CONTROLE_DESPESA = mvt_despesa.NR_DESPESA) AS QTD_RATEIO
+FROM mvt_despesa
+INNER JOIN pasta  ON (mvt_despesa.NR_PASTA = pasta.NR_PASTA)
+INNER JOIN pasta_seguro  ON (mvt_despesa.NR_PASTA = pasta_seguro.NR_PASTA and mvt_despesa.NR_CONTROLE_SEGURO = pasta_seguro.NR_CONTROLE)
+LEFT JOIN pfpj ON (pfpj.CIP = mvt_despesa.CIP_FAVORECIDO)
+LEFT JOIN despesa ON (despesa.CD_DESPESA = mvt_despesa.CD_DESPESA)
+WHERE
+(pasta.DT_CITACAO IS NOT NULL ) and
+(mvt_despesa.NR_CONTROLE_SEGURO > 0) and
+(mvt_despesa.DT_ENVIO_CTPAG is null and (mvt_despesa.FL_PGINTERFACE is null or mvt_despesa.FL_PGINTERFACE = '')) and
+(pasta_seguro.FL_APOLICE IS NOT NULL AND Trim(pasta_seguro.FL_APOLICE) != '' ) and
+(pasta_seguro.NR_CERTIFICADO IS NOT NULL AND Trim(pasta_seguro.NR_CERTIFICADO) != '' ) and
+(pasta_seguro.NR_SINISTRO IS NOT NULL) and (mvt_despesa.FL_REVISAO = 'A' and mvt_despesa.FL_APROVACAO = 'A') and
+      pasta.TP_PASTA = 'Cível Seguros'
+ORDER BY mvt_despesa.NR_PASTA
+
+
+*/
+
+   // Glauber 05/2016 - Estou fazendo esta porcaria baixo, utilizar vários "+=" porque este lixo de FlagShip gera varios erros de compilação no compilador gcc quando utilzado somente uma instrução para gerar esta string com a query.
+
+
+/*
+
+Glauber 04/2018
+
+Alexandre de Alexandri
+10:14 (Há 3 minutos)
+para Celia, Sonia, Apoio, Desenvolvimento 
+Sim, com certeza.
+
+
+Se tem data de Pagto "NÃO" pode enviar essa Despesa.
+
+
+Glauber, favor realizar esse ajuste.
+
+
+Um abraço,
+
+
+
+Alexandre de Alexandri
+Diretor
+Fone: +55 (11) 5096-4321
+INSO Soluções Jurídicas
+www.inso.com.br
+  
+ 
+ 
+
+ 
+
+
+
+
+
+
+
+Em 12/04/18 09:53, Celia Margarida escreveu:
+Alexandre,
+
+Não comentei no outro email pois tive conhecimento depois.
+
+A Monica me alertou que tem mais um ajuste a fazer na interface que é o seguinte :
+
+- Se o usuário pagar manualmente uma despesa com ajuste de pedidos, o ISJ faz a baixa da reserva corretamente mas quando a interface é executada, manda a despesa e faz a baixa novamente,
+isto ocorre porque quando pagamos manualmente, o campo DT_ENVIO_CTPAG não é preenchido, então a despesa atende o escopo da interface e é enviada.
+
+Creio que a interface deveria verificar também o campo da tabela mvt_despesa_pagamento.DT_PAGAMENTO e se para aquela despesa este campo estiver preenchido, não poderá enviar.
+
+Posso adicionar esta verificação também?
+
+Tks!!!
+
+
+
+
+Celia Margarida
+Apoio ao Cliente
+Fone: +55 (11) 5096-4321
+INSO Soluções Jurídicas
+www.inso.com.br
+  
+ 
+ 
+
+ 
+
+
+
+
+
+
+
+Em 12 de abril de 2018 09:34, Alexandre de Alexandri <alexandre.alexandri@insocorp.com.br> escreveu:
+Celia, Bom Dia!
+
+
+Com certeza.
+
+
+Glauber, favor ajustar.
+
+
+Um abraço,
+
+
+
+Alexandre de Alexandri
+Diretor
+Fone: +55 (11) 5096-4321
+INSO Soluções Jurídicas
+www.inso.com.br
+  
+ 
+ 
+
+ 
+
+
+
+
+
+
+
+Em 12/04/18 09:05, Celia Margarida escreveu:
+Alexandre, bom dia!
+
+Na versão 5.3 que vamos atualizar amanhã na Cardif, tem a ferramenta de Cancelamento de Despesas que ainda não foram pagas, portanto, a despesa está com o FL_APROVACAO = A e o DT_ENVIO_CTPAG está sem conteúdo , estes são alguns dos requisitos para enviar para o Life.
+
+Creio que a interface precisa ser alterada para verificar se o FL_CANCELADO é diferente de C para evitar o envio de despesas canceladas.
+
+Se de fato necessitar deste ajuste, neste primeiro momento não habilitaremos a configuração para o cancelamento, mas precisamos habilitar posteriormente para nos livrar parcialmente dos pedidos diários de exclusão de despesas que eles nos solicitam.
+
+Se não impactar na interface nos avisem para que possamos habilitar a ferramenta de cancleamento.
+
+Tks!!!
+
+
+
+
+
+Celia Margarida
+Apoio ao Cliente
+Fone: +55 (11) 5096-4321
+INSO Soluções Jurídicas
+www.inso.com.br
+
+
+
+*/
+
+
+
+    lcQUERY := "SELECT mvt_despesa.NR_PASTA,"
+    lcQUERY += "       pasta.TP_PASTA,"
+    lcQUERY += "       pasta.DT_CITACAO,"
+    lcQUERY += "       mvt_despesa.NR_DESPESA,"
+    lcQUERY += "       mvt_despesa.VL_TOTAL AS VL_RISCO_CALC,"
+    lcQUERY += "       despesa.FL_CONTABILIZA_LANCTOS_CONT AS CONT_LCTO,"
+    lcQUERY += "       despesa.OCOR_PEDIDO_QUITA AS OCOR_PEDIDO,"
+    lcQUERY += "       '0' AS NR_PGTO,"
+    lcQUERY += "       despesa.FL_ZERAR_PROVISAO AS ZERA_PROV,"
+    lcQUERY += "       mvt_despesa.NR_CONTROLE_SEGURO,"
+    lcQUERY += "       pasta_seguro.FL_APOLICE AS BASE,"
+    lcQUERY += "       pasta_seguro.NR_SINISTRO,"
+    lcQUERY += "       pasta_seguro.NR_CERTIFICADO,"
+    lcQUERY += "       case when substring(despesa.CD_DESPESA_INTERFACE,10,1) = '1' THEN 'E' ELSE 'P' end  as AUMENTO_ESTIMATIVA,"
+    lcQUERY += "       'PAGAMENTO ORIUNDO ISJ' as PEDIDO_AUMENTO_ESTIMATIVA,"
+    lcQUERY += "       mvt_despesa.DT_REF as DT_MOVTO_PED,"
+    lcQUERY += "       mvt_despesa.CIP_FAVORECIDO,"
+    lcQUERY += "       substr(pfpj.PFPJ_NATUREZA,1) as PFPJ_TIPO,"
+    lcQUERY += "       case when (despesa.FL_AJUSTA_PEDIDO = 'S') THEN 'B' ELSE 'P' end as PRESTADOR_BENEF,"
+    lcQUERY += "       pfpj.CNPJ_CPF,"
+    lcQUERY += "       pfpj.PFPJ,"
+    lcQUERY += "       mvt_despesa.CD_BANCO,"
+    lcQUERY += "       mvt_despesa.BANCO_AGENCIA,"
+    lcQUERY += "       '0' AS DIG_AGENCIA,"
+    lcQUERY += "       mvt_despesa.BANCO_CONTA,"
+    lcQUERY += "       CASE WHEN (mvt_despesa.BANCO_CONTA_DIGITO = '') THEN '0' ELSE mvt_despesa.BANCO_CONTA_DIGITO END AS BANCO_CONTA_DIGITO,"
+    lcQUERY += "       substring(despesa.CD_DESPESA_INTERFACE,1,5) AS TIPO_DESPESA,"
+    lcQUERY += "       mvt_despesa.FORMA_PAGAMENTO,"
+    lcQUERY += "       (select count(*) from mvt_desprat where mvt_desprat.NR_PASTA = mvt_despesa.NR_PASTA and mvt_desprat.NR_CONTROLE_DESPESA = mvt_despesa.NR_DESPESA) AS QTD_RATEIO "
+    lcQUERY += "FROM mvt_despesa "
+    lcQUERY += "       INNER JOIN pasta  ON (mvt_despesa.NR_PASTA = pasta.NR_PASTA)"
+    lcQUERY += "       INNER JOIN pasta_seguro  ON (mvt_despesa.NR_PASTA = pasta_seguro.NR_PASTA and mvt_despesa.NR_CONTROLE_SEGURO = pasta_seguro.NR_CONTROLE)"
+    lcQUERY += "       LEFT JOIN pfpj ON (pfpj.CIP = mvt_despesa.CIP_FAVORECIDO)"
+    lcQUERY += "       LEFT JOIN despesa ON (despesa.CD_DESPESA = mvt_despesa.CD_DESPESA) "
+    lcQUERY += "       LEFT JOIN mvt_despesa_pagamento ON (mvt_despesa_pagamento.NR_PASTA = mvt_despesa.NR_PASTA  AND  mvt_despesa_pagamento.NR_DESPESA = mvt_despesa.NR_DESPESA) "
+    lcQUERY += "WHERE"
+    lcQUERY += "       (pasta.DT_CITACAO IS NOT NULL ) and  "
+    lcQUERY += "       (mvt_despesa_pagamento.DT_PAGAMENTO IS NULL ) and  "
+    lcQUERY += "       (mvt_despesa.NR_CONTROLE_SEGURO > 0) and"
+    lcQUERY += "       (mvt_despesa.FL_CANCELADO  <> 'C') and"
+    lcQUERY += "       (mvt_despesa.DT_ENVIO_CTPAG is null and (mvt_despesa.FL_PGINTERFACE is null or mvt_despesa.FL_PGINTERFACE = '')) and"
+    lcQUERY += "       (pasta_seguro.FL_APOLICE IS NOT NULL AND Trim(pasta_seguro.FL_APOLICE) != '' ) and"
+    lcQUERY += "       (pasta_seguro.NR_CERTIFICADO IS NOT NULL AND Trim(pasta_seguro.NR_CERTIFICADO) != '' ) and"
+    lcQUERY += "       (pasta_seguro.NR_SINISTRO IS NOT NULL) and (mvt_despesa.FL_REVISAO = 'A' and mvt_despesa.FL_APROVACAO = 'A') and"
+    lcQUERY += "       pasta.TP_PASTA = 'Cível Seguros' "
+/*
+
+Glauber 30/05/2016
+
+nício: 30/05/2016 11:53:00
+Prazo: 30/05/2016 11:53:00
+Acesse a Pasta Nº 7617 e providencie as informações solicitadas pelo Suporte.
+
+Andamento: Glauber,
+
+Peço que verifique com prioridade alta a demanda abaixo :
+
+A interface com o Life é somente para o TP_PASTA = Cível Seguros
+
+Os usuários não estão conseguindo fazer nenhum tipo de alteração na Aba Seguros das pastas de Procon.
+
+Portanto, todas as interações que envolvem o Life, seja em Pedidos, Despesas ou Seguros é somente para o TP_PASTA = Cível Seguros
+
+Você pode verificar a interface e adicionar esta cláusula?
+
+Aguardo o retorno.
+
+Tks!!!
+Data de cadastro: 30/05/2016
+Solicitado por: Célia Pereira
+
+
+*/
+
+
+/*
+
+19/09 - Pasta 8575 - Quando enviar uma despesa e ocorrer algum erro, esta despesa deve ser marcada com enviada e no final do processamento ser enviado via e-mail os dados desta despesa para 
+                     que o pessoal da Cardif proceda com o ajuste manual. Solicitado por Alexandre de Alexandri.
+
+*/
+
+
+
+//    lcQUERY += "       pasta.TP_PASTA IN(select TP_PASTA from pasta_config WHERE lower(LAYOUT_PASTA) IN('civel_securit_com_sin_cont','ressarcimento','dpvat_cont','civel_adm_ans_cont','civel_adm_ans_cont','civel_adm_susep_cont')) "
+    lcQUERY += "ORDER BY mvt_despesa.NR_PASTA "
+//    lcQUERY += "LIMIT 10 OFFSET 670"
+
+    if db_query(lcQUERY) == -1
+         error_sys(db_error())
+    endif
+    laRESULT := db_fetchall()
+
+    lcPath    := WSet('PATHWSLIFE')
+    lcFILE    := + lcPath + 'LOGLIFE_DESP_' + Dtos(Date()) + StrTran(Time(),':','_') + '.LOG'
+
+    if empty(lcPath)
+       lcERRO := 'Path da aplicação de consumo webservice não configurada no wprofile.'
+    endif
+
+    lcApp := WSet('APPLIFE')
+
+    if empty(lcApp)
+       lcERRO += 'Aplicação de consumo webservice não configurada no wprofile.'
+    endif
+
+    lnHAND := Fcreate(lcFILE)
+    if ferror() != 0
+       error_sys('Erro na criação do arquivo:'+ lcFILE + '. Código do erro:' + str(ferror()))
+    endif
+
+
+
+    lcLOG += replicate('=',150)  + chr(13)
+    lcLOG += 'ISJ / LIFE - Envio de Despesas - Versão 1.0.0'  + chr(13)
+    lcLOG += 'Data / Hora  :' + dtoc(date()) + ' / ' + time()  + chr(13)
+    lcLOG += 'Total de Desp:' + Alltrim(Len(laRESULT)-1)  + chr(13)
+    lcLOG += replicate('=',150)  + chr(13)
+
+    fwrite(lnHAND, lcLOG)
+    lcLOGERR := lcLOG
+
+    if len(laRESULT) == 1
+       lcERRO += 'Não existe registros para envio.'
+    endif
+
+    if ! empty(lcERRO)
+       fwrite(lnHAND, lcLOG + lcERRO)
+       fclose(lnHAND)
+       return
+    endif
+
+
+    objLifeCfg:getConfiguracao()
+
+
+    laRES := {{'USUARIO',;
+               'SENHA'},;
+              {objLifeCfg:Usuario,;
+               objLifeCfg:Senha }}
+
+
+
+    lnPOS := ascan(laRESULT[1],'PRESTADOR_BENEF')
+
+    aadd(laRESULT[1], 'USUARIO')
+    aadd(laRESULT[1], 'SENHA')
+
+    for ii := 2 to len(laRESULT)
+
+        lcNR_PASTA   := alltrim(laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')])
+        lcNR_DESPESA := alltrim(laRESULT[ii,db_fetchncol(laRESULT,'NR_DESPESA')])
+        lnVLPAGO     := laRESULT[ii,db_fetchncol(laRESULT,'VL_RISCO_CALC')]
+
+        // Formatar as colunas necessárias
+
+        laRESULT[ii,db_fetchncol(laRESULT,'PFPJ')]             := LAT2CHAR(laRESULT[ii,db_fetchncol(laRESULT,'PFPJ')])
+        laRESULT[ii,db_fetchncol(laRESULT,'FORMA_PAGAMENTO')]  := LAT2CHAR(laRESULT[ii,db_fetchncol(laRESULT,'FORMA_PAGAMENTO')])
+        laRESULT[ii,db_fetchncol(laRESULT,'NR_CERTIFICADO')]   := IIF(EMPTY(ALLTRIM(laRESULT[ii,db_fetchncol(laRESULT,'NR_CERTIFICADO')])), '0', LAT2CHAR(laRESULT[ii,db_fetchncol(laRESULT,'NR_CERTIFICADO')]))
+        laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')]         := Alltrim(laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')])
+        laRESULT[ii,db_fetchncol(laRESULT,'VL_RISCO_CALC')]    := transform(laRESULT[ii,db_fetchncol(laRESULT,'VL_RISCO_CALC')],'999999999.99')
+        laRESULT[ii,db_fetchncol(laRESULT,'CD_BANCO')]         := alltrim(laRESULT[ii,db_fetchncol(laRESULT,'CD_BANCO')])
+        laRESULT[ii,db_fetchncol(laRESULT,'DT_MOVTO_PED')]     := iif(empty(Dtos(laRESULT[ii,db_fetchncol(laRESULT,'DT_MOVTO_PED')])), transform(dtos(Date()),'9999-99-99'), laRESULT[ii,db_fetchncol(laRESULT,'DT_MOVTO_PED')])
+        laRESULT[ii,db_fetchncol(laRESULT,'DT_MOVTO_PED')]     := strzero(year(laRESULT[ii,db_fetchncol(laRESULT,'DT_MOVTO_PED')]),4) + '-' + strzero(month(laRESULT[ii,db_fetchncol(laRESULT,'DT_MOVTO_PED')]),2) +'-' +strzero(day(laRESULT[ii,db_fetchncol(laRESULT,'DT_MOVTO_PED')]),2)
+        laRESULT[ii,db_fetchncol(laRESULT,'DT_CITACAO')]       := strzero(year(laRESULT[ii,db_fetchncol(laRESULT,'DT_CITACAO')]),4) + '-' + strzero(month(laRESULT[ii,db_fetchncol(laRESULT,'DT_CITACAO')]),2) +'-' +strzero(day(laRESULT[ii,db_fetchncol(laRESULT,'DT_CITACAO')]),2)
+        //
+        // Glauber 24/05/2016 - Solicitado pelo Alexandre na data de 23/05 o tratamento da agencia e conta corrente, onde o separador é o "-"
+        //
+        laTMP                                                    := self:TratarDigito(laRESULT[ii,db_fetchncol(laRESULT,'BANCO_AGENCIA')], '-')
+        laRESULT[ii,db_fetchncol(laRESULT,'BANCO_AGENCIA')]      := laTMP[1]
+        laRESULT[ii,db_fetchncol(laRESULT,'DIG_AGENCIA')]        := laTMP[2]
+
+        laTMP                                                    := self:TratarDigito(laRESULT[ii,db_fetchncol(laRESULT,'BANCO_CONTA')], '-')
+        laRESULT[ii,db_fetchncol(laRESULT,'BANCO_CONTA')]        := laTMP[1]
+        laRESULT[ii,db_fetchncol(laRESULT,'BANCO_CONTA_DIGITO')] := laTMP[2]
+
+
+        lcLOG := 'Numero da Pasta............: ' + lcNR_PASTA + ' / ' + laRESULT[ii,db_fetchncol(laRESULT,'TP_PASTA')] + CHR(13)
+        lcLOG += 'Numero da Despesa..........: ' + lcNR_DESPESA + chr(13)
+        lcLOG += 'Numero da Sinistro.........: ' + transform(laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')]) + ' / ' + laRESULT[ii,db_fetchncol(laRESULT,'BASE')] + chr(13)
+        LcLOG += 'Certificado................: ' + laRESULT[ii,db_fetchncol(laRESULT,'NR_CERTIFICADO')] + chr(13)
+        lcLOG += 'Valor......................: ' + transform(laRESULT[ii,db_fetchncol(laRESULT,'VL_RISCO_CALC')]) +chr(13)
+        lcLOG += 'Ocorrencia.................: ' + laRESULT[ii,db_fetchncol(laRESULT,'OCOR_PEDIDO')] + chr(13)
+        lcLOG += 'Operacao...................: ' + laRESULT[ii,db_fetchncol(laRESULT,'AUMENTO_ESTIMATIVA')] + CHR(13)
+        lcLOG += 'Contabiliza................: ' + laRESULT[ii,db_fetchncol(laRESULT,'CONT_LCTO')] + CHR(13)
+        lcLOG += 'Zera Provisão..............: ' + laRESULT[ii,db_fetchncol(laRESULT,'ZERA_PROV')]+ chr(13)
+        lcLOG += 'Data.......................: ' + Transform(laRESULT[ii,db_fetchncol(laRESULT,'DT_MOVTO_PED')]) + chr(13)
+        lcLOG += 'Tipo Despesa...............: ' + laRESULT[ii,db_fetchncol(laRESULT,'TIPO_DESPESA')] + chr(13)
+        lcLOG += 'Forma Pagamento............: ' + laRESULT[ii,db_fetchncol(laRESULT,'FORMA_PAGAMENTO')]+ chr(13)
+        lcLOG += 'Favorecido.................: ' + laRESULT[ii,db_fetchncol(laRESULT,'CIP_FAVORECIDO')] + ' - ' + laRESULT[ii,db_fetchncol(laRESULT,'PFPJ')]+ chr(13)
+
+        fwrite(lnHAND,lcLOG)
+
+        if (laRESULT[ii,lnPOS] == 'B') .and. (laRESULT[ii,db_fetchncol(laRESULT,'QTD_RATEIO')] == 0)
+            lcLOG += 'Retorno Life...............: ESTA DESPESA NÃO FOI ENVIADA AO LIFE. EMBORA ESTEJA CONFIGURADA PARA AJUSTAR PEDIDO OU ZERAR RESERVA, A MESMA NÃO CONTÉM REGISTROS NA TABELA DE RATEIO(MVT_DESPRAT).' + chr(13)
+            lcLOG += replicate('-',150)  + chr(13)
+            fwrite(lnHAND,lcLOG)
+            lcLOGERR += lcLOG
+            loop
+        endif
+        //
+        // Glauber 19/06
+        //
+        // Estou colocando este trecho aqui para contemplar o ajuste de reserva a maior quando o valor da despesa que esta sendo paga é maior que o pedido a ela atrelado.
+        //
+        //
+
+        // Se for liquidação, ajustar os pedidos
+
+        if (laRESULT[ii,lnPOS] == 'B') .and. (laRESULT[ii,db_fetchncol(laRESULT,'QTD_RATEIO')] > 0)
+
+           laCONT := self:contPedido(lcNR_PASTA,;
+                     alltrim(laRESULT[ii,db_fetchncol(laRESULT,'TP_PASTA')]),;
+                     lcNR_DESPESA,;
+                     laRESULT[ii,db_fetchncol(laRESULT,'VL_RISCO_CALC')],;
+                     alltrim(laRESULT[ii,db_fetchncol(laRESULT,'CONT_LCTO')]),;
+                     alltrim(laRESULT[ii,db_fetchncol(laRESULT,'OCOR_PEDIDO')]),;
+                     alltrim(lnNR_PGTO),;
+                     alltrim(laRESULT[ii,db_fetchncol(laRESULT,'ZERA_PROV')]),;
+                     alltrim(laRESULT[ii,db_fetchncol(laRESULT,'NR_CONTROLE_SEGURO')]),;
+                     lnHAND)
+
+//debug2(laCONT,,30)
+
+           lcLOG += 'Retorno Life Ajuste Pedido.: '+ alltrim(laCONT[1]) + "-" + laCONT[2] + chr(13)
+           lcLOG := replicate('-',150)  + chr(13)
+
+           fwrite(lnHAND,lcLOG)
+
+           if laCONT[1] == -1
+              loop
+           endif
+
+
+//wout(debug2(laRESULT,,30))
+        endif
+
+
+
+        aadd(laRESULT[ii], objLifeCfg:Usuario)
+        aadd(laRESULT[ii], objLifeCfg:Senha)
+
+        lcEnv    := lcPath + 'ENV_DESP_'+ ALLTRIM(lcNR_PASTA) + '_' +Wset('LOGIN') +'_'+alltrim(lcNR_DESPESA) +'.XML'
+        lcRet    := StrTran(lcEnv,'.XML','.RET')
+
+        laTMP    := {laRESULT[1],laRESULT[ii]}
+        lcParser := Parser2Str(objLifeCfg:XmlEfetiva, laTMP) // Função presente na func_wic.wh
+
+        GravaArquivo(lcEnv,lcParser)
+
+        // Executa o pedido das informações
+        lcRun := lcApp + ' efetivaroperacao ' + lcEnv + ' ' + lcPath + 'AppConfig.xml'
+
+        //WOUT('lcRun:'+lcRun)
+
+        llDebug := (WSet('LIFEDEBUG') == 'ENABLE')
+
+        //lcRun:java -jar /home/wproject/wictrix/isj_44/IsjLifeClient/IsjLifeClient.jar consultarsinistro/home/wproject/wictrix/isj_44/IsjLifeClient/ENVinso_20150409081147.XML /home/wproject/wictrix/isj_44/IsjLifeClient/AppConfig.xml
+        //Executando a aplicaçao:
+        //java -jar /home/wproject/wictrix/isj_44/IsjLifeClient/IsjLifeClient.jar consultarsinistro /home/wproject/wictrix/isj_44/IsjLifeClient/ENVinso_20150409081147.XML /home/wproject/wictrix/isj_44/IsjLifeClient/AppConfig.xml > LOGWS.LOG
+
+        if llDebug
+           lcRun += ' > LOGWS.LOG'
+        endif
+        if llDebug
+          wout('<BR> Executando a aplicação:'+lcRun+'</BR>')
+        endif
+
+        ! (lcrun)
+
+/*
+        lcLOG := 'Numero da Pasta............: ' + lcNR_PASTA + ' / ' + laRESULT[ii,db_fetchncol(laRESULT,'TP_PASTA')] + CHR(13)
+        lcLOG += 'Numero da Despesa..........: ' + lcNR_DESPESA + chr(13)
+        lcLOG += 'Numero da Sinistro.........: ' + transform(laRESULT[ii,db_fetchncol(laRESULT,'NR_SINISTRO')]) + ' / ' + laRESULT[ii,db_fetchncol(laRESULT,'BASE')] + chr(13)
+        LcLOG += 'Certificado................: ' + laRESULT[ii,db_fetchncol(laRESULT,'NR_CERTIFICADO')] + chr(13)
+        lcLOG += 'Valor......................: ' + transform(laRESULT[ii,db_fetchncol(laRESULT,'VL_RISCO_CALC')]) +chr(13)
+        lcLOG += 'Ocorrencia.................: ' + laRESULT[ii,db_fetchncol(laRESULT,'OCOR_PEDIDO')] + chr(13)
+        lcLOG += 'Operacao...................: ' + laRESULT[ii,db_fetchncol(laRESULT,'AUMENTO_ESTIMATIVA')] + CHR(13)
+        lcLOG += 'Contabiliza................: ' + laRESULT[ii,db_fetchncol(laRESULT,'CONT_LCTO')] + CHR(13)
+        lcLOG += 'Zera Provisão..............: ' + laRESULT[ii,db_fetchncol(laRESULT,'ZERA_PROV')]+ chr(13)
+        lcLOG += 'Data.......................: ' + Transform(laRESULT[ii,db_fetchncol(laRESULT,'DT_MOVTO_PED')]) + chr(13)
+        lcLOG += 'Tipo Despesa...............: ' + laRESULT[ii,db_fetchncol(laRESULT,'TIPO_DESPESA')] + chr(13)
+        lcLOG += 'Forma Pagamento............: ' + laRESULT[ii,db_fetchncol(laRESULT,'FORMA_PAGAMENTO')]+ chr(13)
+        lcLOG += 'Favorecido.................: ' + laRESULT[ii,db_fetchncol(laRESULT,'CIP_FAVORECIDO')] + ' - ' + laRESULT[ii,db_fetchncol(laRESULT,'PFPJ')]+ chr(13) + CHR(13)
+*/
+        // Obter o conteúdo da pesquisa
+
+        if (! file(lcRet))
+           lcERRO := 'Erro ao receber o arquivo de retorno.Arquivo de retorno não existe:'+lcRet
+           lcLOG += 'Retorno Life...............: ' + lcERRO + chr(13)
+           lcLOG += replicate('-',150)  + chr(13)
+           fwrite(lnHAND,lcLOG)
+           lcLOGERR += lcLOG
+//           loop
+        endif
+
+        lcTMP  := GetFileContent(lcRet) // Resgata o conteúdo do arquivo de retorno
+        lcERRO := objetoLife:TrataErroLife(lcTMP) // Verifica se no conteúdo do retorno contém algum erro.
+
+        if ! empty(lcERRO)
+           lcLOG += 'Retorno Life...............: ' + lcERRO + chr(13)
+           lcLOG += replicate('-',150)  + chr(13)
+           fwrite(lnHAND,lcLOG)
+           fwrite(lnHANDERR,lcLOG)
+           lcLOGERR += lcLOG
+//           LOOP
+        endif
+
+        lcLOG += 'Retorno Life...............: OK ' + chr(13)
+        lcLOG += replicate('-',150)  + chr(13)
+        fwrite(lnHAND,lcLOG)
+
+
+        // Atualizar o flag de envio
+
+
+        if db_update({{'DT_ENVIO_CTPAG','FL_PGINTERFACE'},{date(),'S'}},'mvt_despesa',{'NR_PASTA = '+lcNR_PASTA+' AND NR_DESPESA = '+lcNR_DESPESA}) == -1
+           error_sys(db_error())
+        endif
+
+        // Glauber - Solicitação do Alexandre em conference call do dia 13/05/2016 as 15.00
+
+        laTMP := {{'NR_PASTA','NR_DESPESA','DT_PAGAMENTO','VL_PAGO','DT_CADASTRO','LOGIN_CADASTRO','FL_PAGAMENTO'},;
+                  {lcNR_PASTA,lcNR_DESPESA, Date(),        lnVLPAGO, Date(),        'Life',         'S'}}
+
+        if db_insert(laTMP ,'mvt_despesa_pagamento') == -1
+           error_sys(db_error())
+        endif
+
+        if db_select({'max(NR_CONTROLE)'},'mvt_despesa_pagamento') == -1
+           error_sys(db_error())
+        endif
+
+        laRES     := db_fetchrow()
+        lnNR_PGTO := laRES[1]
+
+
+
+
+        // Remoção dos arquivos temporários
+
+        if ! llDebug
+//           ferase(lcEnv)
+//           ferase(lcRet)
+        endif
+
+   next ii
+   lcLOG := ''
+   lcLOG += replicate('=',150)  + chr(13)
+   lcLOG += 'Data / Hora  Término :' + dtoc(date()) + ' / ' + time()  + chr(13)
+   lcLOGERR += lcLOG
+   lcLOG += 'Total de Desp:' + Alltrim(Len(laRESULT)-1)  + chr(13)
+   lcLOG += replicate('=',150)  + chr(13)
+   fwrite(lnHAND,lcLOG)
+   fclose(lnHAND)
+
+
+   // Enviar email
+
+   if (!Empty(WSET('MAILLIFELOG')))
+      WsendMail('agendaisj@inso.com.br',;
+                WSET('MAILLIFELOG'),;
+                ,;
+                ,;
+                'Log de Integração ISJ / LIFE => Envio de Despesas',;
+                'Segue log com resultado do processamento.' + chr(13) + chr(13) + lcLOGERR + chr(13) + chr(13) + chr(13) +'Robo de Envio de Despesas',;
+                'Agenda ISJ')
+   endif
+
+return
+
+
+
+
+
+
+/*
+* Data......: 05/2016 - Glauber
+* Metodo....: contPedido()
+* Objetivo..: Contabiliza a movimentação dos pedidos.
+* Parâmetros:
+*             <fcNR_PASTA>           Número da Pasta
+*             <fcTP_PASTA>           Tipo da Pasta
+*             <fcNR_DESPESA>         Número da Despesa
+*             <fnVL_PAGO>            Valor Pago
+*             <fcCONT_LCTO>          Contabiliza Lançamentos Contábeis <S/N/''>
+*             <fcOCOR_PEDIDO>        Ocorrência de Pagamento do Pedido
+*             <fcNR_PGTO>            Numero do Pagamento
+*             <fcZERA_PROV>          Zerar Provisão
+*             <pcNR_CONTROLE_SEGURO> NUMERO DE CONTROLE DO SEGURO NA DESPESA
+*             <pnHANDLOG>            Handle do arquivo de log
+*
+* Retorno........: Nenhum
+*/
+
+METHOD contPedido(fcNR_PASTA,fcTP_PASTA,fcNR_DESPESA,fnVL_PAGO,fcCONT_LCTO,fcOCOR_PEDIDO,fcNR_PGTO,fcZERA_PROV, pcNR_CONTROLE_SEGURO, pnHANDLOG) CLASS IsjLife
+
+********************************************************************************************************************************
+/* Versao equiparada em 25/04/2013 14:52:42 - Sonia Perdigão */
+** Atualizada com a Customização efetuada para Unimed
+
+
+local lcWHERE_MVTRAT := '' ,;
+      lcWHERE2       := '' ,;
+      lcWHERE3       := '' ,;
+      querysql       := '' ,;
+      lcOCOR         := '' ,;
+      lcLOG          := '' ,;
+      ABA_PED_NOVA   := '' ,;
+      lcWHERE        := '' as string
+
+local laSAVE1A     := {} ,;
+      laSAVE1B     := {} ,;
+      laSAVE2      := {} ,;
+      laSAVE3      := {} ,;
+      laRES        := {} ,;
+      laRESULT     := {} ,;
+      laRES_OCOR   := {} ,;
+      laRET        := {0,''},;
+      laRES_MVTRAT := {} as array
+
+local vlRISCO        := 0 ,;
+      vlRISCON       := 0 ,;
+      vlRISCO_C      := 0 ,;
+      vlCORR         := 0 ,;
+      vlJUROS        := 0 ,;
+      vlRISCO_CP     := 0 ,;
+      vlCORRP        := 0 ,;
+      vlJUROSP       := 0 ,;
+      vlRISCO_CAB    := 0 ,;
+      vlCORRAB       := 0 ,;
+      vlTAB          := 0 ,;
+      vlDIF          := 0 ,;
+      lnNR_CONTROLE  := 0 ,;
+      vlJUROSAB      := 0 as numeric
+
+local ii := 0 as int
+
+local llErro    := .F.
+local llSucesso := .T.
+
+aadd(laSAVE1A,{'FL_CALCULO',;
+               'VL_RISCO_CALC',;
+               'VL_CORRECAO',;
+               'VL_JUROS'})
+
+aadd(laSAVE1B,{'VL_RISCO',;
+               'PC_RISCO',;
+               'VL_RISCO_CALC',;
+               'VL_CORRECAO',;
+               'VL_JUROS'})
+
+
+aadd(laSAVE2,{'NR_DETAL',;
+            'NR_PASTA',;
+            'NR_CONTROLE',;
+            'PEDIDO_PROCESSO',;
+            'DT_MOVTO_PED',;
+            'DT_RISCO',;
+            'VL_RISCO',;
+            'VL_RISCO_CALC',;
+            'PC_RISCO',;
+            'VL_CORRECAO',;
+            'VL_JUROS',;
+            'FL_CALCULO',;
+            'COMENTARIOS_PED',;
+            'OCOR_PEDIDO',;
+            'DT_ALTERACAO',;
+            'HR_ALTERACAO',;
+            'LOGIN_CADASTRO'})
+
+lcWHERE_MVTRAT := 'NR_PASTA = '+fcNR_PASTA+' and NR_CONTROLE_DESPESA = '+fcNR_DESPESA
+
+if db_select({'NR_CONTROLE_PEDIDO','VL_RATEADO'},'mvt_desprat',,{lcWHERE_MVTRAT}) == -1
+   error_sys(db_error())
+endif
+laRES_MVTRAT := db_fetchall()
+
+for ii := 2 to len(laRES_MVTRAT)
+
+   vlRISCO        := 0
+   vlRISCON       := 0
+
+   vlRISCO_C      := 0
+   vlCORR         := 0
+   vlJUROS        := 0
+   vlPAGO         := 0
+   lnVLA          := 0
+
+   vlRISCO_CP     := 0
+   vlCORRP        := 0
+   vlJUROSP       := 0
+
+   vlRISCO_CAB    := 0
+   vlCORRAB       := 0
+   vlJUROSAB      := 0
+
+//   db_begin()
+
+   if self:EhAbaNova(fcNR_PASTA)  == 'N'
+   
+      ABA_PED_NOVA   := 'S'
+      lcWHERE        := 'NR_CONTROLE = '+alltrim(str(laRES_MVTRAT[ii,1]))
+
+      if db_select({'NR_CONTROLE',;
+                    'PEDIDO_PROCESSO',;
+                    'VL_RISCO',;
+                    'VL_RISCO_CALC',;
+                    'VL_CORRECAO',;
+                    'VL_JUROS',;
+                    'FL_CALCULO',;
+                    'DT_MOVTO_PED',;
+                    'DT_RISCO',;
+                    'PC_RISCO',;
+                    'COMENTARIOS_PED',;
+                    'OCOR_PEDIDO',;
+                    'NR_CONTROLE_SEGURO'},;
+                    'pasta_pedidos',,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+   else
+      ABA_PED_NOVA   := 'N'
+      querysql := 'SELECT '
+      querysql += 'est.nr_controle as NR_CONTROLE,'
+      querysql += 'pasta_pedidos.PEDIDO_PROCESSO,'
+      querysql += 'pasta_pedidos.VL_RISCO,'
+      querysql += 'est.VL_RISCO_CALC,'
+      querysql += 'est.VL_CORRECAO,'
+      querysql += 'est.VL_JUROS,'
+      querysql += 'pasta_pedidos.FL_CALCULO,'
+      querysql += 'pasta_pedidos.DT_MOVTO_PED,'
+      querysql += 'pasta_pedidos.DT_RISCO,'
+      querysql += 'est.PC_RISCO,'
+      querysql += 'est.COMENTARIOS_PED,'
+      querysql += 'est.OCOR_PEDIDO,'
+      querysql += 'pasta_pedidos.NR_CONTROLE_SEGURO'
+      querysql += ' FROM '
+      querysql += 'pasta_pedidos'
+      querysql += ' left join pasta_pedidos est on est.nr_pasta=pasta_pedidos.nr_pasta and est.nr_pedido_origem=pasta_pedidos.nr_controle'
+      querysql += ' where est.nr_controle ='+alltrim(str(laRES_MVTRAT[ii,1]))
+
+      if db_query(querysql) == -1
+         error_sys(db_error())
+      endif
+
+   endif
+   laRESULT := db_fetchrow()
+
+   vlRISCO  :=laRESULT[3] //vl_risco
+
+   vlRISCO_C:=laRESULT[4] //vl_risco_calc
+   vlCORR   :=laRESULT[5] //vl_correcao
+   vlJUROS  :=laRESULT[6] //vl_juros
+
+   lnVLA    :=vlRISCO_C + vlCORR + vlJUROS  //valor atualizado
+
+   vlPAGO   :=laRES_MVTRAT[ii,2] //valor rateado pago
+
+   *** PROPORÇÃO DOS VALORES ATUAIS SOBRE O VALOR ATUALIZADO
+   vlRISCO_CP:=round((vlRISCO_C * 100)/lnVLA,2)
+   vlCORRP   :=round((vlCORR * 100)/lnVLA,2)
+   vlJUROSP  :=round((vlJUROS * 100)/lnVLA,2)
+
+   *** VALOR A ABATER PROPORCIONAMENTE EM CADA CAMPO
+   vlRISCO_CAB:=round((vlPAGO * vlRISCO_CP)/100,2) //valor a abater do vl_risco_calc
+   vlCORRAB   :=round((vlPAGO * vlCORRP)/100,2)  //valor a abater do vl_correcao
+   vlJUROSAB  :=round((vlPAGO * vlJUROSP)/100,2) //valor a abater do vl_juros
+
+   *** a diferença no rateio joga no risco_calc
+   vlTAB := vlCORRAB + vlJUROSAB
+   vlDIF := vlPAGO - vlTAB
+   vlRISCO_CAB := vlDIF
+
+   if lnVLA == vlPAGO
+      *** pagou total não rateia baixa valor da coluna
+       vlRISCO_CAB:= vlRISCO_C
+       vlCORRAB   := vlCORR
+       vlJUROSAB  := vlJUROS
+   endif
+
+
+   lcWHERE2:= 'NR_PASTA = '+fcNR_PASTA+' AND NR_CONTROLE = '+str(laRES_MVTRAT[ii,1])
+
+
+   vlRISCON := 0
+
+    lcLOG += 'Pedido.....................: ' + alltrim(laRESULT[1]) + ' - ' + alltrim(laRESULT[2]) + CHR(13)
+    lcLOG += 'R$ Risco...................: ' + transform(vlRISCO,'9999999.99')  + chr(13)
+    lcLOG += '% Risco....................: ' + transform(laRESULT[10],'9999999.99') + chr(13)
+    lcLOG += 'R$ Risco Calculado.........: ' + transform(vlRISCO_C,'9999999.99')  + chr(13)
+    lcLOG += 'R$ Correção................: ' + transform(vlCORR,'9999999.99')  + chr(13)
+    lcLOG += 'R$ Juros...................: ' + transform(vlJUROS,'9999999.99')  + chr(13)
+    lcLOG += 'R$ Atualizado..............: ' + transform(lnVLA,'9999999.99')  + chr(13)
+    lcLOG += 'R$ Rateado Pago............: ' + transform(vlPAGO,'9999999.99')  + chr(13)
+    lcLOG += replicate('-',150)  + chr(13) + CHR(13)
+    lcLOG += 'PROPORÇÃO DOS VALORES ATUAIS SOBRE O VALOR ATUALIZADO' + chr(13)
+    lcLOG += '% Risco Calculado..........: ' + transform(vlRISCO_CP,'9999999.99')  + chr(13)
+    lcLOG += '% Correção.................: ' + transform(vlCORRP,'9999999.99')  + chr(13)
+    lcLOG += '% Juros....................: ' + transform(vlJUROSP,'9999999.99')  + chr(13) + CHR(13)
+    lcLOG += 'VALOR A ABATER PROPORCIONAMENTE EM CADA CAMPO' + chr(13) + chr(13)
+    lcLOG += 'R$ Risco Calculado.........: ' + transform(vlRISCO_CAB,'9999999.99')  + chr(13)
+    lcLOG += 'R$ Correção................: ' + transform(vlCORRAB,'9999999.99')  + chr(13)
+    lcLOG += 'R$ Juros...................: ' + transform(vlJUROSAB,'9999999.99')  + chr(13)
+    lcLOG += 'Gerar Extorno Automatico...: ' + ABA_PED_NOVA + chr(13)
+    lcLOG += 'Zera Provisão..............: ' + fcZERA_PROV + chr(13)
+  
+     if pnHANDLOG != nil
+        fwrite(pnHANDLOG, lcLOG)
+     endif
+
+   if fcZERA_PROV == 'S' .or. vlPAGO > lnVLA
+
+   *** rufino 25/09/2012 conf. email da celia 06/09/2012 as 17:16
+   *** Se os valores da pasta_pedidos foram zerados, o Campo FL_CALCULO deve ser desflegado e o conteúdo dos campos pasta_pedidos.VL_RISCO e
+   *** pasta_pedidos.PC_RISCO não devem ser alterados, portanto, nos lançamentos da pasta_detal_pedidos.VL_RISCO deve ser 0,00 e na pasta_detal_pedidos.PC_RISCO
+   *** deve ser o mesmo conteúdo que existe no pedido da pasta_pedidos.PC_RISCO.
+
+
+      laSAVE1B:={}
+
+      aadd(laSAVE1B,{'VL_RISCO',;
+                     'VL_RISCO_CALC',;
+                     'VL_CORRECAO',;
+                     'VL_JUROS'})
+
+
+      aadd(laSAVE1B,{ vlRISCO,;
+                      0,;
+                      0,;
+                      0})
+
+   else
+
+      laSAVE1B:={}
+
+      aadd(laSAVE1B,{'VL_RISCO_CALC',;
+                    'VL_CORRECAO',;
+                    'VL_JUROS'})
+
+      aadd(laSAVE1B,{(vlRISCO_C - vlRISCO_CAB),;
+                     (vlCORR - vlCORRAB),;
+                     (vlJUROS - vlJUROSAB)})
+
+
+   endif
+
+   psab_logs(laSAVE1B,'pasta_pedidos',lcWHERE2, fcNR_PASTA,'Despesas')
+
+   if db_update(laSAVE1B,'pasta_pedidos',{lcWHERE2}) == -1
+      error_sys(db_error())
+   endif
+
+
+   if vlPAGO > lnVLA
+
+      *** aumento de provisão
+      *** cria lançamento de aumento
+
+      if db_select({'OCOR_PROV_AUTO','OCOR_PEDIDO_RATEIO'},'pasta_config',,{'TP_PASTA ='+DLAP+fcTP_PASTA+DLAP}) == -1
+         error_sys(db_error())
+      endif
+      laRES_OCOR := db_fetchrow()
+
+      lcOCOR:= iif(len(laRES_OCOR) > 0,laRES_OCOR[1],fcOCOR_PEDIDO)
+
+      laSAVE2:={}
+
+      aadd(laSAVE2,{'NR_DETAL',;
+                   'NR_PASTA',;
+                   'NR_CONTROLE',;
+                   'PEDIDO_PROCESSO',;
+                   'DT_MOVTO_PED',;
+                   'DT_RISCO',;
+                   'VL_RISCO',;
+                   'VL_RISCO_CALC',;
+                   'PC_RISCO',;
+                   'VL_CORRECAO',;
+                   'VL_JUROS',;
+                   'FL_CALCULO',;
+                   'COMENTARIOS_PED',;
+                   'OCOR_PEDIDO',;
+                   'DT_ALTERACAO',;
+                   'HR_ALTERACAO',;
+                   'LOGIN_CADASTRO'})
+
+      aadd(laSAVE2,{0,;
+                   val(fcNR_PASTA),;
+                   laRESULT[1],;
+                   laRESULT[2],;
+                   date(),;
+                   laRESULT[9],;
+                   vlRISCON,;
+                   (vlRISCO_C - vlRISCO_CAB)*-1,;
+                   laRESULT[10],;    //pasta_pedidos.PC_RISCO
+                   (vlCORR - vlCORRAB)*-1,;
+                   (vlJUROS - vlJUROSAB)*-1,;
+                   laRESULT[7],;
+                   '',;
+                   lcOCOR,;
+                   date(),;
+                   time(),;
+                   gcLOGIN})
+
+      if db_insert(laSAVE2,'pasta_detal_pedidos') == -1
+         error_sys(db_error())
+      endif
+      
+      lnNR_CONTROLE := db_insert_id()
+
+      if lnNR_CONTROLE == 0
+          if db_select({'max(NR_DETAL)'},'pasta_detal_pedidos') == -1
+             error_sys(db_error())
+          endif
+
+          laRES     := db_fetchrow()
+          lnNR_CONTROLE := laRES[1]
+      endif
+
+
+      // Glauber 19/06/2016
+      // envia o ajuste do pedido ao Life
+
+wout('Valor de IsertID:' + alltrim(lnNR_CONTROLE))
+
+      self:objSave    := {{'NR_CONTROLE','NR_PASTA','PEDIDO_PROCESSO','VL_RISCO_CALC','VL_CORRECAO','VL_JUROS','NR_DETAL'},;
+                          {laSAVE2[2,db_fetchncol(laSAVE2,'NR_CONTROLE')],;
+                           laSAVE2[2,db_fetchncol(laSAVE2,'NR_PASTA')],;
+                           laSAVE2[2,db_fetchncol(laSAVE2,'PEDIDO_PROCESSO')],;
+                           laSAVE2[2,db_fetchncol(laSAVE2,'VL_RISCO_CALC')],;
+                           laSAVE2[2,db_fetchncol(laSAVE2,'VL_CORRECAO')],;
+                           laSAVE2[2,db_fetchncol(laSAVE2,'VL_JUROS')],;
+                           lnNR_CONTROLE }}
+
+      llSucesso := self:AjustaReservaPedido()
+
+      if ! llSucesso
+wout('Erro ao atualizar a reserva no LIFE.(Aumento de reversa do pedido, referente despesa pago a maior.)')
+         return {-1,'Erro ao atualizar a reserva no LIFE.(Aumento de reversa do pedido, referente despesa pago a maior.)'}
+      endif
+
+
+   endif
+
+   laSAVE2:={}
+
+   aadd(laSAVE2,{'NR_DETAL',;
+                'NR_PASTA',;
+                'NR_CONTROLE',;
+                'PEDIDO_PROCESSO',;
+                'DT_MOVTO_PED',;
+                'DT_RISCO',;
+                'VL_RISCO',;
+                'VL_RISCO_CALC',;
+                'PC_RISCO',;
+                'VL_CORRECAO',;
+                'VL_JUROS',;
+                'FL_CALCULO',;
+                'COMENTARIOS_PED',;
+                'OCOR_PEDIDO',;
+                'DT_ALTERACAO',;
+                'HR_ALTERACAO',;
+                'LOGIN_CADASTRO'})
+
+   aadd(laSAVE2,{0,;
+                val(fcNR_PASTA),;
+                laRESULT[1],;
+                laRESULT[2],;
+                date(),;
+                laRESULT[9],;
+                vlRISCON,;
+                vlRISCO_CAB*-1,;
+                laRESULT[10],;    //pasta_pedidos.PC_RISCO
+                vlCORRAB*-1,;
+                vlJUROSAB*-1,;
+                laRESULT[7],;
+                '',;
+                fcOCOR_PEDIDO,;
+                date(),;
+                time(),;
+                gcLOGIN})
+
+   if db_insert(laSAVE2,'pasta_detal_pedidos') == -1
+      error_sys(db_error())
+   endif
+
+   if fcZERA_PROV == 'S'  .and. vlPAGO <= lnVLA
+
+      if db_select({'OCOR_PROV_AUTO','OCOR_PEDIDO_RATEIO'},'pasta_config',,{'TP_PASTA ='+DLAP+fcTP_PASTA+DLAP}) == -1
+         error_sys(db_error())
+      endif
+      laRES_OCOR := db_fetchrow()
+
+      lcOCOR:= iif(len(laRES_OCOR) > 0,laRES_OCOR[2],fcOCOR_PEDIDO)
+
+      laSAVE2:={}
+
+      aadd(laSAVE2,{'NR_DETAL',;
+                   'NR_PASTA',;
+                   'NR_CONTROLE',;
+                   'PEDIDO_PROCESSO',;
+                   'DT_MOVTO_PED',;
+                   'DT_RISCO',;
+                   'VL_RISCO',;
+                   'VL_RISCO_CALC',;
+                   'PC_RISCO',;
+                   'VL_CORRECAO',;
+                   'VL_JUROS',;
+                   'FL_CALCULO',;
+                   'COMENTARIOS_PED',;
+                   'OCOR_PEDIDO',;
+                   'DT_ALTERACAO',;
+                   'HR_ALTERACAO',;
+                   'LOGIN_CADASTRO'})
+
+      aadd(laSAVE2,{0,;
+                   val(fcNR_PASTA),;
+                   laRESULT[1],;
+                   laRESULT[2],;
+                   date(),;
+                   laRESULT[9],;
+                   vlRISCON,;
+                   (vlRISCO_C - vlRISCO_CAB)*-1,;
+                   laRESULT[10],;    //pasta_pedidos.PC_RISCO
+                   (vlCORR - vlCORRAB)*-1,;
+                   (vlJUROS - vlJUROSAB)*-1,;
+                   laRESULT[7],;
+                   '',;
+                   lcOCOR,;
+                   date(),;
+                   time(),;
+                   gcLOGIN})
+
+              lcLOG := chr(13) + 'AJUSTE DA PROVISÃO - PAGAMENTO' + chr(13)
+              lcLOG += 'R$ Risco...................: ' + transform(laSAVE2[2,7],'9999999.99')  + chr(13)
+              lcLOG += 'R$ Risco Calculado.........: ' + transform(laSAVE2[2,8],'9999999.99')  + chr(13)
+              lcLOG += 'R$ Correção................: ' + transform(laSAVE2[2,10],'9999999.99')  + chr(13)
+              lcLOG += 'R$ Juros...................: ' + transform(laSAVE2[2,11],'9999999.99')  + chr(13)
+
+/*
+Glauber 26/06/2016
+
+Conforme solicitado pelo Alexandre em reunião com a Célia, a Cardif solicitou que os dados de extorno de pagamento não seja informado ao Life.
+Isto foi solicitado pelo Jorge.
+
+
+*/
+              // Gravar o detalhe com informações de como se tivesse enviado ao Life, evitando assim que a rotina que executa após o xup envie este registro.
+
+              aadd(laSAVE2[1],'DT_ENVIO_INTERFACE')
+              aadd(laSAVE2[1],'FL_RETINTERFACE')
+              aadd(laSAVE2[1],'RETORNO_INTERFACE')
+
+
+              aadd(laSAVE2[2],date())
+              aadd(laSAVE2[2],'0')
+              aadd(laSAVE2[2],'OK')
+
+
+              lcLOG += 'OBSERVAÇÃO AJUSTE PROVISÃO.: O AJUSTE SÓ FOI REALIZADO NO ISJ PORQUE OPERAÇÕES DE ESTORNO DE PAGAMENTO NÃO DEVE SER INFORMADO AO LIFE.' + chr(13)
+
+              fwrite(pnHANDLOG, lcLOG)
+
+
+      if db_insert(laSAVE2,'pasta_detal_pedidos') == -1
+         error_sys(db_error())
+      endif
+   endif
+
+
+   laSAVE3:={}
+
+   aadd(laSAVE3,{'FL_PAGO',;
+                 'VL_ATUALIZADO',;
+                 'VL_RISCO',;
+                 'PC_RISCO',;
+                 'VL_RISCO_CALC',;
+                 'VL_CORRECAO',;
+                 'VL_JUROS'})
+
+   aadd(laSAVE3,{'S',;
+                 lnVLA,;
+                 vlRISCO,;
+                 laRESULT[10],;
+                 vlRISCO_C,;
+                 vlCORR,;
+                 vlJUROS})
+
+   lcWHERE3 := 'NR_PASTA = '+fcNR_PASTA+' and NR_CONTROLE_DESPESA = '+fcNR_DESPESA +' and NR_CONTROLE_PEDIDO = '+alltrim(str(laRES_MVTRAT[ii,1]))
+
+   if db_update(laSAVE3,'mvt_desprat',{lcWHERE3}) == -1
+      error_sys(db_error())
+   endif
+
+//   db_commit()
+
+next ii
+
+
+return({0,lcLOG})
+      
+
+
+
+/*
+* Data......: 05/2015 - Glauber
+* Function..: ComunicaWS(paSAVE)
+* Objetivo..: Envia o ajuste da reserva.
+* Parâmetros:
+*
+* paSAVE       : Array laSAVE do pasta_detal.
+*
+* Retorno...: .T. Caso a comunicação ocorra com sucesso.
+*/
+
+METHOD ComunicaWS(paSAVE) class IsjLife
+
+//    local objetoLife                  := IsjLifeNew() as Object
+//          objetoLife:objSave          := paSAVE
+          self:objSave          := paSAVE
+
+//wout('<br><b>DEBUG DE Comunica(paSAVE)')
+
+//wout(debug2(paSAVE,,30))
+
+    return self:AjustaReservaPedido()
+//    return objetoLife:AjustaReservaPedido()
+
+
+
+
+
+
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: LmiCobertura(pcCobertura)
+* Objetivo..: Verifica se o nome da cobertura existe na tabela lmi_cobertura.
+*             Caso o não exista, o mesmo é incluido automaticamente.
+*
+* Parâmetros:
+*
+* Retorno...:
+*
+*
+*/
+
+METHOD LmiCobertura(pcCobertura) CLASS IsjLife
+
+      local laSAVE     := {},;
+            laRESULT   := {} as Array
+
+
+
+      if empty(pcCobertura)
+         return
+      endif
+
+      if db_replace({{'LMI_NM_COBERTURA','FL_ATIVO'},{pcCobertura,'S'}},'lmi_cobertura',{'LMI_NM_COBERTURA='+DLAP+ pcCobertura + DLAP }) = -1
+          error_sys()
+      endif
+
+return
+
+
+
+
+/*
+*
+* Glauber - 06/2017
+*
+* Metodo....: EhAbaNova(pnNrPasta)
+* Objetivo..: Verifica se a pasta que esta sendo processada esta configurada para utilização da nova aba pedidos.
+*
+*
+* Parâmetros:
+*
+*  pnNrPasta: Numero da pasta
+
+* Retorno...:
+*             S Indica que deve utilizar.
+*
+*/
+
+METHOD EhAbaNova(pnNrPasta) CLASS IsjLife
+
+      local laRES_EXP := {} as Array
+
+      if db_select({'pasta_config.FL_COBERTURA_RAMO','pasta_config.GERA_EST_AUT'},'pasta_config, pasta',,{'pasta.NR_PASTA=' + pnNrPasta +   ' AND  pasta_config.TP_PASTA = pasta.TP_PASTA'}) == -1
+         error_sys(db_error())
+      endif
+
+      laRES_EXP := db_fetchall()
+
+return iif(len(laRES_EXP) > 1 .and. laRES_EXP[2,2] == 'S', 'S', 'N')
+
+
+
+
+
+
+
+
+
+
+
+
+
+

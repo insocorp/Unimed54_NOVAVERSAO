@@ -1,0 +1,142 @@
+
+//
+// Glauber - 10/2017
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Classe...........: I4PSiJudRes
+*
+* Objetivo.........: Classe que espelha um resseguro de um sinistro judicial.
+*
+* Atributos........:
+*
+*    EXPORT DvResseguro
+*    EXPORT IdPessoaResseguradora
+*    EXPORT PcResseguro
+*    EXPORT VlIsResseguro
+*    EXPORT VlPremioResseguro
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD toString()
+*
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS I4PSiJudRes
+
+    // Atributos publico
+
+    EXPORT DvResseguro
+    EXPORT IdPessoaResseguradora
+    EXPORT PcResseguro
+    EXPORT VlIsResseguro
+    EXPORT VlPremioResseguro
+
+    
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()                          CLASS I4PSiJudRes
+    PROTOTYPE METHOD Destroy()                       CLASS I4PSiJudRes
+    PROTOTYPE METHOD toString()                      CLASS I4PSiJudRes
+
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS I4PSiJudRes
+
+    self:DvResseguro           := ''
+    self:IdPessoaResseguradora := ''
+    self:PcResseguro           := 0
+    self:VlIsResseguro         := 0.00
+    self:VlPremioResseguro     := 0.00
+    
+
+return(self)
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS I4PSiJudRes
+
+    self:DvResseguro           := nil
+    self:IdPessoaResseguradora := nil
+    self:PcResseguro           := nil
+    self:VlIsResseguro         := nil
+    self:VlPremioResseguro     := nil
+
+
+return(nil)
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: toString()
+* Objetivo..: Retornar uma String com a representação do Objeto.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             String
+*
+*/
+
+METHOD toString() CLASS I4PSiJudRes
+
+return    'I4PSiJudRes [DvResseguro=' +  Transform(self:DvResseguro) +;
+          ', IdPessoaResseguradora=' + Transform(self:IdPessoaResseguradora) +;
+          ', PcResseguro=' + Transform(self:PcResseguro) +;
+          ', VlIsResseguro=' + Transform(self:VlIsResseguro) +;
+          ', VlPremioResseguro=' + Transform(self:VlPremioResseguro) +;
+          ']'
+
+
+

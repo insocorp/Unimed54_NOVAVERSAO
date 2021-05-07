@@ -1,0 +1,132 @@
+/*
+
+Project      : isj_50
+Program      : dic.exc.cfg.html
+Function     : dic_exc_cfg_html
+Created on   : 01-Aug-2015   09:39:45
+Descripition :
+
+*/
+    local lcACTION    := '',;
+          lcCODE      := '' as String
+
+    local laFIELDS    := {},;
+          laSAVE      := {},;
+          laAUX       := {},;
+          laPAGINAS   := {},;
+          laLIMIT     := {},;
+          laRESULT    := {},;
+          laRES       := {} as Array
+
+   local ii           := 0,;
+         lnCOUNT      := 0 as int
+
+
+
+    lcACTION := WGET('ACTION')
+
+
+    laFIELDS := {'DICIONARIO_TIPO',;
+                 'PALAVRA_CHAVE'}
+
+
+    // Carga do combo
+
+    WPUT('DICIONARIO_TIPO.option', {'SQL','CSS'})
+    WPUT('DICIONARIO_TIPO.optionvalue', {'SQL','CSS'})
+
+    if lcACTION == 'SAVE'
+       if Empty(WGET('DICIONARIO_TIPO')) .or. Empty(WGET('PALAVRA_CHAVE'))
+          WAlert('Os dois campos da tela deve ser informado.')
+          get2put()
+       else
+          aadd(laSAVE,laFIELDS)
+          laAUX := {}
+          for ii := 1 to len(laFIELDS)
+              aadd(laAUX,WGET(laFIELDS[ii]))
+          next ii
+          aadd(laSAVE,laAUX)
+
+          if db_replace(laSAVE,'DICIONARIO_EXCLUSAO',{'DICIONARIO_TIPO='+DLAP + WGET('DICIONARIO_TIPO','C') + DLAP + ' and ' + 'PALAVRA_CHAVE='+DLAP + WGET('PALAVRA_CHAVE','C') + DLAP}) == -1
+             error_sys(db_error())
+          endif
+       endif
+
+    elseif lcACTION == 'DELETE'
+           if ! empty(WGET('PALAVRA_CHAVE'))
+              if db_delete('DICIONARIO_EXCLUSAO','DICIONARIO_TIPO='+DLAP + WGET('DICIONARIO_TIPO','C') + DLAP + ' and ' + 'PALAVRA_CHAVE='+DLAP + WGET('PALAVRA_CHAVE','C') + DLAP) == -1
+                 error_sys(db_error())
+              endif
+           endif
+    elseif lcACTION == 'ALTER'
+           if ! empty(WGET('PALAVRA_CHAVE'))
+              if db_select(laFIELDS,'DICIONARIO_EXCLUSAO',,{'DICIONARIO_TIPO='+DLAP + WGET('DICIONARIO_TIPO','C') + DLAP + ' and ' + 'PALAVRA_CHAVE='+DLAP + WGET('PALAVRA_CHAVE','C') + DLAP}) == -1
+                 error_sys(db_error())
+              endif
+              laRES := db_fetchall()
+              if len(laRES) > 1
+                 db2put(laRES)
+              endif
+           endif
+
+    endif
+
+
+   // Rotina para executar paginação do dicionario de dados.
+
+   if db_select(laFIELDS,'DICIONARIO_EXCLUSAO',,,{'DICIONARIO_TIPO','PALAVRA_CHAVE'}) == -1
+      db_error()
+   endif
+   laRESULT  := db_fetchall()
+   lnCOUNT   := len(laRESULT)-1
+   if lnCOUNT > 0
+      laPAGINAS := paginacao(lnCOUNT,'','','dic.exc.cfg.html')
+      laLIMIT   := param_fetch(laPAGINAS,'LIMIT')
+
+      if db_select(laFIELDS,'DICIONARIO_EXCLUSAO',,,{'DICIONARIO_TIPO','PALAVRA_CHAVE'},,,laLIMIT) == -1
+         error_sys(db_error())
+      endif
+
+      laRESULT := db_fetchall()
+
+      // Resumo da pesquisa
+
+      lcCODE := alltrim(str(laLIMIT[1]+1))+'-'
+      if ((len(laRESULT)-1) < (laLIMIT[2]-laLIMIT[1]))
+               lcCODE += alltrim(str(len(laRESULT)-1))
+      elseif param_fetch(laPAGINAS,'GOTO_PAGE') == param_fetch(laPAGINAS,'NR_PAGES') //lnNR_PAGES
+               lcCODE += alltrim(str(lnCOUNT))
+      else
+               lcCODE += alltrim(str(laLIMIT[1]+param_fetch(laPAGINAS,'ROWS_PAGE')))
+      endif
+      lcCODE += ' de '+alltrim(str(lnCOUNT))
+      if lnCOUNT > 1
+         lcCODE := ' Resultados '+lcCODE+' registros'
+      else
+         lcCODE := ' Resultado '+lcCODE+' registro'
+      endif
+      wput('RESUME_RESULTSET',lcCODE)
+
+      if len(laRESULT) > 0
+
+         aadd(laRESULT[1],'(row)')
+         for ii := 2 to len(laRESULT)
+            aadd(laRESULT[ii],'(row)'+wic_action('wicaction/dic.exc.cfg.html?ACTION=ALTER'+;
+                                                 '&DICIONARIO_TIPO='+laRESULT[ii,ascan(laRESULT[1],'DICIONARIO_TIPO')] +;
+                                                 '&PALAVRA_CHAVE='+laRESULT[ii,ascan(laRESULT[1],'PALAVRA_CHAVE')] ))
+         next ii
+
+         WPut('GRID_DICIONARIO',grid_create(laRESULT))
+      endif
+   endif
+
+
+
+
+
+return
+
+
+
+
+

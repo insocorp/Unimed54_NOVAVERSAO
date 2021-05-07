@@ -1,0 +1,54 @@
+/*
+Project      : gr5
+Program      : status.recurso.mnt.html
+Function     : status_recurso_mnt_html
+Created on   : 05-07-2012   22:10
+Descripition : Manutenção e listagem de status de recurso
+*/
+
+
+local laPARAM        := {},;
+      laINPUT_OBJ    := {},;
+      laSELECT       := {} as array
+
+laPARAM := {{'ID_STATUS',''     ,'*'},;
+            {'FL_ATIVO','',},;
+            {'ACTION'  ,'ALTER',   }}
+
+laINPUT_OBJ := { {'ID_STATUS',0,'Y', ,"'New'"},;
+                 {          , ,   , ,       },;
+                 {'STATUS_RECURSO',0,   , ,       },;
+                {,,,,},;
+                {'FL_ATIVO',2,,,'"S"' }}
+
+laSELECT := {'ID_STATUS','STATUS_RECURSO','FL_ATIVO'}
+
+if upper(alltrim(WGet('ACTIONBP'))) == 'ALTER'
+   mkgedico('status_recurso',WGet('ID_STATUS','C'))
+endif
+                                                          
+xbp('status_recurso',;                                                  //Tabela alvo
+    ,;                                                                  //Joins
+    ,;                                                                  //Where
+    ,;                                                                  //Order by
+    ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+    ,;                                                                  //Group by
+    ,;                                                                  //Limit
+    ,;                                                                  //Banco de Dados
+    2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+    'gr5',;                                                             //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                                           //Programa chamador
+    laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+    ,;                                                                  //Parâmetros para os botões das linhas do grid
+    'status.recurso.mnt.html',;                                         //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+    ,;                                                                  //Retorno java (nil) - usado apenas para Search
+    ,;                                                                  //Campos usados na pesquisa rápida
+    ,;                                                                  //Campos Ocultos
+    laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+    laSELECT,;                                                          //Campos exibidos no grid
+    laSELECT)                                                           //Campos usados no select
+return
+
+
+

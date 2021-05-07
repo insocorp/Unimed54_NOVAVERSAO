@@ -1,0 +1,473 @@
+/*
+
+Project      : gr5
+Program      : gem_tokio
+Function     : gem_tokio
+Created on   : 24/10/2008 16:53:00
+Descripition : Exportar e importar dados da pasta ressarcimento e pagamentos com Sinistro do  isj para o GEM - TOKIO Marine
+
+*/
+
+****** EM MANUTENÇÃO ***************
+*PROGRAMA TESTE                    * 
+*NÃO EXECUTAR                      *
+************************************
+   WSet('_USER_INTERFACE','none.wic')
+
+   local lcPAR1  := upper(alltrim(pcPARAM)) as string        // pcPARAM  parametro enviado pelo daemon. E-Envio ou R-Recebimento
+
+   local lcTABLE   := '' ,;
+         lcFILEIN  := '' ,;
+         lcFILEOUT := '' ,;
+         lcID      := ''  as string
+
+   local lnHAND   := 0  as int
+
+   lcFILEIN  := WSet("FILEGEMINPUT")   // Path+Nome arquivo de recebimento de dados.
+   lcFILEOUT := WSet("FILEGEMOUTPUT")  // Path+Nome arquivo de envio de dados.
+   lcFILEOUT := strtran(lcFILEOUT,'[date]',dtos(date()))   // substitui [date] se houver no nome do arquivo.
+   lcFILEOUT := strtran(lcFILEOUT,'[time]',strtran(time(),':','-'))  // substitui [time] se houver no nome do arquivo.
+
+   if lcPAR1 == 'E'     //  Envio de dados.
+      lnHAND := fcreate(lcFILEOUT, 0)
+   else                 //  Recebimento de dados.
+      lnHAND := fopen(lcFILEIN, 0)
+   endif
+   if lnHAND >= 0
+      proc_detalhe(lcPAR1,lnHAND)
+      fclose(lnHAND)
+   else
+      if lcPAR1 == 'E'     //  Envio de dados.
+         qout('Problemas ao criar arquivo de envio : '+lcFILEOUT)
+      else
+         qout('Problemas na leitura do arquivo de recebimento: '+lcFILEIN)
+      endif
+   endif
+
+/*
+* Function..: proc_detalhe(fcTIPO,fcHAND)
+* Parâmetros: fcTIPO -> R - Recebimento ou E - Envio
+*             fcHAND -> handle do arquivo
+* Retorno...: .t. / .f.
+*/
+static function proc_detalhe(fcTIPO,fcHAND)
+   #define NEWLINE chr(13) + chr(10)
+
+   local ii       := 0 ,;
+         jj       := 0 ,;
+         zz       := 0 ,;
+         lnHAND1  := 0  as int
+
+   local lcLINE   := '' ,;
+         lcWHERE  := '' ,;
+         lcFILELOG:= '' ,;
+         lcLOG    := ''  as string
+
+   local laDETVAL  := {} ,;
+         laRES  	 := {} ,;
+         laFIELDS  := {} ,;
+         laSAVE    := {} ,;
+         laSAVEAUX := {} ,;
+         laRESULT  := {} ,;
+         laGROUP   := {} ,;
+         laJOIN    := {} as array
+   local	llFLAG    := .f. as logical
+
+   if fcTIPO = 'E'       // Envio de dados
+
+      // Buscando os dados a enviar
+      laFIELDS := {'mvt_parc_ressarc.COD_BANCO'            ,;
+                   'mvt_parc_ressarc.BANCO_AGENCIA'        ,;
+                   'mvt_parc_ressarc.BANCO_CONTA'          ,;
+                   'mvt_parc_ressarc.NR_CHEQUE'            ,;
+                   'mvt_parc_ressarc.SACADO_REC'           ,;
+                   'mvt_parc_ressarc.DOCUMENTO_SACADO_REC' ,;
+                   'mvt_parc_ressarc.VL_RECEBIDO_REC'      ,;
+                   'mvt_parc_ressarc.EVENTO_CONTABIL'}
+
+       laGROUP := {'mvt_parc_ressarc.NR_PASTA'            ,;
+                   'mvt_parc_ressarc.NR_SINISTRO'}
+
+      laJOIN := { { 2,'pasta_seguro'          ,"mvt_parc_ressarc.nr_sinistro    = pasta_seguro.nr_sinistro and pasta_seguro.nr_sinistro <> ''"+;
+                                               " and mvt_parc_ressarc.nr_pasta  = pasta_seguro.nr_pasta" },;
+                  { 2,'pasta'                 ,'mvt_parc_ressarc.nr_pasta       = pasta.nr_pasta'                                         },;
+                  { 2,'pasta_config'          ,'pasta.tp_pasta             = pasta_config.tp_pasta'                                  },;
+                  { 2,'mvt_despesa_pagamento' ,'mvt_despesa_pagamento.nr_pasta = mvt_despesa.nr_pasta and mvt_despesa_pagamento.nr_despesa = mvt_despesa.nr_despesa'} }
+
+      lcWHERE := "mvt_parc_ressarc.ACSEL = ' '  and "+;
+                 " (pasta.TP_PASTA = 'Ressarcimento' or pasta.TP_PASTA = 'Cível com Sinistro')"
+       endif          
+       if fcTIPO = 'R'       // Envio de dados
+
+      // Buscando os dados a Receber
+      laFIELDS := {'mvt_parc_ressarc.COD_BANCO'            ,;
+                   'mvt_parc_ressarc.BANCO_AGENCIA'        ,;
+                   'mvt_parc_ressarc.BANCO_CONTA'          ,;
+                   'mvt_parc_ressarc.NR_CHEQUE'            ,;
+                   'mvt_parc_ressarc.SACADO_REC'           ,;
+                   'mvt_parc_ressarc.DOCUMENTO_SACADO_REC' ,;
+                   'mvt_parc_ressarc.VL_RECEBIDO_REC'      ,;
+                   'mvt_parc_ressarc.EVENTO_CONTABIL'}
+
+       laGROUP := {'mvt_parc_ressarc.NR_PASTA'            ,;
+                   'mvt_parc_ressarc.NR_SINISTRO'           }
+
+        laJOIN := { { 2,'pasta_seguro'          ,"mvt_parc_ressarc.nr_sinistro    = pasta_seguro.nr_sinistro and pasta_seguro.nr_sinistro <> ''"+;
+                                               " and mvt_parc_ressarc.nr_pasta  = pasta_seguro.nr_pasta" },;
+                  { 2,'pasta'                 ,'mvt_parc_ressarc.nr_pasta       = pasta.nr_pasta'                                         },;
+                  { 2,'pasta_config'          ,'pasta.tp_pasta             = pasta_config.tp_pasta'                                  },;
+                  { 2,'mvt_despesa_pagamento' ,'mvt_despesa_pagamento.nr_pasta = mvt_despesa.nr_pasta and mvt_despesa_pagamento.nr_despesa = mvt_despesa.nr_despesa'} }
+   
+       lcWHERE := "mvt_parc_ressarc.ACSEL = ' '  and "+;
+                 " (pasta.TP_PASTA = 'Ressarcimento' or pasta.TP_PASTA = 'Cível com Sinistro')"
+                 
+   
+      endif
+      if db_select(laFIELDS,'mvt_parc_ressarc',laJOIN,{lcWHERE},,,laGROUP) == -1   // despesas pendentes de aprovacao não podem ser enviadas
+         db_error()
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         laDETVAL := cria_array()
+         if db_select({'nr_sequencia'},'seq_interfaces',,{"program = 'gem_html'"}) == -1
+            qout("Erro Select -> "+db_error())
+            return(.f.)
+ 	 		endif
+       	laRES := db_fetchall()
+         lcLINE   := ''   // Cabecalho
+    		lcLINE = '00'+ '0000000' + dtos(DATE()) + strzero(laRES[2,1],7) + replicate(" ",376) + NEWLINE
+
+         if FWrite(fcHAND,lcLINE) <= 0
+         	qout("Erro na gravação do arquivo.")
+            return(llFLAG)
+         endif
+         for ii := 2 to len(laRESULT)
+             if laRESULT[ii,db_fetchncol(laRESULT,'QTD_PAGTO')] = 0  .and. ; // envia somente as despesas não pagas
+                laRESULT[ii,db_fetchncol(laRESULT,'FL_CTPAG')] = 'I' .and. ;
+                laRESULT[ii,db_fetchncol(laRESULT,'FL_PGINTERFACE')] <> 'Y'
+                llFLAG := .t.
+                lcLINE   := ''
+                for zz := 1 to len(laDETVAL)
+                   if laDETVAL[zz,8] == 'F'
+                   	if ( (empty(laDETVAL[zz,1])) .and. (laDETVAL[zz,10] == 'N'))
+                      	lcLINE += replicate('0', laDETVAL[zz,4])
+                      elseif( (empty(laDETVAL[zz,1])) .and. (laDETVAL[zz,10] == 'A'))
+                        	lcLINE += replicate(' ', laDETVAL[zz,4])
+	                   else
+                        	lcLINE += laDETVAL[zz,1]
+                      endif
+                   elseif laDETVAL[zz,8] == 'I'
+                      lcLINE += strzero((++jj),laDETVAL[zz,4])
+                   elseif laDETVAL[zz,8] == 'D'
+                      lcLINE += dtos(date())
+                   elseif laDETVAL[zz,8] == 'S'
+                      if laDETVAL[zz,7] == 'NR_DESPESA'  // Codigo de identificacao do pagamento  nr_pasta + nr_despesa
+                      	lcID := strzero(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])],6)+;
+                      		  strzero(laRESULT[ii,db_fetchncol(laRESULT, 'NR_PASTA')],6)
+                         lcLINE += lcID + replicate(' ', (laDETVAL[zz,4] - len(lcID) ))
+                      elseif laDETVAL[zz,2] == 'A'   //campos string
+                         if len(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]) > 0
+                  			 			  // verifica se o que vem do banco não está vazio...
+                            if len(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]) > laDETVAL[zz,4]
+                               if laDETVAL[zz,7] == "PFPJ_NATUREZA"
+                                  if substr(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )] , 1,laDETVAL[zz,4]) == 'F'
+                                     lcLINE += '1'
+                                  else
+                                     lcLINE += '2'
+                                  endif
+                               elseif laDETVAL[zz,7] == "DV_AGENCIA"
+                                  if at("-",laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]) > 0
+                                  	lcLINE += substr(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )],;
+                                     		           at("-",laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])])+1,1)
+                                  else
+                                     lcLINE += ' '
+                                  endif
+                               elseif laDETVAL[zz,7] == "DV_CONTA"
+                                  if at("-",laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]) > 0
+                                  	if(len(substr(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )],;
+                                     		           at("-",laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])])+1))>1)
+                                     	lcLINE +=substr(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )],;
+                                     		           at("-",laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])])+1,2)
+                                  	else
+                                     	lcLINE +=' '+ substr(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )],;
+                                     		             at("-",laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])])+1)
+                                     endif
+                                  else
+                                     lcLINE += '  '
+                                  endif
+                               elseif laDETVAL[zz,7] == "BANCO_CONTA"
+                                  lcLINE +=strzero(val(substr(strtran(strtran(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )],'.'),' '),1,;
+                     						at('-',strtran(strtran(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )],'.'),' '))-1)),laDETVAL[zz,4])
+                               else
+                            		lcLINE += substr(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )] , 1,laDETVAL[zz,4])
+                               endif
+                            else
+                               if laDETVAL[zz,7] == "BANCO_CONTA"
+                                  lcLINE += strzero(val(substr(strtran(strtran(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )],'.'),' '),1,;
+                     						at('-',strtran(strtran(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )],'.'),' '))-1)),laDETVAL[zz,4])
+                              	elseif laDETVAL[zz,10] == 'A'
+                              	  	lcLINE += laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])] + replicate(' ', (laDETVAL[zz,4] - len(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )])) )
+                              	elseif laDETVAL[zz,10] == 'N'
+                                 	lcLINE += strzero(val(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]),;
+                                 			(laDETVAL[zz,4] - len(alltrim(str(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )])))))
+                              	endif
+                            endif
+                         else    // Sim, o que vem do banco está vazio...
+                           	if laDETVAL[zz,10] == 'N'
+                               lcLINE += replicate('0', laDETVAL[zz,4])
+                           	else
+                              	lcLINE += replicate(' ', laDETVAL[zz,4])
+                           	endif
+                         endif
+                      elseif laDETVAL[zz,2] == 'N'      // campos numericos
+                        	if laDETVAL[zz,5] = 0          // não contem casas decimais
+                           	if laDETVAL[zz,10] == 'N'
+                               //?'Nr_pasta -> ',laRESULT[ii,db_fetchncol(laRESULT, 'NR_PASTA' )]
+                              	lcLINE += strzero(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )], laDETVAL[zz,4],laDETVAL[zz,5])
+                           	else
+                           		lcLINE += alltrim(str(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]))+;
+			       		        	replicate(' ', (laDETVAL[zz,4] - len(alltrim(str( laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])] ))) ))
+                           	endif
+                        	else
+                           	lcLINE += strzero(val(strtran( str(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])]) , '.','')), laDETVAL[zz,4])
+                        	endif
+                      elseif laDETVAL[zz,2] == 'D'
+                         if len(strtran(dtos(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]),' ')) > 0
+                        		lcLINE += dtos(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )])
+                         else
+                            lcLINE += "00000000"
+                         endif
+                      endif
+                   endif
+             	next zz
+             	lcLINE += NEWLINE
+	            if FWrite(fcHAND,lcLINE) <= 0
+   	       		qout("Erro na gravação do arquivo.")
+                  return(.f.)
+             	endif
+               // Alterando o flag de envio de solicitacao ao GEM
+               lcWHERE := 'NR_PASTA   = '+alltrim(str(laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')]))+' and '+;
+                          'NR_CONTROLE_REC = '+alltrim(str(laRESULT[ii,db_fetchncol(laRESULT,'NR_CONTROLE_REC')]))
+               if db_update({{"FL_PGINTERFACE","DT_ENVIO_CTPAG"},{"Y",date()}},'mvt_parc_ressarc',{lcWHERE}) == -1
+                  qout("Erro Update -> "+db_error())
+                  return(.f.)
+               endif
+             endif
+         next ii
+         if llFLAG
+		      if db_update({{'nr_sequencia'},{laRES[2,1]+1}},'seq_interfaces',{"program ='GEM_html'"}) == -1
+               qout("Erro Update -> "+db_error())
+               return(.f.)
+         	endif
+		   endif
+         lcLINE := '99'+ strzero((++jj),7) + strzero((jj-1),7) + replicate(" ",384)
+         if FWrite(fcHAND,lcLINE) <= 0
+         	qout("Erro na gravação do arquivo.")
+            return(.f.)
+         endif
+*      endif
+   elseif fcTIPO = 'R'   // Recebimento de dados
+      // Criando arquivo de Log
+      lcFILELOG := strtran(WSet("FILEGEMINPUT"),'.txt','')+'.log'
+      lnHAND1 := fcreate(lcFILELOG, 0)
+      if lnHAND1 < 0
+         qout('Problemas ao criar arquivo de LOG : '+lcFILELOG)
+         return(.f.)
+      endif
+      lcLOG := '      Log de Ocorrências GEM - Pagamento de Sinistro.    Em: '+dtoc(date())+' - '+time()+ NEWLINE
+      lcLOG += replicate('-',96)+ NEWLINE
+      db_begin()
+      while .t.
+          laSAVE   := {}
+          laSAVEAUX:= {}
+          lcWHERE  := ''
+          aadd(laSAVE,{'NR_PASTA', 'NR_DESPESA','DT_PAGAMENTO','VL_PAGO','DT_CADASTRO','LOGIN_CADASTRO','FL_PAGAMENTO'})
+          lcLINE := freadtxt (fcHAND)        // Le linha a linha do arquivo referenciado em fcHAND
+          if ferror() <> 0
+             exit
+          endif
+          if substr(lcLINE,1,2) = "01"
+             if substr(lcLINE,315,2) = "05"
+                aadd(laSAVEAUX, substr(lcLINE,323,6))
+                aadd(laSAVEAUX, substr(lcLINE,317,6))
+                aadd(laSAVEAUX, ctod(substr(lcLINE,40,2)+'/'+substr(lcLINE,38,2)+'/'+substr(lcLINE,34,4)))
+                aadd(laSAVEAUX, substr(lcLINE,53,13)+'.'+substr(lcLINE,66,2))
+                aadd(laSAVEAUX, date())
+                aadd(laSAVEAUX, 'GEM')
+                aadd(laSAVEAUX, 'A')
+                aadd(laSAVE,laSAVEAUX)
+                if db_insert(laSAVE,'mvt_receb_ressarc') = -1
+                   db_rollback()
+                   qout("Erro Insert -> "+db_error())
+                   return(.f.)
+                endif
+                lcLOG += 'PAGAMENTO EFETUADO                 Nr Pasta '+substr(lcLINE,323,6)+'  Nr Despesa '+substr(lcLINE,317,6)+ NEWLINE
+             else
+                if substr(lcLINE,315,2) = "01"
+                   lcLOG += 'PAGAMENTO INCLUIDO                 Nr Pasta '+substr(lcLINE,323,6)+'  Nr Despesa '+substr(lcLINE,317,6)+ NEWLINE
+                elseif substr(lcLINE,315,2) = "02"
+                   lcLOG += 'SINISTRO NAO ENCONTRADO            Nr Pasta '+substr(lcLINE,323,6)+'  Nr Despesa '+substr(lcLINE,317,6)+ NEWLINE
+                elseif substr(lcLINE,315,2) = "03"
+                   lcLOG += 'VALOR DE PAGTO EXCEDENTE AO SALDO  Nr Pasta '+substr(lcLINE,323,6)+'  Nr Despesa '+substr(lcLINE,317,6)+ NEWLINE
+                elseif substr(lcLINE,315,2) = "04"
+                   lcLOG += 'DADOS CADASTRAIS INCORRETOS        Nr Pasta '+substr(lcLINE,323,6)+'  Nr Despesa '+substr(lcLINE,317,6)+ NEWLINE
+                elseif substr(lcLINE,315,2) = "06"
+                   lcLOG += 'PAGAMENTO CANCELADO                Nr Pasta '+substr(lcLINE,323,6)+'  Nr Despesa '+substr(lcLINE,317,6)+ NEWLINE
+                endif
+
+                lcWHERE := 'NR_PASTA   = '+substr(lcLINE,323,6)+' and NR_CONTROLE_REC = '+substr(lcLINE,317,6)
+                if db_update({{"FL_PGINTERFACE","DT_ENVIO_CTPAG"},{"",nil}},'mvt_parc_ressarc',{lcWHERE}) == -1
+                   qout("Erro Update -> "+db_error())
+                   db_rollback()
+                   return(.f.)
+            	 endif
+             endif
+          endif
+      enddo
+      if FWrite(lnHAND1,lcLOG) <= 0
+       	qout("Erro na gravação do arquivo de LOG.")
+         return(.f.)
+      endif
+      fclose(lnHAND1)
+      db_commit()
+   endif
+   fclose(lnHAND)
+return(llFLAG)
+
+/*
+* Function..: cria_array()
+* Retorno...: Array com estrutura do layout GEM
+              1 - Conteudo do campo lido
+              2 - Tipo do Dado (N-Num, D-Date, C-Char) base GR5
+              3 - Posicao Inicial
+              4 - Número de caracteres
+              5 - Casas decimais
+              6 - Destino/Origem Tabela
+              7 - Destino/Origem Campo
+              8 - F-Fixo, S Dados, N - Não dados
+              9 - Flag para leitura no arquivo de retorno so lê o campo se true
+              10- Tipo do campo no layout N - numerico / A - Alfa numerico
+*/
+
+//Registro Cheques - GEM
+/*
+static function cria_arraycheques()
+
+   local laESTRU := {} as array
+                //1      2       3    4  5  6                     7                          8     9    10
+   aadd(laESTRU,{ ""   , "A",    1,  16, 0, ""                    , ""                     ,"F" , .f. ,'A' } ) // 1
+   aadd(laESTRU,{ "C"  , "A",   16,   1, 0, ""                    , ""                     ,"F" , .f. ,'A' } ) // 2
+   aadd(laESTRU,{ "1"  , "N",   17,   5, 0, ""                    , ""                     ,"F" , .f. ,'N' } ) // 3
+   aadd(laESTRU,{ ""   , "N",   22,   5, 0, ""                    , ""                     ,"F" , .f. ,'N' } ) // 4
+   aadd(laESTRU,{ ""   , "A",   27,   4, 0, ""                    , ""                     ,"F" , .f. ,'A' } ) // 5
+   aadd(laESTRU,{ ""   , "A",   31,   5, 0, "mvt_parc_ressarc"    , "CD_BANCO"             ,"S" , .f. ,'A' } ) // 6
+   aadd(laESTRU,{ ""   , "A",   36,  20, 0, "mvt_parc_ressarc"    , "BANCO_AGENCIA"        ,"S" , .f. ,'A' } ) // 7
+   aadd(laESTRU,{ ""   , "N",   56,  10, 0, "mvt_parc_ressarc"    , "BANCO_CONTA"          ,"S" , .f. ,'N' } ) // 8
+   aadd(laESTRU,{ ""   , "A",   66,  30, 0, "mvt_parc_ressarc"    , "NR_CHEQUE"    			   ,"S" , .f. ,'A' } ) // 9
+   aadd(laESTRU,{ ""   , "N",   96,  15, 0, "mvt_parc_ressarc"    , "SACADO_REC"           ,"S" , .f. ,'N' } ) // 10
+   aadd(laESTRU,{ ""   , "N",  111,   8, 0, "mvt_parc_ressarc"    , "DOCUMENTO_SACADO"     ,"S" , .f. ,'N' } ) // 11
+   aadd(laESTRU,{ ""   , "N",  119,  18, 2, "mvt_parc_ressarc"    , "VL_RECEBIDO_REC"      ,"S" , .f. ,'N' } ) // 12
+   aadd(laESTRU,{ ""   , "A",  137,  60, 0, ""                    , ""              			 ,"F" , .f. ,'A' } ) // 13
+   aadd(laESTRU,{ ""   , "A",  197, 132, 0, ""                    , ""                     ,"F" , .f. ,'A' } ) // 14
+   
+
+return(laESTRU)
+*/
+//Registro Transacoes - GEM
+/*
+static function cria_arraytransacao()
+
+   local laESTRU := {} as array
+                //1      2       3    4  5  6                     7                          8     9    10
+   aadd(laESTRU,{ ""   , "A",    1,  16, 0, ""                    , ""                     ,"F" , .f. ,'A' } ) // 1             
+   aadd(laESTRU,{ "B"  , "A",   16,   1, 0, ""                    , ""                     ,"F" , .f. ,'A' } ) // 2
+   aadd(laESTRU,{ ""   , "N",   17,   5, 0, ""                    , ""                     ,"F" , .f. ,'N' } ) // 3
+   aadd(laESTRU,{ "0"  , "N",   22,   5, 0, ""                    , ""                     ,"F" , .f. ,'N' } ) // 4
+   aadd(laESTRU,{ ""   , "A",   27,   6, 0, ""                    , ""                     ,"F" , .f. ,'A' } ) // 5
+   aadd(laESTRU,{ ""   , "A",   33,  16, 0, ""                    , ""                     ,"F" , .f. ,'A' } ) // 6
+   aadd(laESTRU,{ ""   , "N",   49,  18, 0, ""                    , ""                     ,"F" , .f. ,'N' } ) // 7
+   aadd(laESTRU,{ ""   , "N",   67,   8, 0, ""                    , ""                     ,"F" , .f. ,'N' } ) // 8
+   aadd(laESTRU,{ ""   , "A",   75, 160, 0, ""                    , ""    			           ,"F" , .f. ,'A' } ) // 9
+   aadd(laESTRU,{ ""   , "A",  235,   6, 0, "mvt_parc_ressarc"    , "EVENTO_CONTABIL"      ,"S" , .f. ,'A' } ) // 10
+   aadd(laESTRU,{ ""   , "A",  241,  16, 0, ""                    , ""                     ,"F" , .f. ,'A' } ) // 11
+   aadd(laESTRU,{ ""   , "A",  257,  16, 0, ""                    , ""                     ,"F" , .f. ,'A' } ) // 12
+   aadd(laESTRU,{ ""   , "A",  273,  12, 0, ""                    , ""              			 ,"F" , .f. ,'A' } ) // 13
+   aadd(laESTRU,{ ""   , "A",  285,  12, 0, ""                    , ""                     ,"F" , .f. ,'A' } ) // 14
+   aadd(laESTRU,{ ""   , "A",  297,  12, 0, ""                    , ""              			 ,"F" , .f. ,'A' } ) // 15
+   aadd(laESTRU,{ ""   , "A",  309,  12, 0, ""                    , ""              			 ,"F" , .f. ,'A' } ) // 16
+   aadd(laESTRU,{ ""   , "A",  321,   8, 0, ""                    , ""              			 ,"F" , .f. ,'A' } ) // 17
+      
+
+return(laESTRU)
+*/
+/*
+* Function..: cria_array()
+* Retorno...: Array de entrada com estrutura do layout GEM
+              1 - Conteudo do campo lido
+              2 - Tipo do Dado (N-Num, D-Date, C-Char) base GR5
+              3 - Posicao Inicial
+              4 - Número de caracteres
+              5 - Casas decimais
+              6 - Destino/Origem Campo
+              7 - Destino/Origem Tabela
+              8 - F-Fixo, S Dados, N - Não dados
+              9 - Flag para leitura no arquivo de retorno so lê o campo se true
+              10- Tipo do campo no layout N - numerico / A - Alfa numerico
+*/
+
+//Registro Cheques - GEM
+static function cria_array()
+
+   local laESTRU := {} as array
+                //1      2       3    4  5  6                     7                          8     9    10
+   aadd(laESTRU,{ ""   , "A",  401,  16, 0, ""                      , ""                     ,"F" , .f. ,'A' } ) // 1
+   aadd(laESTRU,{ "C"  , "A",  417,   1, 0, ""                      , ""                     ,"F" , .f. ,'A' } ) // 2
+   aadd(laESTRU,{ "1"  , "N",  418,   5, 0, ""                      , ""                     ,"F" , .f. ,'N' } ) // 3
+   aadd(laESTRU,{ ""   , "N",  423,   5, 0, ""                      , ""                     ,"F" , .f. ,'N' } ) // 4
+   aadd(laESTRU,{ ""   , "A",  428,   4, 0, ""                      , ""                     ,"F" , .f. ,'A' } ) // 5
+   aadd(laESTRU,{ ""   , "A",  432,   5, 0, "CD_BANCO"              , "mvt_parc_ressarc"     ,"S" , .f. ,'A' } ) // 6
+   aadd(laESTRU,{ ""   , "A",  437,  20, 0, "BANCO_AGENCIA"         , "mvt_parc_ressarc"     ,"S" , .f. ,'A' } ) // 7
+   aadd(laESTRU,{ ""   , "N",  457,  10, 0, "BANCO_CONTA"           , "mvt_parc_ressarc"     ,"S" , .f. ,'N' } ) // 8
+   aadd(laESTRU,{ ""   , "A",  467,  30, 0, "NR_CHEQUE"             , "mvt_parc_ressarc"     ,"S" , .f. ,'A' } ) // 9
+   aadd(laESTRU,{ ""   , "N",  497,  15, 0, "SACADO_REC"            , "mvt_parc_ressarc"     ,"S" , .f. ,'N' } ) // 10
+   aadd(laESTRU,{ ""   , "N",  512,   8, 0, "DOCUMENTO_SACADO"      , "mvt_parc_ressarc"     ,"S" , .f. ,'N' } ) // 11
+   aadd(laESTRU,{ ""   , "N",  520,  18, 2, "VL_RECEBIDO_REC"       , "mvt_parc_ressarc"     ,"S" , .f. ,'N' } ) // 12
+   aadd(laESTRU,{ ""   , "A",  538,  60, 0, ""                      , ""              			 ,"F" , .f. ,'A' } ) // 13
+   aadd(laESTRU,{ ""   , "A",  598, 132, 0, ""                      , ""                     ,"F" , .f. ,'A' } ) // 14
+   
+
+return(laESTRU)
+
+//Registro Transacoes - GEM1
+/*
+static function cria_arraygem1()
+
+   local laESTRU := {} as array
+                //1      2       3    4  5  6                     7                          8     9    10
+   aadd(laESTRU,{ ""   , "A",  730,  16, 0, ""                    , ""                     ,"F" , .f. ,'A' } ) // 1             
+   aadd(laESTRU,{ "B"  , "A",  746,   1, 0, ""                    , ""                     ,"F" , .f. ,'A' } ) // 2
+   aadd(laESTRU,{ ""   , "N",  747,   5, 0, ""                    , ""                     ,"F" , .f. ,'N' } ) // 3
+   aadd(laESTRU,{ "0"  , "N",  752,   5, 0, ""                    , ""                     ,"F" , .f. ,'N' } ) // 4
+   aadd(laESTRU,{ ""   , "A",  757,   6, 0, ""                    , ""                     ,"F" , .f. ,'A' } ) // 5
+   aadd(laESTRU,{ ""   , "A",  763,  16, 0, ""                    , ""                     ,"F" , .f. ,'A' } ) // 6
+   aadd(laESTRU,{ ""   , "N",  779,  18, 2, ""                    , ""                     ,"F" , .f. ,'N' } ) // 7
+   aadd(laESTRU,{ ""   , "N",  797,   8, 0, ""                    , ""                     ,"F" , .f. ,'N' } ) // 8
+   aadd(laESTRU,{ ""   , "A",  805, 160, 0, ""                    , ""    			           ,"F" , .f. ,'A' } ) // 9
+   aadd(laESTRU,{ ""   , "A",  965,   6, 0, "EVENTO_CONTABIL"     , "mvt_parc_ressarc"     ,"S" , .f. ,'A' } ) // 10
+   aadd(laESTRU,{ ""   , "A",  971,  16, 0, ""                    , ""                     ,"F" , .f. ,'A' } ) // 11
+   aadd(laESTRU,{ ""   , "A",  987,  16, 0, ""                    , ""                     ,"F" , .f. ,'A' } ) // 12
+   aadd(laESTRU,{ ""   , "A", 1003,  12, 0, ""                    , ""              			 ,"F" , .f. ,'A' } ) // 13
+   aadd(laESTRU,{ ""   , "A", 1015,  12, 0, ""                    , ""                     ,"F" , .f. ,'A' } ) // 14
+   aadd(laESTRU,{ ""   , "A", 1027,  12, 0, ""                    , ""              			 ,"F" , .f. ,'A' } ) // 15
+   aadd(laESTRU,{ ""   , "A", 1039,  12, 0, ""                    , ""              			 ,"F" , .f. ,'A' } ) // 16
+   aadd(laESTRU,{ ""   , "A", 1051,   8, 0, ""                    , ""              			 ,"F" , .f. ,'A' } ) // 17
+      
+
+return(laESTRU)
+*/
+
+
+
+
+
+

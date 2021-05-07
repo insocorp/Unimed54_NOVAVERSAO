@@ -1,0 +1,291 @@
+/*
+Project      : gr5
+Program      : mnt_coberturas_ramos.html
+Function     : mnt_coberturas_ramos_html.wh
+Created on   :
+Descripition :
+*/
+
+   local lcACTION  := WGet('ACTION','C') ,;
+         lcFL_ATIVO:= 'S',;
+         lcWHERE   := '' as String  
+   
+   local laFIELDS      := {'NR_COBERTURA','LMI_CD_RAMO','LMI_NM_COBERTURA','LMI_COD_COBERTURA','FL_ATIVO'},;
+         laSAVE        := {},;
+         laSAVE_AUX    := {},;
+         laWHERE       := {},;
+         laJOIN        := {},;
+         laVALIDA      := {},;
+         laDEF         := {},;
+         laDEFV        := {},;
+         laATI         := {},;
+         laATIV        := {},;
+         laINA         := {},;
+         laINAV        := {},;
+         laPUT         := {},;
+         laPUTV        := {},;
+         laFIELD       := {},;
+         laRESULT      := {} as Array
+
+   local liPOS     := 0 ,;
+         lnII      := 0 as int
+
+   laVALIDA1 := {'LMI_CD_RAMO',;          
+                'LMI_NM_COBERTURA'} 
+
+   WPut('TITLE','Cobertura LMI com Ramos')                      
+
+   if (lcACTION == 'SAVE' .and. gbWAC_WRITE)
+
+      *** verifica se campos obrigatorios estão com dados
+      if  len(alltrim(Wget('LMI_CD_RAMO','C')))==0 .or. len(alltrim(Wget('LMI_NM_COBERTURA','C')))<=1
+           walert('Atenção os campos em vermelho são obrigatórios.')  
+           get2put()
+           if Wget('NR_COBERTURA','N')==0
+              wput('NR_COBERTURA','New') 
+           endif
+        else
+
+         aadd(laSAVE,laFIELDS)
+
+         aadd(laSAVE_AUX,Wget('NR_COBERTURA','C'))
+         aadd(laSAVE_AUX,Wget('LMI_CD_RAMO','C'))
+         aadd(laSAVE_AUX,Wget('LMI_NM_COBERTURA','C'))
+         aadd(laSAVE_AUX,Wget('LMI_COD_COBERTURA','C'))
+         aadd(laSAVE_AUX,Wget('FL_ATIVO','C'))
+
+         aadd(laSAVE,laSAVE_AUX)
+
+         laWHERE := {'NR_COBERTURA =' + Wget('NR_COBERTURA','C')}
+
+//         laWHERE := {'LMI_CD_RAMO =' + Wget('LMI_CD_RAMO','C') + ' and LMI_NM_COBERTURA =' + DLAP + Wget('NM_COBERTURA','C')+DLAP}
+         
+         if db_replace(laSAVE,'coberturas_ramos',laWHERE) == -1
+            error_sys(db_error())
+         endif 
+         
+         wput('NR_COBERTURA','New')  
+         
+      endif
+   elseif (lcACTION == 'NEW' .and. gbWAC_WRITE)
+          wput('NR_COBERTURA','New')  
+                       
+   elseif (lcACTION == 'ALTER' .and. gbWAC_WRITE)
+   
+         laRESULT := {} 
+
+         laFields := {"NR_COBERTURA",;
+                      "LMI_CD_RAMO",;
+                      "LMI_NM_COBERTURA",;
+                      "LMI_COD_COBERTURA",;
+                      "FL_ATIVO"}
+                     
+         laWHERE := {'NR_COBERTURA =' + Wget('NR_COBERTURA','C')}
+
+         if db_select(laFIELDS,'coberturas_ramos',,laWHERE) == -1
+            error_sys(db_error())
+         endif
+
+         laRESULT:= db_fetchall()
+         
+         wput('NR_COBERTURA',laRESULT[2,db_fetchncol(laRESULT,'NR_COBERTURA')])
+         wput('LMI_CD_RAMO',laRESULT[2,db_fetchncol(laRESULT,'LMI_CD_RAMO')])
+         wput('LMI_NM_COBERTURA',laRESULT[2,db_fetchncol(laRESULT,'LMI_NM_COBERTURA')])
+         wput('LMI_COD_COBERTURA',laRESULT[2,db_fetchncol(laRESULT,'LMI_COD_COBERTURA')])
+         wput('FL_ATIVO',laRESULT[2,db_fetchncol(laRESULT,'FL_ATIVO')])
+
+   elseif (lcACTION == 'DELETE' .and. gbWAC_DELETE)
+
+          lcWHERE := 'NR_COBERTURA =' + Wget('NR_COBERTURA','C')       
+          
+          db_query('BEBGIN TRAN')
+          if db_delete('coberturas_ramos',lcWHERE) == -1
+             db_query('ROLLBACK')
+             error_sys(db_error())
+          endif
+          db_query('COMMIT')  
+          lcWHERE:='' 
+          
+          wput('NR_COBERTURA','New')  
+         
+   endif
+   
+   if empty(lcACTION) 
+      wput('NR_COBERTURA','New')  
+   endif 
+   
+   
+   ***Alimentar os combo
+   laDEF := {}
+   laDEFV:= {}
+
+   laATI := {}
+   laATIV:= {}
+
+   laINA := {}
+   laINAV:= {}
+
+   laPUT := {}
+   laPUTV:= {}
+
+   laFIELD := structtable(WSet("DB_ACTIVE"),'lmi_cobertura',1,'A')
+   liPOS   := ascan(laFIELD,'FL_ATIVO')
+
+   if liPOS<>0
+      laFIELD:={'LMI_NM_COBERTURA','FL_ATIVO'}
+     else
+      laFIELD:={'LMI_NM_COBERTURA'}
+    endif
+
+   if db_select(laFIELD,'lmi_cobertura') == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+
+   for jj := 2 to len(laRES)
+       if liPOS<>0
+          if laRES[jj,2] == 'D'
+             aadd(laDEF,laRES[jj,1])
+             aadd(laDEFV,laRES[jj,1])
+
+           elseif laRES[jj,2] == 'I'
+             aadd(laINA,laRES[jj,1])
+             aadd(laINAV,laRES[jj,1])
+           else
+             aadd(laATI,laRES[jj,1])
+             aadd(laATIV,laRES[jj,1])
+          endif
+       else
+          aadd(laATI,laRES[jj,1])
+          aadd(laATIV,laRES[jj,1])
+       endif
+   next jj
+
+   if len(laDEF) == 0
+      aadd(laDEF,'') // Adiciona uma linha vazia no inicio do combo, caso seja solicitado
+      aadd(laDEFV,'0')
+   endif
+
+   for jj=1 to len(laDEF)
+       aadd(laPUT,laDEF[jj])
+       aadd(laPUTV,laDEFV[jj])
+   next jj
+
+   for jj=1 to len(laATI)
+       aadd(laPUT,laATI[jj])
+       aadd(laPUTV,laATIV[jj])
+   next jj
+
+   for jj=1 to len(laINA)
+       aadd(laPUT,'INATIVO - '+laINA[jj])
+       aadd(laPUTV,laINAV[jj])
+   next jj
+
+   WPut('LMI_NM_COBERTURA.option',laPUT)
+   WPut('LMI_NM_COBERTURA.optionvalue',laPUTV)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+   WPut('FL_ATIVO','S')
+   WPut('FL_ATIVO.option',{'Ativo','Inativo','Default'})
+   WPut('FL_ATIVO.optionvalue',{'S','I','D'})
+
+   lcFL_ATIVO = (wget('FL_ATIVO','C'))
+
+
+   *** marca em vermelho campos obrigatorios
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA1)
+      
+
+   // Montagem da Grid
+   if (gbWAC_READ == .t.)
+      laFields := {"NR_COBERTURA",;
+                   "LMI_CD_RAMO",;
+                   "LMI_NM_COBERTURA",;
+                   "LMI_COD_COBERTURA",;
+                   "FL_ATIVO"}
+      if ! empty(lcWHERE)
+         if db_select(laFIELDS,'coberturas_ramos',,{lcWHERE}) == -1
+            error_sys(db_error())
+         endif
+      else
+         if db_select(laFIELDS,'coberturas_ramos') == -1
+            error_sys(db_error())
+         endif
+      endif   
+      laRESULT:= db_fetchall() 
+      MontaGrid(laRESULT)
+   endif 
+     
+return
+
+/*
+* Data da Criação: 28/11/2012 
+* Function.......: MontaGrid()
+* Objetivo.......: Montar a Grade 
+* Parâmetros.....:
+*                  <paRESULT>       Array com o Resultado do Select
+*
+* Retorno........: Nenhum
+*/
+
+Static Function MontaGrid(paRESULT) 
+
+local ii := 0 as int
+   if len(paRESULT) > 0
+      aadd(paRESULT[1],'(row)')
+      for ii := 2 to len(paRESULT)
+         aadd(paRESULT[ii],'(row)'+wic_action('wicaction/mnt.coberturas_ramos.html?ACTION=ALTER'+;
+                              '&NR_COBERTURA='+str(paRESULT[ii,db_fetchncol(paRESULT,'NR_COBERTURA')])+;
+                              '&LMI_CD_RAMO='+str(paRESULT[ii,db_fetchncol(paRESULT,'LMI_CD_RAMO')])+;
+                              '&LMI_NM_COBERTURA='+paRESULT[ii,db_fetchncol(paRESULT,'LMI_NM_COBERTURA')]+;
+                              '&LMI_COD_COBERTURA='+str(paRESULT[ii,db_fetchncol(paRESULT,'LMI_COD_COBERTURA')])+;
+                              '&FL_ATIVO='+paRESULT[ii,db_fetchncol(paRESULT,'FL_ATIVO')]))
+      next ii
+   endif
+
+wPut('GRID_FILTRO',grid_create(paRESULT))
+
+return                                 
+                 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

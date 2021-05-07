@@ -1,0 +1,210 @@
+/*
+Project      : isj_45
+Program      : mnt.manlotedes.html
+Function     : mnt_manlotedes_html
+Created on   : 20/05/2015 15:59:54
+Descripition :
+*/
+private lcACTION := ''
+local laRESULT   := {} ,;
+      laSAVE     := {} ,;
+      laLINHA    := {} as array
+local ii         := 0 ,;
+      lnACAO     := 0  as int
+local lcQUERY    := '' ,;
+      lcWHERE    := '' as string
+
+lcACTION          := upper(Wget('ACTION'))
+
+WPut('TITLE','Manutenção de lote de Despesas')
+WPut('LBOTAO', .f.)
+
+
+
+if lcACTION == 'EXCLOTE' .or. lcACTION == 'INCFISCAL' .or. lcACTION == 'APFISCAL'  .or. lcACTION == 'INCSAP'
+   get2put()
+
+   if lcACTION == 'APFISCAL'
+      lnACAO := 1
+   elseif lcACTION == 'INCSAP'
+      lnACAO := 2
+   else
+      lnACAO := 0
+   endif
+
+   if busrej(lnACAO)==.f.
+      buslote(lnACAO)
+      busaldo()
+   endif
+
+elseif lcACTION == 'EEXCLOTE'
+      if db_delete('mvt_despesa','CD_BANCO = '+DLAP+WGet('LOTE','C')+DLAP) == -1
+          error_sys(db_error())
+      endif
+elseif lcACTION == 'EINCFISCAL'
+      lcWHERE := 'CD_BANCO = '+DLAP+WGet('LOTE','C')+DLAP
+      if db_update({{'NR_DOCFISCAL'},{WGet('FISCAL','C')}},'mvt_despesa',{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+elseif lcACTION == 'EAPFISCAL'
+      lcWHERE := 'CD_BANCO = '+DLAP+WGet('LOTE','C')+DLAP+' and NR_DOCFISCAL = '+DLAP+WGet('FISCAL','C')+DLAP
+      if db_update({{'NR_DOCFISCAL'},{''}},'mvt_despesa',{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+elseif lcACTION == 'EINCSAP'
+
+      laSAVE:= {'FL_APROVACAO',;
+                'FL_REVISAO',;
+                'LOGIN_APROVACAO',;
+                'LOGIN_REVISAO',;
+                'DT_APROVACAO',;
+                'DT_REVISAO',;
+                'DT_PREVISAO_PAGTO',;
+                'BANCO_CONTA'}
+
+      aadd(laLINHA,laSAVE)
+
+      laSAVE:= {'A',;
+                'A',;
+                gcLOGIN,;
+                gcLOGIN,;
+                date(),;
+                date(),;
+                WGet('PREV','D'),;
+                WGet('SAP','C')}
+
+      aadd(laLINHA,laSAVE)
+
+      lcWHERE := 'CD_BANCO = '+DLAP+WGet('LOTE','C')+DLAP+' and NR_DOCFISCAL = '+DLAP+WGet('FISCAL','C')+DLAP
+
+      if db_update(laLINHA,'mvt_despesa',{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+
+endif
+
+WPut('ACTION','')
+lcACTION:=''
+
+return(nil)
+
+
+******************************
+static function busrej(fnACAO)
+******************************
+local lcQUERY := '' as string
+local laRESULT:= {} as array
+local rej     :=.f. as logical
+lcQUERY  ='select '
+lcQUERY +='mvt_despesa.NR_PASTA,'
+lcQUERY +='mvt_despesa.NR_DESPESA,'
+lcQUERY +='mvt_despesa.NR_DOCFISCAL,'
+lcQUERY +='mvt_despesa.FL_APROVACAO,'
+lcQUERY +='mvt_despesa.FL_REVISAO,'
+lcQUERY +='mvt_despesa.DT_PREVISAO_PAGTO,'
+lcQUERY +='mvt_despesa.BANCO_CONTA'
+lcQUERY +=' from mvt_despesa'
+lcQUERY +=' where mvt_despesa.CD_BANCO='+WGet('LOTE','C')
+
+if fnACAO=1 //'APFISCAL'
+   lcQUERY +=" and (mvt_despesa.NR_DOCFISCAL <> '"+WGet('FISCAL','C')+"'"
+   lcQUERY +=" or (mvt_despesa.BANCO_CONTA <>'' or mvt_despesa.BANCO_CONTA is not null))"
+
+elseif fnACAO=2 //'INCSAP'
+   lcQUERY +=" and ((mvt_despesa.NR_DOCFISCAL = '' or mvt_despesa.NR_DOCFISCAL is null)"
+   lcQUERY +=" or (mvt_despesa.BANCO_CONTA <>'' or mvt_despesa.BANCO_CONTA is not null)"
+   lcQUERY +=" or (mvt_despesa.FL_APROVACAO!='P' or mvt_despesa.FL_REVISAO!='P'))"
+
+else //'EXCLOTE' 'INCFISCAL'
+   lcQUERY +=" and ((mvt_despesa.NR_DOCFISCAL <> '')"
+   lcQUERY +=" or (mvt_despesa.BANCO_CONTA <>''))"
+
+endif
+
+lcQUERY +=' order by mvt_despesa.NR_PASTA,mvt_despesa.NR_DESPESA'
+
+if db_query(lcQUERY) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchall()
+
+if len(laRESULT)>1
+   WPut('GRIDRJ',laRESULT)
+   WPut('RGRID', .T.)
+   WPut('GRIDL', .F.)
+
+   if fnACAO=1 //'APFISCAL'
+      walert('Atenção! Lote já Processado!')
+   elseif fnACAO=2 //'INCSAP'
+      walert('Atenção! Lote e ou Doc. Fiscal e ou SAP\nInválido ou já Processado!')
+   else //'EXCLOTE' 'INCFISCAL'
+      walert('Atenção! Lote já Processado!')
+   endif
+
+   rej:=.t.
+else
+   rej:=.f.
+endif
+return(rej)
+
+*******************************
+static function buslote(fnACAO)
+*******************************
+local laRESULT:= {} as array
+local lcWHERE := '' as string
+
+if fnACAO=1
+   lcWHERE := 'CD_BANCO = '+DLAP+WGet('LOTE','C')+DLAP+' and NR_DOCFISCAL = '+DLAP+WGet('FISCAL','C')+DLAP
+
+elseif fnACAO=2
+   lcWHERE := 'CD_BANCO = '+DLAP+WGet('LOTE','C')+DLAP+' and NR_DOCFISCAL = '+DLAP+WGet('FISCAL','C')+DLAP
+
+else
+   lcWHERE := 'CD_BANCO = '+DLAP+WGet('LOTE','C')+DLAP
+endif
+
+if db_select({'NR_PASTA',;
+              'NR_DESPESA',;
+              'VL_TOTAL'},;
+              'mvt_despesa',,{lcWHERE},{'NR_PASTA','NR_DESPESA'}) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchall()
+
+if len(laRESULT)>1
+   WPut('GRIDDES',laRESULT)
+   WPut('RGRID', .f.)
+   WPut('GRIDL', .t.)
+   WPut('LBOTAO',.t.)
+   WPut('ACAO2', WGet('ACAO1','C'))
+  else
+   walert('Não encontrei lançamento para esse Lote!')
+endif
+return(nil)
+
+*************************
+static function busaldo()
+*************************
+local lcQUERY := '' as string
+local laRESULT:= {} as array
+
+lcQUERY  ='select '
+lcQUERY +='CD_BANCO,sum(VL_TOTAL) as TOTAL'
+lcQUERY +=' from mvt_despesa'
+lcQUERY +=' where CD_BANCO =' + WGet('LOTE','C')
+lcQUERY +=' group by CD_BANCO'
+if db_query(lcQUERY) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchall()
+
+if len(laRESULT)>1
+   WPut('TOTALLOTE',strtran(strtran(strtran(transform(laRESULT[2,2],'999,999,999,999.99'),'.','#'),',','.'),'#',','))
+endif
+
+return(nil)
+
+
+
+
+

@@ -1,0 +1,998 @@
+/*
+
+Project      : gr5
+Program      : pagnet_export.html
+Function     : pagnet_export_html
+Created on   : 04-Sep-2006   14:35:43
+Descripition : Interface com PagNet
+
+*/
+   //parameters pcPARAM1,pcPARAM2
+
+   local lcPAR1  := upper(alltrim(pcPARAM1))  as string         // pcPARAM  parametro enviado pelo daemon. E-Envio ou R-Recebimento
+   local lcPAR2  := upper(alltrim(pcPARAM2)) as string         // pcPARAM1
+   // se lcPAR2 == "PAGNET"   ->Exclusivo para uso da COSESP
+   // se lcPAR2 == "PAGNETCX" ->Exclusivo para uso da CAIXA
+
+   local lcTABLE   := '' ,;
+         lcFILEIN  := '' ,;
+         lcFILEOUT := '' ,;
+         lcACTION  := alltrim(WGet('ACTION','C')) as string
+
+   local laRESULT := {} ,;
+         laJOIN   := {}  as array
+
+   local lnHAND   := 0  ,;
+         ii       := 0   as int
+
+   lcFILEIN  := WSet("FILEPAGNETINPUT")   // Path+Nome arquivo de recebimento de dados.
+   lcFILEOUT := WSet("FILEPAGNETOUTPUT")  // Path+Nome arquivo de envio de dados.
+   lcFILEOUT := strtran(lcFILEOUT,'[date]',dtos(date()))   // substitui [date] se houver no nome do arquivo.
+   lcFILEOUT := strtran(lcFILEOUT,'[DATE]',dtos(date()))   // substitui [date] se houver no nome do arquivo.
+   lcFILEOUT := strtran(lcFILEOUT,'[time]',strtran(time(),':','-'))  // substitui [time] se houver no nome do arquivo.
+   lcFILEOUT := strtran(lcFILEOUT,'[TIME]',strtran(time(),':','-'))  // substitui [time] se houver no nome do arquivo.
+
+   if lcPAR1 == 'E'     //  Envio de dados.
+      lnHAND := fcreate(lcFILEOUT, 0)
+   else                      //  Recebimento de dados.
+      lnHAND := fopen(lcFILEIN, 0)
+   endif
+
+   if lnHAND >= 0
+      proc_detalhe(lcPAR1,lnHAND,lcPAR2)
+      fclose(lnHAND)
+   else
+      if lcPAR1 == 'E'     //  Envio de dados.
+         qout('Problemas ao criar arquivo de envio : '+lcFILEOUT)
+      else
+         qout('Problemas na leitura do arquivo de recebimento: '+lcFILEIN)
+      endif
+   endif
+
+/*
+* Function..: proc_detalhe(fcTIPO,fcHAND,fcEMP)
+* Parâmetros: fcTIPO -> R - Recebimento ou E - Envio
+              fcHAND -> handle do arquivo
+              fcEMP  -> empresa (cosesp / caixa)
+* Retorno...: .t. / .f.
+*/
+static function proc_detalhe(fcTIPO,fcHAND,fcPAR2)
+
+   #define NEWLINE chr(13) + chr(10)
+   local ii       := 0 ,;
+         zz       := 0 ,;
+         lnPOS    := 0  as int
+   local lcLINE   := '' ,;
+         lcPASTA  := '' ,;
+         lcDESPESA:= '' ,;
+         lcWHERE  := '' ,;
+         lcNOTA1  := '' ,;
+         lcNOTA2  := '' ,;
+         lcNOTA3  := '' ,;
+         lcNOTA31 := '' ,;
+         lcNOTA32 := '' ,;
+         lcNOTA33 := '' ,;
+         lcNOTA34 := ''  as string
+   local laDETVAL  := {} ,;
+         laFIELDS  := {} ,;
+         laSAVE    := {} ,;
+         laSAVEAUX := {} ,;
+         laSAVELOG := {} ,;
+         laNOTA1   := {} ,;
+         laNOTA2   := {} ,;
+         laNOTA3   := {} ,;
+         laGROUP   := {}  as array
+
+   local llERRO    := .f. as logical
+
+   if fcTIPO = 'E'       // Envio de dados
+      if fcPAR2 == 'PAGNET'
+         laDETVAL := cria_array('0')
+      else
+         laDETVAL := cria_array('4')      // PAGNETCX         especifico p/ Caixa
+      endif
+      // Buscando os dados a enviar
+      laFIELDS := {'mvt_despesa.NR_PASTA'       ,;
+                   'mvt_despesa.NR_DESPESA'     ,;
+                   'mvt_despesa.CIP_FAVORECIDO' ,;
+                   'mvt_despesa.CD_DESPESA'     ,;
+                   'mvt_despesa.CD_GRP_DESPESA' ,;
+                   'mvt_despesa.VL_TOTAL'       ,;
+                   'mvt_despesa.CD_CCUSTO'      ,;
+                   'mvt_despesa.FORMA_PAGAMENTO',;
+                   'mvt_despesa.DT_EMISSAO_DOCFISCAL',;
+                   'mvt_despesa.DT_PREVISAO_PAGTO',;
+                   'mvt_despesa.FL_PGINTERFACE' ,;
+                   'pfpj.PFPJ_NATUREZA'         ,;
+                   'pfpj.PFPJ'                  ,;
+                   'pfpj.CNPJ_CPF'              ,;
+                   'pfpj.ENDERECO'              ,;
+                   'pfpj.NR_ENDERECO'           ,;
+                   'pfpj.EXTRA_ENDERECO'        ,;
+                   'pfpj.BAIRRO'                ,;
+                   'pfpj.UF'                    ,;
+                   'pfpj.CIDADE'                ,;
+                   'pfpj.CEP'                   ,;
+                   'pfpj.EMAIL'                 ,;
+                   'pfpj.CD_BANCO'              ,;
+                   'pfpj.BANCO_AGENCIA'         ,;
+                   'pfpj.BANCO_CONTA'           ,;
+                   'pasta_CIP.CIP'              ,;
+                   'pasta.CD_LEGADO'            ,;
+                   'pasta.NR_PROCESSO'          ,;
+                   'pasta_config.FL_CTPAG'      ,;
+                   'pasta_seguro.CD_RAMOSRSN'   ,;
+                   'pasta_seguro.CD_PRODUTO'    ,;
+                   'pasta_seguro.NR_APOLICE'    ,;
+                   'pasta_seguro.CD_SUB_GRP_APOLICE',;
+                   'pasta_seguro.NR_BILHETE'     ,;
+                   'pasta_seguro.VL_PREMIO'      ,;
+                   'pasta_seguro.NR_SINISTRO'    ,;
+                   'pfpj.banco_conta   as DV_CONTA',;
+                   'pfpj.banco_agencia as DV_AGENCIA',;
+                   'count(mvt_despesa_pagamento.nr_pasta) as QTD_PAGTO'}
+
+       laGROUP := {'mvt_despesa.NR_PASTA'       ,;
+                   'mvt_despesa.NR_DESPESA'     ,;
+                   'mvt_despesa.CIP_FAVORECIDO' ,;
+                   'mvt_despesa.CD_DESPESA'     ,;
+                   'mvt_despesa.CD_GRP_DESPESA' ,;
+                   'mvt_despesa.VL_TOTAL'       ,;
+                   'mvt_despesa.CD_CCUSTO'      ,;
+                   'mvt_despesa.FORMA_PAGAMENTO',;
+                   'mvt_despesa.DT_EMISSAO_DOCFISCAL',;
+                   'mvt_despesa.DT_PREVISAO_PAGTO',;
+                   'mvt_despesa.FL_PGINTERFACE' ,;
+                   'pfpj.PFPJ_NATUREZA'         ,;
+                   'pfpj.PFPJ'                  ,;
+                   'pfpj.CNPJ_CPF'              ,;
+                   'pfpj.ENDERECO'              ,;
+                   'pfpj.NR_ENDERECO'           ,;
+                   'pfpj.EXTRA_ENDERECO'        ,;
+                   'pfpj.BAIRRO'                ,;
+                   'pfpj.UF'                    ,;
+                   'pfpj.CIDADE'                ,;
+                   'pfpj.CEP'                   ,;
+                   'pfpj.EMAIL'                 ,;
+                   'pfpj.CD_BANCO'              ,;
+                   'pfpj.BANCO_AGENCIA'         ,;
+                   'pfpj.BANCO_CONTA'           ,;
+                   'pasta_cip.CIP'              ,;
+                   'pasta.CD_LEGADO'            ,;
+                   'pasta.NR_PROCESSO'          ,;
+                   'pasta_config.FL_CTPAG'      ,;
+                   'pasta_seguro.CD_RAMOSRSN'   ,;
+                   'pasta_seguro.CD_PRODUTO'    ,;
+                   'pasta_seguro.NR_APOLICE'    ,;
+                   'pasta_seguro.CD_SUB_GRP_APOLICE',;
+                   'pasta_seguro.NR_BILHETE'     ,;
+                   'pasta_seguro.VL_PREMIO'      ,;
+                   'pasta_seguro.NR_SINISTRO'     }
+
+      laJOIN := { { 2,'pasta_seguro'          ,"mvt_despesa.nr_sinistro    = pasta_seguro.nr_sinistro and pasta_seguro.nr_sinistro <> ''"+;
+                                               " and mvt_despesa.nr_pasta  = pasta_seguro.nr_pasta" },;
+                  { 2,'pasta_cip'             ,"mvt_despesa.nr_pasta       = pasta_cip.nr_pasta and pasta_cip.wfield = 'CIP_FILIAL'" },;
+                  { 2,'pasta'                 ,'mvt_despesa.nr_pasta       = pasta.nr_pasta'                                         },;
+                  { 2,'pasta_config'          ,'pasta.tp_pasta             = pasta_config.tp_pasta'                                  },;
+                  { 2,'pfpj'                  ,'mvt_despesa.cip_favorecido = pfpj.cip'                                               },;
+                  { 2,'mvt_despesa_pagamento' ,'mvt_despesa_pagamento.nr_pasta = mvt_despesa.nr_pasta and mvt_despesa_pagamento.nr_despesa = mvt_despesa.nr_despesa'} }
+
+      lcWHERE := "mvt_despesa.FL_APROVACAO = 'A' and mvt_despesa.FL_REVISAO = 'A' and (pasta.TP_PASTA <> 'DPVAT' or pasta.TP_PASTA <> 'Cível com Sinistro')"
+
+      if db_select(laFIELDS,'mvt_despesa',laJOIN,{lcWHERE},,,laGROUP) == -1   // despesas pendentes de aprovacao não podem ser enviadas
+         db_error()
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         for ii := 2 to len(laRESULT)
+             if laRESULT[ii,db_fetchncol(laRESULT,'QTD_PAGTO')] = 0  .and. ; // envia somente as despesas não pagas
+                laRESULT[ii,db_fetchncol(laRESULT,'FL_CTPAG')] = 'I' .and. ;
+                laRESULT[ii,db_fetchncol(laRESULT,'FL_PGINTERFACE')] <> 'Y'
+                lnPOS ++ // contador
+                // Convertendo itens especificos
+                if upper(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'FORMA_PAGAMENTO')])) == 'CHEQUE'
+                   laRESULT[ii,db_fetchncol(laRESULT,'FORMA_PAGAMENTO')] := '005'
+                elseif upper(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'FORMA_PAGAMENTO')])) == 'BORDERO'
+                   laRESULT[ii,db_fetchncol(laRESULT,'FORMA_PAGAMENTO')] := '006'
+                else
+                   laRESULT[ii,db_fetchncol(laRESULT,'FORMA_PAGAMENTO')] := '005'
+                endif
+                if at('-',laRESULT[ii,db_fetchncol(laRESULT,'DV_AGENCIA')]) > 0
+                   laRESULT[ii,db_fetchncol(laRESULT,'BANCO_AGENCIA')] :=  substr(laRESULT[ii,db_fetchncol(laRESULT,'BANCO_AGENCIA')] ,1 , (at('-',laRESULT[ii,db_fetchncol(laRESULT,'BANCO_AGENCIA')])-1))
+                endif
+
+                if at('-',laRESULT[ii,db_fetchncol(laRESULT,'BANCO_CONTA')]) > 0
+                   laRESULT[ii,db_fetchncol(laRESULT,'BANCO_CONTA')] :=  substr(laRESULT[ii,db_fetchncol(laRESULT,'BANCO_CONTA')] ,1, (at('-',laRESULT[ii,db_fetchncol(laRESULT,'BANCO_CONTA')])-1))
+                endif
+
+                if at('-',laRESULT[ii,db_fetchncol(laRESULT,'DV_AGENCIA')]) > 0
+                   laRESULT[ii,db_fetchncol(laRESULT,'DV_AGENCIA')] :=  substr(laRESULT[ii,db_fetchncol(laRESULT,'DV_AGENCIA')] ,(at('-',laRESULT[ii,db_fetchncol(laRESULT,'DV_AGENCIA')])+1))
+                else
+                   laRESULT[ii,db_fetchncol(laRESULT,'DV_AGENCIA')] := '0'
+                endif
+
+                if at('-',laRESULT[ii,db_fetchncol(laRESULT,'DV_CONTA')]) > 0
+                   laRESULT[ii,db_fetchncol(laRESULT,'DV_CONTA')] := substr(laRESULT[ii,db_fetchncol(laRESULT,'DV_CONTA')],(at('-',laRESULT[ii,db_fetchncol(laRESULT,'DV_CONTA')])+1))
+                else
+                   laRESULT[ii,db_fetchncol(laRESULT,'DV_CONTA')] := '0'
+                endif
+
+                // se nao contem CNPJ, considera como Orgão Governamental
+                if len(alltrim(laRESULT[ii,db_fetchncol(laRESULT,'CNPJ_CPF')])) = 0
+                   laRESULT[ii,db_fetchncol(laRESULT,'PFPJ_NATUREZA')] :=  'G'
+                endif
+
+                lcLINE := ''
+                for zz := 1 to len(laDETVAL)
+                    if laDETVAL[zz,8] == 'F'
+                       if empty(laDETVAL[zz,1])
+                          if laDETVAL[zz,7] == 'SEQUENCIA'
+                             lcLINE += strzero(lnPOS,10)
+                          else
+                             if laDETVAL[zz,10] == 'N'
+                                lcLINE += replicate('0', laDETVAL[zz,4])
+                             else
+                                lcLINE += replicate(' ', laDETVAL[zz,4])
+                             endif
+                          endif
+                       else
+                          lcLINE += laDETVAL[zz,1]
+                       endif
+                    elseif laDETVAL[zz,8] == 'S'
+                       if laDETVAL[zz,7] == 'NR_DESPESA'  // Codigo de identificacao do pagamento  nr_pasta + nr_despesa
+                            lcID := strzero(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])],6)+;
+                                    strzero(laRESULT[ii,db_fetchncol(laRESULT, 'NR_PASTA')],6)
+                            lcLINE += lcID + replicate(' ', (laDETVAL[zz,4] - len(lcID) ))
+                       else
+                          if laDETVAL[zz,2] == 'A'                // campos string
+                             if len(alltrim(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])])) > 0
+                                if  len(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )]) > laDETVAL[zz,4]
+                                    lcLINE += substr(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )] , 1,laDETVAL[zz,4])
+                                else
+                                    if laDETVAL[zz,10] == 'N'
+                                       lcLINE += replicate('0', (laDETVAL[zz,4] - len(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )])) ) + laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])]
+                                    else
+                                       lcLINE += laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])] + replicate(' ', (laDETVAL[zz,4] - len(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )])) )
+                                    endif
+                                endif
+                             else
+                                if laDETVAL[zz,10] == 'N'
+                                   lcLINE += replicate('0', laDETVAL[zz,4])
+                                else
+                                   lcLINE += replicate(' ', laDETVAL[zz,4])
+                                endif
+                             endif
+
+                          elseif laDETVAL[zz,2] == 'D'             // campos data
+                             lcLINE += dtos(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])])
+                          elseif laDETVAL[zz,2] == 'N'      // campos numericos
+                             if laDETVAL[zz,5] = 0          // não contem casas decimais
+                                lcLINE += strzero(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7] )], laDETVAL[zz,4],laDETVAL[zz,5])
+                             else                                 // se contem casas decimais   retira o . das casas decimais
+                                lcLINE += strzero(val(strtran( str(laRESULT[ii,db_fetchncol(laRESULT, laDETVAL[zz,7])]) , '.','')), laDETVAL[zz,4])
+                             endif
+                          endif
+                       endif
+                    endif
+                next zz
+                lcLINE += NEWLINE
+                if FWrite(fcHAND,lcLINE) <= 0
+                   qout("Erro na gravação do arquivo.")
+                   return(.f.)
+                endif
+
+                // Alterando o flag de envio de solicitacao ao PagNet
+                lcWHERE := 'NR_PASTA   = '+alltrim(str(laRESULT[ii,db_fetchncol(laRESULT,'NR_PASTA')]))+' and '+;
+                           'NR_DESPESA = '+alltrim(str(laRESULT[ii,db_fetchncol(laRESULT,'NR_DESPESA')]))
+                if db_update({{"FL_PGINTERFACE","DT_ENVIO_CTPAG"},{"Y",date()}},'mvt_despesa',{lcWHERE}) == -1
+                   qout("Erro Update -> "+db_error())
+         	    endif
+             endif
+         next ii
+      endif
+   elseif fcTIPO = 'R'   // Recebimento de dados
+      laRESULT := freadLines(fcHAND,fcPAR2)       // leitura de todo arquivo e retorna no array
+      if len(laRESULT) > 0
+         laNOTA1 := cria_array('1')
+         laNOTA2 := cria_array('2')
+         laNOTA3 := cria_array('3')
+         // limpa log de retorno
+         if db_query('delete from pagnet_log_retorno') == -1
+            error_sys(db_error())
+         endif
+         db_begin() // Iniciar uma transação
+         for ii := 1 to len(laRESULT)
+             laSAVE   := {}
+             laSAVEAUX:= {}
+             llERRO   := .f.
+             aadd(laSAVE,{'NR_PASTA', 'NR_DESPESA','DT_PAGAMENTO','VL_PAGO','DT_CADASTRO','LOGIN_CADASTRO','FL_PAGAMENTO'})
+             for zz := 1 to len(laRESULT[ii,1])
+                 if laRESULT[ii,1][zz,9]   // flag .t. ou .f. para a leitura
+                    if laRESULT[ii,1][zz,7] == 'NR_DESPESA'
+                       lcPASTA  := substr(laRESULT[ii,1][zz,1],7,6)
+                       lcDESPESA:= substr(laRESULT[ii,1][zz,1],1,6)
+                       aadd(laSAVEAUX, val(lcPASTA))
+                       aadd(laSAVEAUX, val(lcDESPESA))
+                    elseif laRESULT[ii,1][zz,7] == 'DATA_PAGTO'
+                       aadd(laSAVEAUX, laRESULT[ii,1][zz,1])
+                    elseif laRESULT[ii,1][zz,7] == 'VL_PAGO'
+                       aadd(laSAVEAUX, laRESULT[ii,1][zz,1])
+                    elseif laRESULT[ii,1][zz,7] == 'NOTA1'
+                       lcNOTA1 := laRESULT[ii,1][zz,1]
+                    elseif laRESULT[ii,1][zz,7] == 'NOTA2'
+                       lcNOTA2 := laRESULT[ii,1][zz,1]
+                       if lcNOTA1 $ '005'                    // pagamento via cheque
+                          if lcNOTA2 $ '005 / 010'
+                             llERRO := .t.
+                          endif
+                       else
+                          if lcNOTA2 $ '003'
+                             llERRO := .t.
+                          endif
+                       endif
+                    elseif laRESULT[ii,1][zz,7] == 'NOTA3'
+                       lcNOTA3 := laRESULT[ii,1][zz,1]
+                    elseif laRESULT[ii,1][zz,7] == 'NOTA31'
+                       lcNOTA31 := laRESULT[ii,1][zz,1]
+                    elseif laRESULT[ii,1][zz,7] == 'NOTA32'
+                       lcNOTA32 := laRESULT[ii,1][zz,1]
+                    elseif laRESULT[ii,1][zz,7] == 'NOTA33'
+                       lcNOTA33 := laRESULT[ii,1][zz,1]
+                    elseif laRESULT[ii,1][zz,7] == 'NOTA34'
+                       lcNOTA34 := laRESULT[ii,1][zz,1]
+                    endif
+                 endif
+             next zz
+             aadd(laSAVEAUX, date())
+             aadd(laSAVEAUX, 'PagNet')
+             aadd(laSAVEAUX, 'A')
+             aadd(laSAVE,laSAVEAUX)
+             if llERRO               // se não houver ocorrências.
+                if len(laSAVE) > 0
+                   if db_insert(laSAVE,'mvt_despesa_pagamento') = -1
+                      db_rollback()
+                      error_sys(db_error())
+                   endif
+                endif
+             else
+                // Alterando o flag de envio de solicitacao ao PagNet
+                lcWHERE := 'NR_PASTA   = '+lcPASTA+' and NR_DESPESA = '+lcDESPESA
+                if db_update({{"FL_PGINTERFACE","DT_ENVIO_CTPAG"},{"",nil}},'mvt_despesa',{lcWHERE}) == -1
+                   qout("Erro Update -> "+db_error())
+         	    endif
+             endif
+             // ***** Gerando Log de Ocorrências *****
+             laSAVELOG := {}
+             aadd(laSAVELOG, {'NR_PASTA', 'NR_DESPESA','ID_RETORNO', 'CD_RETORNO', 'NM_RETORNO', 'DT_LANCAMENTO' })
+             lnPOS := ascan(laNOTA1, {|x1| x1[1] == lcNOTA1 })
+             if lnPOS > 0
+                aadd(laSAVELOG, {laSAVE[2,1], laSAVE[2,2], 'Forma de Pagamento' , lcNOTA1 , laNOTA1[lnPOS,2], date() })
+             endif
+             lnPOS := ascan(laNOTA2, {|x1| x1[1]+x1[2] == lcNOTA1+lcNOTA2 })
+             if lnPOS > 0
+                aadd(laSAVELOG, {laSAVE[2,1], laSAVE[2,2], 'Ocorrência' , lcNOTA2 , laNOTA2[lnPOS,3], date() })
+             endif
+
+             lnPOS := ascan(laNOTA3, {|x1| x1[1] == lcNOTA3 })
+             if lnPOS > 0
+                aadd(laSAVELOG, {laSAVE[2,1], laSAVE[2,2], 'Inconsistência 1' , lcNOTA3 , laNOTA3[lnPOS,2], date() })
+             endif
+
+             lnPOS := ascan(laNOTA3, {|x1| x1[1] == lcNOTA31 })
+             if lnPOS > 0
+                aadd(laSAVELOG, {laSAVE[2,1], laSAVE[2,2], 'Inconsistência 2' , lcNOTA31 , laNOTA3[lnPOS,2], date() })
+             endif
+             lnPOS := ascan(laNOTA3, {|x1| x1[1] == lcNOTA32 })
+             if lnPOS > 0
+                aadd(laSAVELOG, {laSAVE[2,1], laSAVE[2,2], 'Inconsistência 3' , lcNOTA32 , laNOTA3[lnPOS,2], date() })
+             endif
+
+             lnPOS := ascan(laNOTA3, {|x1| x1[1] == lcNOTA33 })
+             if lnPOS > 0
+                aadd(laSAVELOG, {laSAVE[2,1], laSAVE[2,2], 'Inconsistência 4' , lcNOTA33 , laNOTA3[lnPOS,2], date() })
+             endif
+
+             lnPOS := ascan(laNOTA3, {|x1| x1[1] == lcNOTA34 })
+             if lnPOS > 0
+                aadd(laSAVELOG, {laSAVE[2,1], laSAVE[2,2], 'Inconsistência 5' , lcNOTA34 , laNOTA3[lnPOS,2], date() })
+             endif
+
+             if len(laSAVELOG) > 1
+                if db_insert(laSAVELOG,'pagnet_log_retorno') = -1  // grava log de ocorrencias
+                   db_rollback()
+                   error_sys(db_error())
+                endif
+             endif
+         next ii
+         db_commit()
+      endif
+   endif
+return(.t.)
+
+
+/*
+* Function..: freadLines(fnHAND)
+* Parâmetros: fnHAND = Handle do arquivo de leitura
+* Retorno...: Array contendo os dados lidos do arquivo.
+*/
+static function freadLines(fnHAND,fcPAR2)
+
+   local cCh      := ' ' ,;
+         cbuffer  := ''  as string
+   local nnumread := 0   ,;
+         ii       := 0    as int
+   local llFLG    := .f. as logical
+   local laSAVE   := {}  as array
+
+   numread := fread(fnHAND, @cCh, 1)
+   cbuffer := cCh
+   while numread == 1
+         numread := fread(fnHAND, @cCh, 1)
+         if cCh == chr(13) .or. cCh == chr(10)   // encontrado caracter final de linha
+            if fcPAR2 == 'PAGNET'
+               laDETVAL := cria_array('0')          // array com a estrutura da linha
+            else
+               laDETVAL := cria_array('4')          // array com a estrutura da linha
+            endif
+            for ii := 1 to len(laDETVAL)
+                if laDETVAL[ii,2] == 'N' .and. laDETVAL[ii,5] > 0                                                     // campo definido como numérico e tem casas decimais
+                   laDETVAL[ii,1] :=  val(substr(cbuffer, laDETVAL[ii,3],(laDETVAL[ii,4]-laDETVAL[ii,5]))+;
+                                      '.'+;
+                                      substr(cbuffer, (laDETVAL[ii,3]+(laDETVAL[ii,4]-laDETVAL[ii,5])),laDETVAL[ii,5]))
+                else
+                   laDETVAL[ii,1] := substr(cbuffer, laDETVAL[ii,3],laDETVAL[ii,4]) // Adiciona os dados do arquivo texto no array.
+                endif
+            next ii
+            aadd(laSAVE, { laDETVAL })
+            cbuffer := ''
+            numread := fread(fnHAND, @cCh, 1)      // le proximo caracter pois não sabemos se ele é um chr(13) ou chr(10)
+            if cCh == chr(13) .or. cCh == chr(10)  // se for um dos dois caracteres
+               numread := fread(fnHAND, @cCh, 1)   // le novamente proximo caracter e adiciona na string de linha
+               cbuffer += cCh
+            else                                   // se não for um dos dois caracteres
+               cbuffer += cCh
+            endif
+         else
+            cbuffer += cCh                         // adiciona caracter na string de linha
+         endif
+   end
+return(laSAVE)
+
+
+/*
+* Function..: cria_array(fcTIPO)
+* Parâmetros: fcTIPO
+* Retorno...: Array com estrutura do layout Pagnet
+              1 - Conteudo do campo lido
+              2 - Tipo do Dado (N-Num, D-Date, C-Char) base GR5
+              3 - Posicao Inicial
+              4 - Número de caracteres
+              5 - Casas decimais
+              6 - Destino/Origem Tabela
+              7 - Destino/Origem Campo
+              8 - F-Fixo, S Dados, N - Não dados
+              9 - Flag para leitura no arquivo de retorno so lê o campo se true
+              10- Tipo do campo no layout N - numerico / A - Alfa numerico
+*/
+static function cria_array(fcTIPO)
+
+   local laESTRU := {} as array
+   if fcTIPO == '0' // layout exclusivo para a COSESP
+                   //1      2      3    4  5  6               7                       8     9   10
+      aadd(laESTRU,{ "110", "N",   1,   3, 0, ""            , ""                     ,"F" , .f. ,'N' } ) // 1
+      aadd(laESTRU,{ ""   , "N",   4,  10, 0, ""            , "SEQUENCIA"            ,"F" , .f. ,'N' } ) // 2
+      aadd(laESTRU,{ ""   , "A",  14,   1, 0, "pfpj"        , "PFPJ_NATUREZA"        ,"S" , .f. ,'A' } ) // 3
+      aadd(laESTRU,{ "001", "N",  15,   3, 0, ""            , ""                     ,"F" , .f. ,'N' } ) // 4
+      aadd(laESTRU,{ ""   , "A",  18,  60, 0, "pfpj"        , "PFPJ"                 ,"S" , .f. ,'A' } ) // 5
+      aadd(laESTRU,{ ""   , "A",  78,  14, 0, "pfpj"        , "CNPJ_CPF"             ,"S" , .f. ,'A' } ) // 6
+      aadd(laESTRU,{ ""   , "A",  92,  30, 0, "pfpj"        , "ENDERECO"             ,"S" , .f. ,'A' } ) // 7
+      aadd(laESTRU,{ ""   , "N",  122,  5, 0, "pfpj"        , "NR_ENDERECO"          ,"S" , .f. ,'A' } ) // 8
+      aadd(laESTRU,{ ""   , "A",  127, 10, 0, "pfpj"        , "EXTRA_ENDERECO"       ,"S" , .f. ,'A' } ) // 9
+      aadd(laESTRU,{ ""   , "A",  137, 30, 0, "pfpj"        , "BAIRRO"               ,"S" , .f. ,'A' } ) // 10
+      aadd(laESTRU,{ ""   , "A",  167,  2, 0, "pfpj"        , "UF"                   ,"S" , .f. ,'A' } ) // 11
+      aadd(laESTRU,{ ""   , "A",  169, 30, 0, "pfpj"        , "CIDADE"               ,"S" , .f. ,'A' } ) // 12
+      aadd(laESTRU,{ ""   , "A",  199, 10, 0, "pfpj"        , "CEP"                  ,"S" , .f. ,'N' } ) // 13
+      aadd(laESTRU,{ ""   , "A",  209, 60, 0, "pfpj"        , "EMAIL"                ,"S" , .f. ,'A' } ) // 14
+      aadd(laESTRU,{ ""   , "N",  269,  5, 0, "pfpj"        , "CD_BANCO"             ,"S" , .f. ,'N' } ) // 15
+      aadd(laESTRU,{ ""   , "A",  274, 10, 0, "pfpj"        , "BANCO_AGENCIA"        ,"S" , .f. ,'N' } ) // 16
+      aadd(laESTRU,{ ""   , "A",  284,  1, 0, "pfpj"        , "DV_AGENCIA"           ,"S" , .f. ,'N' } ) // 17
+      aadd(laESTRU,{ ""   , "A",  285, 12, 0, "pfpj"        , "BANCO_CONTA"          ,"S" , .f. ,'N' } ) // 18
+      aadd(laESTRU,{ ""   , "A",  297,  2, 0, "pfpj"        , "DV_CONTA"             ,"S" , .f. ,'A' } ) // 19
+      aadd(laESTRU,{ ""   , "N",  299,  2, 0, ""            , ""                     ,"F" , .f. ,'N' } ) // 20
+      aadd(laESTRU,{ ""   , "N",  301,  5, 0, ""            , ""                     ,"F" , .f. ,'N' } ) // 21
+      aadd(laESTRU,{ ""   , "N",  306,  1, 0, ""            , ""                     ,"F" , .f. ,'N' } ) // 22
+      aadd(laESTRU,{ ""   , "N",  307,  1, 0, ""            , ""                     ,"F" , .f. ,'N' } ) // 23
+      aadd(laESTRU,{ ""   , "N",  308,  2, 0, ""            , ""                     ,"F" , .f. ,'N' } ) // 24
+      aadd(laESTRU,{ ""   , "N",  310,  2, 0, ""            , ""                     ,"F" , .f. ,'N' } ) // 25
+      aadd(laESTRU,{ ""   , "N",  312,  2, 0, ""            , ""                     ,"F" , .f. ,'N' } ) // 26
+      aadd(laESTRU,{ ""   , "N",  314,  2, 0, ""            , ""                     ,"F" , .f. ,'N' } ) // 27
+      aadd(laESTRU,{ ""   , "N",  316,  2, 0, ""            , ""                     ,"F" , .f. ,'N' } ) // 28
+      aadd(laESTRU,{ ""   , "N",  318, 11, 0, ""            , ""                     ,"F" , .f. ,'N' } ) // 29
+      aadd(laESTRU,{ ""   , "N",  329, 11, 0, ""            , ""                     ,"F" , .f. ,'N' } ) // 30
+      aadd(laESTRU,{ ""   , "N",  340, 10, 0, ""            , ""                     ,"F" , .f. ,'N' } ) // 31
+      aadd(laESTRU,{ ""   , "N",  350, 10, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 32
+      aadd(laESTRU,{ ""   , "N",  360, 14, 0, ""            , ""                     ,"F" , .f. ,'N' } ) // 33
+      aadd(laESTRU,{ ""   , "N",  374, 10, 0, ""            , ""                     ,"F" , .f. ,'N' } ) // 34
+      aadd(laESTRU,{ ""   , "N",  384, 15, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 35
+      aadd(laESTRU,{ ""   , "N",  399, 15, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 36
+      aadd(laESTRU,{ ""   , "N",  414,  8, 0, ""            , ""                     ,"F" , .f. ,'N' } ) // 37
+      aadd(laESTRU,{ ""   , "A",  422,  1, 0, "pfpj"        , "PFPJ_NATUREZA"        ,"S" , .f. ,'A' } ) // 38
+      aadd(laESTRU,{ "001", "N",  423,  3, 0, ""            , ""                     ,"F" , .f. ,'N' } ) // 39
+      aadd(laESTRU,{ ""   , "A",  426, 60, 0, "pfpj"        , "PFPJ"                 ,"S" , .f. ,'A' } ) // 40
+      aadd(laESTRU,{ ""   , "A",  486, 14, 0, "pfpj"        , "CNPJ_CPF"             ,"S" , .f. ,'A' } ) // 41
+      aadd(laESTRU,{ ""   , "N",  500,  5, 0, "pfpj"        , "CD_BANCO"             ,"S" , .f. ,'N' } ) // 42
+      aadd(laESTRU,{ ""   , "A",  505, 10, 0, "pfpj"        , "BANCO_AGENCIA"        ,"S" , .f. ,'N' } ) // 43
+      aadd(laESTRU,{ ""   , "A",  515,  1, 0, "pfpj"        , "DV_AGENCIA"           ,"S" , .f. ,'N' } ) // 44
+      aadd(laESTRU,{ ""   , "A",  516, 12, 0, "pfpj"        , "BANCO_CONTA"          ,"S" , .f. ,'N' } ) // 45
+      aadd(laESTRU,{ ""   , "A",  528,  2, 0, "pfpj"        , "DV_CONTA"             ,"S" , .f. ,'A' } ) // 46
+      aadd(laESTRU,{ ""   , "N",  530, 25, 0, "mvt_despesa" , "NR_DESPESA"           ,"S" , .t. ,'A' } ) // 47
+      aadd(laESTRU,{ "00001","A", 555,  5, 0, ""            , ""                     ,"F" , .f. ,'N' } ) // 48
+      aadd(laESTRU,{ "00993","A", 560,  5, 0, ""            , ""                     ,"F" , .f. ,'N' } ) // 49
+      aadd(laESTRU,{ ""   , "A",  565,  5, 0, "mvt_despesa" , "CD_DESPESA"           ,"S" , .f. ,'N' } ) // 50
+      aadd(laESTRU,{ ""   , "A",  570,  3, 0, "mvt_despesa" , "CD_GRP_DESPESA"       ,"S" , .f. ,'N' } ) // 51
+      aadd(laESTRU,{ ""   , "A",  573,  3, 0, "mvt_despesa" , "FORMA_PAGAMENTO"      ,"S" , .f. ,'N' } ) // 52
+      aadd(laESTRU,{ ""   , "A",  576, 20, 0, "pasta"       , "NR_PROCESSO"          ,"S" , .f. ,'A' } ) // 53
+      aadd(laESTRU,{ ""   , "A",  596,  5, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 54
+      aadd(laESTRU,{ ""   , "D",  601,  8, 0, "mvt_despesa" , "DT_EMISSAO_DOCFISCAL" ,"S" , .f. ,'N' } ) // 55
+      aadd(laESTRU,{ ""   , "D",  609,  8, 0, "mvt_despesa" , "DT_PREVISAO_PAGTO"    ,"S" , .f. ,'N' } ) // 56
+      aadd(laESTRU,{ ""   , "A",  617,  1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 57
+      aadd(laESTRU,{ ""   , "N",  618, 18, 2, "mvt_despesa" , "VL_TOTAL"             ,"S" , .f. ,'N' } ) // 58
+      aadd(laESTRU,{ ""   , "N",  636,  1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 59
+      aadd(laESTRU,{ ""   , "N",  637, 18, 2, ""            , ""                     ,"F" , .f. ,'N' } ) // 60
+      aadd(laESTRU,{ ""   , "N",  655,  1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 61
+      aadd(laESTRU,{ ""   , "N",  656, 18, 2, "mvt_despesa" , "VL_TOTAL"             ,"S" , .f. ,'N' } ) // 62
+      aadd(laESTRU,{ ""   , "N",  674,  1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 63
+      aadd(laESTRU,{ ""   , "N",  675, 18, 2, ""            , ""                     ,"F" , .f. ,'N' } ) // 64
+      aadd(laESTRU,{ ""   , "N",  693,  1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 65
+      aadd(laESTRU,{ ""   , "N",  694, 18, 2, "mvt_despesa" , "VL_TOTAL"             ,"S" , .f. ,'N' } ) // 66
+      aadd(laESTRU,{ ""   , "N",  712,  1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 67
+      aadd(laESTRU,{ ""   , "N",  713, 18, 2, ""            , ""                     ,"F" , .f. ,'N' } ) // 68
+      aadd(laESTRU,{ ""   , "N",  731,  1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 69
+      aadd(laESTRU,{ ""   , "N",  732, 18, 2, "mvt_despesa" , "VL_TOTAL"             ,"S" , .f. ,'N' } ) // 70
+      aadd(laESTRU,{ ""   , "N",  750,  1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 71
+      aadd(laESTRU,{ ""   , "N",  751, 18, 2, ""            , ""                     ,"F" , .f. ,'N' } ) // 72
+      aadd(laESTRU,{ ""   , "N",  769,  1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 73
+      aadd(laESTRU,{ ""   , "N",  770, 18, 2, "mvt_despesa" , "VL_TOTAL"             ,"S" , .f. ,'N' } ) // 74
+      aadd(laESTRU,{ ""   , "N",  788,  1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 75
+      aadd(laESTRU,{ ""   , "N",  789, 18, 2, ""            , ""                     ,"F" , .f. ,'N' } ) // 76
+      aadd(laESTRU,{ ""   , "N",  807,  1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 77
+      aadd(laESTRU,{ ""   , "N",  808, 18, 2, ""            , ""                     ,"F" , .f. ,'N' } ) // 78
+      aadd(laESTRU,{ ""   , "N",  826,  1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 79
+      aadd(laESTRU,{ ""   , "N",  827, 18, 2, ""            , ""                     ,"F" , .f. ,'N' } ) // 80
+      aadd(laESTRU,{ ""   , "N",  845,  1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 81
+      aadd(laESTRU,{ ""   , "N",  846, 18, 2, ""            , ""                     ,"F" , .f. ,'N' } ) // 82
+      aadd(laESTRU,{ ""   , "A",  864, 60, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 83
+      aadd(laESTRU,{ ""   , "A",  924, 10, 0, "pasta_seguro", "CD_RAMOSRSN"          ,"S" , .f. ,'A' } ) // 84
+      aadd(laESTRU,{ ""   , "A",  934, 10, 0, "pasta_seguro", "CD_PRODUTO"           ,"S" , .f. ,'A' } ) // 85
+      aadd(laESTRU,{ ""   , "A",  944, 10, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 86
+      aadd(laESTRU,{ ""   , "A",  954, 10, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 87
+      aadd(laESTRU,{ ""   , "A",  964, 10, 0, "pasta_seguro", "NR_APOLICE"           ,"S" , .f. ,'A' } ) // 88
+      aadd(laESTRU,{ ""   , "N",  974,  5, 0, "pasta_seguro", "CD_SUB_GRP_APOLICE"   ,"S" , .f. ,'A' } ) // 89
+      aadd(laESTRU,{ ""   , "A",  979, 10, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 90
+      aadd(laESTRU,{ ""   , "A",  989, 10, 0, "pasta_seguro", "NR_BILHETE"           ,"S" , .f. ,'A' } ) // 91
+      aadd(laESTRU,{ ""   , "A",  999, 10, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 92
+      aadd(laESTRU,{ ""   , "A", 1009,  5, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 93
+      aadd(laESTRU,{ ""   , "A", 1014, 60, 0, "pfpj"        , "PFPJ"                 ,"S" , .f. ,'A' } ) // 94
+      aadd(laESTRU,{ ""   , "N", 1074, 18, 2, "pasta_seguro", "VL_PREMIO"            ,"S" , .f. ,'N' } ) // 95
+      aadd(laESTRU,{ ""   , "A", 1092,  5, 0, ""            , ""                     ,"F" , .f. ,'N' } ) // 96
+      aadd(laESTRU,{ ""   , "A", 1097, 11, 0, "pasta_seguro", "NR_SINISTRO"          ,"S" , .f. ,'A' } ) // 97
+      aadd(laESTRU,{ ""   , "A", 1108, 10, 0, ""            , ""                     ,"F" , .f. ,'N' } ) // 98
+      aadd(laESTRU,{ ""   , "A", 1118,  5, 0, ""            , ""                     ,"F" , .f. ,'N' } ) // 99
+      aadd(laESTRU,{ ""   , "A", 1123, 10, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 100
+      aadd(laESTRU,{ ""   , "A", 1133, 10, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 101
+      aadd(laESTRU,{ ""   , "A", 1143, 10, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 102
+      aadd(laESTRU,{ ""   , "A", 1153, 10, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 103
+      aadd(laESTRU,{ ""   , "A", 1163, 10, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 104
+      aadd(laESTRU,{ ""   , "A", 1173, 18, 2, ""            , ""                     ,"F" , .f. ,'A' } ) // 105
+      aadd(laESTRU,{ ""   , "A", 1191, 18, 2, ""            , ""                     ,"F" , .f. ,'A' } ) // 106
+      aadd(laESTRU,{ "P"  , "A", 1209,  1, 0, ""            , ""                     ,"F" , .f. ,'A' } ) // 107
+      aadd(laESTRU,{ ""   , "A", 1210,  8, 0, ""           , "DATA_PAGTO"            ,"N" , .t. ,'N' } ) // 108
+      aadd(laESTRU,{ ""   , "A", 1218,  3, 0, ""           , "NOTA1"                 ,"N" , .t. ,'N' } ) // 109
+      aadd(laESTRU,{ ""   , "N", 1222, 18, 2, ""           , "VL_PAGO"               ,"N" , .t. ,'N' } ) // 110
+      aadd(laESTRU,{ ""   , "A", 1396,  3, 0, ""           , "NOTA2"                 ,"N" , .t. ,'N' } ) // 111
+
+   elseif fcTIPO == '4' // layout exclusivo para a CAIXA
+      aadd(laESTRU,{ "010", "N",   1,   3, 0, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",   4,  10, 0, ""            , "SEQUENCIA"         ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "A",  14,   1, 0, "pfpj"        , "PFPJ_NATUREZA"     ,"S" , .f. ,'A' } ) //
+      aadd(laESTRU,{ "001", "N",  15,   3, 0, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "A",  18,  60, 0, "pfpj"        , "PFPJ"              ,"S" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "A",  78,  14, 0, "pfpj"        , "CNPJ_CPF"          ,"S" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "A",  92,  30, 0, "pfpj"        , "ENDERECO"          ,"S" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N",  122,  5, 0, "pfpj"        , "NR_ENDERECO"       ,"S" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "A",  127, 10, 0, "pfpj"        , "EXTRA_ENDERECO"    ,"S" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "A",  137, 30, 0, "pfpj"        , "BAIRRO"            ,"S" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "A",  167,  2, 0, "pfpj"        , "UF"                ,"S" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "A",  169, 30, 0, "pfpj"        , "CIDADE"            ,"S" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "A",  199, 10, 0, "pfpj"        , "CEP"               ,"S" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "A",  209, 60, 0, "pfpj"        , "EMAIL"             ,"S" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N",  269,  5, 0, "pfpj"        , "CD_BANCO"          ,"S" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "A",  274, 10, 0, "pfpj"        , "BANCO_AGENCIA"     ,"S" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "A",  284,  1, 0, "pfpj"        , "DV_AGENCIA"        ,"S" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "A",  285, 12, 0, "pfpj"        , "BANCO_CONTA"       ,"S" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "A",  297,  2, 0, "pfpj"        , "DV_CONTA"          ,"S" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N",  299,  2, 0, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  301,  5, 0, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  306,  1, 0, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  307, 10, 0, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  317,  1, 0, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  318,  2, 0, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  320,  2, 0, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  322,  2, 0, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  324,  2, 0, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  326,  2, 0, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  328, 11, 0, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  339, 11, 0, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  350, 10, 0, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  360, 10, 0, ""            , ""                  ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N",  370, 14, 0, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  384, 10, 0, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  394, 15, 0, ""            , ""                  ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N",  409, 15, 0, ""            , ""                  ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N",  424,  8, 0, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "A",  432,  1, 0, "pfpj"        , "PFPJ_NATUREZA"     ,"S" , .f. ,'A' } ) //
+      aadd(laESTRU,{ "001", "N",  433,  3, 0, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "A",  436, 60, 0, "pfpj"        , "PFPJ"              ,"S" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "A",  496, 14, 0, "pfpj"        , "CNPJ_CPF"          ,"S" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N",  510,  5, 0, "pfpj"        , "CD_BANCO"          ,"S" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "A",  515, 10, 0, "pfpj"        , "BANCO_AGENCIA"     ,"S" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "A",  525,  1, 0, "pfpj"        , "DV_AGENCIA"        ,"S" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "A",  526, 12, 0, "pfpj"        , "BANCO_CONTA"       ,"S" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "A",  538,  2, 0, "pfpj"        , "DV_CONTA"          ,"S" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N",  540, 25, 0, "mvt_despesa" , "NR_DESPESA"        ,"S" , .t. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "A",  565,  5, 0, "pasta"       , "CD_LEGADO"         ,"S" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "A",  570,  5, 0, "pasta_cip"   , "CIP"               ,"S" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "A",  575,  5, 0, "mvt_despesa" , "CD_DESPESA"        ,"S" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "A",  580,  3, 0, "mvt_despesa" , "CD_GRP_DESPESA"    ,"S" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "A",  583,  3, 0, "mvt_despesa" , "FORMA_PAGAMENTO"   ,"S" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  586,  1, 0, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  587, 20, 0, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  607,  5, 0, ""            , ""                  ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "D",  612,  8, 0, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "D",  620,  8, 0, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "A",  628,  1, 0, ""            , ""                  ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N",  629, 18, 2, "mvt_despesa" , "VL_TOTAL"          ,"S" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  647,  1, 0, ""            , ""                  ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N",  648, 18, 2, "mvt_despesa" , "VL_TOTAL"          ,"S" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  666,  1, 0, ""            , ""                  ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N",  667, 18, 2, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  685,  1, 0, ""            , ""                  ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N",  686, 18, 2, "mvt_despesa" , "VL_TOTAL"          ,"S" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  704,  1, 0, ""            , ""                  ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N",  705, 18, 2, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  723,  1, 0, ""            , ""                  ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N",  724, 18, 2, "mvt_despesa" , "VL_TOTAL"          ,"S" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  742,  1, 0, ""            , ""                  ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N",  743, 18, 2, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  761,  1, 0, ""            , ""                  ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N",  762, 18, 2, "mvt_despesa" , "VL_TOTAL"          ,"S" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  780,  1, 0, ""            , ""                  ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N",  781, 18, 2, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  799,  1, 0, ""            , ""                  ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N",  800, 18, 2, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  818,  1, 0, ""            , ""                  ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N",  819, 18, 2, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  837,  1, 0, ""            , ""                  ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N",  838, 18, 2, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N",  856,  1, 0, ""            , ""                  ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N",  857, 18, 2, ""            , ""                  ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "A",  875, 60, 0, ""            , ""                  ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "A",  935, 15, 0, "pasta_seguro", "CD_RAMOSRSN"       ,"S" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "A",  950, 15, 0, "pasta_seguro", "CD_PRODUTO"        ,"S" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "A",  965, 15, 0, ""            , ""                  ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "A",  980, 15, 0, "mvt_despesa",  "CD_CCUSTO"         ,"S" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N",  995, 15, 0, ""           , ""                   ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N", 1010, 15, 0, ""           , ""                   ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N", 1025, 15, 0, ""           , ""                   ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N", 1040, 15, 0, ""           , ""                   ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N", 1055, 15, 0, ""           , ""                   ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N", 1070, 15, 0, ""           , ""                   ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N", 1085, 15, 0, ""           , ""                   ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N", 1100, 60, 0, ""           , ""                   ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N", 1160, 18, 2, ""           , ""                   ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N", 1178, 18, 2, ""           , ""                   ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N", 1196, 18, 2, ""           , ""                   ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N", 1214, 18, 2, ""           , ""                   ,"F" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N", 1232, 16, 0, ""           , ""                   ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "N", 1248,  2, 0, ""           , ""                   ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ "P"  , "A", 1250,  1, 0, ""           , ""                   ,"F" , .f. ,'A' } ) //
+      aadd(laESTRU,{ ""   , "A", 1251,  8, 0, ""           , "DATA_PAGTO"         ,"N" , .t. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "A", 1259,  3, 0, ""           , "NOTA1"              ,"N" , .t. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N", 1262,  1, 0, ""           , ""                   ,"N" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N", 1263, 18, 2, ""           , "VL_PAGO"            ,"N" , .t. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "N", 1281,156, 0, ""           , ""                   ,"N" , .f. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "A", 1437,  3, 0, ""           , "NOTA2"              ,"N" , .t. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "A", 1440,  4, 0, ""           , "NOTA3"              ,"N" , .t. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "A", 1444,  4, 0, ""           , "NOTA31"             ,"N" , .t. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "A", 1448,  4, 0, ""           , "NOTA32"             ,"N" , .t. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "A", 1452,  4, 0, ""           , "NOTA33"             ,"N" , .t. ,'N' } ) //
+      aadd(laESTRU,{ ""   , "A", 1456,  4, 0, ""           , "NOTA34"             ,"N" , .t. ,'N' } ) //
+
+   elseif fcTIPO == '1'
+        laESTRU  := { {'001','DOC/TED'               },;
+                      {'002','Cheque Administrativo' },;
+                      {'003','Transferência'         },;
+                      {'004','Ficha de Compensação'  },;
+                      {'005','Cheque'                },;
+                      {'006','Borderô'               },;
+                      {'009','Ordem de Pagamento'    } }
+   elseif fcTIPO == '2'
+
+        aadd(laESTRU,{'005', '000', 'A Pagar'                                                     })
+        aadd(laESTRU,{'005', '004', 'Emitido'                                                     })
+        aadd(laESTRU,{'005', '005', 'Compensado'                                                  })
+        aadd(laESTRU,{'005', '006', 'Cancelado'                                                   })
+        aadd(laESTRU,{'005', '007', 'Sustado'                                                     })
+        aadd(laESTRU,{'005', '010', 'Compensado Manualmente'                                      })
+        aadd(laESTRU,{'005', '011', 'Prescrito'                                                   })
+        aadd(laESTRU,{'005', '012', 'Cancelado (sem contabilização do estorno do pagamento)'      })
+        aadd(laESTRU,{'005', '990', 'Título rejeitado PagNet - devolvido ao sistema de origem'    })
+        aadd(laESTRU,{'005', '991', 'Título rejeitado PagNet - aguardando acerto PagNet'          })
+        aadd(laESTRU,{'005', '999', 'Título Inativado'                                            })
+        aadd(laESTRU,{'001', '000', 'A Pagar'                                                     })
+        aadd(laESTRU,{'001', '002', 'Aguardando Retorno'                                          })
+        aadd(laESTRU,{'001', '003', 'Realizado/Pago'                                              })
+        aadd(laESTRU,{'001', '004', 'Cancelado'                                                   })
+        aadd(laESTRU,{'001', '005', 'Rejeitado/Devolvido pelo Banco'                              })
+        aadd(laESTRU,{'001', '006', 'Pagamento Rejeitado/Devolvido já Tratado (igual a 0.A Pagar)'})
+        aadd(laESTRU,{'001', '990', 'Título rejeitado PagNet - devolvido ao sistema de origem'    })
+        aadd(laESTRU,{'001', '991', 'Título rejeitado PagNet - aguardando acerto PagNet'          })
+        aadd(laESTRU,{'001', '999', 'Título Inativado'                                            })
+        aadd(laESTRU,{'002', '000', 'A Pagar'                                                     })
+        aadd(laESTRU,{'002', '002', 'Aguardando Retorno'                                          })
+        aadd(laESTRU,{'002', '003', 'Realizado/Pago'                                              })
+        aadd(laESTRU,{'002', '004', 'Cancelado'                                                   })
+        aadd(laESTRU,{'002', '005', 'Rejeitado/Devolvido pelo Banco'                              })
+        aadd(laESTRU,{'002', '006', 'Pagamento Rejeitado/Devolvido já Tratado (igual a 0.A Pagar)'})
+        aadd(laESTRU,{'002', '990', 'Título rejeitado PagNet - devolvido ao sistema de origem'    })
+        aadd(laESTRU,{'002', '991', 'Título rejeitado PagNet - aguardando acerto PagNet'          })
+        aadd(laESTRU,{'002', '999', 'Título Inativado'                                            })
+        aadd(laESTRU,{'003', '000', 'A Pagar'                                                     })
+        aadd(laESTRU,{'003', '002', 'Aguardando Retorno'                                          })
+        aadd(laESTRU,{'003', '003', 'Realizado/Pago'                                              })
+        aadd(laESTRU,{'003', '004', 'Cancelado'                                                   })
+        aadd(laESTRU,{'003', '005', 'Rejeitado/Devolvido pelo Banco'                              })
+        aadd(laESTRU,{'003', '006', 'Pagamento Rejeitado/Devolvido já Tratado (igual a 0.A Pagar)'})
+        aadd(laESTRU,{'003', '990', 'Título rejeitado PagNet - devolvido ao sistema de origem'    })
+        aadd(laESTRU,{'003', '991', 'Título rejeitado PagNet - aguardando acerto PagNet'          })
+        aadd(laESTRU,{'003', '999', 'Título Inativado'                                            })
+        aadd(laESTRU,{'004', '000', 'A Pagar'                                                     })
+        aadd(laESTRU,{'004', '002', 'Aguardando Retorno'                                          })
+        aadd(laESTRU,{'004', '003', 'Realizado/Pago'                                              })
+        aadd(laESTRU,{'004', '004', 'Cancelado'                                                   })
+        aadd(laESTRU,{'004', '005', 'Rejeitado/Devolvido pelo Banco'                              })
+        aadd(laESTRU,{'004', '006', 'Pagamento Rejeitado/Devolvido já Tratado (igual a 0.A Pagar)'})
+        aadd(laESTRU,{'004', '990', 'Título rejeitado PagNet - devolvido ao sistema de origem'    })
+        aadd(laESTRU,{'004', '991', 'Título rejeitado PagNet - aguardando acerto PagNet'          })
+        aadd(laESTRU,{'004', '999', 'Título Inativado'                                            })
+        aadd(laESTRU,{'006', '000', 'A Pagar'                                                     })
+        aadd(laESTRU,{'006', '002', 'Aguardando Retorno'                                          })
+        aadd(laESTRU,{'006', '003', 'Realizado/Pago'                                              })
+        aadd(laESTRU,{'006', '004', 'Cancelado'                                                   })
+        aadd(laESTRU,{'006', '005', 'Rejeitado/Devolvido pelo Banco'                              })
+        aadd(laESTRU,{'006', '006', 'Pagamento Rejeitado/Devolvido já Tratado (igual a 0.A Pagar)'})
+        aadd(laESTRU,{'006', '990', 'Título rejeitado PagNet - devolvido ao sistema de origem'    })
+        aadd(laESTRU,{'006', '991', 'Título rejeitado PagNet - aguardando acerto PagNet'          })
+        aadd(laESTRU,{'006', '999', 'Título Inativado'                                            })
+        aadd(laESTRU,{'009', '000', 'A Pagar'                                                     })
+        aadd(laESTRU,{'009', '002', 'Aguardando Retorno'                                          })
+        aadd(laESTRU,{'009', '003', 'Realizado/Pago'                                              })
+        aadd(laESTRU,{'009', '004', 'Cancelado'                                                   })
+        aadd(laESTRU,{'009', '005', 'Rejeitado/Devolvido pelo Banco'                              })
+        aadd(laESTRU,{'009', '006', 'Pagamento Rejeitado/Devolvido já Tratado (igual a 0.A Pagar)'})
+        aadd(laESTRU,{'009', '990', 'Título rejeitado PagNet - devolvido ao sistema de origem'    })
+        aadd(laESTRU,{'009', '991', 'Título rejeitado PagNet - aguardando acerto PagNet'          })
+        aadd(laESTRU,{'009', '999', 'Título Inativado'                                            })
+
+   elseif fcTIPO == '3'
+          aadd(laESTRU, {'0010' ,'Tipo do Campo Codigo da Interface deve ser numérico'                 })
+          aadd(laESTRU, {'0011' ,'Codigo da Interface Ultrapassou Valor Maximo'                        })
+          aadd(laESTRU, {'0012' ,'Codigo da Interface Inválido'                                        })
+          aadd(laESTRU, {'0013' ,'Linha não corresponde a interface selecionada'                       })
+          aadd(laESTRU, {'0020' ,'Tipo do Campo sequencia do arquivo deve ser numerico'                })
+          aadd(laESTRU, {'0021' ,'Sequencia do arquivo ultrapassou valor máximo'                       })
+          aadd(laESTRU, {'0022' ,'Sequencia do arquivo incorreto'                                      })
+          aadd(laESTRU, {'0030' ,'Tipo de pessoa diferente de F/J/G'                                   })
+          aadd(laESTRU, {'0040' ,'Tipo de campo classe deve ser numerico'                              })
+          aadd(laESTRU, {'0041' ,'Classe ultrapassou valor máximo'                                     })
+          aadd(laESTRU, {'0042' ,'Classe inválido'                                                     })
+          aadd(laESTRU, {'0050' ,'Nome Obrigatório'                                                    })
+          aadd(laESTRU, {'0051' ,'Nome do Favorecido e nome do beneficiario devem ser iguais'          })
+          aadd(laESTRU, {'0060' ,'CPF ou CNPJ Invalido'                                                })
+          aadd(laESTRU, {'0061' ,'Tamanho CPF ou CNPJ Invalido'                                        })
+          aadd(laESTRU, {'0070' ,'Obrigatorio Endereco'                                                })
+          aadd(laESTRU, {'0080' ,'Obrigatorio No'                                                      })
+          aadd(laESTRU, {'0090' ,'Complemento'                                                         })
+          aadd(laESTRU, {'0100' ,'Estado Obrigatorio'                                                  })
+          aadd(laESTRU, {'0102' ,'Estado Invalido'                                                     })
+          aadd(laESTRU, {'0103' ,'Estado não cadastrado para a cidade'                                 })
+          aadd(laESTRU, {'0110' ,'Cidade Obrigatoria'                                                  })
+          aadd(laESTRU, {'0112' ,'Cidade não cadastrada no sistema'                                    })
+          aadd(laESTRU, {'0120' ,'Tipo do campo CEP deve ser numerico'                                 })
+          aadd(laESTRU, {'0121' ,'CEP ultrapassou valor maximo'                                        })
+          aadd(laESTRU, {'0122' ,'Obrigatorio CEP'                                                     })
+          aadd(laESTRU, {'0130' ,'Email'                                                               })
+          aadd(laESTRU, {'0140' ,'Tipo do campo codigo do banco deve ser numerico'                     })
+          aadd(laESTRU, {'0141' ,'Codigo do banco ultrapassou valor máximo'                            })
+          aadd(laESTRU, {'0142' ,'Codigo do banco obrigatorio'                                         })
+          aadd(laESTRU, {'0145' ,'Banco do favorecido deve ser igual ao banco do beneficiário'         })
+          aadd(laESTRU, {'0150' ,'Tipo do campo No agencia deve ser numerico'                          })
+          aadd(laESTRU, {'0151' ,'No da agencia ultrapassou valor maximo'                              })
+          aadd(laESTRU, {'0152' ,'No da agencia obrigatorio'                                           })
+          aadd(laESTRU, {'0155' ,'Agencia favorecido deve ser igual a agencia beneficiario'            })
+          aadd(laESTRU, {'0160' ,'DV Agencia'                                                          })
+          aadd(laESTRU, {'1070' ,'Tipo do campo No da conta corrente deve ser numerico'                })
+          aadd(laESTRU, {'0171' ,'No da conta corrente ultrapassou valor maximo'                       })
+          aadd(laESTRU, {'0172' ,'No da conta corrente obrigatorio'                                    })
+          aadd(laESTRU, {'0175' ,'Conta do Favorecido deve ser igual a do Benficiario'                 })
+          aadd(laESTRU, {'0180' ,'DV Conta Corrente'                                                   })
+          aadd(laESTRU, {'0190' ,'Tipo do campo codigo de tributacao IRRF deve sr numerico'            })
+          aadd(laESTRU, {'0191' ,'Codigo de tributacao IRRF ultrapassou valor maximo'                  })
+          aadd(laESTRU, {'0192' ,'Codigo de tributacao IRRF invalido'                                  })
+          aadd(laESTRU, {'0200' ,'Tipo do campo codigo calula ISS deve ser numerico'                   })
+          aadd(laESTRU, {'0202' ,'Codigo calcula ISS diferente de 0/1'                                 })
+          aadd(laESTRU, {'0220' ,'Tipo do campo codigo calcula INSS deve ser numerico'                 })
+          aadd(laESTRU, {'0221' ,'Codigo de tributacao INSS ultrapassou valor maximo'                  })
+          aadd(laESTRU, {'0222' ,'Codigo de tributacao INSS invalido'                                  })
+          aadd(laESTRU, {'0230' ,'Tipo de campo No dependente deve ser numerico'                       })
+          aadd(laESTRU, {'0231' ,'Tipo de campo No de dependente ultrapassou valor maximo'             })
+          aadd(laESTRU, {'0240' ,'Tipo de campo No PIS deve ser numerico'                              })
+          aadd(laESTRU, {'0241' ,'Tipo de campo No PIS ultrapassou valor maximo'                       })
+          aadd(laESTRU, {'0242' ,'No PIS obrigatorio'                                                  })
+          aadd(laESTRU, {'0250' ,'Tipo de campo codigo SUSEP deve ser numerico'                        })
+          aadd(laESTRU, {'0251' ,'Tipo de campo codigo SUSEP ultrapassou valor maximo'                 })
+          aadd(laESTRU, {'0260' ,'Tipo de campo No funcionario deve ser numerico'                      })
+          aadd(laESTRU, {'0261' ,'Tipo de campo No funcionario ultrapassou valor maximo'               })
+          aadd(laESTRU, {'0270' ,'Codigo filial invalido'                                              })
+          aadd(laESTRU, {'0280' ,'Codigo centro de custo invalido'                                     })
+          aadd(laESTRU, {'0300' ,'Tipo de campo data de nascimento deve ser numerico'                  })
+          aadd(laESTRU, {'0301' ,'Tipo de campo data de nascimento ultrapassou valor maximo'           })
+          aadd(laESTRU, {'0310' ,'Tipo de pessoa diferente de F/J/G'                                   })
+          aadd(laESTRU, {'0320' ,'Tipo de campo classe deve ser numerico'                              })
+          aadd(laESTRU, {'0321' ,'Classe ultrapassou valor maximo'                                     })
+          aadd(laESTRU, {'0322' ,'Classe invalido'                                                     })
+          aadd(laESTRU, {'0330' ,'CPF ou CNPJ invalido'                                                })
+          aadd(laESTRU, {'0331' ,'Tamanho do CPF ou CNPJ invalido'                                     })
+          aadd(laESTRU, {'0340' ,'Tipo de campo codigo do banco deve ser numerico'                     })
+          aadd(laESTRU, {'0341' ,'Tipo de campo codigo do banco ultrapassou valor maximo'              })
+          aadd(laESTRU, {'0342' ,'Codigo do banco obrigatorio'                                         })
+          aadd(laESTRU, {'0345' ,'Banco favorecido deve ser igual ao banco do beneficiario'            })
+          aadd(laESTRU, {'0346' ,'Banco favorecido deve ser igual ao banco da empresa p/ OP eletronica'})
+          aadd(laESTRU, {'0350' ,'Tipo de campo No agencia deve ser numerico'                          })
+          aadd(laESTRU, {'0351' ,'Tipo de campo No da agencia ultrapassou valor maximo'                })
+          aadd(laESTRU, {'0352' ,'No da agencia obrigatorio'                                           })
+          aadd(laESTRU, {'0355' ,'Agencia do favorecido deve ser igual do beneficiario'                })
+          aadd(laESTRU, {'0360' ,'DV da agencia'                                                       })
+          aadd(laESTRU, {'0365' ,'DV da agencia do favorecido deve ser igual DV Ag do Beneficiario'    })
+          aadd(laESTRU, {'0370' ,'Tipo do campo No da conta corrente deve ser numerico'                })
+          aadd(laESTRU, {'0371' ,'Tipo de campo No da conta corrente ultrapassou valor maximo'         })
+          aadd(laESTRU, {'0372' ,'No da conta corrente obrigatorio'                                    })
+          aadd(laESTRU, {'0375' ,'Conta do favorecido deve ser igual a do beneficiario'                })
+          aadd(laESTRU, {'0380' ,'DV da conta corrente'                                                })
+          aadd(laESTRU, {'0385' ,'DV da conta do fav deve ser igual DV da conta do Benf'               })
+          aadd(laESTRU, {'0390' ,'Identificacao do pagamento deve ser unico (titulo)'                  })
+          aadd(laESTRU, {'0391' ,'Identificacao do pagamento deve ser unico (arquivo)'                 })
+          aadd(laESTRU, {'0392' ,'Identificacao do pagamento NAO encontrado no sistema'                })
+          aadd(laESTRU, {'0393' ,'Identificacao do pagamento + valor = titulo NAO encontrado'          })
+          aadd(laESTRU, {'0394' ,'Titulo em processo de pagamento'                                     })
+          aadd(laESTRU, {'0400' ,'Tipo do campo codigo da companhia deve ser numerico'                 })
+          aadd(laESTRU, {'0401' ,'Codigo da companhia ultrapassou valor maximo'                        })
+          aadd(laESTRU, {'0402' ,'Codigo da companhia invalido'                                        })
+          aadd(laESTRU, {'0403' ,'Empresa nao habilitada para Filial/Operacao/Forma de Pagto'          })
+          aadd(laESTRU, {'0410' ,'Tipo do campo Filial deve sr numerico'                               })
+          aadd(laESTRU, {'0411' ,'Codigo da filial ultrapassou valor maximo'                           })
+          aadd(laESTRU, {'0412' ,'Codigo da filial invalido'                                           })
+          aadd(laESTRU, {'0413' ,'Filial não habilitada para Empresa/Operacao/Forma Pagto'             })
+          aadd(laESTRU, {'0420' ,'Tipo do campo codigo do envento deve ser numerico'                   })
+          aadd(laESTRU, {'0421' ,'Codigo do evento ultrapassou valor maximo'                           })
+          aadd(laESTRU, {'0422' ,'Codigo do envento invalido'                                          })
+          aadd(laESTRU, {'0423' ,'Evento não pode ter preenchimento manual'                            })
+          aadd(laESTRU, {'0425' ,'Tipo de evento invalido para tipo de interface'                      })
+          aadd(laESTRU, {'0430' ,'Tipo do campo tipo de operacao deve ser numerico'                    })
+          aadd(laESTRU, {'0431' ,'Tipo de operacao ultrapassou valor maximo'                           })
+          aadd(laESTRU, {'0432' ,'Tipo de operacao invalido'                                           })
+          aadd(laESTRU, {'0433' ,'Operacao não habilitada para Empresa/Filial/Forma de Pagto'          })
+          aadd(laESTRU, {'0440' ,'Tipo do campo forma e pagamento deve ser numerico'                   })
+          aadd(laESTRU, {'0441' ,'Forma de pagamento ultrapassou valor maximo'                         })
+          aadd(laESTRU, {'0442' ,'Forma de pagamento invalido'                                         })
+          aadd(laESTRU, {'0443' ,'Forma de pagamento nao habilitada para Empresa/Filial/Operacao'      })
+          aadd(laESTRU, {'0444' ,'Habilitar Forma Pagto Transferencia para Emp/Filial/Tipo Oper'       })
+          aadd(laESTRU, {'0445' ,'Multiplas contas para mesmo beneficiario'                            })
+          aadd(laESTRU, {'0446' ,'Multiplas contas para mesmo pagar para'                              })
+          aadd(laESTRU, {'0450' ,'Tipo do campo No do documento deve ser numerico'                     })
+          aadd(laESTRU, {'0451' ,'No do documento ultrapassou valor maximo'                            })
+          aadd(laESTRU, {'0460' ,'Tipo do campo data de vencimento deve ser numerico'                  })
+          aadd(laESTRU, {'0461' ,'Formato da data de vencimento deve ser AAAAMMDD'                     })
+          aadd(laESTRU, {'0462' ,'Data de vencimento obrigatoria'                                      })
+          aadd(laESTRU, {'0470' ,'Sinal do valor bruto deve ter conteudo branco ou + ou -'             })
+          aadd(laESTRU, {'0480' ,'Tipo do campo valor bruto deve ser numerico'                         })
+          aadd(laESTRU, {'0481' ,'Valor bruto invalido'                                                })
+          aadd(laESTRU, {'0490' ,'Sinal do valor isento IR deve ter conteudo branco ou + ou -'         })
+          aadd(laESTRU, {'0500' ,'Tipo do campo valor isento IR deve ser numerico'                     })
+          aadd(laESTRU, {'0510' ,'Sinal valor tributavel IR deve ter conteudo branco ou + ou -'        })
+          aadd(laESTRU, {'0520' ,'Tipo do campo valor tributavel IR deve ser numerico'                 })
+          aadd(laESTRU, {'0521' ,'Valor tributavel IR + valor isento IR = valor bruto'                 })
+          aadd(laESTRU, {'0530' ,'Sinal valor isento ISS deve ter conteudo branco ou + ou -'           })
+          aadd(laESTRU, {'0540' ,'Tipo do campo valor isento ISS deve ser numerico'                    })
+          aadd(laESTRU, {'0541' ,'Valor isento ISS + valor tributavel ISS = valor bruto'               })
+          aadd(laESTRU, {'0550' ,'Sinal valor tributavel ISS deve ter conteudo branco/+/-'             })
+          aadd(laESTRU, {'0560' ,'Tipo de campo valor tributavel ISS deve ser numero'                  })
+          aadd(laESTRU, {'0561' ,'Valor tributavel ISS valor isento ISS = valor bruto'                 })
+          aadd(laESTRU, {'0570' ,'Sinal valor isento INSS dve ter conteudo branco/+/-'                 })
+          aadd(laESTRU, {'0580' ,'Tipo do campo valor isento INSS deve ser numerico'                   })
+          aadd(laESTRU, {'0581' ,'Valor isento INSS + valor tributavel INSS = valor bruto'             })
+          aadd(laESTRU, {'0590' ,'Sinal valor tributavel INSS deve ter conteudo branco/+/-'            })
+          aadd(laESTRU, {'0600' ,'Tipo do campo valor tributavel INSS deve ser numerico'               })
+          aadd(laESTRU, {'0601' ,'Valor tributavel INSS + valor isento INSS = valor bruto'             })
+          aadd(laESTRU, {'0610' ,'Sinal valor ISS deve ter conteudo branco/+/-'                        })
+          aadd(laESTRU, {'0620' ,'Tipo do campo valor ISS deve ser numerico'                           })
+          aadd(laESTRU, {'0621' ,'Valor ISS ultrapassou valor maximo'                                  })
+          aadd(laESTRU, {'0630' ,'Sinal valor IRRF deve ter conteudo branco/+/-'                       })
+          aadd(laESTRU, {'0640' ,'Tipo do campo valor IRRF deve ser numerico'                          })
+          aadd(laESTRU, {'0641' ,'Valor IRRF ultrapassou valor maximo'                                 })
+          aadd(laESTRU, {'0650' ,'Sinal valor INSS deve ter conteudo branco/+/-'                       })
+          aadd(laESTRU, {'0660' ,'Tipo do campo valor INSS deve ser numerico'                          })
+          aadd(laESTRU, {'0661' ,'Valor INSS ultrapassou valor maximo'                                 })
+          aadd(laESTRU, {'0670' ,'Descricao'                                                           })
+          aadd(laESTRU, {'0750' ,'Ramo invalido'                                                       })
+          aadd(laESTRU, {'0751' ,'Ramo obrigatorio'                                                    })
+          aadd(laESTRU, {'0760' ,'Produto invalido'                                                    })
+          aadd(laESTRU, {'0761' ,'Produto obrigatorio'                                                 })
+          aadd(laESTRU, {'0770' ,'Fonte invalido'                                                      })
+          aadd(laESTRU, {'0771' ,'Fonte obrigatorio'                                                   })
+          aadd(laESTRU, {'0780' ,'Centro de custo invalido'                                            })
+          aadd(laESTRU, {'0781' ,'Centro de custo obrigatorio'                                         })
+          aadd(laESTRU, {'0790' ,'Cod fornecedor invalido'                                             })
+          aadd(laESTRU, {'0791' ,'Cod fornecedor obrigatorio'                                          })
+          aadd(laESTRU, {'0800' ,'NSA Invalido'                                                        })
+          aadd(laESTRU, {'0801' ,'NSA obrigatorio'                                                     })
+          aadd(laESTRU, {'0810' ,'Data Invalido'                                                       })
+          aadd(laESTRU, {'0820' ,'Data obrigatorio'                                                    })
+          aadd(laESTRU, {'1020' ,'Tipo de campo inscricao ISS deve ser obrigatorio'                    })
+          aadd(laESTRU, {'1021' ,'Tipo de campo inscricao iSS ultrapassou valor maximo'                })
+          aadd(laESTRU, {'1022' ,'Inscricao iSS obrigatorio'                                           })
+          aadd(laESTRU, {'1030' ,'Tipo de campo No interno corretor deve ser numerico'                 })
+          aadd(laESTRU, {'1031' ,'Tipo de campo No interno corretor ultrapassou valor maximo'          })
+          aadd(laESTRU, {'1032' ,'No interno corretor obrigatorio'                                     })
+          aadd(laESTRU, {'1040' ,'Tipo de campo CBO deve ser numerico'                                 })
+          aadd(laESTRU, {'1041' ,'Tipo de campo CBO ultrapassou valor maximo'                          })
+          aadd(laESTRU, {'1042' ,'CBO obrigatorio/invalido'                                            })
+          aadd(laESTRU, {'1050' ,'Tipo de campo natureza do recendimento deve ser numerico'            })
+          aadd(laESTRU, {'1051' ,'Tipo de campo natureza do recendimento ultrapassou valor maximo'     })
+          aadd(laESTRU, {'1052' ,'Natureza do rendimento invalido'                                     })
+          aadd(laESTRU, {'1061' ,'Nome do favorecido e nome do beneficiario devem ser iguais'          })
+          aadd(laESTRU, {'1070' ,'Tipo do campo DT e emissao do documento deve ser numerico'           })
+          aadd(laESTRU, {'1071' ,'Formato da DT de emissao do documento deve ser AAAAMMDD'             })
+          aadd(laESTRU, {'1072' ,'DT emissao documento obrigatorio'                                    })
+          aadd(laESTRU, {'1080' ,'Tipo de movimento invalido'                                          })
+          aadd(laESTRU, {'1150' ,'Nome favorecido obrigatorio'                                         })
+          aadd(laESTRU, {'1390' ,'Tipo do campo codigo de tributacao CSLL deve ser numerico'           })
+          aadd(laESTRU, {'1391' ,'Codigo de tributacao CSLL ultrapassou valor maximo'                  })
+          aadd(laESTRU, {'1392' ,'Codigo de tributacao CSLL invalido'                                  })
+          aadd(laESTRU, {'1400' ,'Tipo do campo codigo de tributacao COFINS deve ser numerico'         })
+          aadd(laESTRU, {'1401' ,'Codigo de tributacao COFINS ultrapassou valor maximo'                })
+          aadd(laESTRU, {'1402' ,'Codigo de tributacao COFINS invalido'                                })
+          aadd(laESTRU, {'1410' ,'Tipo do campo codigo de tributacao PIS deve ser numerico'            })
+          aadd(laESTRU, {'1411' ,'Codigo de tributacao PIS ultrapassou valor maximo'                   })
+          aadd(laESTRU, {'1412' ,'Codigo de tributacao PIS invalido'                                   })
+          aadd(laESTRU, {'1500' ,'Sinal valor isento CCP deve ter conteudo branco/+/-'                 })
+          aadd(laESTRU, {'1510' ,'Tipo de campo valor isento CCP deve ser numerico'                    })
+          aadd(laESTRU, {'1511' ,'Valor isento CCP + valor tributavel CCP = valor bruto'               })
+          aadd(laESTRU, {'1520' ,'Sinal Vlr Tributavel CCP deve ter conteudo branco/+/-'               })
+          aadd(laESTRU, {'1530' ,'Tipo do campo valor isento CCP deve ser numerico'                    })
+          aadd(laESTRU, {'1531' ,'Valor tributavel CCP + valor isento CCP = valor bruto'               })
+          aadd(laESTRU, {'1540' ,'Sinal valor desconto deve ter conteudo branco/+/-'                   })
+          aadd(laESTRU, {'1550' ,'Tipo do campo valor desconto deve ser numerico'                      })
+          aadd(laESTRU, {'1580' ,'Sinal valor multa deve ter conteudo branco/+/-'                      })
+          aadd(laESTRU, {'1590' ,'Tipo do campo valor multa deve ser numerico'                         })
+          aadd(laESTRU, {'1640' ,'Tipo do campo enviar aviso favorecido deve ser numerico'             })
+          aadd(laESTRU, {'1641' ,'Enviar aviso favorecido ultrapassou valor maximo'                    })
+          aadd(laESTRU, {'1642' ,'Campo enviar aviso ao favorecido invalido'                           })
+          aadd(laESTRU, {'1643' ,'Enviar aviso ao favoreciso apenas forma Pagto 9-OP '                 })
+          aadd(laESTRU, {'1650' ,'Tipo do campo cod tributacao ISS deve ser numerico'                  })
+          aadd(laESTRU, {'1651' ,'Tipo do campo cod tributacao ultrapassou valor maximo'               })
+          aadd(laESTRU, {'1652' ,'Tipo do campo cod tributacao invalido'                               })
+          aadd(laESTRU, {'1710' ,'Hash MD5 obrigatorio'                                                })
+          aadd(laESTRU, {'1711' ,'Hash MD5 invalido'                                                   })
+   endif
+return(laESTRU)

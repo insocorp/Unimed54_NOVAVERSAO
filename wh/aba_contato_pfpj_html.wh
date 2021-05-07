@@ -1,0 +1,150 @@
+/*
+
+Project      : gr5
+Program      : aba.contato.pfpj.html
+Function     : aba_contato_pfpj_html
+Created on   : 25-Jan-2006   14:47:03
+Descripition : Aba Contatos de Pessoas.
+
+*/
+
+   local lcACTION        := upper(WGet('ACTION','U')),;
+         lcNR_CONTROLE   := WGet('NR_CONTROLE','C'),;
+         lcPFPJ_NATUREZA := WGet('PFPJ_NATUREZA','C'),;
+         lcCIP_CONTATO   := WGet('CIP_CONTATO','C'),;
+         lcNR_PASTA      := WGet('NR_PASTA','C') ,;
+         lcTP_PASTA      := WGet('TP_PASTA','C') ,;
+         lcTABLE         := '',;
+         lcWHERE         := '' as string
+   local laFIELDS   := {} ,;
+         laRESULT   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laVALIDA   := {} as array
+   local ii := 0 as int
+   local llFL_PASTA := .f. as logical
+
+   laVALIDA := {'CIP_CONTATO'}
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+   if ! empty(lcNR_PASTA) .and. ! empty(lcTP_PASTA)
+      llFL_PASTA := .t.
+
+      if db_select({'pfpj.NR_CONTROLE'},'pasta',{{2,'pfpj','pfpj.CIP=pasta.CIP'}},{'pasta.NR_PASTA='+lcNR_PASTA}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         lcNR_CONTROLE := str(laRESULT[1])
+      endif
+   endif
+   WPut('NR_CONTROLE',lcNR_CONTROLE)
+   if val(lcNR_CONTROLE) == 0
+      walert('Favor Definir uma Pessoa Física/Jurídica em Informações Principais')
+      mnt_pasta_html()
+      return .f.
+   endif
+
+   lcTABLE  := 'pfpj_contato'
+   laFIELDS := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   // Glauber 06/01/2011
+   AbasPerfil(lcTP_PASTA,laFIELDS)
+
+   lcWHERE  := 'NR_CONTROLE='+lcNR_CONTROLE+' and CIP_CONTATO='+DLAP+lcCIP_CONTATO+DLAP
+   get2Put({'PFPJ_NATUREZA','NR_PASTA','TP_PASTA'})
+
+   if lcACTION == 'SAVE' .and. gbWAC_WRITE
+      if verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+         aadd(laSAVE,laFIELDS)
+         for ii := 1 to len(laFIELDS)
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+
+         pfpj_logs(laSAVE,lcTABLE,lcWHERE,lcNR_CONTROLE,'Contatos') //Gravar log de alterações da pasta
+
+         if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+            error_sys(db_error())
+         endif
+      endif
+   elseif lcACTION == 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         db2Put(laRESULT)
+         if ! empty(getwput('CIP_CONTATO'))
+            if db_select({'PFPJ as CIP_CONTATO_PFPJ',;
+                          'CNPJ_CPF as CIP_CONTATO_CNPJ_CPF',;
+                          'IE as CIP_CONTATO_IE',;
+                          'CARGO as CIP_CONTATO_CARGO',;
+                          'TELEFONE as CIP_CONTATO_TELEFONE',;
+                          'EMAIL as CIP_CONTATO_EMAIL'},'pfpj',,{'CIP='+DLAP+getwput('CIP_CONTATO')+DLAP}) == -1
+               error_sys(db_error())
+            endif
+            db2put(db_fetchall())
+         endif
+         if ! empty(getwput('CIP_RESPONSAVEL_CONTATO'))
+            if db_select({'PFPJ as CIP_RESPONSAVEL_CONTATO_PFPJ',;
+                          'CNPJ_CPF as CIP_RESPONSAVEL_CONTATO_CNPJ_CPF',;
+                          'IE as CIP_RESPONSAVEL_CONTATO_IE',;
+                          'CARGO as CIP_RESPONSAVEL_CONTATO_CARGO',;
+                          'TELEFONE as CIP_RESPONSAVEL_CONTATO_TELEFONE',;
+                          'EMAIL as CIP_RESPONSAVEL_CONTATO_EMAIL'},'pfpj',,{'CIP='+DLAP+getwput('CIP_RESPONSAVEL_CONTATO')+DLAP}) == -1
+               error_sys(db_error())
+            endif
+            db2put(db_fetchall())
+         endif
+      endif
+   elseif lcACTION == 'DELETE' .and. gbWAC_DELETE
+      pfpj_logdel(lcNR_CONTROLE,'CIP_CONTATO',lcCIP_CONTATO,,'Contatos')
+
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+   endif
+
+   if db_select({'pfpj_contato.CIP_CONTATO',;
+                 'pfpj.PFPJ',;
+                 'pfpj.CNPJ_CPF',;
+                 'pfpj.IE',;
+                 'pfpj.CARGO',;
+                 'pfpj_contato.COMPLEMENTO'},;
+                lcTABLE,;
+                {{2,'pfpj','pfpj_contato.CIP_CONTATO=pfpj.CIP'}},;
+                {'pfpj_contato.NR_CONTROLE='+lcNR_CONTROLE},{'pfpj_contato.CIP_CONTATO'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      aadd(laRESULT[1],'(row)')
+      for ii := 2 to len(laRESULT)
+         aadd(laRESULT[ii],'(row)'+wic_action('wicaction/aba.contato.pfpj.html'+;
+                                              '?ACTION=ALTER'+;
+                                              '&NR_PASTA='+lcNR_PASTA+;
+                                              '&TP_PASTA='+lcTP_PASTA+;
+                                              '&NR_CONTROLE='+lcNR_CONTROLE+;
+                                              '&PFPJ_NATUREZA='+lcPFPJ_NATUREZA+;
+                                              '&CIP_CONTATO='+laRESULT[ii,1]))
+      next ii
+      WPut('GRID_CONTATO',grid_create(laRESULT))
+   endif
+   if llFL_PASTA
+      WPut('ifPASTA',.t.)
+      make_psthead(lcNR_PASTA,lcTP_PASTA)
+      pasta_abas(lcTP_PASTA)
+   else
+      WPut('ifPFPJ',.t.)
+      make_pfpjhead(lcNR_CONTROLE,lcPFPJ_NATUREZA)
+      pfpj_abas(lcPFPJ_NATUREZA,lcNR_CONTROLE)
+   endif
+return
+
+
+
+
+
+
+
+

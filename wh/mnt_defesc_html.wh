@@ -1,0 +1,186 @@
+/*
+
+Project      : isj_60
+Program      : mnt.defesc.html
+Function     : mnt_defesc_html
+Created on   : 14/09/2017 14:36:03
+Descripition :
+
+*/
+private lcACTION   := '' 
+local   lcAUX      := '' as string
+local   lcWHERE    := '' as string
+
+
+local   laRESULT      := {} as array
+local   laRES         := {} as array
+local   laTMP         := {} as array
+local   laLINHA_ATUAL := {} as array
+local   laWHERE       := {} as array
+local   laWAUX        := {} as array
+local   laDIFFROW     := {} as array
+
+local ii := 0 as int
+local zz := 0 as int
+
+ * nr_controle INTEGER DEFAULT nextval('escritorio_peso_seq') NOT NULL,
+ * tp_pasta VARCHAR(30) DEFAULT '' NOT NULL,
+ * uf CHAR(2),
+ * pfpj_tipo char(3),
+ * cip_escritorio VARCHAR(20),
+ * peso INTEGER,
+
+
+
+lcACTION          := upper(Wget('ACTION'))
+
+
+WPut('TITLE','Identificação de Escritório')
+
+laSAVE      := {'TP_PASTA',;
+                'UF',;
+                'PFPJ_TIPO',;
+                'CIP_ESCRITORIO',;
+                'PESO'}
+                
+                
+if lcACTION == 'SAVE' .and. gbWAC_CREATE 
+
+   aadd(laSAVE,'QTDE')
+   
+   aadd(laLINHA_ATUAL,laSAVE)     
+
+   laRESULT := str2array(WGet('GRAVAR','C'),'|')
+   
+   for ii := 1 to len(laRESULT)
+       laTMP:=str2array(laRESULT[ii],',')        
+       laTMP[5]=val(laTMP[5])
+       
+       aadd(laTMP,0) //adicionando quantidade zero
+       
+       aadd(laLINHA_ATUAL,laTMP)
+
+       *** cria where para cada lancamento
+       lcWHERE:='TP_PASTA = '+ DLAP + laTMP[1] + DLAP +  ' and UF = ' + DLAP +  laTMP[2] + DLAP +' and CIP_ESCRITORIO = ' + DLAP + laTMP[4] + DLAP
+       aadd(laWHERE,lcWHERE) 
+      
+   next ii 
+
+   if db_replace(laLINHA_ATUAL,'escritorio_peso',laWHERE) == -1
+      error_sys(db_error())
+   endif
+   
+   
+   *** zera todas quantidades independente de alteração ou inclusão    
+   lcWHERE:='TP_PASTA = '+ DLAP + laTMP[1] + DLAP +  ' and UF = ' + DLAP +  laTMP[2] + DLAP
+   if db_update({{'QTDE'},{0}},'escritorio_peso',{lcWHERE}) = -1
+      error_sys(db_error())
+   endif   
+
+endif     
+   
+   
+   
+
+
+                
+
+if lcACTION == 'teste' .and. gbWAC_CREATE
+   
+   laRESULT := str2array(WGet('GRAVAR','C'),'|')  
+
+   for ii := 1 to len(laRESULT)
+       laTMP:=str2array(laRESULT[ii],',')        
+       laTMP[5]=val(laTMP[5])
+
+       lcWHERE:='TP_PASTA = '+ DLAP + laTMP[1] + DLAP +  ' and UF = ' + DLAP +  laTMP[2] + DLAP +' and CIP_ESCRITORIO = ' + DLAP + laTMP[4] + DLAP
+       aadd(laWHERE,lcWHERE) 
+       
+       laWAUX:={}
+       aadd(laWAUX,laSAVE)
+       aadd(laWAUX,laTMP)        
+       
+       if len(laDIFFROW) == 0 
+          ***se qualquer lançamento for alterado vai guardar no laDIFFROW  
+          laDIFFROW := db_diffrow(laWAUX,'escritorio_peso',lcWHERE)
+       endif
+      
+   next ii
+
+   
+   if len(laDIFFROW) == 0
+      ***verificar se esta incluindo lançamento caso afirmativo tambem deve zerar as qtdes.
+      if db_select({'count(*)'},'escritorio_peso',,{'TP_PASTA = '+ DLAP + WGet('TP','C') + DLAP +  ' and UF = ' + DLAP +  WGet('UUF','C') + DLAP}) = -1
+         error_sys()
+      endif
+      laRES := db_fetchrow()
+
+      if len(laRES) > 0
+         if laRES[1] <> len(laRESULT)
+            aadd(laDIFFROW,'1')
+         endif   
+      endif
+   endif   
+   
+   
+   if len(laDIFFROW)>0
+      aadd(laSAVE,'QTDE')
+   endif     
+   
+   aadd(laLINHA_ATUAL,laSAVE)
+   
+   laWHERE:={}
+   
+   for ii := 1 to len(laRESULT)
+       laTMP:=str2array(laRESULT[ii],',')         
+       
+       laTMP[5]=val(laTMP[5]) 
+       
+       if len(laDIFFROW)>0
+          aadd(laTMP,0)
+       endif     
+       
+       aadd(laLINHA_ATUAL,laTMP)
+
+       lcWHERE:='TP_PASTA = '+ DLAP + laTMP[1] + DLAP +  ' and UF = ' + DLAP +  laTMP[2] + DLAP +' and CIP_ESCRITORIO = ' + DLAP + laTMP[4] + DLAP
+      
+       aadd(laWHERE,lcWHERE) 
+
+   next ii  
+   
+   if len(laDIFFROW)>0
+      
+      if db_replace(laLINHA_ATUAL,'escritorio_peso',laWHERE) == -1
+         error_sys(db_error())
+      endif 
+   endif
+   
+   
+elseif lcACTION = 'EXCLU' .and. gbWAC_DELETE
+   *** zera qtde de todos da mesma pasta/uf
+   lcWHERE:= 'NR_CONTROLE = ' + str(Wget('NR_CONTROLE','N'))
+
+   if db_select({'TP_PASTA,UF'},'escritorio_peso',,{lcWHERE}) == -1
+      error_sys(db_error())
+   endif 
+   laRESULT := db_fetchall()
+
+   lcWHERE:='TP_PASTA = '+ DLAP + laRESULT[2,1] + DLAP +  ' and UF = ' + DLAP +  laRESULT[2,2] + DLAP
+   
+   if db_update({{'QTDE'},{0}},'escritorio_peso',{lcWHERE}) = -1
+      error_sys(db_error())
+   endif
+   ***     
+   
+   lcWHERE:= 'NR_CONTROLE = ' + str(Wget('NR_CONTROLE','N'))
+   if db_delete('escritorio_peso',lcWHERE) == -1
+      error_sys(db_error())
+   endif  
+   
+endif
+
+
+
+return
+
+

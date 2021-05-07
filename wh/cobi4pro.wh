@@ -1,0 +1,145 @@
+
+//
+// Glauber - 10/2017
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Classe...........: I4proCobertura
+*
+* Objetivo.........: Classe que espelha uma cobertura.
+*
+* Atributos........:
+*
+*    EXPORT NmRamo
+*    EXPORT IdProdutoCobertura
+*    EXPORT NmCobertura
+*    EXPORT VlIs
+*    EXPORT VlAviso
+*    EXPORT VlReserva
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD toString()
+*
+*
+* Classes Ligadas..:
+*
+*
+*
+*/
+
+
+CLASS I4proCobertura
+
+    // Atributos publico
+
+    EXPORT NmRamo
+    EXPORT IdProdutoCobertura
+    EXPORT NmCobertura
+    EXPORT VlIs
+    EXPORT VlAviso
+    EXPORT VlReserva
+
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()                          CLASS I4proCobertura
+    PROTOTYPE METHOD Destroy()                       CLASS I4proCobertura
+    PROTOTYPE METHOD toString()                      CLASS I4proCobertura
+
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS I4proCobertura
+
+    self:NmRamo             := ''
+    self:IdProdutoCobertura := 0
+    self:NmCobertura        := ''
+    self:VlIs               := 0.00
+    self:VlAviso            := 0.00
+    self:VlReserva          := 0.00
+
+
+return(self)
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS I4proCobertura
+
+    self:NmRamo             := nil
+    self:IdProdutoCobertura := nil
+    self:NmCobertura        := nil
+    self:VlIs               := nil
+    self:VlAviso            := nil
+    self:VlReserva          := nil
+
+
+return(nil)
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: toString()
+* Objetivo..: Retornar uma String com a representação do Objeto.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             String
+*
+*/
+
+METHOD toString() CLASS I4proCobertura
+
+return    'I4proCobertura [NmRamo=' +  Transform(self:NmRamo) +;
+          ', IdProdutoCobertura=' + Transform(self:IdProdutoCobertura) +;
+          ', NmCobertura=' + Transform(self:NmCobertura) +;
+          ', VlIs=' + Transform(self:VlIs) +;
+          ', VlAviso=' + Transform(self:VlAviso) +;
+          ', VlReserva=' + Transform(self:VlReserva) + ']'
+
+
+
+

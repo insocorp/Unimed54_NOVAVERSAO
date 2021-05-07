@@ -1,0 +1,57 @@
+/*
+Project      : gr5
+Program      : mnt.nf_tp_servico.html
+Function     : mnt_nf_tp_servico_html
+Created on   : 24-Apr-2003   17:23:05
+Descripition : Cadastro de Prestação de Serviços
+*/
+
+local laPARAM        := {},;
+      laINPUT_OBJ    := {},;
+      laSELECT       := {} as array
+
+laPARAM := {{'NF_TP_SERVICO',''     ,'*'},;
+            {'FL_ATIVO','',},;
+            {'ACTION'       ,'ALTER',   }}
+
+laINPUT_OBJ := { {'NF_TP_SERVICO',0,,'Y',},;
+                 { , , , , },;
+                 {'FL_ATIVO',1,,'Y','{"S","I","D"}' }}
+
+laSELECT := {'NF_TP_SERVICO','FL_ATIVO'}
+
+if upper(alltrim(WGet('ACTIONBP'))) == 'ALTER'
+   mkgedico('nf_tp_servico',WGet('NF_TP_SERVICO','C'))
+endif
+                                                          
+xbp('nf_tp_servico',;                                                   //Tabela alvo
+    ,;                                                                  //Joins
+    ,;                                                                  //Where
+    {'NF_TP_SERVICO'},;                                                 //Order by
+    ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+    ,;                                                                  //Group by
+    ,;                                                                  //Limit
+    ,;                                                                  //Banco de Dados
+    2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+    'gr5',;                                                             //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                                           //Programa chamador
+    laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+    ,;                                                                  //Parâmetros para os botões das linhas do grid
+    'mnt.nf_tp_servico.html',;                                          //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+    ,;                                                                  //Retorno java (nil) - usado apenas para Search
+    ,;                                                                  //Campos usados na pesquisa rápida
+    ,;                                                                  //Campos Ocultos
+    laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+    laSELECT,;                                                          //Campos exibidos no grid
+    laSELECT)                                                           //Campos usados no select
+return
+
+
+
+
+
+
+
+
+

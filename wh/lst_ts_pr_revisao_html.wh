@@ -1,0 +1,58 @@
+/*
+Project      : gr5
+Program      : lst.ts.pr.revisao.html
+Function     : lst_ts_pr_revisao_html
+Created on   : 16-Oct-2002   15:35:14
+Descripition : Revisão de Timesheet Preventivo
+*/
+
+   local laPARAM := {{'CIP_EMPRESA',''},;
+                     {'PFPJ',''},;
+                     {'ACTION'  ,'ALTER'}} as array
+
+   local laQUICK_SEARCH := {} ,;
+         laJOIN         := {} ,;
+         laGROUPBY      := {} ,;
+         laWHERE        := {} ,;
+         laSELECT       := {} as array
+
+   laSELECT       := {'pasta.CIP_EMPRESA',;
+                      'pfpj.PFPJ',;
+                      'pfpj.NM_FANTASIA',;
+                      'pfpj.CIDADE'}
+
+   aadd(laJOIN,{2,'pasta','pasta.NR_PASTA=mvt_servico.NR_PASTA'})
+   aadd(laJOIN,{2,'pfpj','pfpj.CIP=pasta.CIP_EMPRESA'})
+
+   //laGROUPBY := aclone(laSELECT)
+
+   //aadd(laSELECT,'count(*) as NR_TIMESHEET')
+
+   laQUICK_SEARCH := {'pfpj.CIP','pfpj.PFPJ'}
+
+   laWHERE := {'mvt_servico.FL_APROVADO='+DLAP+'0'+DLAP,;
+               'mvt_servico.CIP_CONSULENTE<>'+DLAP+DLAP}
+
+   xbp('mvt_servico',;                                                     //Tabela alvo
+       laJOIN,;                                                            //Joins
+       laWHERE,;                                                           //Where
+       ,;                                                                  //Order by
+       ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+       laGROUPBY,;                                                         //Group by
+       ,;                                                                  //Limit
+       ,;                                                                  //Banco de Dados
+       4,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search, 4-Listagem
+       'gr5',;                                                             //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;                                           //Programa chamador
+       laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+       ,;                                                                  //Parâmetros para os botões das linhas do grid
+       'mnt.ts.pr.revisao.html',;                                          //Programa que os links/botoes do grid deverao chamar
+       'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+       ,;                                                                  //Retorno java (nil) - usado apenas para Search
+       laQUICK_SEARCH,;                                                    //Campos usados na pesquisa rápida
+       ,;                                                                  //Campos Ocultos
+       ,;                                                                  //Campos da área de manutenção/entrada de dados
+       laSELECT,;                                                          //Campos exibidos no grid
+       laSELECT)                                                           //Campos usados no select
+   WPut('TITLE','Revisão de Timesheet Preventivo')
+return

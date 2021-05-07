@@ -1,0 +1,184 @@
+/*
+
+Project      : gr5
+Program      : mnt.wprofile.html
+Function     : mnt_wprofile_html
+Created on   : 29/9/2011 10:12:00
+Descripition : Lista Wprofile
+Projeto      : Alfa
+*/
+
+#DEFINE BUFFSIZE1 4096
+
+parameters fcACTION
+           
+local lcFILE  := '' as string
+local lcWPROFILE:= '' as string
+local lcBUFFER  := '' as string
+local lcTEXTO   := '' as string
+local lcTEXTO2  := '' as string
+local lcCONTEUD := '' as string 
+
+
+local liINICIO        := 0 as int  
+local liFIM           := 0 as int 
+local liTAMTAGI       := 0 as int 
+local liTAMTAGF       := 0 as int 
+local liTAMCONT       := 0 as int
+
+private fcTEMP := WSet("_WTEMP") 
+
+laEXI:= {'<WPPASS>',;
+         '<USER_GR5>',;
+        '<USER_REPORT>',;
+        '<USER_WORKFLOW>',;
+        '<USER_PORTAL>',;
+        '<USER_WCATALOG>',;
+        '<USER_DIT>',;
+        '<PASS_GR5>',;
+        '<PASS_REPORT>',;
+        '<PASS_WORKFLOW>',;
+        '<PASS_PORTAL>',;
+        '<PASS_WCATALOG>',;
+        '<PASS_DIT>',;
+        '<_WFPRF_USERS>',;
+        '<_WFPRF_MNT_USERS>',;
+        '<_WFPRF_PASS_ROOT>',;
+        '<_WFPRF_PASS_ADMIN>',;
+        '<_WFPRF_PASS_CLIENT>'}
+
+laEXF:= {'</WPPASS>',;
+        '</USER_GR5>',;
+        '</USER_REPORT>',;
+        '</USER_WORKFLOW>',;
+        '</USER_PORTAL>',;
+        '</USER_WCATALOG>',;
+        '</USER_DIT>',;
+        '</PASS_GR5>',;
+        '</PASS_REPORT>',;
+        '</PASS_WORKFLOW>',;
+        '</PASS_PORTAL>',;
+        '</PASS_WCATALOG>',;
+        '</PASS_DIT>',;
+        '</_WFPRF_USERS>',;
+        '</_WFPRF_MNT_USERS>',;
+        '</_WFPRF_PASS_ROOT>',;
+        '</_WFPRF_PASS_ADMIN>',;
+        '</_WFPRF_PASS_CLIENT>'}
+        
+WPut('TITLE','Lista Conteúdo Wprofile') 
+ 
+fcPATH := 'DECRYPT'
+
+lcFILE := fcTEMP+"wpro.xml"   
+lcDELETA := fcTEMP+"wpro.xml"
+wpp_decrypt(fcPATH,fcTEMP)
+
+
+*** abre arquivo joga conteudo em uma variavel texto
+lhHANDLE := FOPEN(lcFILE) 
+BUFFSIZE := fseek(lhHANDLE,0,2)-1 //tamanho do buffer e igual tamanho do arquivo
+lcBUFFER := SPACE(BUFFSIZE)
+fseek(lhHANDLE,0)
+if FERROR() == 0
+   do while .t.
+      liLEN := fread(lhHANDLE, @lcBUFFER, BUFFSIZE)
+      if liLEN = 0
+         exit
+      elseif liLEN != BUFFSIZE
+         lcWPROFILE += substr(lcBUFFER,1,liLEN)
+      else
+         lcWPROFILE += lcBUFFER
+      endif
+    enddo
+    FCLOSE (lhHANDLE)      
+else
+   wout('Read wprofile: error '+str(ferror()))
+   return(-1)
+endif
+lcTEXTO := lcWPROFILE
+
+
+*** procura conteudo das tags indicadas e troca por ******
+for ii:=1 to len(laEXI)
+    *** inicio da tag
+    liINICIO:=at(laEXI[ii],lcTEXTO)
+    
+    if liINICIO>0
+       *** inicio fim da tag
+       liFIM:= at(laEXF[ii],lcTEXTO) + len(laEXF[ii])
+       *** tamanho tag inicio
+       liTAMTAGI:=len(laEXI[ii])
+       *** tamanho tag final
+       liTAMTAGF:=len(laEXF[ii])
+       *** conteudo da tag
+       lcCONTEUD:=substr(lcTEXTO,liINICIO+len(laEXI[ii]),(liFIM - (liINICIO+liTAMTAGI))-liTAMTAGF)      
+       *** tamanho conteudo da tag
+       liTAMCONT:=len(lcCONTEUD)
+       *** troca o conteudo  
+       lcTEXTO:=stuff(lcTEXTO,liINICIO+liTAMTAGI,liTAMCONT,replicate('*',10))
+    endif    
+next
+
+WPut('CONTEUDO',lcTEXTO)
+
+// deletar arquivo apos listar
+FERASE(lcDELETA)
+return
+
+
+function wpp_decrypt(fcPATH,fcTEMP)
+
+   local lcBUFFER := '' ,;
+         lcFILE  := '' ,;
+         lcWPROFILE  := '' ,;
+         lcPATH_WPROFILE := '' as string
+
+   local lhHANDLE
+
+   local liLEN := 0 ,;
+         lnPOS := 0 as int
+
+   local laWSET := {} as array
+
+   lcBUFFER = SPACE(BUFFSIZE1)
+   // le arquivo XML
+   lcFILE := "wprofile.ini"
+   lhHANDLE = FOPEN(lcFILE)
+   if FERROR() == 0
+      do while .t.
+         BUFX := 4096
+         liLEN := fread(lhHANDLE, @lcBUFFER,4096)
+         if liLEN = 0
+            exit
+         elseif liLEN != BUFX
+            lcWPROFILE += substr(lcBUFFER,1,liLEN)
+         else
+            lcWPROFILE += lcBUFFER
+         endif
+      enddo
+      FCLOSE (lhHANDLE)
+   else
+      wout('Read wprofile: error '+str(ferror()))
+      return(-1)
+   endif
+   lcWPROFILE := wdecrypt(lcWPROFILE,;
+        chr(106)+chr(101)+chr(115)+chr(117)+chr(115)+chr(101)+chr(97)+chr(99)+;
+        chr(109)+chr(104)+chr(104)+chr(97)+chr(108)+chr(118)+chr(101)+chr(42))
+
+   laWSET := xml2array(lcWPROFILE)
+  
+   lcFILE := fcTEMP+'wpro.xml'
+   lhHANDLE = fcreate(lcFILE,644)
+   if FERROR() == 0
+      if fwrite(lhHANDLE,lcWPROFILE) < 1
+         wout('Save wprofile: error '+str(ferror()))
+         return(-1)
+      endif
+      FCLOSE(lhHANDLE)
+   endif
+  
+return(0)
+
+
+

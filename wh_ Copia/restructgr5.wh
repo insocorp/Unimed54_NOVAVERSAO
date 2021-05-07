@@ -1,0 +1,14 @@
+/*
+
+Project      : gr5
+Program      : restruct.wic
+Function     : restruct_wic
+Created on   : 16-Apr-2002   00:33:26
+Descripition :  restrutura o DB
+
+*/
+WPut('TITLE', 'Resultado db_restruct()')
+WPut('MENS_RES', db_restruct('GR5'))
+
+            
+            

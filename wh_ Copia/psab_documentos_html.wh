@@ -1,0 +1,656 @@
+/*
+
+Project      : gr5
+Program      : psab.documentos.html
+Function     : psab_documentos_html
+Created on   : 07/11/2014 11:40
+Descripition : Aba de Documentos / Solicitação / Upload
+
+*/ 
+
+local laFIELDS      := {},;
+      laTMP         := {},;
+      laAUX         := {},;
+      laLINHA_ATUAL := {} as array
+
+local lcNR_PASTA    := WGet('NR_PASTA','C') ,;
+      lcTP_PASTA    := WGet('TP_PASTA','C') ,;
+      lcACTION      := upper(WGet('ACTION','C')) as string
+      
+      laFIELDS      := {'DOCUMENTO',;
+                        'DT_SOLICITACAO',;
+                        'DEAD_LINE',;
+                        'DOCEXISTE',;
+                        'DT_UPLOAD',;
+                        'LOGIN_UPLOAD',;
+                        'IDONEIDADE',;
+                        'OBSERVACAO'}      
+      
+wac_tp_pasta(lcTP_PASTA)               // Função para verificação de permissões por pasta, encontra-se na func.wic
+make_psthead(lcNR_PASTA,lcTP_PASTA)    //Cabeçalho
+init_reqfield(WSet('_USER_INTERFACE'))
+AbasPerfil(lcTP_PASTA, laFIELDS)
+pasta_abas(lcTP_PASTA)         
+      
+if lcACTION == 'SAVENEW' .and. gbWAC_CREATE  
+
+       laRESULT     :={}
+       laLINHA_ATUAL:={}
+       laTMP        :={}
+
+       laSAVE       := {'NR_PASTA',;
+                        'ID_DOCUMENTO',;
+                        'DT_SOLICITACAO',;
+                        'DEAD_LINE'}
+
+      aadd(laLINHA_ATUAL,laSAVE)
+      
+      if WGet('DOC_NOVOS','C')<>''
+         laRESULT := str2array(WGet('DOC_NOVOS','C'),'|')  
+    
+          for ii := 1 to len(laRESULT)
+             laTMP:={}
+             aadd(laTMP,str2array(laRESULT[ii],','))
+
+             aadd(laLINHA_ATUAL,{laTMP[1,1],laTMP[1,2],date(),ctod(laTMP[1,4])})
+
+          next ii
+
+         if len(laLINHA_ATUAL)>1  
+         
+            db_query('BEGIN TRANS') //Iniciando Transação
+         
+            if db_insert(laLINHA_ATUAL,'pasta_det_doc') == -1
+               db_query('ROLLBACK')
+               error_sys(db_error())
+            endif
+
+            db_query('COMMIT')     //Efetivando alterações no Banco de Dados              
+
+         endif          
+  
+         if WGet('DED_INIC','C')=='S'       
+
+            *** pega o ded_line do primeiro lançamento laTMP[1,4]
+            laTMP:={}
+            aadd(laTMP,str2array(laRESULT[1],','))
+
+            laSAVE       := {'NR_PASTA',;
+                             'DT_PRAZO',;
+                             'DT_CADASTRO',;
+                             'LOGIN_CADASTRO',;
+                             'DEAD_LINE'}
+
+         
+            laLINHA_ATUAL:={}
+            
+            aadd(laLINHA_ATUAL,laSAVE)
+         
+            aadd(laLINHA_ATUAL,{laTMP[1,1],ctod(laTMP[1,4]),date(),gcLOGIN,ctod(laTMP[1,4])})
+
+            laDEAD_LINE := ctod(laTMP[1,4])
+            db_query('BEGIN TRANS') //Iniciando Transação
+         
+            if db_insert(laLINHA_ATUAL,'pasta_doc') == -1
+               db_query('ROLLBACK')
+               error_sys(db_error())
+            endif
+
+            db_query('COMMIT')     //Efetivando alterações no Banco de Dados 
+            
+            WPut('DED_INIC','N')
+            WPut('ifDED_INIC',.f.)           
+
+         endif
+           
+      endif
+           
+// teste sonia = 21/01/2015 16:44:27
+
+       laxTMP        :={}
+       laLINHA_ATUAL:={}
+       laSAVE       := {'LOGIN_CADASTRO',;
+                        'DEAD_LINE'}    
+
+      aadd(laLINHA_ATUAL,laSAVE)
+      
+      aadd(laLINHA_ATUAL,{gcLOGIN,ctod(laTMP[1,4])})
+
+ //     laSAVE        := {laDEAD_LINE}  
+                            
+// debug2(laLINHA_ATUAL)     
+  //    aadd(laLINHA_ATUAL,laSAVE)
+      
+      if len(laLINHA_ATUAL)>1
+         db_query('BEGIN TRANS') //Iniciando Transação 
+         
+         ** grava log de alteração 
+         lcWHERE:= 'NR_PASTA='+WGet('NR_PASTA','C')
+         if psab_logs(laLINHA_ATUAL,'pasta_doc',lcWHERE,WGet('NR_PASTA','C'),'Documentos RH') == .f.
+            db_query('ROLLBACK')
+         endif 
+         
+         lcWHERE:= 'NR_PASTA='+WGet('NR_PASTA','C')
+         if db_update(laLINHA_ATUAL,'pasta_doc',{lcWHERE}) == -1
+            db_query('ROLLBACK')
+            error_sys(db_error())
+         endif         
+                  
+         db_query('COMMIT')     //Efetivando alterações no Banco de Dados
+      endif
+
+// fim do teste sonia      
+
+endif
+
+if lcACTION == 'SAVEMAN' .and. gbWAC_WRITE
+  
+   laRESULT     :={}
+   laLINHA_ATUAL:={}
+   laTMP        :={}
+   laTMPX       :={}
+
+   laSAVE       := {'DT_UPLOAD',;
+                    'LOGIN_UPLOAD',;
+                    'IDONEIDADE',;
+                    'OBSERVACAO',;
+                    'DOCEXISTE'}  
+   
+   if WGet('MAN_UPDATE','C')<>''
+   
+      aadd(laLINHA_ATUAL,laSAVE)
+
+      aadd(laTMPX,str2array(WGet('MAN_UPDATE','C'),','))
+
+      lcWHERE:= 'REFERENCIA1='+WGet('NR_PASTA','C')+' and REFERENCIA3='+laTMPX[1,1]
+      if db_select({'DT_INSERT','LOGIN_INSERT'},'ged',,{lcWHERE}) == -1
+              error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT)>1
+         aadd(laTMP,laRESULT[2,1])
+         aadd(laTMP,laRESULT[2,2])
+      else
+         aadd(laTMP,CTOD('  /  /    '))
+         aadd(laTMP,'')
+      endif
+
+      for ii=2 to len(laTMPX[1])
+          aadd(laTMP,laTMPX[1,ii])
+      next ii
+
+      laSAVE := {laTMP[1],;
+                 laTMP[2],;
+                 laTMP[3],;
+                 laTMP[4],;
+                 laTMP[5]}
+                        
+      aadd(laLINHA_ATUAL,laSAVE)                
+
+      db_query('BEGIN TRANS') //Iniciando Transação      
+  
+      lcWHERE:= 'NR_PASTA='+WGet('NR_PASTA','C')+' and ID_DOCUMENTO='+laTMPX[1,1]
+
+      if psab_logs(laLINHA_ATUAL,'pasta_det_doc',lcWHERE,WGet('NR_PASTA','C'),'Documentos RH') == .f.
+         db_query('ROLLBACK')
+         error_sys(db_error())             
+      endif       
+      
+      if db_update(laLINHA_ATUAL,'pasta_det_doc',{lcWHERE}) == -1
+         db_query('ROLLBACK')
+         error_sys(db_error())
+      endif          
+
+      db_query('COMMIT')     //Efetivando alterações no Banco de Dados  
+ 
+   endif
+
+endif
+
+if lcACTION == 'SAVEDED' .and. gbWAC_WRITE
+       laRESULT     :={}
+       laLINHA_ATUAL:={}
+       laTMP        :={}
+       
+       laSAVE       := {'DEAD_LINE',;
+                        'UPLOAD_OK',;
+                        'AVALIACAO'}                 
+
+      aadd(laLINHA_ATUAL,laSAVE)
+      
+      aadd(laTMP,str2array(WGet('DED_UPDATE','C'),','))
+
+      laSAVE        := {ctod(laTMP[1,1]),;
+                        laTMP[1,2],;
+                        laTMP[1,3]}  
+                            
+      
+      aadd(laLINHA_ATUAL,laSAVE)
+      
+      if len(laLINHA_ATUAL)>1
+         db_query('BEGIN TRANS') //Iniciando Transação 
+         
+         ** grava log de alteração 
+         lcWHERE:= 'NR_PASTA='+WGet('NR_PASTA','C')
+         if psab_logs(laLINHA_ATUAL,'pasta_doc',lcWHERE,WGet('NR_PASTA','C'),'Documentos RH') == .f.
+            db_query('ROLLBACK')
+         endif 
+         
+         lcWHERE:= 'NR_PASTA='+WGet('NR_PASTA','C')
+         if db_update(laLINHA_ATUAL,'pasta_doc',{lcWHERE}) == -1
+            db_query('ROLLBACK')
+            error_sys(db_error())
+         endif         
+                  
+         db_query('COMMIT')     //Efetivando alterações no Banco de Dados
+      endif
+
+
+endif
+
+if gbWAC_READ
+
+   lista_documentos(lcNR_PASTA)
+   
+   cardocs() 
+      
+endif         
+
+WPut('ACTION','')
+
+return
+
+
+/*
+* Function..: lista_documentos(fcNR_PASTA)
+* Objetivo..: Gerar Listagem de Reclamantes
+* Parâmetros: fcNR_PASTA
+* Retorno...: nil
+*/
+static function lista_documentos(fcNR_PASTA)
+
+   local lcTABLEDET   := '',;
+         lcTMP        := '',;
+         lcWHEREDET   := ''  as string
+
+   local laRESULT   := {} ,;
+         laFIELDSDET:= {} ,;
+         laLABELS   := {} ,;
+         laLABELSDET:= {} as array    
+
+
+   lcTABLEDET      := 'pasta_det_doc'
+   lcWHEREDET      := 'pasta_det_doc.NR_PASTA='+fcNR_PASTA
+   laFIELDSDET     := structtable(WSet("DB_ACTIVE"),lcTABLEDET,1,'N')
+   laLABELSDET     := structtable(WSet("DB_ACTIVE"),lcTABLEDET,11,'N')
+
+   if db_select({'documento_rh.ID_DOCUMENTO',;
+                 'documento_rh.DOCUMENTO',;
+                 'pasta_det_doc.DT_SOLICITACAO',;
+                 'pasta_det_doc.DEAD_LINE',;                 
+                 'pasta_det_doc.DOCEXISTE',;
+                 'pasta_det_doc.DT_UPLOAD',;
+                 'pasta_det_doc.LOGIN_UPLOAD',;
+                 'pasta_det_doc.IDONEIDADE',;
+                 'pasta_det_doc.OBSERVACAO'},;
+                 lcTABLEDET,;
+                 {{2,'documento_rh','documento_rh.ID_DOCUMENTO=pasta_det_doc.ID_DOCUMENTO'}},;
+                 {lcWHEREDET}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   
+   if len(laRESULT)==1
+      walert('Não foi encontrado documento cadastrado !')      
+      WPut('DED_INIC','S')
+      WPut('ifDED_INIC',.t.)
+      
+   endif
+   
+   if len(laRESULT)>1    
+
+      *** cria array com labels da tabela escolhida e envia para variavel html
+      aadd(laLABELS,laRESULT[1])
+      pegalabel(laLABELS,'FIELD_MANUT','LABEL_MANUT')   
+      
+      aadd(laRESULT[1],'UPLOAD_GED')
+      aadd(laRESULT[1],'UPLOAD_GED_MANU')
+
+
+      aadd(laRESULT[1],'VAR_ID_DOCUMENTO')
+      aadd(laRESULT[1],'VAR_DOCUMENTO')
+      aadd(laRESULT[1],'VAR_DT_SOLICITACAO')
+      aadd(laRESULT[1],'VAR_DEAD_LINE')      
+      aadd(laRESULT[1],'VAR_DOCEXISTE')
+      aadd(laRESULT[1],'VAR_DT_UPLOAD')
+      aadd(laRESULT[1],'VAR_LOGIN_UPLOAD')
+      aadd(laRESULT[1],'VAR_IDONEIDADE')
+      aadd(laRESULT[1],'VAR_OBSERVACAO')
+      aadd(laRESULT[1],'VAR_BT_ALT')
+      aadd(laRESULT[1],'VAR_BT_DEAD_LINE')
+      aadd(laRESULT[1],'VAR_BT_SAL')
+      aadd(laRESULT[1],'VAR_BT_CAN')
+      
+      aadd(laRESULT[1],'VAR_GED_AUX')
+      aadd(laRESULT[1],'VAR_GED_MANU')       
+
+      
+      for ii := 2 to len(laRESULT)   
+         
+          lcNR_ROW := alltrim(str(ii-1))
+
+          lcTMP := "winged('open'," + DLAP + mkgedruf('pasta_det_doc',{fcNR_PASTA,wget('TP_PASTA','C'),str(laRESULT[ii,1]),'',''}) + DLAP + ',event)'
+          lcTMP := '<a href=javascript:void(0) onclick="'+lcTMP+'">GED ('+totged(fcNR_PASTA,wget('TP_PASTA','C'),str(laRESULT[ii,1]))+')</a>'
+          aadd(laRESULT[ii],lcTMP)
+
+          lcTMP :='GED ('+totged(fcNR_PASTA,wget('TP_PASTA','C'),str(laRESULT[ii,1]))+')'
+          aadd(laRESULT[ii],lcTMP)
+           
+          aadd(laRESULT[ii],'VAR_ID_DOCUMENTO_'+lcNR_ROW)
+          aadd(laRESULT[ii],'VAR_DOCUMENTO_'+lcNR_ROW)
+          aadd(laRESULT[ii],'VAR_DT_SOLICITACAO_'+lcNR_ROW)
+          aadd(laRESULT[ii],'VAR_DEAD_LINE_'+lcNR_ROW)          
+          aadd(laRESULT[ii],'VAR_DOCEXISTE_'+lcNR_ROW)
+          aadd(laRESULT[ii],'VAR_DT_UPLOAD_'+lcNR_ROW)
+          aadd(laRESULT[ii],'VAR_LOGIN_UPLOAD_'+lcNR_ROW)
+          aadd(laRESULT[ii],'VAR_IDONEIDADE_'+lcNR_ROW)
+          aadd(laRESULT[ii],'VAR_OBSERVACAO_'+lcNR_ROW) 
+          aadd(laRESULT[ii],'VAR_BT_ALT_'+lcNR_ROW)
+          aadd(laRESULT[ii],'VAR_BT_DEAD_LINE_'+lcNR_ROW)
+          aadd(laRESULT[ii],'VAR_BT_SAL_'+lcNR_ROW)
+          aadd(laRESULT[ii],'VAR_BT_CAN_'+lcNR_ROW)
+          
+          aadd(laRESULT[ii],'VAR_GED_AUX'+lcNR_ROW)
+          aadd(laRESULT[ii],'VAR_GED_MANU'+lcNR_ROW)
+                    
+          
+          WPut('VAR_ID_DOCUMENTO_'+lcNR_ROW,  laRESULT[ii,db_fetchncol(laRESULT,'ID_DOCUMENTO')])
+          WPut('VAR_DOCUMENTO_'+lcNR_ROW,     laRESULT[ii,db_fetchncol(laRESULT,'DOCUMENTO')])
+          WPut('VAR_DT_SOLICITACAO_'+lcNR_ROW,laRESULT[ii,db_fetchncol(laRESULT,'DT_SOLICITACAO')])
+          WPut('VAR_DEAD_LINE_'+lcNR_ROW,laRESULT[ii,db_fetchncol(laRESULT,'DEAD_LINE')])
+            
+          WPut('VAR_DOCEXISTE_'+lcNR_ROW+'.option',{'','Sim','Não'})
+          WPut('VAR_DOCEXISTE_'+lcNR_ROW+'.optionvalue',{'','S','N'})
+          WPut('VAR_DOCEXISTE_'+lcNR_ROW,laRESULT[ii,db_fetchncol(laRESULT,'DOCEXISTE')])
+   
+          WPut('VAR_DT_UPLOAD_'+lcNR_ROW,     laRESULT[ii,db_fetchncol(laRESULT,'DT_UPLOAD')])
+          WPut('VAR_LOGIN_UPLOAD_'+lcNR_ROW,  laRESULT[ii,db_fetchncol(laRESULT,'LOGIN_UPLOAD')])
+          WPut('VAR_OBSERVACAO_'+lcNR_ROW,    laRESULT[ii,db_fetchncol(laRESULT,'OBSERVACAO')]) 
+          
+          WPut('VAR_IDONEIDADE_'+lcNR_ROW+'.option',{'','Sim','Não','Erro'})
+          WPut('VAR_IDONEIDADE_'+lcNR_ROW+'.optionvalue',{'','S','N','E'})
+          
+          WPut('VAR_IDONEIDADE_'+lcNR_ROW,    laRESULT[ii,db_fetchncol(laRESULT,'IDONEIDADE')])
+
+
+
+
+
+
+      
+      next ii   
+      
+      WPut('DOCEXISTE.option',{'','Sim','Não'})
+      WPut('DOCEXISTE.optionvalue',{'','S','N'})
+            
+      WPut('IDONEIDADE.option',{'','Sim','Não','Erro'})
+      WPut('IDONEIDADE.optionvalue',{'','S','N','E'})
+
+      WPut('lstDOCUMENTO',laRESULT)
+      
+      lista_avaliacao(fcNR_PASTA)
+// Sonia - 30/12/2014 13:49:24
+//      WPut('DED_INIC','N')
+//      WPut('ifDED_INIC',.f.)
+      
+   endif
+   
+return(nil)
+      
+******************************************
+static function lista_avaliacao(fcNR_PASTA)
+******************************************
+      
+   local lcTABLEDET   := '',;
+         lcTMP        := '',;
+         lcWHEREDET   := ''  as string
+      
+   local laRESULT   := {} ,;
+         laFIELDSDET:= {} ,;
+         laLABELS   := {} ,;
+         laLABELSDET:= {} as array    
+
+   WPut('UPLOAD_OK.option',{'S','N'})   
+      
+   lcTABLEDET      := 'pasta_doc'
+   lcWHEREDET      := 'pasta_doc.NR_PASTA='+fcNR_PASTA
+      
+   laFIELDSDET     := structtable(WSet("DB_ACTIVE"),lcTABLEDET,1,'N')
+   laLABELSDET     := structtable(WSet("DB_ACTIVE"),lcTABLEDET,11,'N')
+/*
+   if db_select({'DT_CADASTRO',;
+                 'LOGIN_CADASTRO',;
+                 'DEAD_LINE',;
+                 'UPLOAD_OK',;
+                 'AVALIACAO'},;
+                 lcTABLEDET,,;
+                 {lcWHEREDET}) == -1
+*/  
+   if db_select({'LOGIN_CADASTRO',;
+                 'DEAD_LINE',;
+                 'UPLOAD_OK',;
+                 'AVALIACAO'},;
+                 lcTABLEDET,,;
+                 {lcWHEREDET}) == -1
+               
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   
+   if len(laRESULT)>1    
+     
+      WPut('lstAVALIA',laRESULT)
+      
+      eadvogado(fcNR_PASTA)
+      
+   endif
+return(nil)
+
+*************************************************
+static function pegalabel(faLABELS,fcVARF,fcVARL)
+*************************************************
+*** cria array com labels da tabela escolhida e envia para variavel html
+local laFIELDS := {} ,;
+      laFAUX   := {} ,;
+      laRESULT := {} ,;
+      laLABELS := {} as array
+      
+local lcWHERE  := '' as string 
+
+local ii       :=0 as int      
+                    
+for ii := 1 to len(faLABELS[1])
+   
+   lcWHERE = 'wfield='+DLAP+faLABELS[1,ii]+DLAP
+   if db_select({'distinct wfield',;
+                 'label_screen'},;
+                 'WFIELD',,;
+                 {lcWHERE}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchrow()
+   aadd(laFAUX,laRESULT[2])       
+
+next ii
+aadd(laFIELDS,laFAUX) 
+
+**WPut(fcVARL,array2str(faLABELS[1],','))
+**WPut(fcVARF,array2str(laFIELDS[1],','))
+
+return
+
+*************************************
+static function eadvogado(fcNR_PASTA)
+*************************************
+* Objetivo..: Verifica se usuário logado é o advogado interno ou externo
+
+   local llretorno   := .f.
+   local laRESULT := {},;
+         laFIELDS := {},;
+         laJOIN   := {} as array
+
+
+   laFIELDS := {'pasta.NR_PASTA',;
+                'acuser.LOGIN',;
+                'pasta.FL_PASTA',;
+                'pasta_cip.CIP'}
+
+   laJOIN := {{2,'pasta_cip',"(pasta.NR_PASTA = pasta_cip.NR_PASTA and pasta_cip.WFIELD = 'CIP_ADVOGADO_INTERNO')"},;
+              {2,'acuser',"((acuser.CIP = pasta_cip.CIP))"}}
+   if db_select(laFIELDS,'pasta',laJOIN,{"pasta.NR_PASTA = " + fcNR_PASTA }) ==-1
+      error_sys('PodeAlterarPasta:'+db_error())
+   endif
+   laResult  := db_fetchall()
+
+
+   llretorno := .f.
+   if len(laResult) > 1
+      
+*      debug2(lower(laRESULT[2,2]))
+*      debug2(lower(WSet('LOGIN')))
+      
+      if (lower(laRESULT[2,2]) == lower(WSet('LOGIN')))
+
+         llretorno := .t.
+      endif   
+   endif  
+   
+   return llretorno
+*************************************
+static function cardocs()
+*************************************
+local lcTABLEDET := '' ,;
+      lcWHEREDET := '' ,;
+      lcOBJ      := '' as string
+      
+local laRESULT := {} as array
+
+local ii := 0 as int
+
+lcTABLEDET      := 'documento_rh'
+lcWHEREDET      := 'FL_ATIVO <>'+DLAP+'I'+DLAP+' and ID_DOCUMENTO not in(select ID_DOCUMENTO from pasta_det_doc where nr_pasta='+DLAP+wGet('NR_PASTA','C')+DLAP+')'
+
+if db_select({'ID_DOCUMENTO','DOCUMENTO'},;
+              lcTABLEDET,,;
+              {lcWHEREDET},{'DOCUMENTO'}) == -1
+   error_sys(db_error())
+endif
+laRESULT := db_fetchall()
+
+lcOBJ:=''
+for ii := 2 to len(laRESULT)
+    if lcOBJ==''
+       lcOBJ:=str(laRESULT[ii,1])+','+laRESULT[ii,2]
+      else
+       lcOBJ:=lcOBJ+'|'+str(laRESULT[ii,1])+','+laRESULT[ii,2]
+    endif        
+next ii
+
+WPut('RELDOCS',lcOBJ)
+
+return(nil)
+
+/*
+* Data......: 04/05/2015 10:58:27 - Rufino
+* Function..: mkgedruf(fcWTABLE, faValues)
+* Objetivo..: Verificar a existencia de configurções GED para uma determinada tabela e criar o link para o ícone do GED
+* Parâmetros:
+*   fcWTABLE: Nome da tabela
+*   faValues: Vetor com os valores para WFIELD1,WFIELD2..WFIELD5
+* Retorno...: Nenhum
+*/
+static function mkgedruf(fcWTABLE,faValues)
+   local lcPARAMS  := '' ,;
+         lcHTML    := '' ,;
+         lcCONTENT := '' as string
+
+   local laFIELDS := {} ,;
+         laRESULT := {} as array
+
+   local ii := 0 as int
+
+   if valtype(fcWTABLE) == 'U' .or. empty(fcWTABLE)
+      puterror('mkgedico: Tabela não definida')
+      return(nil)
+   endif
+
+   laFIELDS := {'WTABLE','CD_BUSINESS','WFIELD1','WFIELD2','WFIELD3','WFIELD4','WFIELD5'}
+
+   if db_select(laFIELDS,'gdrelacionamento',,{'WTABLE='+DLAP+fcWTABLE+DLAP}) == -1
+      puterror('mkgedico: ('+alltrim(str(procline()))+') '+db_error())
+      return(nil)
+   endif
+   laRESULT := db_fetchrow()
+
+   if len(laRESULT) > 0
+      if !empty(laRESULT[2]) .and. !empty(laRESULT[3])
+         lcPARAMS += 'WTABLE='+fcWTABLE
+         lcPARAMS += '&CD_BUSINESS='+alltrim(laRESULT[2])
+         for ii := 1 to 5
+             if !empty(laRESULT[ascan(laFIELDS,'WFIELD'+alltrim(str(ii)))])
+                //lcCONTENT := alltrim(getwput(laRESULT[ascan(laFIELDS,'WFIELD'+alltrim(str(ii)))],'C')) // Recupera dados da UI
+                lcCONTENT := faValues[ii]
+                if !empty(lcCONTENT)
+                   lcPARAMS += '&WFIELD'+alltrim(str(ii))+'='+alltrim(lcCONTENT)
+                else
+                   lcPARAMS += '&WFIELD'+alltrim(str(ii))+'=RELATIONEMPTY.'+laRESULT[ascan(laFIELDS,'WFIELD'+alltrim(str(ii)))]
+                endif
+             endif
+         next ii
+
+         lcPARAMS := wic_action('wicaction_workflow/ged.mgr.html')+'?'+lcPARAMS
+      endif
+//      lcPARAMS := 'ERRO! Falta relacionamento no GED.'
+   endif
+return(lcPARAMS)
+
+
+**********************************************************
+static function totged(fcNR_PASTA,fcTIPOPASTA,fcANDAMENTO)
+**********************************************************
+local laRES:={} as array
+
+if db_select({'count(*)'},'ged',,{"wtable='pasta_det_doc'",'REFERENCIA1='+fcNR_PASTA,'REFERENCIA2='+DLAP+fcTIPOPASTA+DLAP,'REFERENCIA3='+fcANDAMENTO}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchrow()
+
+return(alltrim(str(laRES[1])))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

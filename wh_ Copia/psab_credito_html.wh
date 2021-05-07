@@ -1,0 +1,424 @@
+/*
+Project      : gr5
+Program      : psab.credito.html
+Function     : psab_credito_ html
+Created on   : 3/5/2012 11:32:49 AM
+Descripition : Analise de Credito - Area de Aprovação de Credito
+*/
+   local laRESULT          := {} ,;
+         laRESULT1         := {} ,;
+         laRESULTPAS       := {} ,;
+         laSAVE            := {} ,;
+         laSAVE_AUX        := {} ,;
+         laSAVEAUX         := {} ,;
+          laSaveM          := {} ,;
+         laSaveP           := {} ,;
+         laMVTSAVE         := {} ,;
+         laAUX1            := {} ,;
+         laAUX2            := {} ,;
+         laVALIDA          := {} ,;
+          laWHERE          := {} ,;
+         laFIELDS          := {} as array
+
+   local lcNR_ROW           := '1',;
+         lcNR_PASTA         := '' ,;
+         lcTP_PASTA         := '' ,;
+         lcACTION           := '' ,;
+         lcUSUARIO          := '' ,;
+         lcWHERE            := '' ,;
+         lcWHEREM           := '' ,;
+         lcSOLICITANTE      := '' ,;
+         lcNR_CONTROLE      := '' as string
+   
+   local lnelemento         := 0 ,;
+         lnCOLUNA           := 0 ,;
+         lnXX               := 0 as int
+
+   local lnCORRECAO      := 0.00 ,;
+         lnJUROS         := 0.00 ,;
+         lnVL_TOTAL      := wget('VL_LIMITE','N') as numeric
+
+   local llAUX      := .t. ,;
+         lErro      := .f. ,;
+         llERROR    := .f. as logical
+         local ii   := 0 as int
+         local xx   := 0 as int
+  
+   local lnALCADA   := 0 as int
+   local lnNGER     := 0 as int
+   local lcALLIB    :='' as string
+         
+
+   lcACTION := upper(Wget('ACTION'))
+   
+   laMVTSAVE := {'NR_PASTA','NR_CONTROLE','NR_CONTROLE_ALCADA','DT_CADASTRO','LOGIN_CADASTRO','VL_LIMITE','VL_LIMITE_APROVADO','LIMITE_INICIO','LIMITE_TERMINO','OBSERVACAO','ALCADA','QTDE_APROVACOES'}
+   laMVTSAVEC:= {'NR_PASTA','NR_CONTROLE','DT_CADASTRO','HR_CADASTRO','LOGIN_CADASTRO','VL_LIMITE','VL_LIMITE_APROVADO','LIMITE_INICIO','LIMITE_TERMINO','OBSERVACAO','LIBERADO','FL_REJEITADO','MOTIVO','FL_VENCIDO','ALCADAS_A_LIB'}
+
+   laREADONLY := {'LOGIN_CADASTRO','DT_CADASTRO'}
+   
+   if gbWAC_DELETE == .t. // Usuario tem permissão para excluir registros, então ativar os botões
+      Wput('ifEXCLUIR',.t.)
+   endif
+   
+   if gbWAC_WRITE == .t.  //Usuario tem permissão para salvar
+      Wput('ifWAC_WRITE',.t.)
+   endif
+   
+   lcUSUARIO := wSet('LOGIN')
+   Wput('LOGIN_CADASTRO',lcUSUARIO)
+   Wput('DT_CADASTRO',DATE())
+   Wput('ACTION','NEW')
+   Wput('CIP_SOLICITANTE_PFPJ',' ')
+
+   lcTP_PASTA    := wGet('TP_PASTA','C')
+   lcNR_PASTA    := wGet('NR_PASTA','C')
+   lcNR_CONTROLE := wGet('NR_CONTROLE','C')
+   lcWHERE       := 'NR_PASTA = '+lcNR_PASTA
+   
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+
+   Wput('ifWAC_WRITE',.f.)
+   Wput('ifEXCLUIR',.f.)
+   
+       
+
+  //---------------- Inclusão de pedido de credito  -------------------------------------
+   if lcACTION == 'NEW' .and. gbWAC_CREATE
+      lcTP_PASTA := wGet('TP_PASTA','C')
+      lcNR_PASTA := wGet('NR_PASTA','C')
+      
+   
+      make_psthead(lcNR_PASTA,lcTP_PASTA)
+      pasta_abas(lcTP_PASTA)
+      Wput('NR_CONTROLE','New')
+      Monta_Grid(lcNR_PASTA,lcTP_PASTA)
+      
+      
+   //----------------   Alteração     -------------------------------------------
+   elseif lcACTION == 'ALTER' 
+     
+      lcTP_PASTA := wGet('TP_PASTA','C')
+      lcNR_PASTA := wGet('NR_PASTA','C')
+
+      if alltrim(wGet('FL_REJEITADO','C'))='R'
+         walert('Manutenção não permitida lançamento rejeitado !')
+         Wput('ifWAC_WRITE',.f.)
+         Wput('ifEXCLUIR',.f.)
+      elseif alltrim(wGet('FL_REJEITADO','C'))='A'  
+         walert('Manutenção não permitida lançamento aprovado !')
+         Wput('ifWAC_WRITE',.f.)
+         Wput('ifEXCLUIR',.f.)       
+      elseif alltrim(wGet('LIBERADO','C'))='S'
+         walert('Alteração não permitida analise já liberada !')
+         Wput('ifWAC_WRITE',.f.)
+         Wput('ifEXCLUIR',.t.)
+         Get2Put()
+      elseif alltrim(wGet('LIBERADO','C'))=''
+         
+         
+         laFAIXA:=buscalcada(1)
+         if len(laFAIXA)=0 
+             walert('Alçada 1 não cadastrada')
+             return
+          else
+             wPut('ALCADA',laFAIXA[1])
+             wPut('DESCRICAO_ALCADA',laFAIXA[5])
+         endif 
+           
+         Wput('ifWAC_WRITE',.t.)
+         Wput('ifEXCLUIR',.t.)
+         Get2Put()       
+      endif   
+      
+
+   //--------------        Salvar        ----------------------------------------
+   elseif lcACTION == 'SAVE' .and. gbWAC_WRITE
+     lcTP_PASTA := wGet('TP_PASTA','C')
+      lcNR_PASTA := wGet('NR_PASTA','C')
+
+    if db_select({'FL_PASTA'},'pasta',,{'NR_PASTA = '+lcNR_PASTA}) == -1
+         error_sys(db_error())
+      endif
+      laRESULTPAS := db_fetchrow() 
+
+      if laRESULTPAS[1] == 'Encerrada'
+         walert('A Pasta No. '+lcNR_PASTA+'  está Encerrada! \n Não é permitido Atualizações')
+         get2put()
+      else   
+ //        if verif_reqfield(WSET('_USER_INTERFACE'),laVALIDA) == .T.
+         
+            laSAVE := {{'NR_PASTA','NR_CONTROLE','NR_CONTROLE_ALCADA','DT_CADASTRO','LOGIN_CADASTRO','VL_LIMITE','VL_LIMITE_APROVADO','LIMITE_INICIO','LIMITE_TERMINO','OBSERVACAO','ALCADA','QTDE_APROVACOES'}}
+            
+            laSAVEC:= {{'NR_PASTA','NR_CONTROLE','DT_CADASTRO','HR_CADASTRO','LOGIN_CADASTRO','VL_LIMITE','VL_LIMITE_APROVADO','LIMITE_INICIO','LIMITE_TERMINO','OBSERVACAO','ALCADAS_A_LIB'}}
+       
+            
+            //gera array com as alcadas a criar
+            laALCADAS:={}
+            if  wget('ALCADA')=1            
+                lnALCADA:=buscafaixa(wget('VL_LIMITE_APROVADO'))
+                if lnALCADA>0 
+                   for lnYY := 1 to lnALCADA //utiliza o numero da alçaca para saber ate qual faixa deve gerar 
+                       laFAIXA:=buscalcada(lnYY)
+                       lnNGER:=laFAIXA[2]
+                       for lnWW := 1 to lnNGER //numero de vezes que deve gerar para essa alçada
+                           aadd(laALCADAS,lnYY)
+                       next lnWW        
+                   next lnYY         
+                endif
+                         
+               else
+
+                //cria lançamento para alçada 1 e para alçada digitada
+                laFAIXA:=buscalcada(1) //alçada 1
+                lnNGER:=laFAIXA[2]
+                for lnWW := 1 to lnNGER //numero de vezes que deve gerar para essa alçada
+                    aadd(laALCADAS,1)
+                next lnWW 
+
+                laFAIXA:=buscalcada(wget('ALCADA')) //alçada digitada
+                lnNGER:=laFAIXA[2]
+                for lnWW := 1 to lnNGER //numero de vezes que deve gerar para essa alçada
+                    aadd(laALCADAS,wget('ALCADA'))
+                next lnWW 
+            endif
+            
+            for lnYY := 1 to len(laALCADAS)
+                if len(lcALLIB)=0            
+                   lcALLIB:=lcALLIB+STR(laALCADAS[lnYY])
+                  else 
+                   lcALLIB:=lcALLIB+','+STR(laALCADAS[lnYY])
+                endif            
+            next lnYY           
+                   
+
+            laSAVECRE := {}
+            aadd(laSAVECRE,laMVTSAVEC)
+            
+
+            //procura o conteudo atraves do nome do campo
+            for lnXX := 1 to len(laMVTSAVEC)                
+                if     laMVTSAVEC[lnXX] == 'DT_CADASTRO'
+                       aadd(laSAVEAUX,date())
+                elseif laMVTSAVEC[lnXX] == 'HR_CADASTRO'
+                       aadd(laSAVEAUX,time()) 
+                elseif laMVTSAVEC[lnXX] == 'MOTIVO'
+                       aadd(laSAVEAUX, wget('EXTRA'))
+                elseif laMVTSAVEC[lnXX] == 'LIBERADO'
+                       aadd(laSAVEAUX,'S')
+                elseif laMVTSAVEC[lnXX] == 'ALCADAS_A_LIB'                    
+                       aadd(laSAVEAUX,lcALLIB)                                                              
+                else
+                      aadd(laSAVEAUX,wGet(laMVTSAVEC[lnXX]))
+               endif           
+            next lnXX
+            aadd(laSAVECRE,laSAVEAUX)
+            
+            
+  
+            
+  
+
+            for lnYY := 1 to len(laALCADAS)
+                laSAVEAUX:={}
+                laFAIXA:= buscalcada(laALCADAS[lnYY])
+                
+                //procura o conteudo atraves do nome do campo
+                for lnXX := 1 to len(laMVTSAVE)                
+                   if laMVTSAVE[lnXX] == 'NR_CONTROLE_ALCADA'
+                      lcNR_CONTROLE_ALCADA := wget('NR_CONTROLE_ALCADA','C')
+                      if (wget('NR_CONTROLE_ALCADA','C') == 'New') .or. empty(lcNR_CONTROLE_ALCADA)  
+                         aadd(laSAVEAUX, 0)
+                      else
+                         aadd(laSAVEAUX, wget('NR_CONTROLE_ALCADA'))
+                      endif
+                    elseif laMVTSAVE[lnXX] == 'DT_CADASTRO'
+                          aadd(laSAVEAUX,date())
+                    elseif laMVTSAVE[lnXX] == 'OBSERVACAO'
+                          aadd(laSAVEAUX, wget('EXTRA'))
+
+                    elseif laMVTSAVE[lnXX] == 'VL_LIMITE' //nessa tabela ele e igual ao valor liberado pela analise de credito para liberacao
+                           aadd(laSAVEAUX, wget('VL_LIMITE_APROVADO'))                 
+                
+                    elseif laMVTSAVE[lnXX] == 'ALCADA'      
+                           aadd(laSAVEAUX,laALCADAS[lnYY])
+                    elseif laMVTSAVE[lnXX] == 'VL_LIMITE_APROVADO' 
+                           if len(laFAIXA)=0
+                              aadd(laSAVEAUX,0)
+                             else
+                              if wget('VL_LIMITE_APROVADO')<laFAIXA[4] //se o valor solicitado for menor que minha faixa de aprovação grava o valor solicitado.
+                                  aadd(laSAVEAUX,wget('VL_LIMITE_APROVADO'))
+                                 else 
+                                 aadd(laSAVEAUX,laFAIXA[4]) //caso contrario grava o numero do maior valor permitido para alcada
+                              endif
+                           endif 
+                    elseif laMVTSAVE[lnXX] == 'QTDE_APROVACOES'
+                           aadd(laSAVEAUX,laFAIXA[2])  
+                    else
+                      aadd(laSAVEAUX,wGet(laMVTSAVE[lnXX]))
+                   endif          
+                next lnXX          
+                aadd(laSAVE,laSAVEAUX)
+            next lnYY         
+             
+            lcNR_CONTROLE := wget('NR_CONTROLE','C')
+            
+            lcWHERE := 'NR_PASTA='+lcNR_PASTA+' AND NR_CONTROLE='+lcNR_CONTROLE
+            
+            if !llERROR
+            
+               //psab_logs(laSAVECRE,'mvt_credito',lcWHERE, lcNR_PASTA,'Credito')              
+               
+               if db_update(laSAVECRE,'mvt_credito',{lcWHERE}) == -1
+                  error_sys(db_error())
+               endif 
+               
+               
+               //psab_logs(laSAVE,'mvt_credito_alcada',lcWHERE, lcNR_PASTA,'Credito')
+               
+               if db_insert(laSAVE,'mvt_credito_alcada') == -1
+                  error_sys(db_error())
+               endif
+
+               
+               //if val(lcNR_CONTROLE) == 0
+               //   lcNR_CONTROLE := alltrim(str(db_insert_id()))
+               //endif                       
+
+               
+            else
+               llERROR := .t.
+            endif //Campos obrigatórios
+
+         endif
+         
+//      endif
+
+   //---------- Excluir Registro Principal limites anteriores
+   elseif lcACTION == 'DELETE'  .and. gbWAC_DELETE
+      lcTP_PASTA       := wGet('TP_PASTA','C')
+      lcNR_PASTA       := wGet('NR_PASTA','C')
+      lcNR_CONTROLE    := wget('NR_CONTROLE','C')
+      
+      llERROR          := .f.
+      lcWHERE_PGOMVT   := 'NR_PASTA = '+lcNR_PASTA+' and NR_CONTROLE = '+lcNR_CONTROLE  
+      
+
+      //verifica se existe algun lançamento com aprovaçao en andamento
+      laWHERE          :={'NR_PASTA = '+lcNR_PASTA+' and NR_CONTROLE = '+lcNR_CONTROLE+' and FL_APROVACAO is not null'}
+      if db_select({'NR_CONTROLE_ALCADA'},'mvt_credito_alcada',,laWHERE) == -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      if len(laRES) > 1      
+         walert('Exclusão não permitida aprovação já está em andamento')
+         llERROR := .t.
+      endif
+      
+       
+      
+      if !llERROR    
+
+         psab_logdel(wGet('NR_CONTROLE','C'),'NR_CONTROLE',lcNR_CONTROLE,,'Crédito')
+         
+         if db_delete('mvt_credito_alcada',lcWHERE_PGOMVT) = -1
+            error_sys(db_error())
+         endif
+         
+         if db_update({{'LIBERADO','ALCADAS_A_LIB'},{'',''}},'mvt_credito',{lcWHERE_PGOMVT}) = -1
+            error_sys(db_error())
+         endif         
+
+      endif
+      
+   endif
+   
+
+     
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   pasta_abas(lcTP_PASTA)
+   monta_grid(lcNR_PASTA,lcTP_PASTA)
+
+
+return
+
+
+static function monta_grid(lcnr_pasta,lctp_pasta)
+
+   laJOIN:={}
+   
+   //aadd(laJOIN,{2,'credito_cfg_etapas','credito_cfg_etapas.ALCADA=mvt_credito_alcada.ALCADA'})
+
+
+
+   if db_select({'NR_PASTA',;
+                 'NR_CONTROLE',;
+                 'LIBERADO',;
+                 'VL_LIMITE',;
+                 'VL_LIMITE_APROVADO',;
+                 'LIMITE_INICIO',;
+                 'LIMITE_TERMINO',;
+                 'FL_REJEITADO',;
+                 'MOTIVO',;
+                 'ALCADAS_A_LIB'},;
+                 'mvt_credito',,{'mvt_credito.NR_PASTA='+lcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+   laRES := db_fetchall()
+   if len(laRES) > 0
+      aadd(laRES[1],'(row)')
+      for ii := 2 to len(laRES) 
+                                                                         
+         aadd(laRES[ii],'(row)'+wic_action('wicaction/psab.credito.html?ACTION=ALTER'+;
+                                                                       '&NR_PASTA='+lcnr_pasta+;
+                                                                       '&TP_PASTA='+lctp_pasta+;                                                                        
+                                                                       '&NR_CONTROLE='+str(laRES[ii,db_fetchncol(laRES,'NR_CONTROLE')])+;
+                                                                       '&VL_LIMITE='+wpictrans('VL_LIMITE',laRES[ii,db_fetchncol(laRES,'VL_LIMITE')])+;
+                                                                       '&VL_LIMITE_APROVADO='+wpictrans('VL_LIMITE',laRES[ii,db_fetchncol(laRES,'VL_LIMITE_APROVADO')])+;
+                                                                       '&LIMITE_INICIO='+DTOC(laRES[ii,db_fetchncol(laRES,'LIMITE_INICIO')])+;
+                                                                       '&LIMITE_TERMINO='+DTOC(laRES[ii,db_fetchncol(laRES,'LIMITE_TERMINO')])+;
+                                                                       '&LIBERADO='+laRES[ii,db_fetchncol(laRES,'LIBERADO')]+;
+                                                                       '&EXTRA='+laRES[ii,db_fetchncol(laRES,'MOTIVO')]+;
+                                                                       '&FL_REJEITADO='+laRES[ii,db_fetchncol(laRES,'FL_REJEITADO')]+;
+                                                                       '&ALCADAS_A_LIB='+laRES[ii,db_fetchncol(laRES,'ALCADAS_A_LIB')]))                                                                         
+                                                              
+                                                                                                                                           
+      next ii
+         
+      WPut('GRID_CFG_CREDITO',grid_create(laRES))
+   endif
+return
+
+***********************************
+static function buscalcada(falcada) 
+***********************************
+if db_select({'ALCADA','QTDE_APROVACOES','VL_LIMITE_RANGE1','VL_LIMITE_RANGE2','DESCRICAO_ALCADA'},'credito_cfg_etapas',,{'ALCADA = '+str(falcada)}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+laFAIXA:={}
+if len(laRES) > 1
+   aadd(laFAIXA,laRES[2,1])
+   aadd(laFAIXA,laRES[2,2])
+   aadd(laFAIXA,laRES[2,3])
+   aadd(laFAIXA,laRES[2,4])
+   aadd(laFAIXA,laRES[2,5])  
+endif
+return(laFAIXA)
+
+**********************************
+static function buscafaixa(fvalor) 
+**********************************
+* procura qual maior alçada para liberar esse valor 
+if db_select({'ALCADA','VL_LIMITE_RANGE1','VL_LIMITE_RANGE2'},'credito_cfg_etapas',,,{'ALCADA'}) == -1
+   error_sys(db_error())
+endif
+laRES := db_fetchall()
+lcALCADA:=0
+if len(laRES) > 1
+   for xx:=2 to len(laRES)
+       if fvalor <= laRES[xx,3] .and. fvalor >= laRES[xx,2]
+          lcALCADA:=laRES[xx,1]
+       endif
+   next xx
+endif
+return(lcALCADA)

@@ -1,0 +1,156 @@
+
+/***
+*
+* Glauber 24/06/2010 - Faz o ajuste na grid de detalhes de pedidos da capemi
+*
+*/
+
+  local laDETALHES := {},;
+        laSAVE     := {},;
+        laPEDIDO   := {} as array
+  local ii         := 0 as int
+  local lcQUERY    := '' as string
+  local lnHANDLE
+
+
+  lnHANDLE := fcreate('pasta_detal_'+DTOS(date())+'.log',2)
+
+  fwrite(lnHANDLE, 'AJUSTE DA TABELA PASTA_DETAL_PEDIDOS' + CRLF)
+  fwrite(lnHANDLE, '------------------------------------' + CRLF)
+  lcQUERY := 'SELECT * FROM ' +
+             '(select pasta_detal_pedidos.NR_PASTA,'+
+             'pasta_detal_pedidos.NR_CONTROLE,'+
+             'sum(pasta_detal_pedidos.VL_RISCO_CALC) as VL_RISCO_CALCDETAL,' +
+             'sum(pasta_detal_pedidos.VL_CORRECAO) as VL_CORRECAODETAL,' +
+             'sum(pasta_detal_pedidos.VL_JUROS) as VL_JUROSDETAL ' +
+             'from pasta_detal_pedidos ' +
+             'left join pasta_pedidos on (pasta_pedidos.NR_PASTA = pasta_detal_pedidos.NR_PASTA and pasta_pedidos.NR_CONTROLE = pasta_detal_pedidos.NR_CONTROLE) ' +
+             'group by pasta_detal_pedidos.NR_PASTA,pasta_detal_pedidos.NR_CONTROLE '+
+             'order by pasta_detal_pedidos.NR_PASTA) AS FILTRO '
+//             'where (VL_CORRECAODETAL <> VL_CORRECAO) or (VL_JUROSDETAL <> VL_JUROS) '
+
+   // selecionando os totais por pedidos e detalhe de pedidos
+
+   if db_query(lcQUERY) == -1
+      error_sys(db_error())
+   endif
+
+   laDETALHES := db_fetchall()
+   fwrite(lnHANDLE, 'Registros a Processar: '+str(len(laDETALHES)) + CRLF)
+   fwrite(lnHANDLE, '------------------------------------' + CRLF)
+
+   for ii := 2 to len(laDETALHES)
+       if db_select({'NR_PASTA',;
+                     'NR_CONTROLE',;
+                     'DT_MOVTO_PED',;
+                     'DT_RISCO',;
+                     '0 as VL_RISCO',;
+                     'PC_RISCO',;
+                     '0 as VL_RISCO_CALC',;
+                     '0 as VL_CORRECAO',;
+                     '0 as VL_JUROS',;
+                     'DT_ALTERACAO',;
+                     'HR_ALTERACAO',;
+                     'LOGIN_CADASTRO',;
+                     'OCOR_PEDIDO'},'pasta_detal_pedidos',,{'NR_PASTA=' + str(laDETALHES[ii,1])+ ' and NR_CONTROLE = ' + str(laDETALHES[ii,2])},{'NR_DETAL'},'D',,{1}) == -1
+          error_sys(db_error())
+       endif
+       laSAVE := db_fetchall()
+       if len(laSAVE) > 1
+
+          // Buscar o total do pedido
+
+          if db_select({'sum(pasta_pedidos.VL_CORRECAO) as VL_CORRECAO',;
+                     'sum(pasta_pedidos.VL_JUROS) as VL_JUROS'},'pasta_pedidos',,{'NR_PASTA=' + str(laDETALHES[ii,1])+ ' and NR_CONTROLE = ' + str(laDETALHES[ii,2])}) == -1
+             error_sys(db_error())
+          endif
+          laPEDIDO := db_fetchall()
+          if len(laPEDIDO) < 2
+             fwrite(lnHANDLE, 'Pasta :'+str(laDETALHES[ii,1]) + CRLF)
+             fwrite(lnHANDLE, 'Pedido:'+str(laDETALHES[ii,2]) + CRLF)
+             fwrite(lnHANDLE, 'Nao contem pedido na tabela pasta_pedidos, pedido nao ajustado.'+ CRLF)
+             fwrite(lnHANDLE, '------------------------------------' + CRLF)
+             loop
+          endif
+//          laSAVE[2,db_fetchncol(laSAVE,'VL_RISCO_CALC')] := (laDETALHES[ii,db_fetchncol(laDETALHES,'VL_RISCO_CALC')] - laDETALHES[ii,db_fetchncol(laDETALHES,'VL_RISCO_CALCDETAL')])
+          laSAVE[2,db_fetchncol(laSAVE,'VL_CORRECAO')] := (laPEDIDO[2,db_fetchncol(laPEDIDO,'VL_CORRECAO')] - laDETALHES[ii,db_fetchncol(laDETALHES,'VL_CORRECAODETAL')])
+          laSAVE[2,db_fetchncol(laSAVE,'VL_JUROS')] := (laPEDIDO[2,db_fetchncol(laPEDIDO,'VL_JUROS')] - laDETALHES[ii,db_fetchncol(laDETALHES,'VL_JUROSDETAL')])
+          laSAVE[2,db_fetchncol(laSAVE,'DT_ALTERACAO')] := CTOD('04/06/2009')
+          laSAVE[2,db_fetchncol(laSAVE,'HR_ALTERACAO')] := '12:33:28'
+          laSAVE[2,db_fetchncol(laSAVE,'LOGIN_CADASTRO')] := 'inso'
+//          laSAVE[2,db_fetchncol(laSAVE,'OCOR_PEDIDO')]    := 'Atualizacao Monetaria'
+          laSAVE[2,db_fetchncol(laSAVE,'OCOR_PEDIDO')]    := 'Atualização Monetária'
+          if (round(laSAVE[2,db_fetchncol(laSAVE,'VL_JUROS')],2) <> 0) .or. (round(laSAVE[2,db_fetchncol(laSAVE,'VL_CORRECAO')],2) <> 0)
+             if db_insert(laSAVE,'pasta_detal_pedidos') == -1
+                fwrite(lnHANDLE, 'Erro ao Incluir o registro de detalhe:' + CRLF)             
+                fwrite(lnHANDLE,db_error())
+                fwrite(lnHANDLE, '------------------------------------' + CRLF)
+                fclose(lnHANDLE)
+                error_sys(db_error())
+             endif
+             fwrite(lnHANDLE, 'Nro da pasta :'+str(laDETALHES[ii,1]) + CRLF)
+             fwrite(lnHANDLE, 'Nro do pedido:'+str(laDETALHES[ii,2]) + CRLF)
+             fwrite(lnHANDLE, 'Vr Juros     :'+transform(laSAVE[2,db_fetchncol(laSAVE,'VL_JUROS')],'9999,999,999.99') + CRLF)
+             fwrite(lnHANDLE, 'Vr Correcao  :'+transform(laSAVE[2,db_fetchncol(laSAVE,'VL_CORRECAO')],'9999,9999,999.99') + CRLF)
+             fwrite(lnHANDLE, '------------------------------------' + CRLF)
+          endif
+       else
+          fwrite(lnHANDLE, 'Pasta :'+str(laDETALHES[ii,1]) + CRLF)
+          fwrite(lnHANDLE, 'Pedido:'+str(laDETALHES[ii,2]) + CRLF)
+          fwrite(lnHANDLE, 'Nao contem lancamento inicial em pasta_detal_pedidos.'+ CRLF)
+          fwrite(lnHANDLE, '------------------------------------' + CRLF)
+       endif
+   next ii
+   fclose(lnHANDLE)
+
+return
+
+/*
+pasta_detal_pedidos.DATA_MOVTO_PED =  04/06/2009
+pasta_detal_pedidos.DT_RISCO = 	23/02/2000
+					Obs.: colocar a mesma data do risco que tem no primeiro 								lançamento deste campo na grid.
+pasta_detal_pedidos.VL_RISCO = 0,00
+pasta_detal_pedidos.PC_RISCO =	20
+					Obs.: colocar o mesmo risco que tem no primeiro lançamento 				            		deste campo na grid.
+pasta_detal_pedidos.VL_RISCO_CALC = 0,00
+pasta_detal_pedidos.VL_CORRECAO = 243,14
+pasta_detal_pedidos.VL_JUROS = 647,76
+pasta_detal_pedidos.DT_ALTERACAO = 04/06/2009
+pasta_detal_pedidos.HR_ALTERACAO = 12:33:28
+pasta_detal_pedidos.LOGIN_CADASTRO = inso
+pasta_detal_pedidos.OCOR_PEDIDO = Atualização Monetária
+*/
+
+
+/*
+
+        Column         |          Type           |                            Modifiers                             
+-----------------------+-------------------------+------------------------------------------------------------------
+ nr_detal              | integer                 | not null default nextval('pasta_detal_pedidos_nr_seq'::regclass)
+ nr_pasta              | integer                 | not null
+ nr_controle           | integer                 | not null
+ pedido_processo       | character varying(250)  | 
+ dt_movto_ped          | date                    | 
+ dt_risco              | date                    | 
+ vl_risco              | numeric(18,2)           | 
+ vl_risco_calc         | numeric(18,2)           | 
+ pc_risco              | integer                 | 
+ vl_correcao           | numeric(18,2)           | 
+ vl_juros              | numeric(18,2)           | 
+ fl_calculo            | character(1)            | 
+ comentarios_ped       | character varying(4000) | 
+ ocor_pedido           | character varying(30)   | 
+ fl_interfaceweb       | character(1)            | 
+ fl_interfacegem       | character(1)            | 
+ dt_alteracao          | date                    | 
+ hr_alteracao          | character(8)            | 
+ login_cadastro        | character varying(25)   | not null default 'user'::character varying
+ fl_contabiliza_pedido | character(1)            | default 'N'::bpchar
+
+*/
+
+
+
+
+
+

@@ -1,0 +1,65 @@
+/*
+Project      : isj_60
+Program      : mnt.analise.html
+Function     : mnt_analise_html.wh
+Created on   : 10/07/2017 10:42:02
+Descripition :
+*/
+   local laSAVE        := {},;
+         laRESULT      := {},;
+         laAUX0        := {},;
+         laAUX1        := {},;
+         laWHERE       := {},;                           
+         laFIELDS      := {} as array
+    local lcAction     := Upper(WGet('ACTION')) as String
+    local lcAUX        := '' as String
+    local lcTable      := '' as String
+    local ii           := 0 as Int
+    local lcANALISE    := WGet('ANALISE','N') as Int
+    if empty(lcANALISE)
+       lcANALISE := 1
+    endif
+    WPut('ANALISE',lcANALISE) 
+    WPut('TITLE','Manutenção de Analise')
+    if lcACTION == 'SAVE' .and. gbWAC_CREATE
+         laAUX:={} 
+         if WGet('GRAVAR','C')<>''
+            laRESULT := str2array(WGet('GRAVAR','C'),'|')
+            lcAUX    := laRESULT[1]
+            laAUX0   := str2array(lcAUX,',')
+         endif 
+         if lcANALISE = 1
+            laFIELDS := {'TP_PASTA','DESC_PRIMEIRA_ANALISE','FL_ATIVO'}
+            lcWhere = "TP_PASTA = " + DLAP + laAUX0[1] + DLAP + " and DESC_PRIMEIRA_ANALISE = " + DLAP + laAUX0[2] + DLAP
+            lcTable = 'analise_primeira'         
+         elseif lcANALISE = 2
+            laFIELDS := {'ID_PRIMEIRA_ANALISE','DESC_SEGUNDA_ANALISE','FL_ATIVO'}
+            lcWhere = "ID_PRIMEIRA_ANALISE = " + laAUX0[1] + " and DESC_SEGUNDA_ANALISE = " + DLAP + laAUX0[2] + DLAP
+            lcTable = 'analise_segunda'            
+         elseif lcANALISE = 3
+            laFIELDS := {'ID_SEGUNDA_ANALISE','DESC_TERCEIRA_ANALISE','FL_ATIVO'}
+            lcWhere = "ID_SEGUNDA_ANALISE = " + laAUX0[1] + " and DESC_TERCEIRA_ANALISE = " + DLAP + laAUX0[2] + DLAP
+            lcTable = 'analise_terceira'
+         elseif lcANALISE = 4
+            laFIELDS := {'ID_TERCEIRA_ANALISE','DESC_QUARTA_ANALISE','FL_ATIVO'}
+            lcWhere = "ID_TERCEIRA_ANALISE = " + laAUX0[1] + " and DESC_QUARTA_ANALISE = " + DLAP + laAUX0[2] + DLAP
+            lcTable = 'analise_quarta'            
+         elseif lcANALISE = 5
+            laFIELDS := {'ID_QUARTA_ANALISE','DESC_QUINTA_ANALISE','FL_ATIVO'}
+            lcWhere = "ID_QUARTA_ANALISE = " + laAUX0[1] + " and DESC_QUINTA_ANALISE = " + DLAP + laAUX0[2] + DLAP
+            lcTable = 'analise_quinta'
+         elseif lcANALISE = 6
+            laFIELDS := {'ID_QUINTA_ANALISE','DESC_SEXTA_ANALISE','FL_ATIVO'}
+            lcWhere = "ID_QUINTA_ANALISE = " + laAUX0[1] + " and DESC_SEXTA_ANALISE = " + DLAP + laAUX0[2] + DLAP
+            lcTable = 'analise_sexta'           
+         endif
+         aadd(laAUX1,laAUX0[1])
+         aadd(laAUX1,laAUX0[2])
+         aadd(laAUX1,laAUX0[3]) 
+         aadd(laSAVE,laFIELDS)
+         aadd(laSAVE,laAUX1)  
+         if db_replace(laSAVE,lcTable,{lcWhere}) == -1
+            error_sys(db_error())
+         endif      
+    endif
+return

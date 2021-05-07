@@ -1,0 +1,282 @@
+/*
+Project      : gr5
+Program      : mnt.despesa.html
+Function     : mnt_despesa_html
+Created on   : 14-Aug-2002   15:04:40
+Descripition : Manutenção e listagem de despesas
+*/
+
+   local lcCD_DESPESA        := '' ,;
+         lcACTION            := '' ,;
+         lcTABLE             := '' ,;
+         lcFT_AJUSTA_PEDIDO  := '' ,;
+         lcFT_ZERAR_PROVISAO := '' ,;
+         lcFT_CONT_PEDIDO    := '' ,;
+         lcFT_LANCTOS_CONT   := '' ,;
+         lcFT_ATIVO          := '' ,;
+         lcWHERE             := '' as string
+         
+   local ii           := 0 ,;
+         liPOS_COD    := 0 as int
+         
+   local laRES      := {} ,;
+         laRES2     := {} ,;
+         laFIELDS   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laCAMPOS   := {} ,;
+         laCAMPOS_SAV := {} as array
+
+   lcACTION     := upper(WGet('ACTION','C'))
+   lcCD_DESPESA := WGet('CD_DESPESA','C')
+   lcTABLE      := 'despesa'
+   lcWHERE      := 'CD_DESPESA='+DLAP+lcCD_DESPESA+DLAP
+   laFIELDS     := {'despesa.CD_DESPESA',;
+                    'despesa.NM_DESPESA',;
+                    'despesa.CD_GRP_DESPESA',;
+                    'grupo_despesa.NM_GRP_DESPESA',;
+                    'despesa.CD_MOEDA',;
+                    'moeda.NM_MOEDA',;
+                    'despesa.SET_VL_REVISAO',;
+                    'despesa.SET_VL_APROVACAO',;
+                    'despesa.FL_AJUSTA_PEDIDO',;
+                    'despesa.FL_ZERAR_PROVISAO',;
+                    'despesa.FL_CONTABILIZA_PEDIDO',;
+                    'despesa.FL_CONTABILIZA_LANCTOS_CONT',;
+                    'despesa.CD_DESPESA_INTERFACE',;
+                    'despesa.INCIDENCIA_IMPOSTOS',;
+                    'despesa.OCOR_PEDIDO_QUITA',;
+                    'despesa.FL_ATIVO'}
+
+   laCAMPOS     := {'CD_DESPESA',;
+                    'NM_DESPESA',;
+                    'CD_MOEDA',;
+                    'SET_VL_APROVACAO',;
+                    'SET_VL_REVISAO',;
+                    'CD_GRP_DESPESA',;
+                    'NM_GRP_DESPESA',;
+                    'NM_MOEDA',;
+                    'FL_AJUSTA_PEDIDO',;
+                    'FL_ZERAR_PROVISAO',;
+                    'FL_CONTABILIZA_PEDIDO',;
+                    'FL_CONTABILIZA_LANCTOS_CONT',;
+                    'CD_DESPESA_INTERFACE',;
+                    'INCIDENCIA_IMPOSTOS',;
+                    'OCOR_PEDIDO_QUITA',;
+                    'FL_ATIVO'}
+
+   laCAMPOS_SAV := {'CD_DESPESA',;
+                    'NM_DESPESA',;
+                    'CD_MOEDA',;
+                    'SET_VL_APROVACAO',;
+                    'SET_VL_REVISAO',;
+                    'CD_GRP_DESPESA',;
+                    'FL_AJUSTA_PEDIDO',;
+                    'FL_ZERAR_PROVISAO',;
+                    'FL_CONTABILIZA_PEDIDO',;
+                    'FL_CONTABILIZA_LANCTOS_CONT',;
+                    'CD_DESPESA_INTERFACE',;
+                    'INCIDENCIA_IMPOSTOS',;
+                    'OCOR_PEDIDO_QUITA',;
+                    'FL_ATIVO'}
+
+   laVALIDA     := {'CD_DESPESA','NM_DESPESA'}
+   laJOIN       := {{2,'moeda','moeda.CD_MOEDA=despesa.CD_MOEDA'},;
+                    {2,'grupo_despesa','grupo_despesa.CD_GRP_DESPESA=despesa.CD_GRP_DESPESA'}}
+   
+   // Parametro enviado pelo BP (Build Program)
+   lcFORMOPENER := alltrim(WGet('FORMOPENER','C'))
+   lcJAVAFIELDS := alltrim(WGet('JAVAFIELDS','C'))
+   lcSHOW_MENU  := upper(alltrim(WGet('SHOW_MENU','C')))
+
+   WPut('TITLE','Manutenção e Listagem de Despesas')
+   init_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+
+
+   WPut('FT_AJUSTA_PEDIDO.option',{'Sim','Não'})
+   WPut('FT_AJUSTA_PEDIDO.optionvalue',{'S','N'})
+   lcFT_AJUSTA_PEDIDO := 'N'
+   WPut('FT_AJUSTA_PEDIDO',lcFT_AJUSTA_PEDIDO)
+   lcFT_AJUSTA_PEDIDO := (wget('FT_AJUSTA_PEDIDO','C'))
+
+   WPut('FT_ZERAR_PROVISAO.option',{'Sim','Não'})
+   WPut('FT_ZERAR_PROVISAO.optionvalue',{'S','N'})
+   lcFT_ZERAR_PROVISAO := 'N'
+   WPut('FT_ZERAR_PROVISAO',lcFT_ZERAR_PROVISAO)
+   lcFT_ZERAR_PROVISAO := (wget('FT_ZERAR_PROVISAO','C'))
+
+   WPut('FT_CONTABILIZA_PEDIDO.option',{'Sim','Não'})
+   WPut('FT_CONTABILIZA_PEDIDO.optionvalue',{'S','N'})
+   lcFT_CONT_PEDIDO := 'N'
+   WPut('FT_CONTABILIZA_PEDIDO',lcFT_CONT_PEDIDO)
+   lcFT_CONT_PEDIDO := (wget('FT_CONTABILIZA_PEDIDO','C'))
+
+   WPut('FT_CONTABILIZA_LANCTOS_CONT.option',{'Sim','Não'})
+   WPut('FT_CONTABILIZA_LANCTOS_CONT.optionvalue',{'S','N'})
+   lcFT_LANCTOS_CONT := 'N'
+
+   lcFL_ATIVO := 'S'
+   WPut('FL_ATIVO',lcFT_ATIVO)
+   WPut('FL_ATIVO.option',{'Ativo','Inativo','Default'})
+   WPut('FL_ATIVO.optionvalue',{'S','I','D'})
+   lcFL_ATIVO = (wget('FL_ATIVO','C'))
+
+   WPut('FT_CONTABILIZA_LANCTOS_CONT',lcFT_LANCTOS_CONT)
+   lcFT_LANCTOS_CONT := (wget('FT_CONTABILIZA_LANCTOS_CONT','C'))
+   
+   WPut('ifLIBERADO' ,.t.)
+   WPut('ifBLOQUEADO',.f.)
+
+   if lcACTION = 'NEW'
+      if !empty(lcFORMOPENER) .and. !empty(lcJAVAFIELDS)
+         WPut('FORMOPENER',lcFORMOPENER)
+         WPut('JAVAFIELDS',lcJAVAFIELDS)
+      endif
+   elseif lcACTION = 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS, lcTABLE, laJOIN,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+      db2Put(laRES)
+      
+      WPut('FT_AJUSTA_PEDIDO',laRES[2,db_fetchncol(laRES,'FL_AJUSTA_PEDIDO')])
+
+      *** verifica se ja existe lançamento com esse codigo
+      if db_select({'CD_DESPESA'},'mvt_despesa',,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRES2 := db_fetchrow()
+      if len(laRES2) > 0 .and. laRES[2,db_fetchncol(laRES,'FL_AJUSTA_PEDIDO')]=='S'
+         WPut('ifLIBERADO' ,.f.)
+         WPut('ifBLOQUEADO',.t.)                            
+      else
+         WPut('ifLIBERADO' ,.t.)
+         WPut('ifBLOQUEADO',.f.)
+      endif
+
+      WPut('FT_ZERAR_PROVISAO',laRES[2,db_fetchncol(laRES,'FL_ZERAR_PROVISAO')])
+      WPut('FT_CONTABILIZA_PEDIDO',laRES[2,db_fetchncol(laRES,'FL_CONTABILIZA_PEDIDO')])
+      WPut('FT_CONTABILIZA_LANCTOS_CONT',laRES[2,db_fetchncol(laRES,'FL_CONTABILIZA_LANCTOS_CONT')])
+      WPut('FL_ATIVO',laRES[2,db_fetchncol(laRES,'FL_ATIVO')])
+
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+     if verif_reqfield(WSet('_USER_INTERFACE'),laVALIDA)
+         aadd(laSAVE,laCAMPOS_SAV  )
+         for ii := 1 to len(laCAMPOS_SAV  )
+            if laCAMPOS_SAV[ii] == 'FL_AJUSTA_PEDIDO'
+               aadd(laSAVE_AUX,lcFT_AJUSTA_PEDIDO)
+            elseif laCAMPOS_SAV[ii] == 'FL_ZERAR_PROVISAO'
+               aadd(laSAVE_AUX,lcFT_ZERAR_PROVISAO)
+            elseif laCAMPOS_SAV[ii] == 'FL_CONTABILIZA_PEDIDO'
+               aadd(laSAVE_AUX,lcFT_CONT_PEDIDO)
+            elseif laCAMPOS_SAV[ii] == 'FL_CONTABILIZA_LANCTOS_CONT'
+               aadd(laSAVE_AUX,lcFT_LANCTOS_CONT)
+            elseif laCAMPOS_SAV[ii] == 'FL_ATIVO'
+               aadd(laSAVE_AUX,lcFL_ATIVO)
+            else
+               aadd(laSAVE_AUX,WGet(laCAMPOS_SAV[ii]))
+            endif   
+         next ii
+         aadd(laSAVE,laSAVE_AUX)
+         if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+            error_sys(db_error())
+         endif
+     endif
+     if !empty(lcFORMOPENER) .and. !empty(lcJAVAFIELDS)
+        walert(lcFORMOPENER+' - '+lcJAVAFIELDS)
+        mkjsreturn(lcFORMOPENER,lcJAVAFIELDS,lcTABLE,laSAVE) //Cria JS retornando os dados gravados ao form opener
+        //lcWSCRIPT:='opener.document.mntform.submit()'
+        //wPut('WSCRIPT',lcWSCRIPT)
+        WSet('_USER_INTERFACE','close.wic')
+     endif
+
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+      if db_select({'CD_DESPESA'},'mvt_despesa',,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRES := db_fetchrow()
+      if len(laRES) > 0
+         walert('Despesa não pode ser excluída,\n existem movimentações ligadas a esta Despesa.')
+      else   
+         if db_delete(lcTABLE,lcWHERE) == -1
+            error_sys(db_error())
+         endif
+      endif   
+   endif
+   // Rotina para executar paginação
+
+   if db_select({'distinct(despesa.CD_DESPESA)','despesa.CD_DESPESA'},'despesa',,) == -1
+      db_error()
+   endif
+   laRESULT  := db_fetchall()
+   lnCOUNT   := len(laRESULT)-1
+   if lnCOUNT > 0
+      laPAGINAS := paginacao(lnCOUNT,'','','mnt.despesa.html')
+      laLIMIT   := param_fetch(laPAGINAS,'LIMIT')
+	    if empty(pc_filtro)
+	       if db_select(laFIELDS,lcTABLE,laJOIN,,{'despesa.CD_DESPESA'},,,laLIMIT) == -1
+            error_sys(db_error())
+         endif
+	    else
+	       if db_select(laFIELDS,lcTABLE,laJOIN,{lcWHERE},{'despesa.CD_DESPESA'},,,laLIMIT) == -1
+	          error_sys(db_error())
+	       endif
+	    endif
+	    laRESULT := db_fetchall()
+      //Resumo da pesquisa
+	    lcCODE := alltrim(str(laLIMIT[1]+1))+'-'
+	    if ((len(laRESULT)-1) < (laLIMIT[2]-laLIMIT[1]))
+	       lcCODE += alltrim(str(len(laRESULT)-1))
+	    elseif param_fetch(laPAGINAS,'GOTO_PAGE') == param_fetch(laPAGINAS,'NR_PAGES') //lnNR_PAGES
+	       lcCODE += alltrim(str(lnCOUNT))
+	    else
+	       lcCODE += alltrim(str(laLIMIT[1]+param_fetch(laPAGINAS,'ROWS_PAGE')))
+	    endif
+	    lcCODE += ' de '+alltrim(str(lnCOUNT))
+	    if lnCOUNT > 1
+	       lcCODE := ' Resultados '+lcCODE+' registros'
+	    else
+	       lcCODE := ' Resultado '+lcCODE+' registro'
+	    endif
+	    wput('RESUME_RESULTSET',lcCODE)
+
+      if len(laRESULT) > 0
+         aadd(laRESULT[1],'(row)')
+         for ii := 2 to len(laRESULT)
+            aadd(laRESULT[ii],'(row)'+wic_action('wicaction/mnt.despesa.html?ACTION=ALTER'+;
+                                                 '&CD_DESPESA='+laRESULT[ii,ascan(laRESULT[1],'CD_DESPESA')]))
+            
+            laRESULT[ii,db_fetchncol(laRESULT,'SET_VL_APROVACAO')] := wpictrans('SET_VL_APROVACAO',laRESULT[ii,db_fetchncol(laRESULT,'SET_VL_APROVACAO')])
+            laRESULT[ii,db_fetchncol(laRESULT,'SET_VL_REVISAO')] := wpictrans('SET_VL_REVISAO',laRESULT[ii,db_fetchncol(laRESULT,'SET_VL_REVISAO')])
+         next ii
+         
+         WPut('GRID_DESPESA',grid_create(laRESULT))
+      endif
+   endif   
+return(nil)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

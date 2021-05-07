@@ -1,0 +1,749 @@
+//
+// Glauber - 04/2016
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Classe...........: EbaoMarcarSinistro
+*
+* Objetivo.........: Classe utilizada para Marcar Sinistros
+*
+* Atributos........:
+*
+*    EXPORT NrPasta
+*    EXPORT TpPasta
+*    EXPORT NrControleSeguro
+*    EXPORT HeaderRequest
+*    EXPORT FlgAcaoJudicialValor
+*    EXPORT PastaJudicial
+*    EXPORT NumProcesso
+*    EXPORT NomeAutor
+*    EXPORT DocAutor
+*    EXPORT UfReclamacao
+*    EXPORT VlPleiteado
+*    EXPORT VlOferecido
+*    EXPORT VlEstimativa
+*    EXPORT ClasEstimativa
+*    EXPORT MotivoOperacao
+*
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD MarcarSinistro()
+*
+*
+* Classes Ligadas..:
+*
+*    RespEbaoConsultar, HeaderRequest, EbaoListaSntResponse, EbaoConfig, EbaoUtils, EbaoLog, RetMkSinistro
+*
+*/
+
+
+CLASS EbaoMarcarSinistro
+
+    // Atributos privado
+
+    INSTANCE Config
+    INSTANCE Utils
+    INSTANCE XmlServico
+    INSTANCE Retorno
+
+    // Atributos publico
+
+    EXPORT NrPasta
+    EXPORT TpPasta
+    EXPORT NrControleSeguro
+    EXPORT HeaderRequest
+    EXPORT FlgAcaoJudicialValor
+    EXPORT PastaJudicial
+    EXPORT NumProcesso
+    EXPORT NomeAutor
+    EXPORT DocAutor
+    EXPORT UfReclamacao
+    EXPORT VlPleiteado
+    EXPORT VlOferecido
+    EXPORT VlEstimativa
+    EXPORT ClasEstimativa
+    EXPORT MotivoOperacao
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()             CLASS EbaoMarcarSinistro
+    PROTOTYPE METHOD Destroy()          CLASS EbaoMarcarSinistro
+    PROTOTYPE METHOD MarcarSinistro()   CLASS EbaoMarcarSinistro
+    PROTOTYPE METHOD GerarPedidoInicial() CLASS EbaoMarcarSinistro
+
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS EbaoMarcarSinistro
+
+    self:NrPasta              := 0
+    self:TpPasta              := ''
+    self:NrControleSeguro     := 0
+    self:HeaderRequest        := HeaderRequestNew()
+    self:FlgAcaoJudicialValor := ''
+    self:PastaJudicial        := ''
+    self:NumProcesso          := ''
+    self:NomeAutor            := ''
+    self:DocAutor             := ''
+    self:UfReclamacao         := ''
+    self:VlPleiteado          := 0.00
+    self:VlOferecido          := 0.00
+    self:VlEstimativa         := 0.00
+    self:ClasEstimativa       := ''
+    self:MotivoOperacao       := ''
+    self:Config               := EbaoConfigNew()
+    self:Utils                := EbaoUtilsNew()
+    self:XmlServico           := ''
+    self:Retorno              := RetMkSinistroNew()
+
+return(self)
+
+
+/*
+*
+* Glauber - 04/2016
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS EbaoMarcarSinistro
+
+    self:NrPasta              := nil
+    self:TpPasta              := nil
+    self:NrControleSeguro     := nil
+    self:HeaderRequest        := nil
+    self:FlgAcaoJudicialValor := nil
+    self:PastaJudicial        := nil
+    self:NumProcesso          := nil
+    self:NomeAutor            := nil
+    self:DocAutor             := nil
+    self:UfReclamacao         := nil
+    self:VlPleiteado          := nil
+    self:VlOferecido          := nil
+    self:VlEstimativa         := nil
+    self:ClasEstimativa       := nil
+    self:MotivoOperacao       := nil
+    self:Config               := nil
+    self:XmlServico           := nil
+    self:Utils                := nil
+    self:Retorno              := nil
+
+
+return(nil)
+
+
+
+/*
+*
+* Glauber - 05/2016
+*
+* Metodo....: MarcarSinistro()
+* Objetivo..: Marca um sinistro como Juridico no eBao
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Objeto do tipo RetMkSinistro
+*
+*/
+
+METHOD MarcarSinistro() CLASS EbaoMarcarSinistro
+
+   local laRES      := {},;
+         laSAVE     := {},;
+         laSAVEAUX  := {} as Array
+
+   local lnPOS      := 0,;
+         lnCODRET   := 0,;
+         lnDESRET   := 0  as Int
+
+   local lcEnv      := '',;
+         lcRet      := '',;
+         lcParser   := '',;
+         lcTmp      := '',;
+         lcErro     := '',;
+         lcRun      := ''  as String
+
+   local llDebug    := .F.
+   local objLog     := EbaoLogNew() AS Object
+
+
+   if ! self:CarregarCfg(2)
+      self:Retorno:RetEbao:CdRetorno := -999
+      self:Retorno:RetEbao:NmRetorno := 'Não existe configuração do eBao para operação marcar sinistro.'
+      return self:Retorno
+   endif
+
+   if ! self:ValidaChamada()
+      return self:Retorno
+   endif
+
+   // Prepara o envio
+
+   aadd(laRES, {'CD_RAMOSRSN',;
+                'NR_SINISTRO',;
+                'NR_PASTA',;
+                'TP_PASTA',;
+                'NR_CONTROLE_SEGURO',;
+                'FL_ACAO_JUDICIAL_VALOR',;
+                'PASTA_JUDICIAL',;
+                'NUM_PROCESSO',;
+                'NOME_AUTOR',;
+                'DOC_AUTOR',;
+                'UF_RECLAMACAO',;
+                'VL_PLEITEADO',;
+                'VL_OFERECIDO',;
+                'VL_ESTIMATIVA',;
+                'CLASS_ESTIMATIVA',;
+                'MOTIVO_OPERACAO'})
+
+    aadd(laRES, {self:HeaderRequest:Ramo,;
+                 self:HeaderRequest:SinistroNumero,;
+                 self:NrPasta,;
+                 self:TpPasta,;
+                 self:NrControleSeguro,;
+                 self:FlgAcaoJudicialValor,;
+                 self:PastaJudicial,;
+                 self:NumProcesso,;
+                 self:NomeAutor,;
+                 self:DocAutor,;
+                 self:UfReclamacao,;
+                 self:VlPleiteado,;
+                 self:VlOferecido,;
+                 self:VlEstimativa,;
+                 self:ClasEstimativa,;
+                 self:MotivoOperacao,;
+                 self:Config,;
+                 self:XmlServico,;
+                 self:Utils,;
+                 self:Retorno})
+
+
+
+   lcEnv    := Utils:PathEbao + 'MKSIN_' + Wset('LOGIN') +'_'+alltrim(wic_random()) +'.XML'
+   lcRet    := strtran(lcEnv,'.XML','.RET')
+   lcParser := Utils:Parser2Str(self:XmlServico, laRES)
+
+   GravaArquivo(lcEnv,lcParser) // Função presente na func_wic.wh
+
+   // Executa o pedido das informações
+
+   lcRun    := Utils:AppEbao + ' marcarsinistro ' + lcEnv + ' '
+   Utils:ExecutarPlugIn(lcRun,llDebug)
+
+//   lcRet := 'lista.RET'
+
+   // Obter o conteúdo da resposta
+
+   if (! file(lcRet))
+      Walert('Erro ao receber o arquivo de retorno.Arquivo de retorno não existe:'+lcRet)
+      self:Retorno:RetEbao:CdRetorno := -999
+      self:Retorno:RetEbao:NmRetorno := 'Erro ao receber o arquivo de retorno.Arquivo de retorno não existe:'+lcRet
+      return self:Retorno
+   endif
+
+  lcTmp  := GetFileContent(lcRet) // Resgata o conteúdo do arquivo de retorno. Função presente na func_wic.wh
+  laRES  := Utils:StrSerealize(lcTmp)
+
+// debug2(laRES,,30)
+
+  if (len(laRES) < 2)
+      self:Retorno:RetEbao:CdRetorno := -999
+      self:Retorno:RetEbao:NmRetorno := 'Não foi retornado informações do eBao para operação marcar sinistro.'
+      return self:Retorno
+  endif
+
+
+  // Gravar o Log
+
+  objLog:NrControle := 0
+  objLog:Data       := Date()
+  objLog:Hora       := Time()
+  objLog:Login      := WSet('LOGIN')
+  objLog:IdServico  := 0
+  objLog:Requisicao := lcParser
+  objLog:Retorno    := lcTmp
+
+  objLog:Save()
+
+  // Tratar o erro
+
+  lnPOS    := ascan(laRES[1],'CDRETORNO')
+  lnDESRET := ascan(laRES[1],'NMRETORNO')
+  lnCODRET := lnPOS
+
+  if (lnPOS == 0)
+      Walert('Atenção, ocorreu um erro ao processar o arquivo de retorno: '+lcRet)
+      self:Retorno:RetEbao:CdRetorno := -999
+      self:Retorno:RetEbao:NmRetorno := 'Atenção, ocorreu um erro ao processar o arquivo de retorno: '+lcRet
+      return self:Retorno
+  endif
+
+ self:Retorno:RetEbao:CdRetorno := val(laRES[2,lnPOS])
+ self:Retorno:RetEbao:NmRetorno := laRES[2,lnDESRET]
+
+
+  if val(laRES[2,lnPOS]) > 0
+     return self:Retorno
+  endif
+
+  // Preencher o objeto de retorno
+
+  self:Retorno:SinistroNumero       := self:HeaderRequest:SinistroNumero
+  self:Retorno:CodigoCobertura      := laRES[2,db_fetchncol(laRES,'COBERTURA')]
+  self:Retorno:CodigoSubCobertura   := laRES[2,db_fetchncol(laRES,'SUBCOBERTURA')]
+  self:Retorno:TipoReserva          := laRES[2,db_fetchncol(laRES,'TIPORESERVA')]
+  self:Retorno:ValorTotalReserva    := val(laRES[2,db_fetchncol(laRES,'VALORRESERVA')])
+
+
+
+
+
+return self:Retorno
+
+
+
+
+
+
+
+/*
+*
+* Glauber - 05/2016
+*
+* Metodo....: GerarPedidoInicial()
+* Objetivo..: Gera o pedido inicial no Isj.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD GerarPedidoInicial() CLASS EbaoMarcarSinistro
+
+   local lcEnv         := '',;
+         lcRet         := '',;
+         lcParser      := '',;
+         lcRun         := '',;
+         lcPath        := '',;
+         lcTMP         := '',;
+         lcLABEL       := '',;
+         lcWHERE       := '',;
+         lcCD_RAMO     := '',;
+         lcPEDIDO      := ''  as String
+
+   local laCONF        := {},;
+         laRESULT      := {},;
+         laWSet        := {},;
+         laSAVE        := {},;
+         laSeq         := {},;
+         laPADRAO      := {},;
+         laTMP         := {} as Array
+
+   local ii            := 0,;
+         lnii          := 0,;
+         lnSeq         := 0,;
+         lnNR_CONTROLE := 0 as Int
+
+   local llErro        := .f.
+
+
+   lcPEDIDO := 'Pedido Inicial eBao'
+
+   // Salvar o Pedido
+
+   laSAVE := {{'NR_PASTA',;
+              'PEDIDO_PROCESSO',;
+              'NR_CONTROLE_SEGURO',;
+              'DT_RISCO',;
+              'VL_RISCO',;
+              'VL_RISCO_CALC',;
+              'PC_RISCO',;
+              'DT_MOVTO_PED',;
+              'FL_INTERFACEGEM',;
+              'FL_CALCULO'},;
+              {self:NrPasta,; // NR_PASTA
+              lcPEDIDO ,; // PEDIDO_PROCESSO
+              self:NrControleSeguro,; // NR_CONTROLE_SEGURO
+              date(),;        // DT_RISCO
+              self:Retorno:ValorTotalReserva,;          // VL_RISCO
+              self:Retorno:ValorTotalReserva,;          // VL_RISCO_CALC
+              100,;           // PC_RISCO
+              date(),;        // DT_MOVTO_PED
+              '2',;           // FL_INTERFACEGEM
+              'N'}}           // FL_CALCULO
+
+
+   if db_insert(laSAVE,'pasta_pedidos') == -1
+      error_sys(db_error())
+   endif
+   lnNR_CONTROLE := db_insert_id()
+
+
+    //
+    // Glauber
+    // Gerar os lançamentos contábeis para o gem
+    //
+    // Observacao: não é serviço porco ou gambiarra minha, mas no registro
+    // para lançamento contábil o valor do risco e do risco calculado, deve
+    // ser informado como 0.00 em vez de 0.01, pois a função xcont só contabiliza a
+    // diferença pega pelo pedido e como a interface gem necessita do lançamento
+    // contábil eu sempre tenho que informa 0.00 neste trecho.
+
+    laPADRAO := self:ValoresPadroes()
+
+    if len(laPADRAO) > 1
+        laSAVE := {{'NR_PASTA',;
+                'NR_CONTROLE',;
+                'PEDIDO_PROCESSO',;
+                'NR_CONTROLE_SEGURO',;
+                'VL_RISCO',;
+                'PC_RISCO',;
+                'VL_RISCO_CALC',;
+                'VL_CORRECAO',;
+                'VL_JUROS',;
+                'DT_RISCO',;
+                'FL_CALCULO',;
+                'DT_MOVTO_PED',;
+                'COMENTARIOS_PED',;
+                'OCOR_PEDIDO',;
+                'TX_EXPEDIENTE'},;
+                {self:NrPasta,;
+                lnNR_CONTROLE,;
+                lcPEDIDO,;
+                self:NrControleSeguro,;
+                self:Retorno:ValorTotalReserva,;
+                100,;
+                self:Retorno:ValorTotalReserva,;
+                0.00,;
+                0.00,;
+                laPADRAO[2],;
+                'N',;
+                laPADRAO[1],;
+                laPADRAO[3],;
+                laPADRAO[3],;
+                ''}}
+    else
+        laSAVE := {{'NR_PASTA',;
+                'NR_CONTROLE',;
+                'PEDIDO_PROCESSO',;
+                'NR_CONTROLE_SEGURO',;
+                'VL_RISCO',;
+                'PC_RISCO',;
+                'VL_RISCO_CALC',;
+                'VL_CORRECAO',;
+                'VL_JUROS',;
+                'DT_RISCO',;
+                'FL_CALCULO',;
+                'DT_MOVTO_PED',;
+                'COMENTARIOS_PED',;
+                'OCOR_PEDIDO',;
+                'TX_EXPEDIENTE'},;
+                {self:NrPasta,;
+                lnNR_CONTROLE,;
+                lcPEDIDO,;
+                self:NrControleSeguro,;
+                self:Retorno:ValorTotalReserva,;
+                100,;
+                self:Retorno:ValorTotalReserva,;
+                0.00,;
+                0.00,;
+                DATE(),;
+                'N',;
+                DATE(),;
+                '',;
+                '',;
+                ''}}
+    endif
+
+    // Contabiliza pedido
+    xcont(laSAVE, Alltrim(self:NrPasta), self:TpPasta)
+
+    // Inserir o detalhe
+
+    laSAVE := {{'NR_PASTA',;
+                'NR_CONTROLE',;
+                'PEDIDO_PROCESSO',;
+                'DT_MOVTO_PED',;
+                'DT_RISCO',;
+                'VL_RISCO',;
+                'VL_RISCO_CALC',;
+                'PC_RISCO',;
+                'FL_INTERFACEGEM',;
+                'LOGIN_CADASTRO'},;
+                {self:NrPasta,;
+                lnNR_CONTROLE,;
+                lcPEDIDO,;
+                date(),;
+                date(),;
+                self:Retorno:ValorTotalReserva,;
+                self:Retorno:ValorTotalReserva,;
+                100,;
+                iif(llErro,'','2'),;
+                'eBao'}}
+    if db_insert(laSAVE,'pasta_detal_pedidos') == -1
+       error_sys(db_error())
+    endif
+
+
+return
+
+
+/*
+*
+* Glauber - 05/2016
+*
+* Metodo....: ValoresPadroes()
+* Objetivo..: Alimentar os campos DT_MOVTO_PED, DT_RISCO, OCOR_PEDIDO com valores padrões.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Vetor com as informações.
+*
+*/
+
+METHOD ValoresPadroes() CLASS EbaoMarcarSinistro
+
+   local laRESULT      := {},;
+         laRESULT_OCOR := {},;
+         laRETORNO     := {} as array
+
+
+   laRETORNO := {date(),'DT_CITACAO','Primeira Estimativa'}
+
+
+   if db_select({'DT_RISCO_CONF','OCOR_PEDIDO_INICIO'},'pasta_config',,{'TP_PASTA = '+DLAP+self:TpPasta+DLAP}) == -1
+      error_sys(db_error())
+   endif
+
+   laRESULT_OCOR := db_fetchrow()
+
+   if empty(Alltrim(laRESULT_OCOR[2]))
+      walert('A parametrização dos Pedidos para esta Pasta ainda não foi realizada.\n Será utilizado a data de citação e primeira estimativa.')
+      return(laRETORNO)
+   else
+      if len(laRESULT_OCOR) > 0
+         if !empty(laRESULT_OCOR[1])
+            if db_select({laRESULT_OCOR[1]},'pasta',,{'NR_PASTA = '+Alltrim(self:NrPasta)}) == -1
+               error_sys(db_error())
+            endif
+            laRESULT:=db_fetchrow()
+            if len(laRESULT) > 0
+               laRETORNO := {date(),laRESULT[1],laRESULT_OCOR[2]}
+            else
+               walert('A parametrização dos Pedidos para esta Pasta ainda não foi realizada.\n Será utilizado a data de citação e primeira estimativa.')
+            endif
+         else
+            laRETORNO := {date(),'',laRESULT_OCOR[2]}
+         endif   
+      else
+         walert('A parametrização dos Pedidos para esta Pasta ainda não foi realizada.\n Será utilizado a data de citação e primeira estimativa.')
+      endif
+   endif         
+return(laRETORNO)
+
+
+
+
+
+
+/*
+*
+* Glauber - 05/2016
+*
+* Metodo....: CarregarCfg(pnOPERACAO)
+* Objetivo..: Carrega a configuração corrente de um serviço.
+*
+* Parâmetros:
+*
+*  pnOPERACAO : Operação a ser carregada.
+*
+* Retorno...:
+*             Array com os dados dos Sinistros. Em caso de erro ou não encontado retorna um array vazio.
+*
+*/
+
+METHOD CarregarCfg(pnOPERACAO) CLASS EbaoMarcarSinistro
+
+    local lnPOS  := 0  as int
+    local lcMSG  := '',;
+          lcSERV := '' as String
+
+
+    if ! Utils:ValidaPathAppEbao()
+       return .F.
+    endif
+
+    Config:ObterConfiguracao() // Recuperar a Configuração corrente
+    Config:ObterServicos()     // Recuperar todos os serviços
+    lcSERV := Alltrim(Config:IdMarcaSinistro)
+
+    if (pnOPERACAO != 2)
+       lcMSG  := 'O serviço para marcação de sinistros é inválido.'
+    endif
+
+//    if (lnSERV == 0)
+//       Walert(lcMSG)
+//       return .F.
+//    endif
+
+
+    lnPOS := ascan(Config:ResultSet, {|x| alltrim(x[1]) == lcSERV})
+
+    if (lnPOS == 0)
+       Walert(lcMSG + ' O serviço informado não foi encontrado.')
+       return .F.
+    endif
+    self:XmlServico := Config:ResultSet[lnPOS,3]
+    if (Empty(self:XmlServico))
+       Walert(lcMSG + ' O serviço não contém leiaute de comunicação.')
+       return .F.
+    endif
+
+
+
+return .T.
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+*
+* Glauber - 05/2016
+*
+* Metodo....: ValidaChamada
+* Objetivo..: Faz a validação dos campos antes de consumir o webservice.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             .T. Caso esteja válido.
+*
+*/
+
+METHOD ValidaChamada() CLASS EbaoMarcarSinistro
+
+
+    if (self:NrPasta == 0)
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Número de pasta inválido ou não informado.'
+       return .F.
+    endif
+    if Empty(self:TpPasta)
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Tipo de pasta inválido ou não informado.'
+       return .F.
+    endif
+//    if (self:NrControleSeguro == 0)
+//       self:Retorno:RetEbao:CdRetorno := -999
+//       self:Retorno:RetEbao:NmRetorno := 'Número de seguro inválido ou não informado.'
+//       return .F.
+//    endif
+    if Empty(self:FlgAcaoJudicialValor)
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Flag de ação judicial inválido ou não informado.'
+       return .F.
+    endif
+    if Empty(self:PastaJudicial)
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Pasta judicial inválido ou não informado.'
+       return .F.
+    endif
+    if Empty(self:NumProcesso)
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Número de processo inválido ou não informado.'
+       return .F.
+    endif
+    if Empty(self:NomeAutor)
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Nome do autor inválido ou não informado.'
+       return .F.
+    endif
+    if Empty(self:DocAutor)
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Número do documento do autor inválido ou não informado.'
+       return .F.
+    endif
+    if Empty(self:UfReclamacao)
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Uf da reclamação inválido ou não informado.'
+       return .F.
+    endif
+/*
+    if (self:VlPleiteado == 0)
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Valor pleiteado inválido ou não informado.'
+       return .F.
+    endif
+    if (self:VlOferecido == 0)
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Valor oferecido inválido ou não informado.'
+       return .F.
+    endif
+    if (self:VlEstimativa == 0)
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Valor da estimativa inválido ou não informado.'
+       return .F.
+    endif
+*/
+    if Empty(self:ClasEstimativa)
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Classificação da estimativa inválido ou não informado.'
+       return .F.
+    endif
+    if Empty(self:MotivoOperacao)
+       self:Retorno:RetEbao:CdRetorno := -999
+       self:Retorno:RetEbao:NmRetorno := 'Motivo da operação inválido ou não informado.'
+       return .F.
+    endif
+
+return .T.

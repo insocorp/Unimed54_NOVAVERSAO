@@ -1,0 +1,122 @@
+/*
+
+Project      : gr5
+Program      : auxiliar1.mnt.html
+Function     : auxiliar1_mnt_html
+Created on   : 27/06/2017 09:36:44
+Descripition : Tabela Auxiliar 1
+
+*/
+
+local laPARAM        := {},;
+      laINPUT_OBJ    := {},;
+      laSELECT       := {} as array
+
+laPARAM := {{'ID_AUXILIAR1'   ,''     ,'*'},;
+            {'FL_ATIVO','',},;
+            {'ACTION'       ,'ALTER',   }}
+
+
+laINPUT_OBJ := {{'ID_AUXILIAR1'         ,0,'Y','Y',"'New'"   },;
+                {                   , ,   ,   ,          },;
+                {'TP_PASTA',1, ,'Y',"loadcboxorder_build('pasta_config','TP_PASTA',.T.,{'TP_PASTA'})"},;
+                {               , , ,   ,   },;
+                {'DESC_AUXILIAR1',0, ,'Y',   },;
+                {,,,,},;
+                {'FL_ATIVO',1,,'Y','{"S","I","D"}' }}
+
+laSELECT := {'ID_AUXILIAR1',;
+             'TP_PASTA',;
+             'DESC_AUXILIAR1',;
+             'FL_ATIVO'}
+
+if upper(alltrim(WGet('ACTIONBP'))) == 'ALTER'
+   mkgedico('auxiliar1',WGet('ID_AUXILIAR1','C'))
+endif
+
+xbp('auxiliar1',;                                                           //Tabela alvo
+    ,;                                                                  //Joins
+    ,;                                                                  //Where
+    ,;                                                                  //Order by
+    ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+    ,;                                                                  //Group by
+    ,;                                                                  //Limit
+    ,;                                                                  //Banco de Dados
+    2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+    'gr5',;                                                            //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                                           //Programa chamador
+    laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+    ,;                                                                  //Parâmetros para os botões das linhas do grid
+    'auxiliar1.mnt.html',;                                                  //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                                            //Módulo do programa chamado pelos links/botoes do grid
+    ,;                                                                  //Retorno java (nil) - usado apenas para Search
+    ,;                                                                  //Campos usados na pesquisa rápida
+    ,;                                                                  //Campos Ocultos
+    laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+    laSELECT ,;                                                         //Campos exibidos no grid
+    laSELECT)                                                           //Campos usados no select
+return
+
+
+/*
+   local laPARAM        := {},;
+         laINPUT_OBJ    := {},;
+         laSELECT       := {} as array
+
+   laPARAM := {{'ID_AUXILIAR1'  , '' ,'*'},;
+               {'FL_ATIVO'      ,'',},;
+               {'ACTION'        ,'ALTER',   }}
+
+   laINPUT_OBJ := {{'ID_AUXILIAR1'    ,0,'Y','Y',"'New'"   },;
+                   {,,,,},;
+                   {'TP_PASTA',1, ,'Y',"loadcboxorder_build('pasta_config','TP_PASTA',.T.,{'TP_PASTA'})"},;
+                   {               , , ,   ,   },;
+                   {'DESC_AUXILIAR1',0, ,'Y',   },;
+                   {,,,,},;
+                   {'FL_ATIVO',1,,'Y','{"S","I","D"}' }}
+           
+
+   laSELECT := {'ID_AUXILIAR1','TP_PASTA','DESC_AUXILIAR1','FL_ATIVO'}
+
+   xbp2('tab_auxiliar1',;                                                  //Tabela alvo
+       ,;                                                                  //Joins
+       ,;                                                                  //Where
+       {'TP_PASTA','DESC_AUXILIAR1'},;                                	  //Order by
+       ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+       ,;                                                                  //Group by
+       ,;                                                                  //Limit
+       ,;                                                                  //Banco de Dados
+       2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+       'gr5',;                                                             //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;                                           //Programa chamador
+       laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+       ,;                                                                  //Parâmetros para os botões das linhas do grid
+       'auxiliar1.mnt.html',;                                                 //Programa que os links/botoes do grid deverao chamar
+       'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+       ,;                                                                  //Retorno java (nil) - usado apenas para Search
+       ,;                                                                  //Campos usados na pesquisa rápida
+       ,;                                                                  //Campos Ocultos
+       laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+       laSELECT ,;                                                         //Campos exibidos no grid
+       laSELECT)                                                           //Campos usados no select
+return
+
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

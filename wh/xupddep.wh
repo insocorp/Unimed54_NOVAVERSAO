@@ -1,0 +1,1116 @@
+ /*
+
+Project      : gr5
+Program      : xupddep
+Function     : xupddep
+Created on   : 09/01/2013 17:18:14
+Descripition : Atualização e Contabilização de Valores de Depósitos das Pastas.
+Atualiza e gera lançamentos contábeis dos Valores de Correção  dos Depósitos Judiciais.
+09/01/2013 17:21:21 - Sonia Perdigão - Separado o deposito juridical para o wh xupdep por paralização do xup por timeout
+
+*/
+
+   ***WSet('_WDEBUG','DISABLE')
+   WSet('_WDEBUG','ENABLE')
+
+   local lcFL_OPERADOR := '' ,;
+         lcERROR       := '' as string
+
+   local laPEDIDOS      := {} ,;
+         laDEPOSITOS    := {} ,;
+         laRESULT       := {} ,;
+         laPASTA        := {} ,;
+         laOCOR_PED     := {} ,;
+         laSAVE         := {} ,;
+         laSAVE2        := {} ,;
+         laSAVE3        := {} ,;
+         laSAVE_AUX     := {} ,;
+         laSAVE2_AUX    := {} ,;
+         laSAVE3_AUX    := {} ,;
+         laSAVEDETAL    := {} ,;
+         laFIELDS       := {} ,;
+         laAUX          := {} ,;
+         laMARKUP       := {} ,;
+         laMARKUP_JUROS := {} ,;
+         laLIMIT        := {} ,;
+         laPARSER       := {} ,;
+         laLOG          := {} ,;
+         laJOIN         := {} as array
+
+   local ii          := 0 ,;
+         lnINC       := 0 ,;
+         lnNR_PASTA  := 0 ,;
+         lnNR_NOPROC := 0 as int
+
+   local lnVL_CORRECAO := 0.00 ,;
+         lnVL_JUROS    := 0.00 ,;
+         lnVL_ATUAL    := 0.00 ,;
+         lnDIFF        := 0.00 ,;
+         lnVL_CORDETAL := 0.00 ,;
+         lnVL_JURDETAL := 0.00 as numeric
+
+   local fnVBASE    := 0.00 ,;
+         fnCORRECAO := 0.00 ,;
+         fnJUROS    := 0.00 as numeric
+
+
+   local fdDATA  as date
+
+   local llDEUERRO     := .F.
+
+   private pnHAND
+
+   pnHAND := fcreate(WSet('_WTEMP')+'xupddep'+dtos(date())+'_'+strtran(time(),':')+'.log',0)
+
+   writelog({datetime(),'Início da execução V1.03/10/2014',0})
+
+   db_query('BEGIN TRANS') //Iniciando Transação
+
+   /*
+   * Calculando os markups
+   */
+   writelog({datetime(),'Etapa 1: Calcular Markups',0})
+
+   if db_select({'CD_INDICE'},'indice_reajuste',,,{'CD_INDICE'}) == -1
+      llDEUERRO := gravaerro(pnHAND)
+      if llDEUERRO == .F. //se nao der erro
+         db_query('ROLLBACK')
+         error_sys(db_error())
+      endif
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      writelog({datetime(),'Total de Índices a calcular: '+alltrim(str(len(laRESULT)-1)),5})
+      for ii := 2 to len(laRESULT)
+         writelog({datetime(),'Calculando markup para o índice '+alltrim(str(laRESULT[ii,1]))+' do Ano/Mês atual',5})
+         if mkmarkup(laRESULT[ii,1],date2ym(date()),'N')
+            writelog({datetime(),'Markup calculado com sucesso',10})
+         else
+            writelog({datetime(),'Houve uma falha ao calcular o Markup.',10})
+         endif
+      next ii
+   else
+      writelog({datetime(),'Não existe nenhuma variação de índice cadastrada no sistema',5})
+      fclose(pnHAND)
+      return (nil)
+   endif
+   /*
+   * Calculando os Valores de Depósitos Judiciais
+   */
+   if db_select({'count(*)'},'pasta_deposito',,{'pasta_deposito.FL_CALCULO='+DLAP+'S'+DLAP,'DT_DEPOSITO is not null and pasta_deposito.PC_RISCO > 0'}) == -1
+
+      writelog({datetime(),'Ocorreu um erro e a transação foi abortada:',0})
+      writelog({datetime(),db_error(),0})
+
+      llDEUERRO := gravaerro(pnHAND)
+      if llDEUERRO == .F. //se nao der erro
+         db_query('ROLLBACK')
+         lcERROR := db_error()
+         fclose(pnHAND)
+         error_sys(lcERROR)
+      endif
+
+   endif
+   laRESULT := db_fetchrow()
+
+   writelog({datetime(),'Etapa 2: Processar Depósitos',0})
+   writelog({datetime(),'Total de Depósitos a analisar: '+alltrim(str(laRESULT[1]))+' (Ignorando Depósitos sem Data Depósito definida)',5})
+
+   lnNR_NOPROC := 0 //Numero de Itens não processados
+   lnINC       := 0
+
+
+
+   *** rufino 20/03/2013
+   *** lança data e hora inicio xup
+   laINICIO := gravainicio(pnHAND)
+
+   if laINICIO[1] == .T. //se der erro
+      return (nil)
+   endif
+
+   lnINC := laINICIO[2]
+
+
+   laFIELDS := {}
+   aadd(laFIELDS,'pasta_deposito.NR_PASTA')
+   aadd(laFIELDS,'pasta.TP_PASTA')
+   aadd(laFIELDS,'pasta_deposito.NR_CONTROLE')
+   aadd(laFIELDS,'pasta_deposito.NR_AUTOPROC')
+   aadd(laFIELDS,'pasta_deposito.DT_DEPOSITO')
+   aadd(laFIELDS,'pasta_deposito.TP_GARANTIA')
+   aadd(laFIELDS,'pasta_deposito.IDENTIFICACAO')
+   aadd(laFIELDS,'pasta_deposito.LOCAL_DEPOSITO')
+   aadd(laFIELDS,'pasta_deposito.VL_DEPOSITO')
+   aadd(laFIELDS,'pasta_deposito.FL_DEPOSITO')
+   aadd(laFIELDS,'pasta_deposito.VL_ATUAL')
+   aadd(laFIELDS,'pasta_deposito.DT_LEVANTAMENTO')
+   aadd(laFIELDS,'pasta_deposito.VL_LEVANTAMENTO')
+   aadd(laFIELDS,'pasta_deposito.VL_CORRECAO')
+   aadd(laFIELDS,'pasta_deposito.VL_JUROS')
+   aadd(laFIELDS,'pasta_deposito.FL_CALCULO')
+   aadd(laFIELDS,'pasta_deposito.CD_INDICE')
+   aadd(laFIELDS,'pasta_deposito.TP_DEPOSITO')
+   aadd(laFIELDS,'transacao_contabil_correcao.CD_PLCT_CREDITO as CD_PLCT_CREDITO_CORRECAO')
+   aadd(laFIELDS,'transacao_contabil_correcao.CD_PLCT_DEBITO as CD_PLCT_DEBITO_CORRECAO')
+   aadd(laFIELDS,'transacao_contabil_correcao.HISTORICO as HISTORICO_CORRECAO')
+   aadd(laFIELDS,'transacao_contabil_correcao_estorno.CD_PLCT_CREDITO as CD_PLCT_CREDITO_CORRECAO_EST')
+   aadd(laFIELDS,'transacao_contabil_correcao_estorno.CD_PLCT_DEBITO as CD_PLCT_DEBITO_CORRECAO_EST')
+   aadd(laFIELDS,'transacao_contabil_correcao_estorno.HISTORICO as HISTORICO_CORRECAO_ESTORNO')
+   aadd(laFIELDS,'transacao_contabil_correcao_estorno.FL_OPERADOR as FL_OPERADOR_CORRECAO')
+   aadd(laFIELDS,'transacao_contabil_juro.CD_PLCT_CREDITO as CD_PLCT_CREDITO_JURO')
+   aadd(laFIELDS,'transacao_contabil_juro.CD_PLCT_DEBITO as CD_PLCT_DEBITO_JURO')
+   aadd(laFIELDS,'transacao_contabil_juro.HISTORICO as HISTORICO_JURO')
+   aadd(laFIELDS,'transacao_contabil_juro_estorno.CD_PLCT_CREDITO as CD_PLCT_CREDITO_JURO_ESTORNO')
+   aadd(laFIELDS,'transacao_contabil_juro_estorno.CD_PLCT_DEBITO as CD_PLCT_DEBITO_JURO_ESTORNO')
+   aadd(laFIELDS,'transacao_contabil_juro_estorno.HISTORICO as HISTORICO_JURO_ESTORNO')
+   aadd(laFIELDS,'transacao_contabil_juro_estorno.FL_OPERADOR as FL_OPERADOR_JURO')
+
+   aadd(laFIELDS,'pasta_deposito.NR_DEP_ORIG')
+   aadd(laFIELDS,'pasta_deposito.PC_RISCO')
+   aadd(laFIELDS,'pasta_deposito.PROBABILIDADE')
+
+   laJOIN := {}
+   aadd(laJOIN,{2,'pasta','pasta.NR_PASTA=pasta_deposito.NR_PASTA'})
+   aadd(laJOIN,{2,'tipo_deposito','tipo_deposito.TP_DEPOSITO=pasta_deposito.TP_DEPOSITO and tipo_deposito.TP_PASTA=pasta.TP_PASTA'})
+   aadd(laJOIN,{2,'transacao_contabil as transacao_contabil_correcao','transacao_contabil_correcao.CD_TRCT=tipo_deposito.CD_TRCT_CORRECAO'})
+   aadd(laJOIN,{2,'transacao_contabil as transacao_contabil_correcao_estorno','transacao_contabil_correcao_estorno.CD_TRCT=tipo_deposito.CD_TRCT_CORRECAO_ESTORNO'})
+   aadd(laJOIN,{2,'transacao_contabil as transacao_contabil_juro','transacao_contabil_juro.CD_TRCT=tipo_deposito.CD_TRCT_JURO'})
+   aadd(laJOIN,{2,'transacao_contabil as transacao_contabil_juro_estorno','transacao_contabil_juro_estorno.CD_TRCT=tipo_deposito.CD_TRCT_JURO_ESTORNO'})
+
+   do while .t.
+      laLIMIT := {lnINC,1}
+
+      /* Selecionando os Depósitos */
+
+      if db_select(laFIELDS,'pasta_deposito',laJOIN,;
+                   {'pasta_deposito.FL_CALCULO='+DLAP+'S'+DLAP,'pasta_deposito.DT_DEPOSITO is not null','pasta_deposito.PC_RISCO > 0','pasta_deposito.VL_DEPOSITO > 0'},;
+                   {'pasta_deposito.NR_PASTA','pasta.TP_PASTA','pasta_deposito.NR_CONTROLE'},,,laLIMIT) == -1
+
+         writelog({datetime(),'Ocorreu um erro e a transação foi abortada',0})
+         writelog({datetime(),db_error(),0})
+
+         llDEUERRO := gravaerro(pnHAND)
+         if llDEUERRO == .F. //se nao der erro
+            db_query('ROLLBACK')
+            lcERROR := db_error()
+            fclose(pnHAND)
+            error_sys(lcERROR)
+         endif
+
+      endif
+
+      laDEPOSITOS := db_fetchall()
+
+
+      if len(laDEPOSITOS) > 1
+
+         laSAVE2 := {{'CD_PLCT_CREDITO',;
+                      'CD_PLCT_DEBITO',;
+                      'VL_LANCAMENTO',;
+                      'HISTORICO',;
+                      'DT_LANCAMENTO',;
+                      'HR_LANCAMENTO',;
+                      'LOGIN',;
+                      'FL_CONTABILIZADO',;
+                      'WTABLE',;
+                      'WTABLE2',;
+                      'WPKEY_NUM',;
+                      'WPKEY_NUM2'}}
+
+
+         laSAVE3 := {{'NR_PASTA',;
+                       'NR_CONTDEP',;
+                       'DT_MOVIMENTO',;
+                       'NR_CONTTPM',;
+                       'TP_MOV',;
+                       'AJUSDEP',;
+                       'INDICE_MOV',;
+                       'VL_COR',;
+                       'VL_JUR',;
+                       'VL_MOV',;
+                       'PROBABILIDADE',;
+                       'LOGIN_CADASTRO',;
+                       'DT_OCORRIDO'}}
+
+         for ii := 2 to len(laDEPOSITOS)
+
+            *** Buscar tipo de movimento para a Correção Monetária.
+            if db_select({'DESCMOV','NR_CONTROLE'},'tipo_movdeposito',,{'descmov = '+DLAP+'Correção Monetária'+DLAP}) == -1
+
+               writelog({datetime(),'Ocorreu um erro ao tentar abrir tipo_movdeposito, a transação foi abortada:',0})
+               writelog({datetime(),db_error(),0})
+
+               llDEUERRO := gravaerro(pnHAND)
+              if llDEUERRO == .F. //se nao der erro
+                 db_query('ROLLBACK')
+                 lcERROR := db_error()
+                 fclose(pnHAND)
+                 error_sys(lcERROR)
+              endif
+
+            endif
+
+            laOCOR_PED := db_fetchrow()
+
+            if len(laOCOR_PED) == 0
+               writelog({datetime(),'Não foi localizado cadastro no tipo_movdeposito para Correção Monetária',0})
+               lnNR_NOPROC ++
+               loop
+            endif
+            ***
+
+            laPARSER := {}
+            aadd(laPARSER,laDEPOSITOS[1])
+            aadd(laPARSER,laDEPOSITOS[ii])
+
+            fnVBASE       := buscamovimen(str(laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'NR_PASTA')]),str(laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'NR_CONTROLE')]),,'F') //saldo da coluna movimento(deposito)
+            fdDATA        := buscadtbase(str(laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'NR_PASTA')]),str(laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'NR_CONTROLE')]))      //data do deposito inicial
+            fnCORRECAO    := buscacorrecao(str(laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'NR_PASTA')]),str(laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'NR_CONTROLE')]),,'F')
+            fnJUROS       := buscajuros(str(laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'NR_PASTA')]),str(laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'NR_CONTROLE')]),,'F')
+
+            /* Valor de Correção */
+            laMARKUP := getmarkup(laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'CD_INDICE')],date2ym(date()),date2ym(fdDATA))
+            if laMARKUP[1] != 0
+               lnVL_CORRECAO := round(fnVBASE * (laMARKUP[1]-1),2)
+            else
+               lnVL_CORRECAO := 0
+            endif
+            lnDIFF        := lnVL_CORRECAO - round(fnCORRECAO,2)
+
+
+            lnVL_ATUAL    := 0
+            laAUX         := {}
+            laSAVE_AUX    := {}
+            laSAVE        := {}
+            laSAVE2_AUX   := {}
+
+            writelog({datetime(),'Depósito ['+alltrim(str(laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'NR_CONTROLE')]))+']'+;
+                                   ' da Pasta ['+alltrim(str(laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'NR_PASTA')]))+']'+;
+                                   ' Ref.Bloco ['+alltrim(str(lnINC))+']',5})
+
+            writelog({datetime(),'Markup do índice '+alltrim(str(laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'CD_INDICE')]))+' do período de '+;
+                                   dtos(fdDATA)+' (Data do Depósito) até Data Atual.',10})
+
+            writelog({datetime(),'Valor do Depósito: '+alltrim(str(fnVBASE)),10})
+            writelog({datetime(),'Valor Correção: '+alltrim(str(laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'VL_CORRECAO')])),10})
+            writelog({datetime(),'Percentual de Correção a aplicar no Valor do Depósito: '+alltrim(str( iif(laMARKUP[1] != 0, ((laMARKUP[1]-1)*100),0) )),10})
+            writelog({datetime(),'Valor de Correção Novo: '+alltrim(str(lnVL_CORRECAO)),10})
+
+            if lnDIFF != 0
+               writelog({datetime(),'Valor Diferença a ser contabilizado: '+alltrim(str(lnDIFF)),10})
+            else
+               writelog({datetime(),'Não houve diferença. Não será lançado na Contabilização.',10})
+            endif
+
+            if lnDIFF != 0
+               /* Atualizando valor na tabela de Depositos */
+               lnVL_ATUAL += lnDIFF
+               aadd(laAUX,'VL_CORRECAO')
+               aadd(laSAVE_AUX,lnVL_CORRECAO)
+
+               /* Lançamendo na Movimentação Contábil */
+               if lnDIFF > 0
+                  aadd(laSAVE2_AUX,laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'CD_PLCT_CREDITO_CORRECAO')])
+                  aadd(laSAVE2_AUX,laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'CD_PLCT_DEBITO_CORRECAO')])
+               else
+                  aadd(laSAVE2_AUX,laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'CD_PLCT_CREDITO_CORRECAO_EST')])
+                  aadd(laSAVE2_AUX,laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'CD_PLCT_DEBITO_CORRECAO_EST')])
+               endif
+
+               lcFL_OPERADOR := laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'FL_OPERADOR_CORRECAO')]
+
+               if lnDIFF > 0                     //Valor do Lançamento
+                  aadd(laSAVE2_AUX,lnDIFF)
+                  aadd(laSAVE2_AUX,strparser(laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'HISTORICO_CORRECAO')],'[]',laPARSER))
+               else
+                  if lcFL_OPERADOR == '+'
+                     aadd(laSAVE2_AUX,lnDIFF * (-1)) //Inversão de sinal
+                  else
+                     aadd(laSAVE2_AUX,lnDIFF)
+                  endif
+                  aadd(laSAVE2_AUX,strparser(laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'HISTORICO_CORRECAO_ESTORNO')],'[]',laPARSER))
+               endif
+
+               aadd(laSAVE2_AUX,date())                                                           //Data
+               aadd(laSAVE2_AUX,time())                                                           //Hora
+               aadd(laSAVE2_AUX,'xupddep')                                                        //Login
+               aadd(laSAVE2_AUX,'N')                                                              //Contabilizado
+               aadd(laSAVE2_AUX,'pasta')                                                          //Tabela Pasta
+               aadd(laSAVE2_AUX,'pasta_deposito')                                                 //Tabela Pasta Depósito
+               aadd(laSAVE2_AUX,alltrim(laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'NR_PASTA')]))    //Chave Pasta
+               aadd(laSAVE2_AUX,alltrim(laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'NR_CONTROLE')])) //Chave Pasta Depósito
+
+               aadd(laSAVE2,laSAVE2_AUX)
+            endif
+
+            **********************************************************
+            if lnDIFF != 0
+               laSAVE3_AUX:={}
+               *** pegando valores para tabela de detalhe dos depositos (correção)
+               aadd(laSAVE3_AUX,laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'NR_PASTA')])
+               aadd(laSAVE3_AUX,laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'NR_CONTROLE')])
+               aadd(laSAVE3_AUX,date())
+               aadd(laSAVE3_AUX,laOCOR_PED[2]) //NR_CONTTPM
+               aadd(laSAVE3_AUX,laOCOR_PED[1])
+               if lnDIFF<0
+                  aadd(laSAVE3_AUX,'-')
+                 else
+                  aadd(laSAVE3_AUX,'+')
+               endif
+               aadd(laSAVE3_AUX,0)
+               if lnDIFF<0
+                  aadd(laSAVE3_AUX,lnDIFF * (-1))
+                 else
+                  aadd(laSAVE3_AUX,lnDIFF)
+               endif
+               aadd(laSAVE3_AUX,0)
+               aadd(laSAVE3_AUX,0)
+               aadd(laSAVE3_AUX,laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'PROBABILIDADE')])
+               aadd(laSAVE3_AUX,'xupddep')
+               aadd(laSAVE3_AUX,date())
+
+               aadd(laSAVE3,laSAVE3_AUX)
+
+            endif
+
+            **********************************************************
+
+            /* Valor de Juros */
+            laMARKUP_JUROS := getmarkup_juros(laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'CD_INDICE')],date2ym(date()),date2ym(fdDATA))
+            if laMARKUP_JUROS[1] != 0
+               lnVL_JUROS := round((fnVBASE + lnVL_CORRECAO) * (laMARKUP_JUROS[1]-1),2)
+            else
+               lnVL_JUROS := 0
+            endif
+            lnDIFF        := lnVL_JUROS - round(fnJUROS,2)
+
+            laSAVE2_AUX := {}
+
+            writelog({datetime(),'Aplicando Markup Juros definido para o campo VL_RISCO no Tipo de Pasta: '+laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'TP_PASTA')],10})
+            writelog({datetime(),'Valor Juros: '+alltrim(str(laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'VL_JUROS')])),10})
+            writelog({datetime(),'Percentual de Juros a aplicar no Valor do Dopósito: '+alltrim(str( iif(laMARKUP_JUROS[1] != 0, ((laMARKUP_JUROS[1]-1)*100),0) )),10})
+            writelog({datetime(),'Valor de Juros Novo: '+alltrim(str(lnVL_JUROS)),10})
+
+            if lnDIFF != 0
+               writelog({datetime(),'Valor Diferença a ser contabilizado: '+alltrim(str(lnDIFF)),10})
+            else
+               writelog({datetime(),'Não houve diferença. Não será lançado na Contabilização.',10})
+            endif
+
+            if lnDIFF != 0
+               lnVL_ATUAL += lnDIFF
+               /* Atualizando valor na tabela de Pedidos */
+               aadd(laAUX,'VL_JUROS')
+               aadd(laSAVE_AUX,lnVL_JUROS)
+
+               /* Lançamendo na Movimentação Contábil */
+               if lnDIFF > 0
+                  aadd(laSAVE2_AUX,laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'CD_PLCT_CREDITO_JURO')])
+                  aadd(laSAVE2_AUX,laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'CD_PLCT_DEBITO_JURO')])
+               else
+                  aadd(laSAVE2_AUX,laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'CD_PLCT_CREDITO_JURO_ESTORNO')])
+                  aadd(laSAVE2_AUX,laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'CD_PLCT_DEBITO_JURO_ESTORNO')])
+               endif
+
+               lcFL_OPERADOR := laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'FL_OPERADOR_JURO')]
+
+               if lnDIFF > 0                         //Valor do Lançamento
+                  aadd(laSAVE2_AUX,lnDIFF)
+                  aadd(laSAVE2_AUX,strparser(laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'HISTORICO_JURO')],'[]',laPARSER))
+               else
+                  if lcFL_OPERADOR == '+'
+                     aadd(laSAVE2_AUX,lnDIFF * (-1)) //Inversão de sinal
+                  else
+                     aadd(laSAVE2_AUX,lnDIFF)
+                  endif
+                  aadd(laSAVE2_AUX,strparser(laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'HISTORICO_JURO_ESTORNO')],'[]',laPARSER))
+               endif
+
+               aadd(laSAVE2_AUX,date())                                                  //Data
+               aadd(laSAVE2_AUX,time())                                                  //Hora
+               aadd(laSAVE2_AUX,'xupdep')                                               //Login
+               aadd(laSAVE2_AUX,'N')                                                     //Contabilizado
+               aadd(laSAVE2_AUX,'pasta')                                                 //Tabela Pasta
+               aadd(laSAVE2_AUX,'pasta_deposito')                                        //Tabela Seguro
+               aadd(laSAVE2_AUX,laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'NR_PASTA')])    //Chave Pasta
+               aadd(laSAVE2_AUX,laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'NR_CONTROLE')]) //Chave Depósito
+
+               aadd(laSAVE2,laSAVE2_AUX)
+            endif
+
+            **********************************************************
+            if lnDIFF != 0
+               laSAVE3_AUX:={}
+               *** pegando valores para tabela de detalhe dos depositos (juros)
+               aadd(laSAVE3_AUX,laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'NR_PASTA')])
+               aadd(laSAVE3_AUX,laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'NR_CONTROLE')])
+               aadd(laSAVE3_AUX,date())
+               aadd(laSAVE3_AUX,laOCOR_PED[2]) //NR_CONTTPM
+               aadd(laSAVE3_AUX,laOCOR_PED[1])
+               if lnDIFF<0
+                  aadd(laSAVE3_AUX,'-')
+                 else
+                  aadd(laSAVE3_AUX,'+')
+               endif
+               aadd(laSAVE3_AUX,0)
+               aadd(laSAVE3_AUX,0)
+               if lnDIFF<0
+                  aadd(laSAVE3_AUX,lnDIFF * (-1))
+                 else
+                  aadd(laSAVE3_AUX,lnDIFF)
+               endif
+               aadd(laSAVE3_AUX,0)
+               aadd(laSAVE3_AUX,laDEPOSITOS[ii,db_fetchncol(laDEPOSITOS,'PROBABILIDADE')])
+               aadd(laSAVE3_AUX,'xupddep')
+               aadd(laSAVE3_AUX,date())
+
+               aadd(laSAVE3,laSAVE3_AUX)
+
+            endif
+            **********************************************************
+
+            lnNR_NOPROC ++
+
+         next ii
+      else
+         exit //Sai do laço
+      endif
+
+      /* Grava informações nas tabelas */
+      if len(laSAVE2) > 1
+         writelog({datetime(),'Incluindo os lançamentos Contábeis na tabela [mvt_contabil].',10})
+         if db_insert(laSAVE2,'mvt_contabil') == -1
+            writelog({datetime(),'Ocorreu um erro e a transação foi abortada:',0})
+            writelog({datetime(),db_error(),0,2})
+
+            llDEUERRO := gravaerro(pnHAND)
+            if llDEUERRO == .F. //se nao der erro
+               db_query('ROLLBACK')
+               lcERROR := db_error()
+               fclose(pnHAND)
+               error_sys(lcERROR)
+            endif
+         endif
+         writelog({datetime(),'Valores incluídos com sucesso na tabela [mvt_contabil]',10})
+      endif
+
+      *** Grava diferença reajuste na tabela de detalhe dos depositos
+      *** 20/08/2013 rufino
+      if len(laSAVE3) > 1
+         writelog({datetime(),'Incluindo os lançamentos de reajuste na tabela [pasta_detal_dep].',10})
+
+         if db_insert(laSAVE3,'pasta_detal_dep') == -1
+            writelog({datetime(),'Ocorreu um erro e a transação foi abortada:',0})
+            writelog({datetime(),db_error(),0,2})
+
+            llDEUERRO := gravaerro(pnHAND)
+            if llDEUERRO == .F. //se nao der erro
+               db_query('ROLLBACK')
+               lcERROR := db_error()
+               fclose(pnHAND)
+               error_sys(lcERROR)
+            endif
+         endif
+
+         writelog({datetime(),'Valores incluídos com sucesso na tabela [pasta_detal_dep]',10})
+      endif
+
+      *** rufino 20/03/2013
+      *** grava lancamentos
+
+      lnINC := lnINC+1
+      llDEUERRO := gravalanc(lnNR_NOPROC,lnINC)
+
+      if llDEUERRO == .T. //se der erro
+         exit //Sai do laço
+      endif
+   enddo
+
+   writelog({datetime(),'Quantidade de Depósitos não lançados na Contabilização: '+alltrim(str(lnNR_NOPROC)),5})
+   writelog({datetime(),'Fim da Execução',0,1})
+
+   *** rufino 20/03/2013
+   if llDEUERRO == .F. //se nao deu erro
+      llDEUERRO := gravafim(pnHAND)
+   endif
+
+   if llDEUERRO == .F. //se nao deu erro
+      db_query('COMMIT')     //Efetivando alterações no Banco de Dados
+   endif
+
+   fclose(pnHAND)
+
+return (nil)
+
+
+static function writelog(faLOG)
+   local lcNEWLINE := chr(10) as string
+   if pnHAND > 0
+      fwrite(pnHAND, faLOG[1]+space(faLOG[3])+faLOG[2]+lcNEWLINE)
+   else
+      qout('Erro ao criar arquivo de Log.')
+   endif
+return
+
+static function datetime()
+return ('['+dtoc(date())+space(1)+time()+']'+space(1))
+
+*****************************************************************************
+static function buscamovimen(fnNR_PASTA, fnNR_CONTROLE, fcNR_CONTTPM, fcTIPO)
+*****************************************************************************
+
+local querysql:=''
+local laRES2  :={}
+
+querysql := 'SELECT '
+querysql += 'e.nr_pasta'
+
+if fcTIPO=='F'
+   querysql += ',e.nr_contdep'
+endif
+
+querysql += ',coalesce(sum(case when e.ajusdep="+" then (e.vl_mov) else 0 end), 0) as cre_mov_no_dia,'
+querysql += 'coalesce(sum(case when e.ajusdep="-" then (e.vl_mov) else 0 end), 0) as deb_mov_no_dia,'
+
+querysql += 'coalesce(sum((e.vl_mov) * (case when e.ajusdep="-" then -1'
+querysql += '                                when e.ajusdep="+" then  1'
+querysql += '                           else 0 end)), 0) as saldo_no_dia'
+
+querysql += ' from '
+querysql += 'pasta_detal_dep e '
+
+querysql += ' WHERE e.nr_pasta  = ' + fnNR_PASTA
+
+if !empty(fcNR_CONTTPM)
+   querysql += '  and e.nr_conttpm= ' + fcNR_CONTTPM
+endif
+
+if fcTIPO=='F'
+   querysql += '  and e.nr_contdep = ' + fnNR_CONTROLE
+  else
+   *** esse trecho faz com que pegue a soma dos filhos
+   querysql += ' and e.nr_contdep in (select nr_controle from pasta_deposito where nr_pasta = ' +  fnNR_PASTA
+   querysql += ' and nr_dep_orig = ' + fnNR_CONTROLE + ')'
+endif
+
+querysql += ' GROUP BY '
+querysql += 'e.nr_pasta'
+
+if fcTIPO=='F'
+   querysql += ',e.nr_contdep'
+endif
+
+
+if db_query(querysql) == -1
+   writelog({datetime(),'Ocorreu um erro no buscamovimen()',0})
+   writelog({datetime(),db_error(),0})
+   llDEUERRO := gravaerro(pnHAND)
+   if llDEUERRO == .F. //se nao der erro
+      db_query('ROLLBACK')
+      lcERROR := db_error()
+      fclose(pnHAND)
+      error_sys(lcERROR)
+   endif
+endif
+laRES2 := db_fetchrow()
+
+if len(laRES2)>0
+   if fcTIPO=='F'
+      return(laRES2[5])
+     else
+      return(laRES2[4])
+   endif
+  else
+   return(0)
+endif
+
+
+return(nil)
+
+*****************************************************************************
+static function buscacorrecao(fnNR_PASTA, fnNR_CONTROLE, fcNR_CONTTPM,fcTIPO)
+*****************************************************************************
+local querysql:=''
+local laRES2  :={}
+
+querysql := 'SELECT '
+querysql += 'e.nr_pasta'
+
+if fcTIPO=='F'
+   querysql += ',e.nr_contdep'
+endif
+
+querysql += ',coalesce(sum(case when e.ajusdep="+" then (e.vl_cor) else 0 end), 0) as cre_cor_no_dia,'
+querysql += 'coalesce(sum(case when e.ajusdep="-" then (vl_cor) else 0 end), 0) as deb_cor_no_dia,'
+
+querysql += 'coalesce(sum((e.vl_cor) * (case when e.ajusdep="-" then -1'
+querysql += '                                                  when e.ajusdep="+" then  1'
+querysql += '                                                  else 0 end)), 0) as saldo_no_dia'
+
+querysql += ' FROM '
+querysql += 'pasta_detal_dep e '
+
+querysql += 'WHERE e.nr_pasta  = ' + fnNR_PASTA
+
+if !empty(fcNR_CONTTPM)
+   querysql += '  and e.nr_conttpm= ' + fcNR_CONTTPM
+endif
+
+if fcTIPO=='F'
+   querysql += '  and e.nr_contdep = ' + fnNR_CONTROLE
+  else
+   *** esse trecho faz com que pegue a soma dos filhos
+   querysql += ' and e.nr_contdep in (select nr_controle from pasta_deposito where nr_pasta = ' +  fnNR_PASTA
+   querysql += ' and nr_dep_orig = ' + fnNR_CONTROLE + ')'
+endif
+
+querysql += ' GROUP BY '
+querysql += 'e.nr_pasta'
+if fcTIPO=='F'
+   querysql += ',e.nr_contdep'
+endif
+
+if db_query(querysql) == -1
+   writelog({datetime(),'Ocorreu um erro no buscacorrecao()',0})
+   writelog({datetime(),db_error(),0})
+            llDEUERRO := gravaerro(pnHAND)
+            if llDEUERRO == .F. //se nao der erro
+               db_query('ROLLBACK')
+               lcERROR := db_error()
+               fclose(pnHAND)
+               error_sys(lcERROR)
+            endif
+endif
+laRES2 := db_fetchrow()
+
+if len(laRES2)>0
+   if fcTIPO=='F'
+      return(laRES2[5])
+     else
+      return(laRES2[4])
+   endif
+  else
+   return(0)
+endif
+
+
+return(nil)
+
+**************************************************************************
+static function buscajuros(fnNR_PASTA, fnNR_CONTROLE, fcNR_CONTTPM,fcTIPO)
+**************************************************************************
+local querysql:=''
+local laRES2  :={}
+
+querysql := 'SELECT '
+querysql += 'e.nr_pasta'
+if fcTIPO=='F'
+   querysql += ',e.nr_contdep'
+endif
+
+querysql += ',coalesce(sum(case when e.ajusdep="+" then (e.vl_jur) else 0 end), 0) as cre_jur_no_dia,'
+querysql += 'coalesce(sum(case when e.ajusdep="-" then (e.vl_jur) else 0 end), 0) as deb_jur_no_dia,'
+
+querysql += 'coalesce(sum((e.vl_jur) * (case when e.ajusdep="-" then -1'
+querysql += '                                                  when e.ajusdep="+" then  1'
+querysql += '                                                  else 0 end)), 0) as saldo_no_dia'
+
+querysql += ' FROM '
+querysql += 'pasta_detal_dep e '
+
+querysql += 'WHERE e.nr_pasta  = ' + fnNR_PASTA
+
+if !empty(fcNR_CONTTPM)
+   querysql += '  and e.nr_conttpm= ' + fcNR_CONTTPM
+endif
+
+if fcTIPO=='F'
+   querysql += '  and e.nr_contdep = ' + fnNR_CONTROLE
+  else
+   *** esse trecho faz com que pegue a soma dos filhos
+   querysql += ' and e.nr_contdep in (select nr_controle from pasta_deposito where nr_pasta = ' +  fnNR_PASTA
+   querysql += ' and nr_dep_orig = ' + fnNR_CONTROLE + ')'
+endif
+
+querysql += ' GROUP BY '
+querysql += 'e.nr_pasta'
+if fcTIPO=='F'
+   querysql += ',e.nr_contdep'
+endif
+
+if db_query(querysql) == -1
+   writelog({datetime(),'Ocorreu um erro no buscajuros()',0})
+   writelog({datetime(),db_error(),0})
+            llDEUERRO := gravaerro(pnHAND)
+            if llDEUERRO == .F. //se nao der erro
+               db_query('ROLLBACK')
+               lcERROR := db_error()
+               fclose(pnHAND)
+               error_sys(lcERROR)
+            endif
+endif
+laRES2 := db_fetchrow()
+
+if len(laRES2)>0
+   if fcTIPO=='F'
+      return(laRES2[5])
+     else
+      return(laRES2[4])
+   endif
+  else
+   return(0)
+endif
+
+
+return(nil)
+
+******************************************************
+static function buscadtbase(fnNR_PASTA, fnNR_CONTROLE)
+******************************************************
+* busca data do lançamento do deposito
+
+local laRES:={} as array
+local fcCOD:='' as string
+
+if db_select({'NR_CONTROLE'},'tipo_movdeposito',,{'FL_DEFAULT='+DLAP+'S'+DLAP}) == -1
+   writelog({datetime(),'Ocorreu um erro no select tipo_movdeposito',0})
+   writelog({datetime(),db_error(),0})
+   lcERROR := db_error()
+   error_sys(lcERROR)
+endif
+laRES := db_fetchrow()
+
+fcCOD := str(laRES[1])
+
+if db_select({'DT_DEPOSITO'},'pasta_deposito',,{'NR_CONTROLE='+fnNR_CONTROLE}) == -1
+   writelog({datetime(),'Ocorreu um erro no select pasta_deposito',0})
+   writelog({datetime(),db_error(),0})
+   llDEUERRO := gravaerro(pnHAND)
+   if llDEUERRO == .F. //se nao der erro
+      db_query('ROLLBACK')
+      lcERROR := db_error()
+      fclose(pnHAND)
+      error_sys(lcERROR)
+   endif
+endif
+laRES := db_fetchrow()
+
+if len(laRES)=0
+   writelog({datetime(),'Existe erro na pasta_deposito dt_deposito não localizado'+ fnNR_PASTA +' da pasta '+ fnNR_CONTROLE +' verificar!',0})
+   aadd(laRES,date())
+endif
+
+return(laRES[1])
+
+***********************************
+static function gravainicio(pnHAND)
+***********************************
+local laSAVE      := {} ,;
+      laAUX       := {} ,;
+      laFIELD     := {} ,;
+      laFIELD2    := {} ,;
+      laSAVE_AUX  := {} as array
+
+local lcERROR   := ''
+local llDEUERRO := .F.
+local llGRAVAR  := .F.
+
+
+laSAVE:= {}
+laRES := {}
+
+laAUX := {'program',;
+          'nr_sequencia',;
+          'dt_inicio',;
+          'hr_inicio',;
+          'dt_termino',;
+          'hr_termino',;
+          'status'}
+
+laFIELD:= {'dt_inicio',;
+           'hr_inicio',;
+           'dt_termino',;
+           'hr_termino',;
+           'status',;
+           'nr_sequencia'}
+
+
+
+laFIELD2 := {'program',;
+             'nr_sequencia',;
+             'dt_inicio',;
+             'hr_inicio',;
+             'status'}
+
+laSAVE_AUX    := {}
+
+if db_select(laAUX,'seq_interfaces',,{'program = '+DLAP+'xupddep'+DLAP}) == -1
+
+   writelog({datetime(),'Ocorreu um erro ao tentar localizar xup no seq_interfaces a transação foi abortada:',0})
+   writelog({datetime(),db_error(),0,2})
+
+   llDEUERRO := gravaerro(pnHAND)
+   if llDEUERRO == .F. //se nao der erro
+      db_query('ROLLBACK')
+      lcERROR := db_error()
+      fclose(pnHAND)
+      error_sys(lcERROR)
+   endif
+
+   return(.T.)
+endif
+laRES := db_fetchall()
+
+if len(laRES) > 1
+
+   if laRES[2,7] == "E" //esta informando que parou porque deu erro portanto não deve continuar
+      writelog({datetime(),'Atenção o seq_interfaces esta informando que parou devido algum erro (status E), favor verificar os logs, operação foi abortada:',0})
+      fclose(pnHAND)
+      return({.T.,0})
+   endif
+
+   *** SE A DATA INICIAL NAO FOR A ATUAL E TIVER DATA FINAL LIMPA CAMPOS
+   if dtos(ctod(laRES[2,3])) <> dtos(date()) .AND. !empty(ctod(laRES[2,5]))
+
+      ultima :=0
+
+      aadd(laSAVE,laFIELD)
+
+      aadd(laSAVE_AUX,date())
+      aadd(laSAVE_AUX,time())
+      aadd(laSAVE_AUX,CTOD('  /  /    '))
+      aadd(laSAVE_AUX,'')
+      aadd(laSAVE_AUX,'')
+      aadd(laSAVE_AUX,ultima)
+
+      aadd(laSAVE,laSAVE_AUX)
+
+      if db_update(laSAVE,'seq_interfaces',{'seq_interfaces.program='+DLAP+'xupddep'+DLAP}) == -1
+
+         writelog({datetime(),'Ocorreu um erro ao tentar gravar o inicio do processo no seq_interfaces a transação foi abortada:',0})
+         writelog({datetime(),db_error(),0,2})
+
+         llDEUERRO := gravaerro(pnHAND)
+         if llDEUERRO == .F. //se nao der erro
+            db_query('ROLLBACK')
+            lcERROR := db_error()
+            fclose(pnHAND)
+            error_sys(lcERROR)
+         endif
+         return({.T.,ultima})
+      endif
+      llGRAVAR := .F.
+   else
+      *** update
+      ultima := laRES[2,2]
+      llGRAVAR := .T.
+
+      writelog({datetime(),'Iniciando apartir do numero : '+str(ultima),5})
+
+   endif
+else
+  *** insert
+  ultima :=0
+  llGRAVAR := .T.
+
+endif
+
+if llGRAVAR == .T.
+
+   laSAVE:= {}
+
+   aadd(laSAVE,laAUX)
+
+   aadd(laSAVE_AUX,'xupddep')
+   aadd(laSAVE_AUX,ultima)
+   aadd(laSAVE_AUX,date())
+   aadd(laSAVE_AUX,time())
+   aadd(laSAVE_AUX,CTOD('  /  /    '))
+   aadd(laSAVE_AUX,'')
+   aadd(laSAVE_AUX,'')
+
+   aadd(laSAVE,laSAVE_AUX)
+
+   if db_replace(laSAVE,'seq_interfaces',{'seq_interfaces.program='+DLAP+'xupddep'+DLAP}) == -1
+
+      writelog({datetime(),'Ocorreu um erro ao tentar atualizar o inicio do processo no seq_interfaces a transação foi abortada:',0})
+      writelog({datetime(),db_error(),0,2})
+
+      llDEUERRO := gravaerro(pnHAND)
+      if llDEUERRO == .F. //se nao der erro
+         db_query('ROLLBACK')
+         lcERROR := db_error()
+         fclose(pnHAND)
+         error_sys(lcERROR)
+      endif
+      llDEUERRO :=.T.
+   endif
+endif
+
+if llDEUERRO ==.F.
+   db_query('COMMIT')     //Efetivando alterações no Banco de Dados
+
+   db_query('BEGIN TRAN')      //Iniciando nova Transação
+endif
+
+return({llDEUERRO,ultima})
+
+********************************
+static function gravafim(pnHAND)
+********************************
+
+local laSAVE      := {} ,;
+      laAUX       := {} ,;
+      laSAVE_AUX  := {} as array
+
+local lcERROR   := ''
+local llDEUERRO := .F.
+
+laSAVE:= {}
+
+laAUX := {'dt_termino',;
+          'hr_termino',;
+          'status',;
+          'nr_sequencia'}
+
+
+laSAVE_AUX    := {}
+
+aadd(laSAVE,laAUX)
+
+aadd(laSAVE_AUX,date())
+aadd(laSAVE_AUX,time())
+aadd(laSAVE_AUX,'')
+aadd(laSAVE_AUX,0)
+
+aadd(laSAVE,laSAVE_AUX)
+
+if db_update(laSAVE,'seq_interfaces',{'seq_interfaces.program='+DLAP+'xupddep'+DLAP}) == -1
+
+   writelog({datetime(),'Ao gravar data e hora de termino ocorreu um erro e a transação foi abortada:',0})
+   writelog({datetime(),db_error(),0,2})
+
+   llDEUERRO := gravaerro(pnHAND)
+   if llDEUERRO == .F. //se nao der erro
+      db_query('ROLLBACK')
+      lcERROR := db_error()
+
+      fclose(pnHAND)
+      error_sys(lcERROR)
+   endif
+   llDEUERRO := .T.
+else
+   writelog({datetime(),'Fim da Execução',0,1})
+   fclose(pnHAND)
+   db_query('COMMIT')     //Efetivando alterações no Banco de Dados
+endif
+
+return(llDEUERRO)
+
+********************************
+static function gravaerro(pnHAND)
+********************************
+
+local laSAVE      := {} ,;
+      laAUX       := {} ,;
+      laSAVE_AUX  := {} as array
+
+local lcERROR   := ''
+local llDEUERRO := .F.
+
+laSAVE:= {}
+
+laAUX := {'status'}
+
+laSAVE_AUX    := {}
+
+aadd(laSAVE,laAUX)
+
+aadd(laSAVE_AUX,'E')
+
+aadd(laSAVE,laSAVE_AUX)
+
+if db_update(laSAVE,'seq_interfaces',{'seq_interfaces.program='+DLAP+'xupddep'+DLAP}) == -1
+   db_query('ROLLBACK')
+   lcERROR := db_error()
+   writelog({datetime(),'Ao gravar status E ocorreu um erro e a transação foi abortada:',0})
+   writelog({datetime(),db_error(),0,2})
+   fclose(pnHAND)
+   error_sys(lcERROR)
+   llDEUERRO := .T.
+endif
+
+return(llDEUERRO)
+
+***********************************************
+static function gravalanc(lnNR_NOPROC,lnPROXIMO)
+***********************************************
+
+local laSAVE      := {} ,;
+      laAUX       := {} ,;
+      laFIELD3    := {} ,;
+      laRES       := {} ,;
+      laRES_AUX   := {} ,;
+      laSAUX      := {} ,;
+      laSAVE_AUX  := {} as array
+
+local ii          := 0 as int
+
+local llDEUERRO   := .F.
+
+laSAVE:= {}
+
+laAUX := {'nr_sequencia'}
+
+laSAVE_AUX    := {}
+
+aadd(laSAVE,{'nr_sequencia'})
+
+aadd(laSAVE_AUX,lnPROXIMO)
+
+aadd(laSAVE,laSAVE_AUX)
+
+if db_update(laSAVE,'seq_interfaces',{'seq_interfaces.program='+DLAP+'xupddep'+DLAP}) == -1
+   db_query('ROLLBACK')
+   lcERROR := db_error()
+   writelog({datetime(),'Ao gravar nr_sequencia ocorreu um erro e a transação foi abortada:',0})
+   writelog({datetime(),db_error(),0,2})
+   fclose(pnHAND)
+   error_sys(lcERROR)
+   llDEUERRO := .T.
+endif
+
+
+if llDEUERRO ==.F.
+   db_query('COMMIT')     //Efetivando alterações no Banco de Dados
+
+   db_query('BEGIN TRAN')      //Iniciando nova Transação
+endif
+
+return(llDEUERRO)
+***********
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

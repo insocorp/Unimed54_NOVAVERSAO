@@ -1,0 +1,75 @@
+/*
+
+Project      : gr5
+Program      : mnt.categoria.html
+Function     : mnt_categoria_html
+Created on   : 17-May-2002   17:20:46
+Descripition : Manutenção e listagem de tipos de compromissos
+
+*/
+   
+   local lcACTION  := '',;
+         lcWHERE   := '',;
+         lcTABLE   := '',;
+         lcCAL_CAT := '' as string
+   local laRESULT := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laFIELDS   := {} as array
+   local ii := 0 as int
+
+   lcACTION  := upper(WGet('ACTION','C'))
+   lcCAL_CAT := WGet('CALENDAR_CATEGORY','C')
+   lcWHERE   := 'CALENDAR_CATEGORY = '+DLAP+lcCAL_CAT+DLAP
+   lcTABLE   := 'calendar_category'
+   laFIELDS  := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+
+   if lcACTION = 'NEW' .and. gbWAC_CREATE
+      wPut('TITLE','Inclusão de novo Tipo de compromisso')
+   elseif lcACTION = 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchrow()
+      for ii := 1 to len(laFIELDS)
+         wPut(laFIELDS[ii],laRESULT[ii])
+      next ii
+     wPut('TITLE','Alteração do cadastro de Tipo de compromisso'+laRESULT[1])
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+      if Len(AllTrim(WGet('CALENDAR_CATEGORY','C'))) = 0
+         wPut('ERROR_MENS','Tipo de compromisso é um campo obrigatório')
+         Get2Put()
+         lista_categoria()
+         return(.f.)
+      endif   
+      aadd(laSAVE,laFIELDS)
+      for ii := 1 to len(laFIELDS)
+         aadd(laSAVE_AUX,WGet (laFIELDS[ii]))
+      next ii
+      aadd(laSAVE,laSAVE_AUX)
+      if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+      if db_delete(lcTABLE,lcWHERE)
+         error_sys(db_error())
+      endif
+   endif
+   lista_categoria()
+return
+   
+/*
+* Procedure.: lista_categoria
+* Objetivo..: Selecionar todos os registros da tabela calendar_category
+* Parâmetros: Nenhum
+* Retorno...: Nenhum
+*/
+procedure lista_categoria()
+   if db_select({'*'},lcTABLE)
+         error_sys(db_error())
+      endif
+   wPut('lstCALENDAR_CATEGORY',db_fetchall())
+return
+
+
+

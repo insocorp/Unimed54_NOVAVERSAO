@@ -1,0 +1,37 @@
+/*
+
+Project      : isj_390
+Program      : menu_pendencias.html
+Function     : menu_pendencias_html
+Created on   : 02-Feb-2009   11:02:17
+Descripition : 
+
+*/
+
+  local lcTITLE := '' as string
+  local laAUX   := {} as array
+
+  lcTITLE := WSet('_PROJECT_VERSION')
+
+// WPut('TITLE','Pendências '+lcTITLE)
+  WPut('WUIPROJECTHEAD', WDataGlobal('WUIPROJECTHEAD'))
+  
+//   laAUX   := wmd_program('mnt.andamentos_pendentes.html')
+//   lcTITLE := laAUX[6]
+//   WPut('OPTANDAMENTOS',lcTITLE)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,72 @@
+/*
+
+Project      : gr5
+Program      : psab.terceirizacao.html
+Function     : psab_terceirizacao_html
+Created on   : 13/12/2017 16:02:19
+Descripition : Aba em Pasta para identificação da terceirização do contrato.
+
+*/
+
+   local lcNR_PASTA   := WGet('NR_PASTA','C') ,;
+         lcTP_PASTA   := WGet('TP_PASTA','C') ,;
+         lcACTION     := WGet('ACTION','C')   
+         
+   local laRESULT := {} ,;
+         laAUX    := {} ,;
+         laPUT    := {} ,;
+         laDIFFROW:= {} ,; 
+         laSAVE   := {} as array
+
+   local ii := 0 as int
+   
+   local lcWHERE := '' as string
+   
+   get2put()
+   
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+
+   **make_psthead(lcNR_PASTA,lcTP_PASTA)
+   
+   pasta_abas(lcTP_PASTA)
+   
+   WPut('FAST_PASS.option',{'NÃO','SIM'})
+   WPut('FAST_PASS.optionvalue',{'N','S'})  
+   
+   if lcACTION == 'UPDAT' .and. gbWAC_WRITE
+   
+         laSAVE := {{'FAST_PASS'},{WGet('FAST_PASS')}}
+          
+         lcWHERE := 'NR_PASTA = '+lcNR_PASTA
+          
+         *** verifica se FATS_PASS foi alterado
+         laDIFFROW := db_diffrow(laSAVE,'pasta',lcWHERE)
+         
+         if len(laDIFFROW) > 0  //grava o login e a data de alteração          
+            psab_logs(laSAVE,'pasta',lcWHERE,lcNR_PASTA,'Terceirização') //Gravar log de alterações da pasta
+
+            if db_update(laSAVE,'pasta',{'NR_PASTA = '+lcNR_PASTA}) == -1
+               error_sys(db_error())
+            endif
+         endif
+
+         laSAVE := {{'VL_ESCRITORIO','FATOR'},{WGet('VL_ESCRITORIO','N'),WGet('FATOR','N')}}
+         
+         *** verifica se VL_ESCRITORIO foi alterado
+         laDIFFROW := db_diffrow(laSAVE,'pasta_alocada',lcWHERE) 
+         
+         if len(laDIFFROW) > 0  //grava o login e a data de alteração 
+            psab_logs(laSAVE,'pasta_alocada',lcWHERE,lcNR_PASTA,'Terceirização') //Gravar log de alterações da pasta
+
+            if db_update(laSAVE,'pasta_alocada',{lcWHERE}) == -1
+               error_sys(db_error())
+            endif
+         endif   
+           
+    endif
+
+
+return
+
+
+

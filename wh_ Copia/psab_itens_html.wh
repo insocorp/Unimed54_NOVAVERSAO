@@ -1,0 +1,164 @@
+/*
+
+Project      : gr5
+Program      : psab.itens.html
+Function     : psab_itens_html
+Created on   : 04-Feb-2006   10:18:37
+Descripition : Aba Itens do Contrato
+
+*/
+
+   local lcACTION     := '' ,;
+         lcWHERE      := '' ,;
+         lcTABLE      := '' ,;
+         lcNR_PASTA   := '' ,;
+         lcTP_PASTA   := '' ,;
+         lcNR_ROW     := '' ,;
+         lcVAR        := '' as string
+   local laRESULT     := {} ,;
+         laPUT        := {} ,;
+         laSAVE       := {} ,;
+         laWICDO      := {} as array
+
+   local ii := 0 as int
+   local lnVL_TOTAL := 0.00 as numeric
+
+   lcACTION   := upper(alltrim(WGet('ACTION','C')))
+   lcTP_PASTA := wGet('TP_PASTA','C')
+   lcNR_PASTA := wGet('NR_PASTA','C')
+   lcTABLE    := 'pasta_itens_contrato'
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+
+   pedproc_itens(val(lcNR_PASTA))
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   pasta_abas(lcTP_PASTA)
+   // Glauber 05/01/2011
+   AbasPerfil(lcTP_PASTA, {'PEDIDO_PROCESSO',;
+                 'EXTRA_PEDIDO',;
+                 'DT_INICIO',;
+                 'DT_PRAZO',;
+                 'DT_CONCLUSAO',;
+                 'VL_TOTAL',;
+                 'CD_MOEDA',;
+                 'NM_MOEDA',;
+                 'CD_INDICE',;
+                 'NM_INDICE',;
+                 'PERIODICIDADE_REAJUSTE'})
+
+   if lcACTION = 'SAVE' .and. gbWAC_WRITE
+      ii       := 1
+      lcNR_ROW := '1'
+      lcVAR    := 'VAR_PEDIDO_PROCESSO1'
+      do while WGet(lcVAR,'B')
+         laSAVE := {{'EXTRA_PEDIDO',;
+                     'DT_INICIO',;
+                     'DT_PRAZO',;
+                     'DT_CONCLUSAO',;
+                     'VL_TOTAL',;
+                     'CD_MOEDA',;
+                     'CD_INDICE',;
+                     'PERIODICIDADE_REAJUSTE'}}
+
+         aadd(laSAVE,{WGet('VAR_EXTRA_PEDIDO'+lcNR_ROW,'C'),;
+                      WGet('VAR_DT_INICIO'+lcNR_ROW,'D'),;
+                      WGet('VAR_DT_PRAZO'+lcNR_ROW,'D'),;
+                      WGet('VAR_DT_CONCLUSAO'+lcNR_ROW,'D'),;
+                      WGet('VAR_VL_TOTAL'+lcNR_ROW,'N'),;
+                      WGet('VAR_CD_MOEDA'+lcNR_ROW,'N'),;
+                      WGet('VAR_CD_INDICE'+lcNR_ROW,'N'),;
+                      WGet('VAR_PERIODICIDADE_REAJUSTE'+lcNR_ROW,'C')})
+
+         lcWHERE  := 'NR_PASTA='+lcNR_PASTA+' and PEDIDO_PROCESSO='+DLAP+WGet('VAR_PEDIDO_PROCESSO'+lcNR_ROW,'C')+DLAP
+
+         psab_logs(laSAVE,lcTABLE,lcWHERE,lcNR_PASTA,'Itens')
+
+         if db_update(laSAVE,lcTABLE,{lcWHERE}) == -1
+            error_sys(db_error())
+         endif
+
+         ii++
+         lcNR_ROW := alltrim(str(ii))
+         lcVAR    := 'VAR_PEDIDO_PROCESSO'+lcNR_ROW
+      enddo
+   endif
+
+   laPUT := loadcbox_build('contrato_periodo_reajuste','PERIODICIDADE_REAJUSTE',.T.)
+
+   /* Selecionando os pedidos */
+   if db_select({'pasta_itens_contrato.PEDIDO_PROCESSO',;
+                 'pasta_itens_contrato.EXTRA_PEDIDO',;
+                 'pasta_itens_contrato.DT_INICIO',;
+                 'pasta_itens_contrato.DT_PRAZO',;
+                 'pasta_itens_contrato.DT_CONCLUSAO',;
+                 'pasta_itens_contrato.VL_TOTAL',;
+                 'pasta_itens_contrato.CD_MOEDA',;
+                 'moeda.NM_MOEDA',;
+                 'pasta_itens_contrato.CD_INDICE',;
+                 'indice_reajuste.NM_INDICE',;
+                 'pasta_itens_contrato.PERIODICIDADE_REAJUSTE'},;
+                 lcTABLE,;
+                 {{2,'indice_reajuste','indice_reajuste.CD_INDICE=pasta_itens_contrato.CD_INDICE'},;
+                  {2,'moeda','moeda.CD_MOEDA=pasta_itens_contrato.CD_MOEDA'}},;
+                 {'pasta_itens_contrato.NR_PASTA='+lcNR_PASTA},;
+                 {'pasta_itens_contrato.PEDIDO_PROCESSO'}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      laWICDO     := {{'VAR_PEDIDO_PROCESSO',;
+                       'VAR_EXTRA_PEDIDO',;
+                       'VAR_DT_INICIO',;
+                       'VAR_DT_PRAZO',;
+                       'VAR_DT_CONCLUSAO',;
+                       'VAR_VL_TOTAL',;
+                       'VAR_CD_MOEDA',;
+                       'VAR_NM_MOEDA',;
+                       'VAR_CD_INDICE',;
+                       'VAR_NM_INDICE',;
+                       'VAR_PERIODICIDADE_REAJUSTE',;
+                       'PEDIDO_PROCESSO'}}
+
+      for ii := 2 to len(laRESULT)
+         lcNR_ROW := alltrim(str(ii-1))
+         aadd(laWICDO,{'VAR_PEDIDO_PROCESSO'+lcNR_ROW,;
+                       'VAR_EXTRA_PEDIDO'+lcNR_ROW,;
+                       'VAR_DT_INICIO'+lcNR_ROW,;
+                       'VAR_DT_PRAZO'+lcNR_ROW,;
+                       'VAR_DT_CONCLUSAO'+lcNR_ROW,;
+                       'VAR_VL_TOTAL'+lcNR_ROW,;
+                       'VAR_CD_MOEDA'+lcNR_ROW,;
+                       'VAR_NM_MOEDA'+lcNR_ROW,;
+                       'VAR_CD_INDICE'+lcNR_ROW,;
+                       'VAR_NM_INDICE'+lcNR_ROW,;
+                       'VAR_PERIODICIDADE_REAJUSTE'+lcNR_ROW,;
+                       laRESULT[ii,db_fetchncol(laRESULT,'PEDIDO_PROCESSO')]})
+
+         WPut('VAR_PEDIDO_PROCESSO'+lcNR_ROW              ,laRESULT[ii,db_fetchncol(laRESULT,'PEDIDO_PROCESSO')])
+         WPut('VAR_EXTRA_PEDIDO'+lcNR_ROW                 ,laRESULT[ii,db_fetchncol(laRESULT,'EXTRA_PEDIDO')])
+         WPut('VAR_DT_INICIO'+lcNR_ROW                    ,laRESULT[ii,db_fetchncol(laRESULT,'DT_INICIO')])
+         WPut('VAR_DT_PRAZO'+lcNR_ROW                     ,laRESULT[ii,db_fetchncol(laRESULT,'DT_PRAZO')])
+         WPut('VAR_DT_CONCLUSAO'+lcNR_ROW                 ,laRESULT[ii,db_fetchncol(laRESULT,'DT_CONCLUSAO')])
+         WPut('VAR_VL_TOTAL'+lcNR_ROW                     ,wpictrans('VL_TOTAL',laRESULT[ii,db_fetchncol(laRESULT,'VL_TOTAL')]))
+         WPut('VAR_CD_MOEDA'+lcNR_ROW                     ,laRESULT[ii,db_fetchncol(laRESULT,'CD_MOEDA')])
+         WPut('VAR_NM_MOEDA'+lcNR_ROW                     ,laRESULT[ii,db_fetchncol(laRESULT,'NM_MOEDA')])
+         WPut('VAR_CD_INDICE'+lcNR_ROW                    ,laRESULT[ii,db_fetchncol(laRESULT,'CD_INDICE')])
+         WPut('VAR_NM_INDICE'+lcNR_ROW                    ,laRESULT[ii,db_fetchncol(laRESULT,'NM_INDICE')])
+         WPut('VAR_PERIODICIDADE_REAJUSTE'+lcNR_ROW       ,laRESULT[ii,db_fetchncol(laRESULT,'PERIODICIDADE_REAJUSTE')])
+         WPut('VAR_PERIODICIDADE_REAJUSTE'+lcNR_ROW+'_OPT',laPUT)
+         lnVL_TOTAL += laRESULT[ii,db_fetchncol(laRESULT,'VL_TOTAL')]
+      next ii
+      WPut('lstITENS',laWICDO)
+      WPut('VL_TOTAL',lnVL_TOTAL)
+   endif
+return
+
+
+
+
+
+
+

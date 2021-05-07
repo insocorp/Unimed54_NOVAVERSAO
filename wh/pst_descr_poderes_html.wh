@@ -1,0 +1,28 @@
+/*
+
+Project      : gr5
+Program      : pst.descr.poderes.html
+Function     : pst_descr_poderes_html
+Created on   : 14-Apr-2004   17:29:20
+Descripition : Manutenção de Pasta Resumo de Poderes, aba Descrição de Poderes.
+
+*/
+   local lcNR_PASTA := '' ,;
+         lcTP_PASTA  := '' as string
+
+   lcNR_PASTA  := wGet('NR_PASTA','C')
+   lcTP_PASTA  := wGet('TP_PASTA','C')
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   if empty(lcNR_PASTA)
+      error_sys('Pasta inexistente')
+      return(.f.)
+   endif
+   make_psthead(lcNR_PASTA,lcTP_PASTA) //Cabeçalho
+
+   wPut('NR_REPRESENTANTE',{'1','2','3','4','5','6','7','8','9','10'})
+   wPut('TP_PASTA',wGet('TP_PASTA','C'))
+   wPut('NR_PASTA',lcNR_PASTA)
+
+   pasta_abas(lcTP_PASTA)
+
+

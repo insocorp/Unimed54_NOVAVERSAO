@@ -1,0 +1,219 @@
+/*
+
+Project      : gr5
+Program      : uas_fnet
+Function     : uas_fnet
+Created on   : 31-May-2005   09:20:36
+Descripition :
+
+*/
+
+    #define NEWLINE chr(13) + chr(10)
+    Private lcFILELOG:= '',;
+            lcFILEIN := ''
+    lcFILELOG:= WSet("FILEESTIMULOOUTPUT")
+    lcFILEIN := WSet("FILEESTIMULOINPUT")
+    local ii       := 0 ,;
+          lnHAND1  := 0 ,;
+          lnHAND2  := 0  as int
+    local llFLG    := .t. as logical
+    if Empty(lcFILEIN)
+       qout('Arquivo de envio não Informado.')
+       return(nil)
+    endif
+    if Empty(lcFILELOG)
+       qout('Arquivo de Log não Informado.')
+       return(nil)
+    endif
+    if file(lcFILEIN)
+       lnHAND1 := fcreate(lcFILELOG, 0)
+       lnHAND2 := fopen(lcFILEIN   , 0)
+       if lnHAND1 < 0
+          qout('Erro na criação do arquivo de retorno.')
+          return(nil)
+       endif
+       if lnHAND2 > 0
+          if ! leitura(lnHAND2, lnHAND1)
+             qout('Problemas na Atualização dos dados.')
+          endif
+          fclose (lnHAND2)
+       else
+          qout('Erro na leitura do arquivo de envio.')
+          return(nil)
+       endif
+    endif
+/* Function..: processaleitura(fnHAND2, fnHAND1)
+  Objetivo..: Processamento de gravação do arquivo de leitura
+  Parâmetros: fnHAND2 = Handle do arquivo de leitura
+              fnHAND1 = Handle do arquivo retorno
+  Retorno...: Retorna .t. / .f.
+*/
+function leitura(fnHAND2, fnHAND1)
+   local llFLG    := .T. as logical
+   local lcLOG    := '' ,;
+         lcLINE   := ''  as string
+   // arrays com a extrutura da linha                      // extrutura do Header
+   local laDETVAL0:= { {   1,  1, "",  .F., } ,;           // Tipo Registro
+                       {   2,  5, "",  .F., } ,;           // DD Name KK
+                       {   7,  3, "",  .F., } ,;           // Tipo Registro KK
+                       {  10,  1, "",  .F., } ,;           // Código da Rotina
+                       {  11, 12, "",  .F., } ,;           // Versão Arquivo
+                       {  23, 14, "",  .F., } ,;           // Data Hora Envio
+                       {  37, 40, "",  .F., } ,;           // Nome Arquivo
+		       {  77, 54, "",  .F., }  } as array  // Filler
+                                                           // extrutura do Detalhe
+   local laDETVAL1:= { {   1,  1, "",             .F., } ,;      // TipoReg
+                       {   2, 10, "REFERENCIA5",  .T., } ,;      // DocID
+                       {  12,  8, "DT_INSERT",    .T., } ,;      // EntryDate
+                       {  26, 15, "LOGIN_INSERT", .T., } ,;      // EntryUser
+                       {  41,  5, "",             .F., } ,;      // Pages
+                       {  46,  2, "CD_BUSINESS",  .T., } ,;      // Negocio
+                       {  48,  1, "GDTP_ENTRADA", .T., } ,;      // TipoEntrada  D -Digitalização I - FileImport A?Arquivo anexado F ? Fax M- Migração
+                       {  49,  3, "TP_DOCUMENTO", .T., } ,;      // TipoDocumento
+                       {  52, 17, "REFERENCIA1",  .T., } ,;      // Ref1
+                       {  69, 11, "REFERENCIA2",  .T., } ,;      // Ref2
+                       {  80, 11, "REFERENCIA3",  .T., } ,;      // Ref3
+                       {  91, 15, "REFERENCIA4",  .T., } ,;      // Ref4
+                       { 106,  4, "",             .F., } ,;      // Lote
+                       { 110, 18, "",             .F., } ,;      // FileNetClassName
+                       { 128,  1, "",             .F., } ,;      // NuItemDocmLote
+                       { 129,  2, "",             .F., }  } as array // Filler
+                                                           // extrutura do Trailler
+   local laDETVAL2:= { {   1,  1, "",  .F., } ,;           // TipoReg
+                       {   2,  5, "",  .F., } ,;           // TotReg
+                       {   7,124, "",  .F., }  } as array  // Filler
+   while .t.
+         lcLINE := freadtxt (fnHAND2)
+         if ferror() <> 0
+            exit
+         endif
+         if substr(lcLINE,1,1) = "0"
+	    if ! detalhe(0, @laDETVAL0, lcLINE, fnHAND1)
+               llFLG := .F.
+               exit
+            endif
+	 elseif substr(lcLINE,1,1) = "1"
+            if ! detalhe(1, @laDETVAL1, lcLINE, fnHAND1)
+               llFLG := .F.
+               exit
+            endif
+         elseif substr(lcLINE,1,1) = "2"
+            if ! detalhe(2, @laDETVAL2, lcLINE, fnHAND1)
+               llFLG := .F.
+               exit
+            endif
+	 endif
+   enddo
+   fclose(fnHAND1)
+return (llFLG)
+/*
+* Function..: detalhe(fnTIPO, fcLINE, fnHAND1)
+* Objetivo..: Grava dados do arquivo TXT do SNT nas Tabelas
+* Parâmetros: fnTIPO   = valor 1 = faDETVAL1 e 2 = faDETVAL2
+              fcLINE   = conteúdo da linha do arquivo
+              fnHAND1  = handle do arquivo de retorno
+* Retorno...: Retorna .t. / .f.
+*/
+function detalhe(fnTIPO, faDETVAL, fcLINE, fnHAND1)
+	 local llFLG     := .T. ,;
+	       llERRO    := .T. as logical
+	 local ii        := 0   ,;
+	       a         := 0   ,;
+	       lnRET     := 0   as int
+	 local laFIELDS  := {}  ,;
+               laSAVE_AUX:= {}  ,;
+               laSAVE    := {}  ,;
+	       laRESULT  := {}  ,;
+	       laRES     := {}  as array
+	 local lcLINE    := ''  ,;
+	       lcVAL     := ''  ,;
+               lcTABLE   := ''  ,;
+	       lcMENS    := ''  ,;
+	       lcWHERE   := ''  as string
+
+	 for ii := 1 to len(faDETVAL)
+             if fnTIPO == 0
+	        if ii == 2
+                   lcLINE += 'K0J28'
+                elseif ii == 6
+                   lcLINE += DTOS(DATE()) + substr(TIME(),1,2) + substr(TIME(),4,2) + substr(TIME(),7,2)
+		elseif ii == 7
+                   lcLINE += 'IMAGEM-RESPOSTA ESTIMULO'
+		else
+                   lcLINE += substr(fcLINE, faDETVAL[ii,1],faDETVAL[ii,2])
+		endif
+	     elseif fnTIPO = 1
+		if faDETVAL[ii,4]
+                   aadd(laFIELDS ,faDETVAL[ii,3])
+                   aadd(laSAVE   ,substr(fcLINE, faDETVAL[ii,1],faDETVAL[ii,2]))
+		endif
+	     endif
+	 next ii
+	 if fnTIPO == 0
+	    fwrite(fnHAND1, lcLINE + NEWLINE)    // gera o cabeçalho do arquivo de retorno
+         elseif fnTIPO == 1
+	    if len(laFIELDS) > 0
+	       // faz a validação do DocID
+	       if db_select({'REFERENCIA5'},'ged',,{'REFERENCIA5 = '+DLAP+laSAVE[1]+DLAP } ) == -1 .and. ErroSQLServer(db_error())
+	          qout("Ultimo Comando -> " + wset("_LASTSQL"))
+	          qout( "Erro: " + db_error())
+	       endif
+	       laRES := db_fetchrow()
+	       if len(laRES) > 0
+                  llERRO:= .F.
+		  lcMENS := 'Erro. DocID existente'+space(97)
+	       else
+	          // verificando o conteúdo de ged.WTABLE
+		  aadd(laFIELDS ,'WTABLE')
+		  if val(laSAVE[4]) = 7                                        // CD_BUSSINES
+		     aadd(laSAVE ,'pasta_seguro')
+		     lcWHERE := 'NR_SINISTRO = '+DLAP+alltrim(laSAVE[7])+DLAP  // pesquisa em pasta_seguro.NR_SINISTRO=REFERENCIA1 para localizar as pastas
+		     lcTABLE := 'pasta_seguro'
+		  else
+		     aadd(laSAVE ,'pasta')
+		     lcWHERE := 'NR_PASTA = '+DLAP+alltrim(laSAVE[7])+DLAP     //  pesquisa em pasta.NR_PASTA=REFERENCIA1 para localizar a pasta
+		     lcTABLE := 'pasta'
+		  endif
+		  // Fazendo o Update na(s) pasta(s)  pasta.DT_GEDEXT = date()
+		  if db_select({'NR_PASTA'},lcTABLE,,{lcWHERE} ) == -1 .and. ErroSQLServer(db_error())
+	             qout("Ultimo Comando -> " + wset("_LASTSQL"))
+	             qout( "Erro: " + db_error())
+	          endif
+	          laRESULT := db_fetchAll()
+		  if len(laRESULT) > 1
+		     lcWHERE := 'NR_PASTA = '+alltrim(str(laRESULT[2,1]))
+		     for ii := 3 to len(laRESULT)
+		         lcWHERE += ' or NR_PASTA = '+alltrim(str(laRESULT[ii,1]))
+		     next ii
+		     if db_update({{"DT_GEDEXT"},{date()}},'pasta',{lcWHERE}) == -1 .and. ErroSQLServer(db_Error())
+                        qout("Erro Update -> "+db_error())
+                        qout("Ultimo Comando -> " + wset("_LASTSQL"))
+		        qout( "Erro: " + db_error())
+	             endif
+		     // fazer o insert na tabela relacionada
+	             if db_insert({laFIELDS,laSAVE},'ged') == -1 .and. ErroSQLServer(db_error())
+	                qout('Problemas na atualizacao dos arquivos.')
+                        qout("Ultimo Comando -> " + wset("_LASTSQL"))
+	                qout( "Erro: " + db_error())
+                     endif
+		  else
+                     llERRO := .F.
+		     lcMENS := 'Nr. Pasta nao encontrado'+space(94)
+		  endif
+	       endif
+               for i := 1 to len(laFIELDS)
+	           if laFIELDS[i] == 'REFERENCIA5'
+		      if llERRO                                      // gera o detahle do arquivo de retorno
+                         lcLINE := '1'+strzero(val(lasave[i]),10)+'0'+space(118)
+		      else
+                         lcLINE := '1'+strzero(val(lasave[i]),10)+'1'+lcMENS
+		      endif
+		      fwrite(fnHAND1, lcLINE + NEWLINE)
+		   endif
+               next i
+	    endif
+	 elseif fnTIPO == 2              // gera o trailler do arquivo de retorno
+	    lcLINE := '2'+space(129)
+            fwrite(fnHAND1, lcLINE + NEWLINE)
+	 endif
+return (llFLG)

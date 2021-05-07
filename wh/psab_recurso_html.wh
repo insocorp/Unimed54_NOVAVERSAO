@@ -1,0 +1,216 @@
+/*
+
+Project      : gr5
+Program      : psab.recurso.html
+Function     : psab_recurso_html
+Created on   : 21-Nov-2006   13:34:24
+Descripition :
+
+*/
+
+   local laFIELDS      := {},;
+         laSAVE        := {},;
+         laSAVE_AUX    := {},;
+         laRESULT      := {},;
+         laFIELDS_GRID := {},;
+         laVALIDA      := {} as array
+   local ii            := 0 as numeric
+
+   local lcWHERE       := '',;
+         lcACTION      := '',;
+         lcNR_PASTA    := '',;
+         lcADV_INTERNO := '',;
+         lcADV_EXTERNO := '',;
+         lcTP_PASTA    := '' as string
+
+   laFIELDS := structtable(WSet("DB_ACTIVE"),'pasta_recurso',1,'N')
+   laFIELDS_GRID := {'NR_CONTROLE','RECURSO','DT_PRAZO_FATAL','DECISAO_RECURSO'}
+   lcACTION := upper(wget('ACTION'))
+   lcTP_PASTA := wGet('TP_PASTA','C')
+   lcNR_PASTA := wGet('NR_PASTA','C')
+   lcWHERE :=  'NR_PASTA = '+ lcNR_PASTA + ' AND NR_CONTROLE = '+ str(Wget('NR_CONTROLE','N'))
+   wac_tp_pasta(lcTP_PASTA) // Função para verificação de permissões por pasta, encontra-se na func.wic
+   WPut('FL_RECURSO_DECISAO_ADVINT.option',{'Interpor Recurso','Não Interpor Recurso'})
+   WPut('FL_RECURSO_DECISAO_ADVINT.optionvalue',{'I','N'})
+   WPut('FL_FAVORAVEL_INTERPOS.option',{'Sim','Não'})
+   WPut('FL_FAVORAVEL_INTERPOS.optionvalue',{'S','N'})
+   Wput('ifJUSTIF_ADVINT',.T.)
+   Wput('ifFL_RECURSO',.T.)
+   Wput('ifJUSTIF_ADVINT_RO',.F.)
+   Wput('ifFL_RECURSO_RO',.F.)
+   Wput('NR_CONTROLE','New')
+   // Glauber 06/01/2011
+   AbasPerfil(lcTP_PASTA,laFIELDS)
+
+   // Verifica se o usuario logado é advogado interno
+
+   if db_select({'CIP'},'pasta_pfpj_advogado_interno',,{'NR_PASTA='+lcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      lcADV_INTERNO := laRESULT[2,1]
+   endif
+
+   // Verifica se o usuario logado é advogado externo
+
+   if db_select({'CIP'},'pasta_pfpj_advogado_externo',,{'NR_PASTA='+lcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      lcADV_EXTERNO := laRESULT[2,1]
+   endif
+
+   // Valida se o login do usuario ativo é um advogado interno ou externo para habilitar os botões de incluir/excluir
+
+   if Wset('LOGIN') == cip2login(lcADV_INTERNO)
+      laVALIDA := {'FL_RECURSO_DECISAO_ADVINT','JUSTIF_ADVINT'}
+      Wput('ifWAC_WRITE',.T.)
+      Wput('ifWAC_DELETE',.T.)
+      Wput('ifJUSTIF_ADVINT',.T.)
+      Wput('ifFL_RECURSO',.T.)
+      Wput('ifJUSTIF_ADVINT_RO',.F.)
+      Wput('ifFL_RECURSO_RO',.F.)
+
+   elseif Wset('LOGIN') == cip2login(lcADV_EXTERNO)
+      laVALIDA := {'RECURSO','DT_PRAZO_FATAL','DECISAO_RECURSO','FL_FAVORAVEL_INTERPOS','JUSTIF_RECURSO'}
+      WPUT('FL_RECURSO_DECISAO_ADVINT.readonly',.T.)
+      WPUT('JUSTIF_ADVINT.readonly',.T.)
+      Wput('ifWAC_WRITE',.T.)
+      Wput('ifWAC_DELETE',.T.)
+      Wput('ifJUSTIF_ADVINT_RO',.T.)
+      Wput('ifFL_RECURSO_RO',.T.)
+      Wput('ifJUSTIF_ADVINT',.F.)
+      Wput('ifFL_RECURSO',.F.)
+
+   endif
+   if len(laVALIDA) > 0
+      for ii := 1 to len(laVALIDA)
+             if laVALIDA[ii] <> 'FL_FAVORAVEL_INTERPOS'  .AND. laVALIDA[ii] <> 'FL_RECURSO_DECISAO_ADVINT'
+                *WPut(laVALIDA[ii]+'.label.style.color','#FF0000')
+                *WPut(laVALIDA[ii]+'.label.style.font-weight','bold')
+                WPut(laVALIDA[ii]+'.style.border','2px solid red')
+             endif
+      next ii
+   endif
+
+   if lcACTION == 'NEW' .or. empty(lcACTION)
+      Wput('NR_CONTROLE','New')
+   elseif lcACTION == 'ALTER'
+          if db_select(laFIELDS,'pasta_recurso',,{lcWHERE}) == -1
+             error_sys(db_error())
+          endif
+          laRESULT := db_fetchall()
+          if len(laRESULT) > 1
+             db2put(laRESULT)
+          endif
+   elseif lcACTION == 'SAVE'
+          if empty(lcADV_EXTERNO) .and. empty(lcADV_INTERNO)
+             walert('Você não tem permissão para incluir ou alterar recursos.')
+             get2put()
+	          make_psthead(lcNR_PASTA,lcTP_PASTA)
+             pasta_abas(lcTP_PASTA)
+
+             // Montagem da Grid de Recursos
+
+             if db_select(laFIELDS,'pasta_recurso',,{'NR_PASTA = '+lcNR_PASTA}) == -1
+                error_sys(db_error())
+             endif
+             laRESULT := db_fetchall()
+             if len(laRESULT) >= 2
+                aadd(laRESULT[1],'(row)')
+                for ii := 2 to len(laRESULT)
+                    aadd(laRESULT[ii],'(row)'+wic_action('wicaction/psab.recurso.html?'+;
+                                      'TP_PASTA='+lcTP_PASTA+;
+                                      '&NR_PASTA='+lcNR_PASTA+;
+                                      '&NR_CONTROLE='+str(laRESULT[ii, db_fetchncol(laRESULT,'NR_CONTROLE')])+;
+                                      '&ACTION=ALTER'))
+                next ii
+              endif
+              wPut('lstRECURSO',grid_create(laRESULT))
+             return
+          endif
+          if verif_reqfield(WSET('_USER_INTERFACE'),laVALIDA) == .F.
+             get2put()
+	          make_psthead(lcNR_PASTA,lcTP_PASTA)
+             pasta_abas(lcTP_PASTA)
+
+             // Montagem da Grid de Recursos
+
+             if db_select(laFIELDS,'pasta_recurso',,{'NR_PASTA = '+lcNR_PASTA}) == -1
+                error_sys(db_error())
+             endif
+             laRESULT := db_fetchall()
+             if len(laRESULT) >= 2
+                aadd(laRESULT[1],'(row)')
+                for ii := 2 to len(laRESULT)
+                    aadd(laRESULT[ii],'(row)'+wic_action('wicaction/psab.recurso.html?'+;
+                                      'TP_PASTA='+lcTP_PASTA+;
+                                      '&NR_PASTA='+lcNR_PASTA+;
+                                      '&NR_CONTROLE='+str(laRESULT[ii, db_fetchncol(laRESULT,'NR_CONTROLE')])+;
+                                      '&ACTION=ALTER'))
+                next ii
+              endif
+              wPut('lstRECURSO',grid_create(laRESULT))
+              return
+          endif
+          aadd(laSAVE, laFIELDS)
+          for ii := 1 to len(laFIELDS)
+              aadd(laSAVE_AUX,wget(laFIELDS[ii]))
+          next ii
+          aadd(laSAVE, laSAVE_AUX)
+          if db_replace(laSAVE,'pasta_recurso',{lcWHERE},) == -1
+             error_sys(db_error())
+          endif
+   elseif lcACTION == 'DELETE'
+          psab_logdel(wGet('RECURSO','C'),'RECURSO',lcNR_PASTA,,'Recurso')
+          if db_delete('pasta_recurso',lcWHERE) = -1
+             error_sys(db_error())
+          endif
+   endif
+   make_psthead(lcNR_PASTA,lcTP_PASTA)
+   pasta_abas(lcTP_PASTA)
+
+   // Montagem da Grid de Recursos
+
+   if db_select(laFIELDS_GRID,'pasta_recurso',,{'NR_PASTA = '+lcNR_PASTA}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) >= 2
+      aadd(laRESULT[1],'(row)')
+      for ii := 2 to len(laRESULT)
+          aadd(laRESULT[ii],'(row)'+wic_action('wicaction/psab.recurso.html?'+;
+                            'TP_PASTA='+lcTP_PASTA+;
+                            '&NR_PASTA='+lcNR_PASTA+;
+                            '&NR_CONTROLE='+str(laRESULT[ii, db_fetchncol(laRESULT,'NR_CONTROLE')])+;
+                            '&ACTION=ALTER'))
+          /*
+          if laRESULT[ii,ascan(laRESULT[1],'FL_RECURSO_DECISAO_ADVINT')] == 'I'
+             laRESULT[ii,ascan(laRESULT[1],'FL_RECURSO_DECISAO_ADVINT')] := 'Interpor Recurso'
+          elseif laRESULT[ii,ascan(laRESULT[1],'FL_RECURSO_DECISAO_ADVINT')] == 'N'
+             laRESULT[ii,ascan(laRESULT[1],'FL_RECURSO_DECISAO_ADVINT')] := 'Não Interpor Recurso'
+          endif
+          if laRESULT[ii,ascan(laRESULT[1],'FL_FAVORAVEL_INTERPOS')] == 'S'
+             laRESULT[ii,ascan(laRESULT[1],'FL_FAVORAVEL_INTERPOS')] := 'Sim'
+          else
+             laRESULT[ii,ascan(laRESULT[1],'FL_FAVORAVEL_INTERPOS')] := 'Não'
+          endif */
+      next ii
+    endif
+    wPut('lstRECURSO',grid_create(laRESULT))
+
+return
+
+
+
+
+
+
+
+
+
+
+
+

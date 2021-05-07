@@ -1,0 +1,11 @@
+/*
+
+Project      : gr5
+Program      : mnt.desp.corp.html
+Function     : mnt_desp_corp_html
+Created on   : 27-Aug-2002   16:40:57
+Descripition : Manutenção dos Lançamentos das Despesas (Corporativas)
+
+*/
+
+mnt_mvt_despesa_html()

@@ -1,0 +1,34 @@
+/*
+
+Project      : gr5
+Program      : pfpj_char
+Function     : pfpj_char
+Created on   : 09-Sep-2005   16:50:37
+Descripition : Adiciona em pfpj_char o conteudo de pfpj sem char especiais.
+
+*/
+
+
+  local ii       := 1 as int
+  local laRESULT := {} as array
+  local llERRO   := .f.
+  //  seleciona todos os PFPJ para alteração
+  if db_select({'NR_CONTROLE','PFPJ'},'pfpj') == -1
+     qout("Erro Select -> "+db_error())
+     qout("Ultimo Comando -> " + wset("_LASTSQL"))
+  endif
+  laRESULT := db_fetchall()
+  if len(laRESULT) > 1
+     for ii := 2 to len(laRESULT)
+         if db_update({{'PFPJ_CHAR'},{lower(lat2char(laRESULT[ii,2]))}},;
+                        'pfpj',{'NR_CONTROLE = '+str(laRESULT[ii,1])}) == -1
+            qout("Erro Update -> "+db_error())
+            qout("Ultimo Comando -> " + wset("_LASTSQL"))
+            llERRO := .t.
+            exit
+	 endif
+     next ii
+     if !llERRO
+        qout('Atualizados '+str(len(laRESULT)-1)+' registros !!!')
+     endif
+  endif

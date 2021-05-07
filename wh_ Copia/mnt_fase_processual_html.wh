@@ -1,0 +1,73 @@
+/*
+
+Project      : gr5
+Program      : mnt.fase_processual.html
+Function     : mnt_fase_processual_html
+Created on   : 25-Oct-2001   11:04:01
+Descripition :  
+
+*/
+
+  local lcACTION   	    := '',;
+         lcWHERE   	    := '',;
+         lcTABLE            := '',;
+         lcFASE_PROCESSUAL  := '' as string
+
+   local laRESULT   := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laFIELDS   := {} as array
+
+   local ii := 0 as int
+
+   lcACTION := upper(WGet('ACTION','C'))
+   lcFASE_PROCESSUAL := WGet('FASE_PROCESSUAL','C')
+
+   if lcFASE_PROCESSUAL = 'New'
+      lcFASE_PROCESSUAL := ''
+   endif
+
+   lcTABLE  := 'fase_processual'
+   lcWHERE  := 'FASE_PROCESSUAL='+DLAP+lcFASE_PROCESSUAL+DLAP+' and FL_ATIVO = '+DLAP+'S'+DLAP
+   laFIELDS := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'A')
+
+   if lcACTION = 'NEW' .and. gbWAC_CREATE
+      wPut('TITLE','Inclusão de nova Fasse Processual')
+   elseif lcACTION = 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchrow()
+      for ii := 1 to len(laFIELDS)
+         wPut(laFIELDS[ii],laRESULT[ii])
+      next ii
+     wPut('TITLE','Alteração do casdastro de Fases Processuais '+laRESULT[1])
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+      if Len(AllTrim(WGet('FASE_PROCESSUAL','C'))) = 0
+         wPut('ERROR_MENS','O Fase Processual é um campo obrigatório')
+         get2Put()
+         return(.f.)
+      endif   
+      aadd(laSAVE,laFIELDS)
+      for ii := 1 to len(laFIELDS)
+         aadd(laSAVE_AUX,WGet (laFIELDS[ii]))
+      next ii
+      aadd(laSAVE,laSAVE_AUX)
+      if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      wSet('_USER_INTERFACE','lst.fase_processual.html')
+      lst_fase_processual_html()
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+      wSet('_USER_INTERFACE','lst.fase_processual.html')
+      lst_fase_processual_html()
+   else
+      wSet('_USER_INTERFACE','lst.fase_processual.html')
+      lst_fase_processual_html()
+   endif
+return
+
+

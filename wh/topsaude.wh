@@ -1,0 +1,1916 @@
+/*
+
+Project      : isj_60
+Program      : topsaude
+Function     : topsaude
+Created on   : 26-Jul-2017   15:31:01
+Descripition :
+
+*/
+
+//
+// Glauber - 04/2016
+//           Este return abaixo é obrigatório porque o wictrix coloca todo o conteúdo de um wh dentro de uma function.
+//           Se não colocar o return a classe nunca sera visível.
+
+RETURN
+
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+***************************************************************************************************************************************************************************************************************************************
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+*
+* Glauber - 09/2017
+*
+* Classe...........: TopSaudeService
+*
+* Objetivo.........: Classe com as rotinas de comunicação com Top Saude.
+*
+* Atributos........:
+*
+*
+*
+*
+*
+* Metodos..........:
+*
+*    METHOD Init()
+*    METHOD Destroy()
+*    METHOD Inicializar()
+*
+*    METHOD Consultar(sinistro,ramo,seguradonumero)
+*    METHOD CriarSinistro(nrpasta,ramo,seguradonumero)
+*    METHOD GerarPedidoInicial(fcNR_PASTA, fcTP_PASTA, pcNR_CONTROLE)
+*    METHOD AtualizarReserva(objTopAjustaReserva)
+*    METHOD EfetuarPagamento(sinistro,ramo)
+*    METHOD cloneSinistro(fcNR_PASTA, fcNR_SINISTRO)
+*    METHOD getLastSeguro(fcNRSEGURO, fcNR_PASTA)
+*    METHOD isEnabled(fcRamo)
+*    METHOD getTag(xml, tag)
+*
+* Classes Ligadas..:
+*
+*    EvidaService
+*
+*/
+
+
+CLASS TopSaudeService
+
+    INSTANCE objEvida
+    INSTANCE pathWS
+    INSTANCE pathTMP
+
+    // Atributos publico
+
+
+    // Metodos publico
+
+    PROTOTYPE METHOD Init()                                              CLASS TopSaudeService
+    PROTOTYPE METHOD Destroy()                                           CLASS TopSaudeService
+    PROTOTYPE METHOD Inicializar()                                       CLASS TopSaudeService
+    PROTOTYPE METHOD Consultar(sinistro,ramo,seguradonumero)             CLASS TopSaudeService
+    PROTOTYPE METHOD CriarSinistro(nrpasta,ramo,seguradonumero)          CLASS TopSaudeService // Item 3.3 EF
+    PROTOTYPE METHOD EfetuarPagamento(sinistro,ramo)                     CLASS TopSaudeService // Item 3.5 EF
+    PROTOTYPE METHOD cloneSinistro(fcNR_PASTA, fcNR_SINISTRO)            CLASS TopSaudeService
+    PROTOTYPE METHOD getLastSeguro(fcNRSEGURO, fcNR_PASTA)               CLASS TopSaudeService
+    PROTOTYPE METHOD isEnabled(fcRamo)                                   CLASS TopSaudeService
+    PROTOTYPE METHOD getTag(xml, tag)                                    CLASS TopSaudeService
+    PROTOTYPE METHOD AtualizarReserva(objTopAjustaReserva)               CLASS TopSaudeService
+    PROTOTYPE METHOD GerarPedidoInicial(fcNR_PASTA, fcTP_PASTA, pcNR_CONTROLE) CLASS TopSaudeService
+
+
+
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: Init()
+* Objetivo..: Construtor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Self
+*
+*/
+
+METHOD Init() CLASS TopSaudeService
+
+    self:pathWS   := WSet('PATHWSTOP')
+    self:pathTMP  := WSet('_WTEMP')
+    self:objEvida := EvidaServiceNew()
+
+
+
+return(self)
+
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: Destroy()
+* Objetivo..: Destruidor padrão
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Destroy() CLASS TopSaudeService
+
+       self:objEvida := nil
+       self:pathWS   := nil
+       self:pathTMP  := nil
+
+return(nil)
+
+
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: Inicializar()
+* Objetivo..: Limpa a tabela temporária do Evida / TopSaude
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             nil
+*
+*/
+
+METHOD Inicializar() CLASS TopSaudeService
+
+
+      self:objEvida:Inicializar()
+
+return(nil)
+
+/*
+*
+* Glauber - 03/2018
+*
+* Metodo....: isEnabled()
+* Objetivo..: Retorna .T. caso a interface esteja habilitada para uso.
+*
+* Parâmetros:
+*
+*
+*
+*
+* Retorno...:
+*
+*           .T. ou .F.
+*/
+
+METHOD isEnabled(fcRamo) CLASS TopSaudeService
+
+       local laCONF := {} AS Array
+       
+       laCONF := self:RetornaConfWS()
+
+
+return ( (! Empty(WSet('PATHWSTOP')))  .AND. (! Empty(WSet('WSTOPSAUDEAPPNAME')))  .AND. (At(fcRamo, laCONF[2,db_fetchncol(laCONF,'ID_RAMO_TOP')]) > 0 ) )
+
+
+
+
+
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: Consultar(sinistro,ramo,seguradonumero)
+* Objetivo..: Realiza a consulta de um Sinistro TopSaude
+*
+* Parâmetros:
+*
+*  sinistro       : número do sinistro (deixar em branco caso a consulta seja por número de carteirinha)
+*  ramo           : código do ramo
+*  seguradonumero : número da carteirinha do segurado
+*
+* Retorno...:
+*             Objeto do tipo ConsultaTop
+*
+*/
+
+METHOD Consultar(sinistro,ramo,seguradonumero) CLASS TopSaudeService
+
+
+    local objConsulta := ConsultaTopNew() AS Object
+    local objRet      := RetornoTopNew()  AS Object
+    local lnSeq       := 0                AS Int
+
+    local lcEnv       := ''               AS String
+    local lcRet       := ''               AS String
+    local lcParser    := ''               AS String
+    local lcTmp       := ''               AS String
+    local llErro      := .F.
+    local laCONF      := {}               AS Array
+    local laRESULT    := {}               AS Array
+    local laSERV      := {}               AS Array
+    
+    local objErro     := RetornoTopNew() AS Object
+
+
+
+          objConsulta := self:ValidaPath()
+
+          if (objConsulta:Retorno:CdRetorno != 0)
+            return objConsulta
+          endif
+
+
+
+          laCONF := self:RetornaConfWS()
+
+          objRet := self:ValidaConf(laCONF)
+
+          if (objRet:CdRetorno != 0)
+             objConsulta:Retorno:CdRetorno := objRet:CdRetorno
+             objConsulta:Retorno:NmRetorno := objRet:NmRetorno
+             return objConsulta
+          endif
+
+          lnSeq := self:getNrSeqInterface()
+
+          if ! empty(sinistro) .AND. sinistro != '*'
+             laRESULT := {{'NR_SINISTRO','CD_RAMOSRSN','NR_CONTROLE'},;
+                          {sinistro, ramo, alltrim(transform(lnSeq,'999999'))}}
+          else
+             laRESULT := {{'SEGURADO_NUMERO','CD_RAMOSRSN','NR_CONTROLE'},;
+                          {seguradonumero, ramo, alltrim(transform(lnSeq,'999999'))}}
+          endif
+
+          laSERV := self:getService(laCONF[2,db_fetchncol(laCONF, iif( ! empty(sinistro) .AND. sinistro != '*', 'ID_CONSULTA_TOP_SINISTRO', 'ID_CONSULTA_TOP_SEGURADO'))])
+
+//wout('<br><b>laSERV')
+//debug2(laSERV,,30)
+
+          // Consultar os dados do sinsitro
+
+          lcEnv  := self:pathTMP + 'TOPCONSULTA_' + Wset('LOGIN') +'_'+Dtos(Date())+strtran(time(),':','') +'.XML'
+          lcRet  := StrTran(lcEnv,'.XML', '.RET')
+
+          lcParser := self:Parser2Str(laSERV[2,db_fetchncol(laSERV,'SERVICO')],laRESULT)
+
+          GravaArquivo(lcEnv,lcParser) // Função presente na FuncWic
+
+          // Executa o pedido das informações
+
+          lcRun := self:pathWS + WSet('WSTOPSAUDEAPPNAME')+' '+ laSERV[2,db_fetchncol(laSERV,'NOME_WS')] +' ' + lcEnv
+          
+// RUN:D:\ISJ\CGI\AMBIEN~1\Unimed45\IsjTopBridge.exe IntegracaoISJ Temp\TOPCONSULTA_inso_20180319173258.XML Unhandled Exception: System.Collections.Generic.KeyNotFoundException: The given key was not present in the dictionary. at System.Collections.Generic.Dictionary`2.get_Item(TKey key) at IsjTopBridge.ConsumoImplStore.getImplementacao(String operacao) at IsjTopBridge.Program.Main(String[] args)          
+// wout('<br><b>RUN:'+lcRun)
+
+          ! (lcrun)
+
+          // Aguarda o tempo da resposta
+          inkey(laCONF[2,db_fetchncol(laCONF,'TEMPOESPERA')])
+
+          // Obter o conteúdo da pesquisa
+          if (! file(lcRet))
+             objConsulta:Retorno:CdRetorno := -1
+             objConsulta:Retorno:NmRetorno := 'Erro ao receber o arquivo de retorno.Arquivo de retorno não existe:'+lcRet
+             return objConsulta
+          endif
+
+          lcTMP   := GetFileContent(lcRet) // Presente na func.wic
+          objErro := self:TrataErroWS(lcTMP) // Presente na func.wic
+
+          if objErro:CdRetorno != 0
+             objConsulta:Retorno:CdRetorno := objErro:CdRetorno
+             objConsulta:Retorno:NmRetorno := objErro:NmRetorno
+             return objConsulta
+          endif
+
+          self:ConXml2Obj(lcTMP, objConsulta)
+          self:gravarPfpj(objConsulta)
+
+
+return objConsulta
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: CriarSinistro(nrpasta,ramo,seguradonumero)
+* Objetivo..: Gera um novo Sinistro no TopSaude
+*
+* Parâmetros:
+*
+*  nrpasta        : número da pasta
+*  ramo           : código do ramo
+*  seguradonumero : número da carteirinha do segurado
+*
+* Retorno...:
+*             Objeto do tipo RetTopNew
+*
+*/
+
+METHOD CriarSinistro(nrpasta,ramo,seguradonumero) CLASS TopSaudeService // Item 3.3 EF
+
+    local objRet      := RetTopNewNew()   AS Object
+    local objErr      := RetornoTopNew()  AS Object
+    local lnSeq       := 0                AS Int
+
+    local lcEnv       := ''               AS String
+    local lcRet       := ''               AS String
+    local lcParser    := ''               AS String
+    local lcTmp       := ''               AS String
+    local lcErro      := ''               AS String
+    local llErro      := .F.
+    local laCONF      := {}               AS Array
+    local laRESULT    := {}               AS Array
+
+
+
+
+
+          laCONF := self:RetornaConfWS()
+/*
+          objRet := self:ValidaConf(laCONF)
+
+          if (objRet:CdRetorno != 0)
+             objConsulta:Retorno:CdRetorno := objRet:CdRetorno
+             objConsulta:Retorno:NmRetorno := objRet:NmRetorno
+             return objConsulta
+          endif
+*/
+          lnSeq := self:getNrSeqInterface()
+          
+          
+// <sinistro><sinistro_numero></sinistro_numero><segurado_numero>[SEGURADO_NUMERO]</segurado_numero><id_integracao>[NR_CONTROLE]</id_integracao><tp_integracao>0</tp_integracao><ramo>[CD_RAMOSRSN]</ramo><data_protocolo>[DT_PROTOCOLO]<data_protocolo><data_recibo>[DT_PROTOCOLO]</data_recibo><valor_reserva>0,01<valor_reserva><manter_com_acao>S</manter_com_acao><pasta_numero>[NR_PASTA]</pasta_numero><msg_obs></msg_obs></sinistro>
+
+          laRESULT := {{'NR_PASTA','SEGURADO_NUMERO','CD_RAMOSRSN','NR_CONTROLE','DT_PROTOCOLO'},;
+                       {AllTrim(nrpasta), seguradonumero, ramo, alltrim(transform(lnSeq,'999999')),DTOS(DATE())}}
+
+          laSERV := self:getService(laCONF[2,db_fetchncol(laCONF, 'ID_VINCULAR_TOP')])
+
+          // Dados para inclusão do Sinistro
+
+          lcEnv  := lcEnv  := self:pathTMP + 'TOPCRIAR_' + Wset('LOGIN') +'_'+Dtos(Date())+strtran(time(),':','') +'.XML'
+          lcRet  := StrTran(lcEnv,'.XML', '.RET')
+
+          lcParser := self:Parser2Str(laSERV[2,db_fetchncol(laSERV,'SERVICO')],laRESULT)
+
+          GravaArquivo(lcEnv,lcParser) // Função presente na FuncWic
+
+          // Executa o pedido das informações
+
+          lcRun := self:pathWS + WSet('WSTOPSAUDEAPPNAME')+' '+ laSERV[2,db_fetchncol(laSERV,'NOME_WS')] +' ' + lcEnv
+          ! (lcrun)
+
+// wout('<br><b>RUN:'+lcRun)
+
+
+          // Aguarda o tempo da resposta
+          inkey(laCONF[2,db_fetchncol(laCONF,'TEMPOESPERA')])
+
+
+          // Obter o conteúdo da pesquisa
+          if (! file(lcRet))
+             objRet:Retorno:CdRetorno := -1
+             objRet:Retorno:NmRetorno := 'Erro ao receber o arquivo de retorno.Arquivo de retorno não existe:'+lcRet
+             return objRet
+          endif
+
+          lcTMP   := GetFileContent(lcRet) // Presente na func.wic
+          objErr  := self:TrataErroWS(lcTMP) // Presente na func.wic
+
+          if objErr:CdRetorno != 0
+             objRet:Retorno:CdRetorno := objErr:CdRetorno
+             objRet:Retorno:NmRetorno := objErr:NmRetorno
+             return objRet
+          endif
+
+          self:NewXml2Obj(lcTMP, objRet)
+
+
+
+
+return objRet
+
+
+
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: EfetuarPagamento(sinistro,ramo)
+* Objetivo..: Realiza um pagamento no TopSaude encerrando o sinistro.
+*
+* Parâmetros:
+*
+*  sinistro       : número do sinistro
+*  ramo           : código do ramo
+*
+* Retorno...:
+*             Objeto do tipo ConsultaTopRetornoTop
+*
+*/
+
+METHOD EfetuarPagamento(sinistro,ramo) CLASS TopSaudeService // Item 3.5 EF
+
+
+    local objRetorno  := RetornoTopNew()  AS Object
+    local objConsulta := ConsultaTopNew() AS Object
+    local lnSeq       := 0                AS Int
+
+    local lcEnv       := ''               AS String
+    local lcRet       := ''               AS String
+    local lcParser    := ''               AS String
+    local lcTmp       := ''               AS String
+    local lcErro      := ''               AS String
+    local llErro      := .F.
+    local laCONF      := {}               AS Array
+    local laRESULT    := {}               AS Array
+
+
+
+
+          objConsulta := self:ValidaPath()
+
+          if(objConsulta:Retorno:CdRetorno != 0)
+            objRetorno:CdRetorno := objConsulta:Retorno:CdRetorno
+            objRetorno:NmRetorno := objConsulta:Retorno:NmRetorno
+            return objRetorno
+          endif
+
+          laCONF := self:RetornaConfWS()
+
+          objConsulta := self:ValidaConf(laCONF)
+
+          if(objConsulta:Retorno:CdRetorno != 0)
+            objRetorno:CdRetorno := objConsulta:Retorno:CdRetorno
+            objRetorno:NmRetorno := objConsulta:Retorno:NmRetorno
+            return objRetorno
+          endif
+
+          lnSeq := self:getNrSeqInterface()
+
+
+          laRESULT := {{'NR_PASTA','SEGURADO_NUMERO','CD_RAMOSRSN','NR_CONTROLE','DT_PROTOCOLO'},;
+                       {nrpasta, seguradonumero, ramo, alltrim(transform(lnSeq,'999999')),DTOS(DATE())}}
+
+          // Consultar os dados do sinsitro
+
+          lcEnv  := self:pathTMP + 'TOPNEW' + Wset('LOGIN') +'_'+Dtos(Date())+strtran(time(),':','') +'.XML'
+          lcRet  := self:pathTMP + 'TOPRET' + Wset('LOGIN') +'_'+Dtos(Date())+strtran(time(),':','')+ '.XML'
+
+          // Trata o header do resultset antes de enviar o mesmo para o processamento do parser
+          for ii := 1 to len(laRESULT[1])
+              laRESULT[1,ii] := lower(laRESULT[1,ii])
+          next ii
+
+          lcParser := self:Parser2Str(laCONF[2,db_fetchncol(laCONF, 'ID_VINCULAR_TOP')],laRESULT)
+
+          GravaArquivo(lcEnv,lcParser) // Função presente na FuncWic
+
+          // Executa o pedido das informações
+
+          lcRun := self:pathWS + WSet('WSTOPSAUDEAPPNAME')+' '+laCONF[2, db_fetchncol(laCONF,'NOME_WS')]+' ' + lcEnv + ' ' + lcRet
+          ! (lcrun)
+
+          // Aguarda o tempo da resposta
+          inkey(laCONF[2,db_fetchncol(laCONF,'TEMPOESPERA')])
+
+          // Obter o conteúdo da pesquisa
+          if (! file(lcRet))
+             objRetorno:CdRetorno := -1
+             objRetorno:NmRetorno := 'Erro ao receber o arquivo de retorno.Arquivo de retorno não existe:'+lcRet
+             return objRetorno
+          endif
+
+          lcTMP  := GetFileContent(lcRet) // Presente na func.wic
+          lcERRO := self:TrataErroWS(lcTMP) // Presente na func.wic
+
+          if ! empty(lcERRO)
+             objRetorno:CdRetorno := -1
+             objRetorno:NmRetorno := 'ERRO: '+lcERRO
+             return objRetorno
+          endif
+
+          self:SerializeRetornoTop(lcTMP, objRetorno)
+
+
+
+return objRetorno
+
+
+
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: ConXml2Obj(lcTMP, objConsulta)
+* Objetivo..: Realiza a conversão do xml de consulta em objeto FlagShip
+*
+* Parâmetros:
+*
+*  lcTMP      : conteúdo do xml
+*  objConsulta: Objeto do tipo ConsultaTop para serealização.
+*
+* Retorno...:
+*               Objeto do tipo ConsultaTop serealizado.
+*
+*/
+
+METHOD ConXml2Obj(lcTMP, objConsulta) CLASS TopSaudeService
+
+
+
+    objConsulta:SinistroNumero  := self:getTag(lcTMP, "sinistro_numero")
+    objConsulta:IdIntegracao    := self:getTag(lcTMP, "id_integracao")
+    objConsulta:TpIntegracao    := self:getTag(lcTMP, "tp_integracao")
+    objConsulta:Ramo            := self:getTag(lcTMP, "ramo")
+    objConsulta:StatusSinistro  := self:getTag(lcTMP, "status_sinistro")
+    objConsulta:FlSinistro      := self:getTag(lcTMP, "")
+    objConsulta:PagtoPendentes  := self:getTag(lcTMP, "pagto_pendentes")
+    objConsulta:PagtoAgendados  := self:getTag(lcTMP, "pagto_agendados")
+    objConsulta:TpSinistro      := self:getTag(lcTMP, "tp_sinistro")
+    objConsulta:Uf              := self:getTag(lcTMP, "uf")
+    objConsulta:CnpjCpf         := self:getTag(lcTMP, "cnpj_cpf")
+    objConsulta:NomeSegurado    := self:getTag(lcTMP, "nome_segurado")
+    objConsulta:DataSinistro    := self:getTag(lcTMP, "data_sinistro")
+    objConsulta:DataBaixa       := self:getTag(lcTMP, "data_baixa")
+    objConsulta:NrApolice       := self:getTag(lcTMP, "nr_apolice")
+    objConsulta:StatusApolice   := self:getTag(lcTMP, "status_apolice")
+    objConsulta:NrProposta      := self:getTag(lcTMP, "nr_proposta")
+    objConsulta:DataContratacao := self:ajustaData(self:getTag(lcTMP, "data_contratacao"))
+    objConsulta:DataPagtoPremio := self:getTag(lcTMP, "")
+    objConsulta:CdCorretor      := self:getTag(lcTMP, "cd_corretor")
+    objConsulta:CdEstipulante   := self:getTag(lcTMP, "cd_estipulante")
+    objConsulta:FlCosseguro     := self:getTag(lcTMP, "fl_cosseguro")
+    objConsulta:PcCosseguro     := self:getTag(lcTMP, "pc_cosserguro")
+    objConsulta:CnpjCongenere   := self:getTag(lcTMP, "cnpj_congenere")
+    objConsulta:NrCobertura     := self:getTag(lcTMP, "nr_cobertura")
+    objConsulta:VlLmi           := self:getTag(lcTMP, "vl_lmi")
+    objConsulta:VlSinistrado    := self:getTag(lcTMP, "vl_sinistrado")
+
+
+
+return objConsulta
+
+
+
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: gravarPfpj(objConsulta)
+* Objetivo..: Realiza a gravação do segurado caso o mesmo não exista no Isj.
+*
+* Parâmetros:
+*
+*  objConsulta : objeto do tipo ConsultaTop
+*
+* Retorno...:
+*
+*
+*/
+
+METHOD gravarPfpj(objConsulta) CLASS TopSaudeService
+
+    local lnTMP := 0 AS Int
+    local laRES := {} AS Array
+
+           if ! empty(objConsulta:CnpjCpf)
+    
+              if db_select({'CIP','PFPJ'},'pfpj',,{'CNPJ_CPF='+DLAP+objConsulta:CnpjCpf+DLAP}) == -1
+                 error_sys(db_error())
+              endif
+              laRES := db_fetchall()
+              if len(laRES) == 1
+                 if db_insert({{'PFPJ',;
+                                'PFPJ_CHAR',;
+                                'CNPJ_CPF',;
+                                'PFPJ_TIPOS',;
+                                'PFPJ_NATUREZA',;
+                                'LOGIN_CADASTRO',;
+                                'DT_CADASTRO',;
+                                'DT_ENTRADA'},;
+                                {objConsulta:NomeSegurado,;
+                                lower(lat2char(objConsulta:NomeSegurado)),;
+                                objConsulta:CnpjCpf,;
+                                'SEG',;
+                                iif(len(objConsulta:CnpjCpf) > 11,'Juridica','Fisica'),;
+                                'webservice',;
+                                date(),;
+                                date()}},'pfpj') == -1
+                    error_sys(db_error())
+                 else
+                    lnTMP := db_insert_id()
+                    if db_update({{'CIP'},{str(lnTMP)}},'pfpj',{'CNPJ_CPF='+DLAP+objConsulta:CnpjCpf+DLAP}) == -1
+                       error_sys(db_error())
+                    endif
+
+                    WPUT('CIP_SEGURADO', AllTrim(lnTMP))
+                    WPUT('CIP_PFPJ_SEGURADO', objConsulta:NomeSegurado)
+
+                 endif
+              else
+                 WPUT('CIP_SEGURADO', laRES[2,1])
+                 WPUT('CIP_PFPJ_SEGURADO', laRES[2,2])
+              endif
+           endif
+
+return self
+
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: gravaLogSeguro(objConsulta)
+* Objetivo..: Realiza a gravação do log da consulta.
+*
+* Parâmetros:
+*
+*  objConsulta : objeto do tipo ConsultaTop.
+*
+* Retorno...:
+*
+*
+*/
+
+METHOD gravaLogSeguro(objConsulta) CLASS TopSaudeService
+
+
+
+   if db_insert({{'NR_PASTA','NR_SINISTRO','ID_INTEGRACAO','ID_SERVICO','DT_OPERACAO','HR_OPERACAO','FL_ACAOJUD','RETORNO'},;
+                 {WGet('NR_PASTA'), objConsulta:self:SinistroNumero, objConsulta:IdIntegracao,1,date(),time(),objConsulta:StatusSinistro,objConsulta:toString()}},'isjunimedservlog') == -1
+      error_sys(db_error())
+   endif
+
+
+return self
+
+
+
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: getFlSinistro(status)
+* Objetivo..: Retorna a descrição do status do sinistro
+*
+* Parâmetros:
+*
+*  status : status no xml
+*
+* Retorno...:
+*               Descrição do status
+*
+*/
+
+METHOD getFlSinistro(status) CLASS TopSaudeService
+
+      if alltrim(status) == '1' .OR. alltrim(status) == 'L'
+         return 'Liberado'
+      elseif alltrim(status) == '2' .OR. alltrim(status) == 'P'
+             return 'Pendente'
+      elseif alltrim(status) == '3' .OR. alltrim(status) == 'R'
+             return 'Recusado'
+      elseif alltrim(status) == '4' .OR. alltrim(status) == 'A'
+             return 'Liberado Parcial'
+      endif
+
+return ''
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: getTpSinistro(tipo)
+* Objetivo..: Retorna a descrição do tipo do sinistro
+*
+* Parâmetros:
+*
+*  tipo : tipo no xml
+*
+* Retorno...:
+*               Descrição do tipo
+*
+*/
+
+METHOD getTpSinistro(status) CLASS TopSaudeService
+
+      if status == '11'
+         return 'Vida em Grupo'
+      elseif status == '12'
+             return 'Acidentes Pessoais'
+      elseif status == '13'
+             return 'SERIT'
+      elseif status == '14'
+             return 'Benefícios'
+      elseif status == '15'
+             return 'Assistências'
+      elseif status == '16'
+             return 'Serit Modular'
+      elseif status == '17'
+             return 'Proteção Familiar'
+      elseif status == '18'
+             return 'Prestamista'
+      elseif status == '19'
+             return 'VG com Serit atrelado'
+      elseif status == '20'
+             return 'Proteção Financeira'
+      elseif status == 'S'
+             return 'Saúde'
+      endif
+
+return ''
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: getFlApolice(status)
+* Objetivo..: Retorna a situação do contrato
+*
+* Parâmetros:
+*
+*  status : status no xml
+*
+* Retorno...:
+*               Situação do contrato
+*
+*/
+
+METHOD getFlApolice(status) CLASS TopSaudeService
+
+      if alltrim(status) == 'A'
+         return 'Ativa'
+      elseif alltrim(status) == 'C'
+             return 'Cancelada'
+      elseif alltrim(status) == 'S'
+             return 'Suspensa'
+      endif
+
+return ''
+
+
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: ValidaPath()
+* Objetivo..: Valida o path e aplicação ponte para comunicação com o WS
+*
+* Parâmetros:
+*
+* Retorno...:
+*               objeto do tipo ConsultaTop
+*
+*/
+
+METHOD ValidaPath() CLASS TopSaudeService
+
+    local objConsulta := ConsultaTopNew() AS Object
+
+          if empty(WSet('PATHWSTOP'))
+             objConsulta:Retorno:CdRetorno := -1
+             objConsulta:Retorno:NmRetorno := 'Path da aplicação de consumo webservice não configurada no wprofile.'
+          endif
+          self:pathWS := WSet('PATHWSTOP')
+          if ! file(self:pathWS+WSet('WSTOPSAUDEAPPNAME'))
+             objConsulta:Retorno:CdRetorno := -1
+             objConsulta:Retorno:NmRetorno := 'Aplicação de consumo webservice não esta presente no diretório informado no wprofile.'
+          endif
+
+return objConsulta
+
+
+
+/*
+*
+* Glauber - 10/2017
+*
+* Metodo....: ValidaConf(laCONF)
+* Objetivo..: Valida a configuração dos xmls da interface
+*
+* Parâmetros:
+*
+* Retorno...:
+*               objeto do tipo RetornoTop
+*
+*/
+
+METHOD ValidaConf(laCONF) CLASS TopSaudeService
+
+    local objRetorno := RetornoTopNew() AS Object
+
+          if len(laCONF) == 0
+             objRetorno:CdRetorno := -1
+             objRetorno:NmRetorno := 'Não foi encontrado configuração do Evida / Top Saúde.'
+          endif
+
+return objRetorno
+
+
+
+
+/*
+*
+* Glauber - 03/2018
+*
+* Metodo....: SerializeRetornoTop
+* Objetivo..: Serializa o retorno xml em objeto
+*
+* Parâmetros:
+*
+* Retorno...:
+*               objeto do tipo RetornoTop
+*
+*/
+
+METHOD SerializeRetornoTop(lcTMP, objRetorno) CLASS TopSaudeService
+
+
+    if empty(lcTMP)
+       objRetorno:CdRetorno := -1
+       objRetorno:NmRetorno := 'Não foi encontrado dados para retorno vindo do webservice.'
+    else
+       objRetorno:CdRetorno := objEvida:getTag(lcTMP, 'cd_retorno')
+       objRetorno:NmRetorno := objEvida:getTag(lcTMP, 'nm_retorno')
+    endif
+
+
+
+
+
+
+return objRetorno
+
+
+
+
+
+/*
+*
+* Glauber - 03/2018
+*
+* Metodo....: RetornaConfWS()
+* Objetivo..: Valida a configuração do webservice e retorna um array com os dados para montar o xml.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Retorna um array com os dados para montar o xml de consumo, em caso de erro retorna o array vazio
+*
+*/
+
+
+METHOD RetornaConfWS() CLASS TopSaudeService
+
+    local laCONF       := {},;
+          laFIELDSCONF := {},;
+          laRES        := {},;
+          laTMP        := {},;
+          laRESULT     := {} as Array
+    local lcWHERE      := '',;
+          lcCONSULTA   := '',;
+          lcFLEGA      := '',;
+          lcQuery      := '' as String
+    local llErro       := .f.
+
+
+
+    // Valida a configuração dos serviços preenchimento dos campos de configuração
+
+       laFIELDSCONF := {'isjunimedservconf.ID_SOLICITA_DADOS',;
+                        'isjunimedservconf.ID_MARCA_DESMARCA',;
+                        'isjunimedservconf.ID_DESMARCA',;
+                        'isjunimedservconf.ID_RAMO_EVIDA',;
+                        'isjunimedservconf.ID_RAMO_TOP',;
+                        'isjunimedservconf.PEDIDO_PROCESSO',;
+                        'isjunimedservconf.TEMPOESPERA',;
+                        'isjunimedservconf.ID_RESERVA',;
+                        'isjunimedservconf.ID_PAGTO_EVIDA',;
+                        'isjunimedservconf.ID_CONFAV_EVIDA',;
+                        'isjunimedservconf.ID_INCFAV_EVIDA',;
+                        'isjunimedservconf.ID_RETORNO_PAGTOS',;
+                        'isjunimedservconf.ID_CONSULTA_TOP_SINISTRO',;
+                        'isjunimedservconf.ID_CONSULTA_TOP_SEGURADO',;
+                        'isjunimedservconf.ID_VINCULAR_TOP',;
+                        'isjunimedservconf.ID_ATUALIZAR_RESERVA_TOP',;
+                        'isjunimedservconf.ID_EFETUAR_PAGAMENTO_TOP'}
+       if db_select(laFIELDSCONF,'isjunimedservconf') = -1
+           error_sys(db_error())
+       endif
+       laCONF := db_fetchall()
+       if len(laCONF) == 1
+          WAlert('Configuração do webservice não encontrada.')
+          llErro := .t.
+       else
+          lcWHERE := 'ID_SERVICO IN('
+          for ii := 1 to len(laCONF[1])
+              if valtype(laCONF[2,ii]) == 'N'
+                 if laCONF[2,ii] == 0
+                    WAlert('O campo ' +lblfscreen(laCONF[1,ii]) + ' não foi configurado corretamente no webservice.')
+                    llErro := .t.
+                 endif
+                 if (laCONF[1,ii] == 'ID_SOLICITA_DADOS')
+                    lcWHERE += str(laCONF[2,ii]) + ','
+                 elseif (laCONF[1,ii] == 'ID_MARCA_DESMARCA')
+                    lcWHERE += str(laCONF[2,ii]) +','
+                 elseif (laCONF[1,ii] == 'ID_DESMARCA')
+                    lcWHERE += str(laCONF[2,ii]) +','
+                 elseif (laCONF[1,ii] == 'ID_RESERVA')
+                    lcWHERE += str(laCONF[2,ii]) +')'
+                 endif
+              elseif valtype(laCONF[2,ii]) == 'C' .or. valtype(laCONF[2,ii]) == 'D'
+                     if empty(laCONF[2,ii]) .or. laCONF[2,ii] == '  /  /    '
+                        WAlert('O campo ' +lblfscreen(laCONF[1,ii]) + ' não foi configurado corretamente no webservice.')
+                        llErro := .t.
+                     endif
+              endif
+          next ii
+       endif
+       // Valida a configuração dos serviços, conteúdo dos campo para ser gerado o xml
+       if ! llErro
+          if WSET('DRV_GR5') == 'PGS'
+             lcQuery := "select ID_SERVICO,SERVICO from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,1])) +;
+                        " union " +;
+                        "select ID_SERVICO,SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,2])) +;
+                        " union " +;
+                        "select ID_SERVICO,SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,2])) +;
+                        " union " +;
+                        "select ID_SERVICO,convert(varchar(4000),SERVICO) as SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,8]))
+          else
+             lcQuery := "select ID_SERVICO,convert(varchar(4000),SERVICO) as SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2, db_fetchncol(laCONF,'ID_SOLICITA_DADOS')])) +;
+                        " union " +;
+                        "select ID_SERVICO,convert(varchar(4000),SERVICO) as SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,db_fetchncol(laCONF,'ID_MARCA_DESMARCA')])) +;
+                        " union " +;
+                        "select ID_SERVICO,convert(varchar(4000),SERVICO) as SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,db_fetchncol(laCONF,'ID_DESMARCA')])) +;
+                        " union " +;
+                        "select ID_SERVICO,convert(varchar(4000),SERVICO) as SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,db_fetchncol(laCONF,'ID_RESERVA')])) +;
+                        " union " +;
+                        "select ID_SERVICO,convert(varchar(4000),SERVICO) as SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,db_fetchncol(laCONF,'ID_PAGTO_EVIDA')])) +;
+                        " union " +;
+                        "select ID_SERVICO,convert(varchar(4000),SERVICO) as SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,db_fetchncol(laCONF,'ID_CONFAV_EVIDA')])) +;
+                        " union " +;
+                        "select ID_SERVICO,convert(varchar(4000),SERVICO) as SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,db_fetchncol(laCONF,'ID_INCFAV_EVIDA')]))
+             lcQuery += " union " +;
+                        "select ID_SERVICO,convert(varchar(4000),SERVICO) as SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,db_fetchncol(laCONF,'ID_RETORNO_PAGTOS')])) +;
+                        " union " +;
+                        "select ID_SERVICO,convert(varchar(4000),SERVICO) as SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,db_fetchncol(laCONF,'ID_CONSULTA_TOP_SINISTRO')])) +;
+                        " union " +;
+                        "select ID_SERVICO,convert(varchar(4000),SERVICO) as SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,db_fetchncol(laCONF,'ID_CONSULTA_TOP_SEGURADO')])) +;
+                        " union " +;
+                        "select ID_SERVICO,convert(varchar(4000),SERVICO) as SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,db_fetchncol(laCONF,'ID_VINCULAR_TOP')])) +;
+                        " union " +;
+                        "select ID_SERVICO,convert(varchar(4000),SERVICO) as SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,db_fetchncol(laCONF,'ID_ATUALIZAR_RESERVA_TOP')])) +;
+                        " union " +;
+                        "select ID_SERVICO,convert(varchar(4000),SERVICO) as SERVICO,NOME_WS from isjunimedservicos where ID_SERVICO = " + alltrim(str(laCONF[2,db_fetchncol(laCONF,'ID_EFETUAR_PAGAMENTO_TOP')]))
+
+
+
+          endif
+          lcQUERY += " order by ID_SERVICO"
+          laFIELDSCONF := {'ID_SERVICO',;
+                           'SERVICO',;
+                           'NOME_WS'}
+          if db_query(lcQuery) = -1
+             error_sys(db_error())
+          endif
+          laRES := db_fetchall()
+          if len(laRES) == 1
+             WAlert('Tabela de serviços do webservice vazia.')
+             llErro := .t.
+          Endif
+          if ! llErro
+             for ii := 2 to len(laRES)
+                 if empty(laRES[ii,2]) .OR. empty(laRES[ii,3])
+                    WAlert('O serviço de código ' +alltrim(str(laRES[ii,1])) + ' não foi configurado corretamente no webservice.')
+                    llErro := .t.
+                 endif
+             next ii
+          endif
+       endif
+
+       // Monta o array de retorno com os dados para solicitação dos servicos
+/*
+       if ! llErro
+          // laRES[ascan(laRES,{|x| alltrim(x[1]) == alltrim(laCONF[2,db_fetchncol(laCONF,'ID_RETORNO_PAGTOS')])}), 2]
+
+          laRESULT := {{'CONSULTA','FLEG','ID_RAMO_VIDA','ID_RAMO_TOP','PEDIDO_PROCESSO','TEMPOESPERA','NOME_WS','DESMARCA','ID_RESERVA','ID_PAGTO_EVIDA','ID_CONFAV_EVIDA','ID_INCFAV_EVIDA','ID_RETORNO_PAGTOS','ID_CONSULTA_TOP_SINISTRO','ID_CONSULTA_TOP_SEGURADO','ID_VINCULAR_TOP','ID_ATUALIZAR_RESERVA_TOP','ID_EFETUAR_PAGAMENTO_TOP'}}
+          laTMP    := {lower(laRES[ascan(laRES,{|x| alltrim(x[1]) == alltrim(laCONF[2,db_fetchncol(laCONF,'ID_SOLICITA_DADOS')])}), 2]),;
+                       lower(laRES[ascan(laRES,{|x| alltrim(x[1]) == alltrim(laCONF[2,db_fetchncol(laCONF,'ID_MARCA_DESMARCA')])}), 2]),;
+                       laCONF[2,4],;
+                       laCONF[2,5],;
+                       laCONF[2,6],;
+                       laCONF[2,7],;
+                       laRES[2,3],;                                                                                                       // NOME DO WEBSERVICE
+                       laRES[ascan(laRES,{|x| alltrim(x[1]) == alltrim(laCONF[2,db_fetchncol(laCONF,'ID_DESMARCA')])}), 2],;
+                       lower(laRES[ascan(laRES,{|x| alltrim(x[1]) == alltrim(laCONF[2,db_fetchncol(laCONF,'ID_RESERVA')])}), 2]),;
+                       laRES[ascan(laRES,{|x| alltrim(x[1]) == alltrim(laCONF[2,db_fetchncol(laCONF,'ID_PAGTO_EVIDA')])}), 2],;
+                       laRES[ascan(laRES,{|x| alltrim(x[1]) == alltrim(laCONF[2,db_fetchncol(laCONF,'ID_CONFAV_EVIDA')])}), 2],;
+                       laRES[ascan(laRES,{|x| alltrim(x[1]) == alltrim(laCONF[2,db_fetchncol(laCONF,'ID_INCFAV_EVIDA')])}), 2],;
+                       laRES[ascan(laRES,{|x| alltrim(x[1]) == alltrim(laCONF[2,db_fetchncol(laCONF,'ID_RETORNO_PAGTOS')])}), 2],;
+                       laRES[ascan(laRES,{|x| alltrim(x[1]) == alltrim(laCONF[2,db_fetchncol(laCONF,'ID_CONSULTA_TOP_SINISTRO')])}), 2],;
+                       laRES[ascan(laRES,{|x| alltrim(x[1]) == alltrim(laCONF[2,db_fetchncol(laCONF,'ID_CONSULTA_TOP_SEGURADO')])}), 2],;
+                       laRES[ascan(laRES,{|x| alltrim(x[1]) == alltrim(laCONF[2,db_fetchncol(laCONF,'ID_VINCULAR_TOP')])}), 2],;
+                       laRES[ascan(laRES,{|x| alltrim(x[1]) == alltrim(laCONF[2,db_fetchncol(laCONF,'ID_ATUALIZAR_RESERVA_TOP')])}), 2],;
+                       laRES[ascan(laRES,{|x| alltrim(x[1]) == alltrim(laCONF[2,db_fetchncol(laCONF,'ID_EFETUAR_PAGAMENTO_TOP')])}), 2]}
+          aadd(laRESULT, laTMP)
+       endif
+
+return(laRESULT)
+*/
+
+//wout('<br><b> laCONF')
+//debug2(laCONF,,30)
+
+return laCONF
+
+
+
+
+
+
+/*
+*
+* Glauber - 03/2018
+*
+* Metodo....: getNrSeqInterface()
+* Objetivo..: Retorna o numero de controle da próxima integração.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*
+*              Numero de controle da próxima integração
+*/
+
+METHOD getNrSeqInterface() CLASS TopSaudeService
+
+
+   local laSeq := {} AS Array
+   local lnSeq := 0 AS Numeric
+
+
+
+       // Atualiza o valor da sequencia na tabela
+       if db_select({'nr_sequencia + 1 as nr_sequencia' },'seq_interfaces',,{'PROGRAM='+DLAP+'mnt_sinistro_web_html'+DLAP}) == -1
+          error_sys(db_error())
+       endif
+
+       laSeq := db_fetchrow()
+       lnSeq := laSeq[1]
+
+       if db_update({{'NR_SEQUENCIA'},{lnSeq}},'seq_interfaces',{'PROGRAM='+DLAP+'mnt_sinistro_web_html'+DLAP}) == -1
+          error_sys(db_error())
+       endif
+
+return lnSeq
+
+
+
+/*
+*
+* Glauber - 03/2018
+*
+* Metodo....: Parser2str()
+* Objetivo..: Processa o parser em pcConteudo com base nos dados de paResult.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*
+*              Numero de controle da próxima integração
+*/
+
+METHOD  Parser2str(pcConteudo,paResult) CLASS TopSaudeService
+
+     local xx := 0 as int
+     local lcResult := '',;
+           lcTmp    := '' as String
+     lcResult := pcConteudo
+     if len(pcConteudo) > 0 .and. len(paResult) > 1
+        for xx := 1 to len(paResult[1])
+            lcTMP := '[' + paResult[1,xx] + ']'
+            lcResult := StrTran(lcResult,lcTMP,paResult[2,xx])
+        next xx
+     endif
+return (lcResult)
+
+
+
+
+
+/*
+*
+* Glauber - 03/2018
+*
+* Metodo....: getService()
+* Objetivo..: Retorna um servico.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Retorna um array com os dados do servico
+*
+*/
+
+
+METHOD getService(idService) CLASS TopSaudeService
+
+
+   local laRET := {} AS Array
+
+
+
+
+
+       if db_select({"ID_SERVICO", "NOME_WS", "SERVICO"},'isjunimedservicos',,{'ID_SERVICO='+AllTrim(idService)}) == -1
+          error_sys(db_error())
+       endif
+
+       laRET := db_fetchall()
+
+
+return laRET
+
+
+
+
+/*
+*
+* Glauber - 03/2018
+*
+* Metodo....: TrataErroWS
+* Objetivo..: Retorna um servico.
+*
+* Parâmetros:
+*
+*
+* Retorno...:
+*             Objeto RetornoTop - Extrai um possivel erro do conteúdo de retorno do xml.
+*
+*/
+
+METHOD  TrataErroWS(pcCONTEUDO) CLASS TopSaudeService
+
+        local objRet := RetornoTopNew() AS Object
+
+/*
+
+<retorno>
+<erro>
+<cd_retorno>00</cd_retorno><nm_retorno>Tag fora do padrÃ£o.</nm_retorno></erro>
+</retorno>
+
+*/
+        if at('Exception',pcCONTEUDO) > 0
+           objRet:CdRetorno := -1
+           objRet:NmRetorno := 'Problemas com o layout do arquivo xml.'
+        elseif at('<erro>',pcCONTEUDO) > 0
+
+/*
+<retorno>
+<erro>
+<cd_retorno>00</cd_retorno><nm_retorno>Tag fora do padrÃ£o.</nm_retorno></erro>
+</retorno>
+
+<retorno>
+<erro>
+<cd_retorno>20</cd_retorno><nm_retorno>Dados nÃ£o encontrados.</nm_retorno></erro>
+</retorno>
+
+*/
+            objRet:CdRetorno := iif(Val(self:getTag(pcConteudo,'cd_retorno')) == 0, -1, Val(self:getTag(pcConteudo,'cd_retorno')))
+            objRet:NmRetorno := self:getTag(pcConteudo,'nm_retorno')
+
+        endif
+
+        if objRet:CdRetorno != 0
+           // Grava o log
+           // Gravo o id_servico como 9 para identificar que houve erro na operação, também
+           // armazeno o conteúdo do xml de retorno no campo retorno.
+           if db_insert({{'NR_PASTA','NR_SINISTRO','ID_INTEGRACAO','ID_SERVICO','DT_OPERACAO','HR_OPERACAO','RETORNO'},;
+                         {Wget('NR_PASTA'),Wget('NR_SINISTRO'),Wget('ID_INTEGRACAO'),9,date(),time(),pcCONTEUDO}},'isjunimedservlog') == -1
+              error_sys(db_error())
+           endif
+        endif
+return (objRet)
+
+
+
+
+
+/*
+*
+* Glauber - 03/2018
+*
+* Metodo....: cloneSinistro()
+* Objetivo..: Verifica se um sinistro já existe em alguma pasta e replica seus dados para a pasta atual.
+*
+* Parâmetros:
+*
+*
+* fcNR_PASTA Número da pasta atual.
+* fcNR_SINISTRO Número do Sinistro.
+*
+*
+*
+* Retorno...:
+*
+*     .T. Caso exista e tenha sido clonado com sucesso.
+*/
+
+METHOD cloneSinistro(fcNR_PASTA, fcNR_SINISTRO)  CLASS TopSaudeService
+
+
+local llEXISTE := .F.
+
+local lnID     :=  0,;
+      lnPOS    :=  0,;
+      lnPSTORI := 0,;
+      lnSINANT :=  0  AS INT
+
+
+local laRES    := {},;
+      laFIELDS := {},;
+      laWHERE  := {} AS Array
+
+
+      laFIELDS := structtable(WSet("DB_ACTIVE"),'pasta_seguro',1,'A')
+      laWHERE  := {'pasta_seguro.NR_PASTA <>' + fcNR_PASTA +'  AND  pasta_seguro.NR_SINISTRO=' + DLAP + fcNR_SINISTRO + DLAP}
+
+      if db_select(laFIELDS,'pasta_seguro',, laWHERE, {'NR_PASTA'},'D',,{1}) == -1
+          error_sys(db_error())
+      endif
+      laRES := db_fetchall()
+
+      if len(laRES) > 1
+         llEXISTE := .T.
+         
+         lnPSTORI := laRES[2, db_fetchncol(laRES,"NR_PASTA")]
+
+         laRES[2, db_fetchncol(laRES,"NR_PASTA")] := val(fcNR_PASTA)
+
+         // Remover o nr_controle antes de salvar
+
+         lnPOS := ascan(laRES[1],"NR_CONTROLE")
+
+         if (lnPOS > 0)
+            lnSINANT := laRES[2, lnPOS]
+             adel(laRES[1],lnPOS)
+             adel(laRES[2],lnPOS)
+             asize(laRES[1],len(laRES[1])-1)
+             asize(laRES[2],len(laRES[2])-1)
+         endif
+
+         // Gravar os dados do seguro
+
+         if db_insert(laRES,'pasta_seguro') == -1
+            error_sys(db_error())
+         endif
+
+         lnID := db_insert_id()
+
+         // Grava os dados do Segurado
+
+         laFIELDS := structtable(WSet("DB_ACTIVE"),'pasta_seguro_segurado',1,'A')
+         laWHERE  := {'NR_PASTA='+AllTrim(lnPSTORI) + ' and NR_CONTROLE=' + AllTrim(lnSINANT) }
+
+         if db_select(laFIELDS,'pasta_seguro_segurado',, laWHERE) == -1
+              error_sys(db_error())
+         endif
+         laRES := db_fetchall()
+
+         if len(laRES) > 1
+
+             laRES[2, db_fetchncol(laRES,"NR_PASTA")] := val(fcNR_PASTA)
+
+             lnPOS := ascan(laRES[1],"NR_CONTROLE")
+
+             if (lnPOS > 0)
+                for ii := 2 to len(laRES)
+                    laRES[ii,lnPOS] := lnID
+                next ii
+             endif
+
+             if db_insert(laRES,'pasta_seguro_segurado') == -1
+                error_sys(db_error())
+             endif
+         endif
+
+
+         // Grava os dados do LMI
+
+         laFIELDS := structtable(WSet("DB_ACTIVE"),'pasta_seguro_lmi',1,'A')
+         laWHERE  := {'NR_PASTA='+AllTrim(lnPSTORI) + ' and NR_CONTROLE=' + AllTrim(lnSINANT) }
+
+         if db_select(laFIELDS,'pasta_seguro_lmi',, laWHERE) == -1
+              error_sys(db_error())
+         endif
+         laRES := db_fetchall()
+
+         if len(laRES) > 1
+            laRES[2, db_fetchncol(laRES,"NR_PASTA")] := val(fcNR_PASTA)
+            lnPOS := ascan(laRES[1],"NR_CONTROLE")
+
+             if (lnPOS > 0)
+                for ii := 2 to len(laRES)
+                    laRES[ii,lnPOS] := lnID
+                next ii
+             endif
+
+             if db_insert(laRES,'pasta_seguro_lmi') == -1
+                error_sys(db_error())
+             endif
+         endif
+
+
+         // Grava os dados do Beneficiarios
+
+         laFIELDS := structtable(WSet("DB_ACTIVE"),'pasta_seguro_beneficiario',1,'A')
+         laWHERE  := {'NR_PASTA='+AllTrim(lnPSTORI) + ' and NR_CONTROLE=' + AllTrim(lnSINANT) }
+
+         if db_select(laFIELDS,'pasta_seguro_beneficiario',, laWHERE) == -1
+              error_sys(db_error())
+         endif
+         laRES := db_fetchall()
+
+         if len(laRES) > 1
+
+            laRES[2, db_fetchncol(laRES,"NR_PASTA")] := val(fcNR_PASTA)
+            lnPOS := ascan(laRES[1],"NR_CONTROLE")
+
+             if (lnPOS > 0)
+                for ii := 2 to len(laRES)
+                    laRES[ii,lnPOS] := lnID
+                next ii
+             endif
+
+             if db_insert(laRES,'pasta_seguro_beneficiario') == -1
+                error_sys(db_error())
+             endif
+         endif
+
+
+         // Grava os dados das Vitimas
+
+         laFIELDS := structtable(WSet("DB_ACTIVE"),'pasta_seguro_vitima',1,'A')
+         laWHERE  := {'NR_PASTA='+AllTrim(lnPSTORI)+ ' and NR_CONTROLE=' + AllTrim(lnSINANT) }
+
+         if db_select(laFIELDS,'pasta_seguro_vitima',, laWHERE) == -1
+              error_sys(db_error())
+         endif
+         laRES := db_fetchall()
+
+         if len(laRES) > 1
+
+            laRES[2, db_fetchncol(laRES,"NR_PASTA")] := val(fcNR_PASTA)
+
+             lnPOS := ascan(laRES[1],"NR_CONTROLE")
+
+             if (lnPOS > 0)
+                for ii := 2 to len(laRES)
+                    laRES[ii,lnPOS] := lnID
+                next ii
+             endif
+
+             if db_insert(laRES,'pasta_seguro_vitima') == -1
+                error_sys(db_error())
+             endif
+         endif
+
+         // Grava os dados do endereço do imóvel
+
+         laFIELDS := structtable(WSet("DB_ACTIVE"),'pasta_seguro_endereco_imovel',1,'A')
+         laWHERE  := {'NR_PASTA='+AllTrim(lnPSTORI) + ' and NR_CONTROLE=' + AllTrim(lnSINANT) }
+
+         if db_select(laFIELDS,'pasta_seguro_endereco_imovel',, laWHERE) == -1
+              error_sys(db_error())
+         endif
+         laRES := db_fetchall()
+
+         if len(laRES) > 1
+         
+            laRES[2, db_fetchncol(laRES,"NR_PASTA")] := val(fcNR_PASTA)
+
+             lnPOS := ascan(laRES[1],"NR_CONTROLE")
+
+             if (lnPOS > 0)
+                for ii := 2 to len(laRES)
+                    laRES[ii,lnPOS] := lnID
+                next ii
+             endif
+
+             if db_insert(laRES,'pasta_seguro_endereco_imovel') == -1
+                error_sys(db_error())
+             endif
+         endif
+
+
+
+      endif
+
+
+
+return lnID
+
+
+
+
+/*
+*
+* Glauber - 03/2018
+*
+* Metodo....: getLastSeguro()
+* Objetivo..: Retornar as informações do seguro que foi cadastrado na pasta.
+*
+* Parâmetros:
+*
+* fcNRSEGURO Número do Seguro
+* fcNR_PASTA Número da pasta atual.
+*
+*
+*
+* Retorno...:
+*
+*     Array Flagship com o resultset.
+*/
+
+METHOD getLastSeguro(fcNRSEGURO, fcNR_PASTA)  CLASS TopSaudeService
+
+
+local laRES    := {},;
+      laFIELDS := {},;
+      laWHERE  := {} AS Array
+
+
+      laFIELDS := structtable(WSet("DB_ACTIVE"),'pasta_seguro',1,'A')
+
+      laWHERE  := {'NR_PASTA<>' + fcNR_PASTA + '  AND  NR_SEGURO = ' + DLAP + fcNRSEGURO + DLAP }
+
+      if db_select(laFIELDS,'pasta_seguro',, laWHERE, {'NR_PASTA DESC'}) == -1
+         error_sys(db_error())
+      endif
+
+return db_fetchall()
+
+
+
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: getTag(xml, tag)
+* Objetivo..: Obtem o conteúdo de uma tag num xml.
+*
+* Parâmetros:
+*
+*    xml :  conteúdo do xml.
+*    tag :  tag a ser extraida.
+*
+* Retorno...:
+*
+*           objeto do tipo PfpjRetornoEvida com as informações
+*/
+
+METHOD getTag(xml, tag) CLASS TopSaudeService
+
+
+    local lcRET   := '',;
+          lcABRE  := '',;
+          lcFECHA := '' AS String
+    local POSINI  := 0,;
+          POSFIN  := 0,;
+          QTD     := 0 AS Int
+
+          lcABRE  := '<' + AllTrim(tag) + '>'
+          lcFECHA := '</' + AllTrim(tag) + '>'
+          POSINI  := AT(lcABRE,xml)
+          POSFIN  := AT(lcFECHA,xml)
+
+          if (POSINI > 0 .AND. POSFIN > 0)
+             QTD   := POSFIN - (POSINI + len(lcABRE))
+             lcRET := substr(xml, (POSINI + len(lcABRE)), QTD)
+             lcRET := AllTrim(StrTran(lcRET,lcFECHA,''))
+          endif
+
+
+return lcRET
+
+
+
+
+
+
+/*
+*
+* Glauber - 03/2018
+*
+* Metodo....: ajustaData(lcData)
+* Objetivo..: Converte a data para o Formato americado dd/mm/yyyy.
+*
+* Parâmetros:
+*
+*    lcdata :  data no formado string (yyyymmdd)
+*
+* Retorno...:
+*
+*           Data convertida.
+*/
+
+METHOD ajustaData(lcData) CLASS TopSaudeService
+
+
+    local lcRET   := '' AS String
+
+    if (! Empty(lcDAta))
+       lcRET := substr(lcData,7,2) + "/" + substr(lcData,5,2) + "/" + substr(lcData,1,4)
+    endif
+
+
+
+return lcRET
+
+
+
+
+/*
+*
+* Glauber - 09/2017
+*
+* Metodo....: NewXml2Obj(lcTMP, objRetTopNewNew)
+* Objetivo..: Realiza a conversão do xml de inclusão de sinistro em objeto FlagShip
+*
+* Parâmetros:
+*
+*  lcTMP          : conteúdo do xml
+*  objRetTopNewNew: Objeto do tipo ConsultaTop para serealização.
+*
+* Retorno...:
+*               Objeto do tipo RetTopNewNew serealizado.
+*
+*/
+
+METHOD NewXml2Obj(lcTMP, objRetTopNewNew) CLASS TopSaudeService
+
+
+    if (AT(lcTMP,'<erro>') > 0)
+       objRetTopNewNew:Retorno:CdRetorno      := -1
+       objRetTopNewNew:Retorno:NmRetorno      := self:getTag(lcTMP, "nm_retorno")
+    else
+       objRetTopNewNew:Retorno:CdRetorno      := 0
+       objRetTopNewNew:Retorno:NmRetorno      := "Registro processado com sucesso."
+    endif
+    objRetTopNewNew:SinistroNumero  := self:getTag(lcTMP, "sinistro_numero")
+    objRetTopNewNew:IdIntegracao    := self:getTag(lcTMP, "id_integracao")
+    objRetTopNewNew:TpIntegracao    := self:getTag(lcTMP, "tp_integracao")
+    objRetTopNewNew:Ramo            := self:getTag(lcTMP, "ramo")
+    objRetTopNewNew:Mensagem        := self:getTag(lcTMP, "msg_obs")
+
+
+
+return objRetTopNewNew
+
+
+
+
+/*
+*
+* Glauber - 04/2018
+*
+* Metodo....: AtualizarReserva(objTopAjustaReserva)
+* Objetivo..: Realiza o ajuste de reserva de um Sinistro TopSaude
+*
+* Parâmetros:
+*
+*  objTopAjustaReserva : Objeto do Tipo Top Saude
+*
+* Retorno...:
+*             Objeto do tipo RetornoTop
+*
+*/
+
+METHOD AtualizarReserva(objTopAjustaReserva) CLASS TopSaudeService
+
+
+    local objRet      := RetornoTopNew()  AS Object
+    local lnSeq       := 0                AS Int
+
+    local lcEnv       := ''               AS String
+    local lcRet       := ''               AS String
+    local lcParser    := ''               AS String
+    local lcTmp       := ''               AS String
+    local llErro      := .F.
+    local laCONF      := {}               AS Array
+    local laRESULT    := {}               AS Array
+    local laSERV      := {}               AS Array
+
+
+
+
+          objConsulta := self:ValidaPath()
+
+          if (objConsulta:Retorno:CdRetorno != 0)
+             objRet:CdRetorno := objConsulta:Retorno:CdRetorno
+             objRet:NmRetorno := objConsulta:Retorno:NmRetorno
+            return objRet
+          endif
+
+
+
+          laCONF := self:RetornaConfWS()
+
+          objRet := self:ValidaConf(laCONF)
+
+          if (objRet:CdRetorno != 0)
+             return objRet
+          endif
+
+          lnSeq := self:getNrSeqInterface()
+
+          laRESULT := {{'NR_SINISTRO',                        'CD_RAMOSRSN','NR_CONTROLE', 'VL_RESERVA',                      'AJUSTE_RESERVA',                            'AJUSTE_CORRECAO',                           'AJUSTE_JUROS',                          'AJUSTE_SUCUMBENCIA',                            'MANTER_ACAO',                    'ENCERRAR_SINISTRO'},;
+                        {objTopAjustaReserva:SinistroNumero,  objTopAjustaReserva:Ramo,    alltrim(transform(lnSeq,'999999')), AllTrim(objEvida:MascaraCampoMoedaTop(objTopAjustaReserva:ValorReserva)), AllTrim(objEvida:MascaraCampoMoedaTop(objTopAjustaReserva:AjusteReserva)), AllTrim(objEvida:MascaraCampoMoedaTop(objTopAjustaReserva:AjusteCorrecao)), AllTrim(objEvida:MascaraCampoMoedaTop(objTopAjustaReserva:AjusteJuros)), AllTrim(objEvida:MascaraCampoMoedaTop(objTopAjustaReserva:AjusteSucumbencia)), objTopAjustaReserva:ManterComAcao, objTopAjustaReserva:EncerrarSinistro}}
+
+
+          laSERV := self:getService(laCONF[2,db_fetchncol(laCONF, 'ID_ATUALIZAR_RESERVA_TOP')])
+
+
+          // Consultar os dados do sinsitro
+
+          lcEnv  := self:pathTMP + 'TOPATURES_' + Wset('LOGIN') +'_'+Dtos(Date())+strtran(time(),':','') +'.XML'
+          lcRet  := StrTran(lcEnv,'.XML', '.RET')
+
+          lcParser := self:Parser2Str(laSERV[2,db_fetchncol(laSERV,'SERVICO')],laRESULT)
+
+          GravaArquivo(lcEnv,lcParser) // Função presente na FuncWic
+
+          // Executa o pedido das informações
+
+          lcRun := self:pathWS + WSet('WSTOPSAUDEAPPNAME')+' '+ laSERV[2,db_fetchncol(laSERV,'NOME_WS')] +' ' + lcEnv
+
+// RUN:D:\ISJ\CGI\AMBIEN~1\Unimed45\IsjTopBridge.exe IntegracaoISJ Temp\TOPCONSULTA_inso_20180319173258.XML Unhandled Exception: System.Collections.Generic.KeyNotFoundException: The given key was not present in the dictionary. at System.Collections.Generic.Dictionary`2.get_Item(TKey key) at IsjTopBridge.ConsumoImplStore.getImplementacao(String operacao) at IsjTopBridge.Program.Main(String[] args)          
+// wout('<br><b>RUN:'+lcRun)
+
+          ! (lcrun)
+
+          // Aguarda o tempo da resposta
+          inkey(laCONF[2,db_fetchncol(laCONF,'TEMPOESPERA')])
+
+          // Obter o conteúdo da pesquisa
+          if (! file(lcRet))
+             objRet:CdRetorno := -1
+             objRet:NmRetorno := 'Erro ao receber o arquivo de retorno.Arquivo de retorno não existe:'+lcRet
+             return objRet
+          endif
+
+          lcTMP   := GetFileContent(lcRet) // Presente na func.wic
+          objRet := self:TrataErroWS(lcTMP)
+
+          if objRet:CdRetorno != 0
+             return objRet
+          endif
+
+
+return objRet
+
+
+
+
+
+/*
+*
+* Glauber - 04/2018
+*
+* Metodo....: GerarPedidoInicial(objTopAjustaReserva)
+* Objetivo..: Gera o pedido inicial de r$ 0,01
+*
+* Parâmetros:
+*
+*  fcNR_PASTA    : Número da pasta
+*  fcTP_PASTA    : Tipo da pasta
+*  pcNR_CONTROLE : Número de controle do seguro
+*
+* Retorno...:
+*             self
+*
+*/
+
+METHOD GerarPedidoInicial(fcNR_PASTA, fcTP_PASTA, pcNR_CONTROLE) CLASS TopSaudeService
+
+    local laCONF        := {},;
+          laSAVE        := {},;
+          laPADRAO      := {}    AS Array
+    local lnNR_CONTROLE := 0     AS Int
+
+
+            laSAVE := {{'NR_PASTA',;
+                       'PEDIDO_PROCESSO',;
+                       'NR_CONTROLE_SEGURO',;
+                       'DT_RISCO',;
+                       'VL_RISCO',;
+                       'VL_RISCO_CALC',;
+                       'PC_RISCO',;
+                       'DT_MOVTO_PED',;
+                       'FL_INTERFACEGEM',;
+                       'FL_CALCULO'},;
+                       {fcNR_PASTA,; // NR_PASTA
+                       'Pedido inicial interface TopSaude' ,; // PEDIDO_PROCESSO
+                       pcNR_CONTROLE,; // NR_CONTROLE_SEGURO
+                       date(),;        // DT_RISCO
+                       0.01,;          // VL_RISCO
+                       0.01,;          // VL_RISCO_CALC
+                       100,;           // PC_RISCO
+                       date(),;        // DT_MOVTO_PED
+                       '2',;           // FL_INTERFACEGEM
+                       'N'}}           // FL_CALCULO
+            if db_insert(laSAVE,'pasta_pedidos') == -1
+               error_sys(db_error())
+            endif
+            lnNR_CONTROLE := db_insert_id()
+
+
+            //
+            // Glauber 01/02/2011
+            // Gerar os lançamentos contábeis para o gem
+            //
+            // Observacao: não é serviço porco ou gambiarra minha, mas no registro
+            // para lançamento contábil o valor do risco e do risco calculado, deve
+            // ser informado como 0.00 em vez de 0.01, pois a função xcont só contabiliza a
+            // diferença pega pelo pedido e como a interface gem necessita do lançamento
+            // contábil eu sempre tenho que informa 0.00 neste trecho.
+
+            laPADRAO := valores_padroes(fcNR_PASTA,fcTP_PASTA) // função estatica no final do programa.
+            if len(laPADRAO) > 1
+                laSAVE := {{'NR_PASTA',;
+                        'NR_CONTROLE',;
+                        'PEDIDO_PROCESSO',;
+                        'NR_CONTROLE_SEGURO',;
+                        'VL_RISCO',;
+                        'PC_RISCO',;
+                        'VL_RISCO_CALC',;
+                        'VL_CORRECAO',;
+                        'VL_JUROS',;
+                        'DT_RISCO',;
+                        'FL_CALCULO',;
+                        'DT_MOVTO_PED',;
+                        'COMENTARIOS_PED',;
+                        'OCOR_PEDIDO',;
+                        'TX_EXPEDIENTE'},;
+                        {fcNR_PASTA,;
+                        lnNR_CONTROLE,;
+                        'Pedido inicial interface TopSaude',;
+                        pcNR_CONTROLE,;
+                        0.00,; //0.01
+                        100,;
+                        0.00,; // 0.01
+                        0.00,;
+                        0.00,;
+                        laPADRAO[2],;
+                        'N',;
+                        laPADRAO[1],;
+                        laPADRAO[3],;
+                        laPADRAO[3],;
+                        ''}}
+            else
+                laSAVE := {{'NR_PASTA',;
+                        'NR_CONTROLE',;
+                        'PEDIDO_PROCESSO',;
+                        'NR_CONTROLE_SEGURO',;
+                        'VL_RISCO',;
+                        'PC_RISCO',;
+                        'VL_RISCO_CALC',;
+                        'VL_CORRECAO',;
+                        'VL_JUROS',;
+                        'DT_RISCO',;
+                        'FL_CALCULO',;
+                        'DT_MOVTO_PED',;
+                        'COMENTARIOS_PED',;
+                        'OCOR_PEDIDO',;
+                        'TX_EXPEDIENTE'},;
+                        {fcNR_PASTA,;
+                        lnNR_CONTROLE,;
+                        'Pedido inicial interface TopSaude',;
+                        pcNR_CONTROLE,;
+                        0.00,;
+                        100,;
+                        0.00,;
+                        0.00,;
+                        0.00,;
+                        DATE(),;
+                        'N',;
+                        DATE(),;
+                        '',;
+                        '',;
+                        ''}}
+            endif
+            xcont(laSAVE,fcNR_PASTA,fcTP_PASTA)
+
+            laSAVE := {{'NR_PASTA',;
+                        'NR_CONTROLE',;
+                        'PEDIDO_PROCESSO',;
+                        'DT_MOVTO_PED',;
+                        'DT_RISCO',;
+                        'VL_RISCO',;
+                        'VL_RISCO_CALC',;
+                        'PC_RISCO',;
+                        'FL_INTERFACEGEM',;
+                        'LOGIN_CADASTRO'},;
+                        {fcNR_PASTA,;
+                        lnNR_CONTROLE,;
+                        'Pedido inicial interface TopSaude',;
+                        date(),;
+                        date(),;
+                        0.01,;
+                        0.01,;
+                        100,;
+                        '2',;
+                        'webservice'}}
+            if db_insert(laSAVE,'pasta_detal_pedidos') == -1 
+               error_sys(db_error())
+            endif
+
+
+return self
+
+
+
+
+
+
+
+
+* Function  : valores_padroes(fcNR_PASTA,fcTP_PASTA)
+* Objetivo  : Alimentar os campos DT_MOVTO_PED, DT_RISCO, OCOR_PEDIDO com valores padrões
+* Parâmetros: 
+*             fcNR_PASTA : Numero da Pasta
+*             fcTP_PASTA : Tipo da Pasta
+*             
+* Autor     : Valdimari Martins - 09/02/2009              
+
+static function valores_padroes(fcNR_PASTA, fcTP_PASTA)
+   local laRESULT      := {},;
+         laRESULT_OCOR := {},;
+         laRETORNO     := {} as array
+
+   if db_select({'DT_RISCO_CONF','OCOR_PEDIDO_INICIO'},'pasta_config',,{'TP_PASTA = '+DLAP+fcTP_PASTA+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT_OCOR:=db_fetchrow()
+
+   if empty(laRESULT_OCOR[2]) .OR. laRESULT_OCOR[2] == ''
+      walert('A parametrização dos Pedidos para esta Pasta \n ainda não foi realizada')
+      return(laRETORNO)
+   else
+      if len(laRESULT_OCOR) > 0
+         if !empty(laRESULT_OCOR[1])
+            if db_select({laRESULT_OCOR[1]},'pasta',,{'NR_PASTA = '+fcNR_PASTA}) == -1
+               error_sys(db_error())
+            endif
+            laRESULT:=db_fetchrow()
+            if len(laRESULT) > 0
+               laRETORNO := {date(),laRESULT[1],laRESULT_OCOR[2]}
+            else
+               walert('A parametrização dos Pedidos para esta Pasta \n ainda não foi realizada')
+            endif
+         else
+            laRETORNO := {date(),'',laRESULT_OCOR[2]}
+         endif   
+      else
+         walert('A parametrização dos Pedidos para esta Pasta \n ainda não foi realizada')
+      endif
+   endif         
+return(laRETORNO)
+
+

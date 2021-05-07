@@ -1,0 +1,50 @@
+/*
+
+Project      : gr5
+Program      : lst.desp.corp.html
+Function     : lst_desp_corp_html
+Created on   : 27-Aug-2002   17:06:00
+Descripition : Lista de seleção de Pasta a qual será lançado uma ou várias Despesas Corporativas
+
+*/
+
+   local laPARAM := {{'NR_PASTA',''},;
+                     {'NR_DESPESA',''},;
+                     {'ACTION'  ,'ALTER'}} as array
+   local laINPUT_HIDDEN := {} ,;
+         laQUICK_SEARCH := {} ,;
+         laJOIN         := {} as array
+
+   laSELECT       := {'mvt_despesa.NR_PASTA',;
+                      'mvt_despesa.NR_DESPESA',;
+                      'mvt_despesa.CD_DESPESA',;
+                      'despesa.NM_DESPESA',;
+                      'mvt_despesa.QUANTIDADE',;
+                      'mvt_despesa.VL_UNIT'}
+   laJOIN         := {{2,'despesa','mvt_despesa.CD_DESPESA = despesa.CD_DESPESA'}}
+
+   laQUICK_SEARCH := {'despesa.NM_DESPESA'}
+
+   xbp('mvt_despesa',;                                                     //Tabela alvo
+       laJOIN,;                                                            //Joins
+       ,;                                                                  //Where
+       ,;                                                                  //Order by
+       ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+       ,;                                                                  //Group by
+       ,;                                                                  //Limit
+       ,;                                                                  //Banco de Dados
+       4,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search, 4-Listagem
+       'gr5',;                                                             //Modulo do programa chamador
+       WSet('_USER_INTERFACE'),;                                           //Programa chamador
+       laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+       ,;                                                                  //Parâmetros para os botões das linhas do grid
+       'mnt.desp.corp.html',;                                              //Programa que os links/botoes do grid deverao chamar
+       'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+       ,;                                                                  //Retorno java (nil) - usado apenas para Search
+       laQUICK_SEARCH,;                                                    //Campos usados na pesquisa rápida
+       ,;                                                                  //Campos Ocultos
+       ,;                                                                  //Campos da área de manutenção/entrada de dados
+       laSELECT,;                                                          //Campos exibidos no grid
+       laSELECT)                                                           //Campos usados no select
+   wPut('TITLE','Relação de Lançamento de Despesas')
+return

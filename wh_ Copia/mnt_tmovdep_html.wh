@@ -1,0 +1,244 @@
+/*
+
+Project      : gr5
+Program      : mnt.tmovdep.html
+Function     : mnt_tmovdep_html.wh
+Created on   : 08/01/2013 09:03
+Descripition : Cadastro tipo de movimentação de Deposito
+*/
+
+   local lcACTION      := '' ,;
+         lcWHERE       := '' ,; 
+         lcNR_CONTROLE := '',;  
+         lcTABLE       := '' as string
+
+   local laFIELDS             := {} ,;
+         laRES                := {} ,;
+         laJOIN               := {} ,;
+         laSAVE               := {} ,;
+         laSAVEAUX            := {} ,;
+         laORDER              := {'DESCMOV'} ,;
+         laWHERE              := {} as array
+
+   local ii                   := 0 as int
+
+   local lnVL_RNG1 := 0.00 as numeric
+   
+   local llERRO:=.F.
+
+
+wPut('ifLSTPMOV',.T.)
+wPut('ifEXCTPMOV',.F.)
+
+laFIELDS := {'NR_CONTROLE',;
+             'DESCMOV',; 
+             'FL_DEFAULT',; 
+             'AJUSDEP'}
+             
+lcTABLE:='tipo_movdeposito'            
+
+lcACTION := upper(WGet('ACTION','C'))
+
+lcNR_CONTROLE := wGet('NR_CONTROLE','C')
+
+
+*** marca em vermelho campos obrigatorios
+*init_reqfield(WSet('_USER_INTERFACE'),laVALIDA) 
+
+
+WPut('AJUSDEP.option',{'Não Ajusta','A Maior','A Menor'})
+WPut('AJUSDEP.optionvalue',{'','+','-'}) 
+
+WPut('FL_DEFAULT.option',{'Não','Sim'})
+WPut('FL_DEFAULT.optionvalue',{'N','S'})
+
+wPut('ifEXCTPMOV',.F.)
+
+wPut('ifSEMDEF',.T.)
+wPut('ifDEF',.F.)
+
+lcWHERE  := 'NR_CONTROLE = ' + lcNR_CONTROLE
+
+
+if lcACTION = 'NEW' .and. gbWAC_CREATE
+   wPut('ifNEWTPMOV',.T.)
+   
+   wPut('NR_CONTROLE','New')
+   wPut('FL_DEFAULT','N') 
+   
+   if achopadrao()==.t. 
+      wPut('ifSEMDEF',.F.)
+      wPut('ifDEF',.T.)
+      wPut('FL_DEFAULT','Não')
+     else
+      wPut('ifSEMDEF',.T.)
+      wPut('ifDEF',.F.)
+   endif
+    
+   
+elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+
+   if len(alltrim(wget('DESCMOV','C')))==0 
+      walert('Tipo de Movimento e obrigatório!')
+      wPut('ifNEWTPMOV',.T.)
+      get2put()                                         
+       
+   else   
+
+      laSAVE:={}
+      laSAVEAUX:={}
+      aadd(laSAVE,laFIELDS)   
+   
+      for ii := 1 to len(laFIELDS)
+          aadd(laSAVEAUX,wGet(laFIELDS[ii],wmd_wfieldtype(laFIELDS[ii])))       
+      next ii
+      aadd(laSAVE,laSAVEAUX)
+
+      db_query('BEBGIN TRAN')              
+      if db_replace(laSAVE,lcTABLE,{lcWHERE}) == -1
+         db_query('ROLLBACK')
+         error_sys(db_error())
+      endif        
+      db_query('COMMIT')  
+         
+   endif
+   
+elseif lcACTION == 'ALTER' .and. gbWAC_READ
+
+   if db_select({'NR_CONTTPM'},'pasta_detal_dep',,{'NR_CONTTPM=' + str(WGet('NR_CONTROLE','N'))}) == -1
+      error_sys(db_error())
+   endif
+   laRES1 := db_fetchall()
+
+   if len(laRES1)>1
+
+      walert('Alteração não permitida tipo de movimento já está em uso!')
+
+     else
+
+      wPut('ifNEWTPMOV',.T.)
+      wPut('NR_CONTROLE',strzero(WGet('NR_CONTROLE','N'),10))
+      wPut('DESCMOV',WGet('DESCMOV','C'))
+      wPut('FL_DEFAULT',WGet('FL_DEFAULT','C'))
+   
+      if WGet('AJUSDEP','C') == 'Não Ajusta'
+         wPut('AJUSDEP','')
+      endif
+   
+      if WGet('AJUSDEP','C') == 'A Maior'
+         wPut('AJUSDEP','+')
+      endif
+   
+      if WGet('AJUSDEP','C') == 'A Menor'
+         wPut('AJUSDEP','-')
+      endif
+   
+      if achopadrao()==.t.
+         if WGet('FL_DEFAULT','C')=='N'
+            wPut('ifSEMDEF',.F.)
+            wPut('ifDEF',.T.)
+            if WGet('FL_DEFAULT','C')=='N'
+               wPut('FL_DEFAULT','Não')
+            endif
+           else
+            wPut('ifSEMDEF',.T.)
+            wPut('ifDEF',.F.)
+         endif
+
+        else
+         wPut('ifSEMDEF',.T.)
+         wPut('ifDEF',.F.)
+      endif
+   
+      wPut('ifEXCTPMOV',.T.)
+   endif
+   
+elseif lcACTION = 'DELETE' .and. gbWAC_DELETE 
+
+       db_query('BEBGIN TRAN')
+       if db_delete(lcTABLE,lcWHERE) == -1
+          db_query('ROLLBACK')
+          error_sys(db_error())
+       endif        
+       db_query('COMMIT')
+
+endif
+
+
+
+lst_tpmov(laFIELDS,lcTABLE,laORDER)
+
+
+
+
+   
+   
+
+
+return
+
+*****************************************************
+static function lst_tpmov(faFIELDS,fcTABLE,faORDER)
+***************************************************** 
+local laRES1    := {} as array 
+
+if db_select(faFIELDS,fcTABLE,,,faORDER) == -1
+   error_sys(db_error())
+endif
+laRES1 := db_fetchall()
+
+if len(laRES1)>1 
+
+   for ii := 2 to len(laRES1)
+       if laRES1[ii,4]='+'
+          laRES1[ii,4]='A Maior'         
+       endif        
+       if laRES1[ii,4]='-'
+          laRES1[ii,4]='A Menor'         
+       endif
+       if laRES1[ii,4]=''
+          laRES1[ii,4]='Não Ajusta'         
+       endif      
+      
+   next ii
+   
+endif
+
+WPut('lstLSTPMOV',laRES1)
+
+                           
+return
+
+****************************
+static function achopadrao()
+**************************** 
+local laRES1    := {} as array 
+
+if db_select({'NR_CONTROLE'},'tipo_movdeposito',,{'FL_DEFAULT='+DLAP+'S'+DLAP}) == -1
+   error_sys(db_error())
+endif
+laRES1 := db_fetchall()
+if len(laRES1)>1
+   return(.t.)
+endif 
+return(.f.)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

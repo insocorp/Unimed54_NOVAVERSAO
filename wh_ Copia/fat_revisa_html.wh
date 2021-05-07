@@ -1,0 +1,320 @@
+/*
+
+Project      : gr5
+Program      : fat.revisa.html
+Function     : fat_revisa_html
+Created on   : 18-Oct-2002   09:33:48
+Descripition : Revisão Fatura
+
+*/
+
+   private lcACTION    := '' ,;
+           lcTABLE     := '' ,;
+           lcNR_FATURA := '' ,;
+           lcITEM      := '' ,;
+           lnNM_FIELD  := ''
+
+   private laRESULT    := {} ,;
+           laFIELDS    := {} ,;
+           laPUT       := {} ,;
+           laSELECT    := {} ,;
+           laVAR_WICDO := {} ,;
+           laNM_WICDO  := {}
+
+   local laUPDATE := {} ,;
+         laWHERE  := {} as array
+
+   private x     := 0 ,;
+           y     := 0 ,;
+           liPOS := 0
+
+   local lnSUB_TOTAL := 0
+
+   lcACTION    := upper(WGet('ACTION','C'))
+   lcNR_FATURA := alltrim(WGet('NR_FATURA','C'))
+   lcTABLE     := 'fatura'
+   laFIELDS    := {'NR_FATURA',;
+                   'CIP_EMPRESA',;
+                   'DT_FATURA',;
+                   'DT_VENCTO',;
+                   'NATUREZA_OPERACAO',;
+                   'NF_TP_SERVICO',;
+                   'VL_TT_PACOTE',;
+                   'VL_TT_SERVICO',;
+                   'VL_TT_HONORARIO',;
+                   'VL_TT_AVULSO',;
+                   'PC_IRRF',;
+                   'PC_PIS',;
+                   'PC_CSLL',;
+                   'VL_DESCONTO',;
+                   'VL_TOTAL'}
+
+   WPut('TITLE','Revisão de Fatura')
+
+   if empty(lcACTION)
+      lcACTION := 'ALTER'
+   endif
+
+   for x := 1 to len(laFIELDS)
+       laFIELDS[x] := lcTABLE+'.'+laFIELDS[x]
+   next x
+   if lcACTION = 'ALTER'
+      aadd(laFIELDS,'pfpj.PFPJ as CIP_EMPRESA_PFPJ')
+      if db_select(laFIELDS,'fatura,pfpj',,;
+                   {'NR_FATURA = '+lcNR_FATURA+' and pfpj.CIP=fatura.CIP_EMPRESA'}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 1
+         lnSUB_TOTAL := laRESULT[2,ascan(laFIELDS,lcTABLE+'.VL_TT_PACOTE')]+;
+                        laRESULT[2,ascan(laFIELDS,lcTABLE+'.VL_TT_SERVICO')]+;
+                        laRESULT[2,ascan(laFIELDS,lcTABLE+'.VL_TT_HONORARIO')]+;
+                        laRESULT[2,ascan(laFIELDS,lcTABLE+'.VL_TT_AVULSO')]
+         wPut('SUB_TOTAL',lnSUB_TOTAL)
+         db2put(laRESULT)
+      endif
+      laRESULT := {}
+   endif
+
+   aadd(laSELECT,{{'NR_FATURA','CD_COBRANCA','NM_NARRATIVA_FATURA','VL_TOTAL'},'fatura_pacote',{'NR_FATURA='+lcNR_FATURA}})
+   aadd(laSELECT,{{'NR_FATURA','CD_TB_SERVICO','NM_NARRATIVA_FATURA','VL_TOTAL'},'fatura_servico',{'NR_FATURA='+lcNR_FATURA}})
+   aadd(laSELECT,{{'NR_FATURA','CD_TB_HONORARIO','NM_NARRATIVA_FATURA','VL_TOTAL'},'fatura_honorario',{'NR_FATURA='+lcNR_FATURA}})
+   aadd(laSELECT,{{'NR_FATURA','NR_PASTA','NR_SERVICO','NM_NARRATIVA_FATURA','VL_TOTAL'},'fatura_avulso',{'NR_FATURA='+lcNR_FATURA}})
+   aadd(laSELECT,{{'fatura_moeda.NR_FATURA','fatura_moeda.CD_MOEDA','moeda.NM_MOEDA','fatura_moeda.VL_MOEDA','fatura_moeda.VL_MOEDA as VL_ANTERIOR'},'moeda,fatura_moeda',{'fatura_moeda.NR_FATURA='+lcNR_FATURA+' and moeda.CD_MOEDA=fatura_moeda.CD_MOEDA'}})
+
+   aadd(laVAR_WICDO,{'VAR_NR_FAT_PACOTE','VAR_CD_COBRANCA','VAR_NM_NARRAFAT_PACOTE','VAR_VL_TOTAL_PACOTE'})
+   aadd(laVAR_WICDO,{'VAR_NR_FAT_SERV','VAR_CD_TB_SERVICO','VAR_NM_NARRAFAT_SERV','VAR_VL_TOTAL_SERV'})
+   aadd(laVAR_WICDO,{'VAR_NR_FAT_HONO','VAR_CD_TB_HONO','VAR_NM_NARRAFAT_HONO','VAR_VL_TOTAL_HONO'})
+   aadd(laVAR_WICDO,{'VAR_NR_FAT_AVULSO','VAR_NR_PASTA','VAR_NR_SERV_AVULSO','VAR_NM_NARRAFAT_AVULSO','VAR_VL_TOTAL_AVULSO'})
+   aadd(laVAR_WICDO,{'VAR_NR_FAT_MOEDA','VAR_CD_MOEDA','VAR_NM_MOEDA','VAR_VL_MOEDA','VAR_VL_ANTERIOR'})
+
+   aadd(laNM_WICDO,'lstFATURA_PACOTE')
+   aadd(laNM_WICDO,'lstFATURA_SERVICO')
+   aadd(laNM_WICDO,'lstFATURA_HONORARIO')
+   aadd(laNM_WICDO,'lstFATURA_AVULSO')
+   aadd(laNM_WICDO,'lstFATURA_MOEDA')
+
+   if lcACTION = 'ALTER'
+      carrega_fat()
+   elseif lcACTION = 'SAVE'
+      laUPDATE := {}
+      aadd(laUPDATE,{'DT_FATURA',;
+                     'DT_VENCTO',;
+                     'NATUREZA_OPERACAO',;
+                     'NF_TP_SERVICO',;
+                     'PC_IRRF',;
+                     'PC_PIS',;
+                     'PC_CSLL',;
+                     'VL_DESCONTO'})
+      aadd(laUPDATE,{WGet('DT_FATURA'),;
+                     WGet('DT_VENCTO'),;
+                     WGet('NATUREZA_OPERACAO'),;
+                     WGet('NF_TP_SERVICO'),;
+                     WGet('PC_IRRF','N'),;
+                     WGet('PC_PIS','N'),;
+                     WGet('PC_CSLL','N'),;
+                     WGet('VL_DESCONTO','N')})
+
+      aadd(laWHERE,'NR_FATURA='+lcNR_FATURA)
+      if db_update(laUPDATE,lcTABLE,laWHERE) == -1
+         error_sys(db_error())
+      endif
+
+      x          := 1
+      liPOS      := ascan(laNM_WICDO,'lstFATURA_MOEDA')
+      lcITEM     := '_'+alltrim(str(x))
+      lcNM_FIELD := laVAR_WICDO[liPOS,1]+lcITEM //Controle do laço - Nr. Fatura
+      do while WGet(lcNM_FIELD,'B')
+         laUPDATE := {}
+         laWHERE  := {}
+         if WGet(laVAR_WICDO[liPOS,4]+lcITEM,'N') <> WGet(laVAR_WICDO[liPOS,5]+lcITEM,'N')
+            aadd(laUPDATE,{'VL_MOEDA'})
+            aadd(laUPDATE,{WGet(laVAR_WICDO[liPOS,4]+lcITEM,'N')})
+            aadd(laWHERE,'NR_FATURA='+WGet(laVAR_WICDO[liPOS,1]+lcITEM,'C')+;
+                         ' and CD_MOEDA='+WGet(laVAR_WICDO[liPOS,2]+lcITEM,'C'))
+            if db_update(laUPDATE,'fatura_moeda',laWHERE) == -1
+               error_sys(db_error())
+            endif
+         endif
+         x++
+         lcITEM     := '_'+alltrim(str(x))
+         lcNM_FIELD := laVAR_WICDO[liPOS,1]+lcITEM //Controle do laço - Nr. Fatura
+      enddo
+
+      atzFat_Pacote(lcNR_FATURA)
+      atzFat_Servico(lcNR_FATURA)
+      atzFat_Honorario(lcNR_FATURA)
+      atzFat_Avulso(lcNR_FATURA)
+
+      for x := 1 to 4
+          if x == 1
+             y          := 1
+             lcTABLE    := 'fatura_servico'
+             liPOS      := ascan(laNM_WICDO,'lstFATURA_SERVICO')
+             lcITEM     := '_'+alltrim(str(y))
+             lcNM_FIELD := laVAR_WICDO[liPOS,1]+lcITEM //Controle do laço - Nr. Fatura
+             do while WGet(lcNM_FIELD,'B')
+                laUPDATE := {{'NM_NARRATIVA_FATURA'},{WGet(laVAR_WICDO[liPOS,3]+lcITEM,'C')}}
+                laWHERE  := {'NR_FATURA='+WGet(laVAR_WICDO[liPOS,1]+lcITEM,'C')+;
+                             ' and CD_TB_SERVICO='+WGet(laVAR_WICDO[liPOS,2]+lcITEM,'C')}
+                y++
+                lcITEM     := '_'+alltrim(str(y))
+                lcNM_FIELD := laVAR_WICDO[liPOS,1]+lcITEM //Controle do laço - Nr. Fatura
+                if db_update(laUPDATE,lcTABLE,laWHERE) == -1
+                   error_sys(db_error())
+                endif
+             enddo
+          elseif x == 2
+             y          := 1
+             lcTABLE    := 'fatura_pacote'
+             liPOS      := ascan(laNM_WICDO,'lstFATURA_PACOTE')
+             lcITEM     := '_'+alltrim(str(y))
+             lcNM_FIELD := laVAR_WICDO[liPOS,1]+lcITEM //Controle do laço - Nr. Fatura
+             do while WGet(lcNM_FIELD,'B')
+                laUPDATE := {{'NM_NARRATIVA_FATURA'},{WGet(laVAR_WICDO[liPOS,3]+lcITEM,'C')}}
+                laWHERE  := {'NR_FATURA='+WGet(laVAR_WICDO[liPOS,1]+lcITEM,'C')+;
+                             ' and CD_COBRANCA='+WGet(laVAR_WICDO[liPOS,2]+lcITEM,'C')}
+                y++
+                lcITEM     := '_'+alltrim(str(y))
+                lcNM_FIELD := laVAR_WICDO[liPOS,1]+lcITEM //Controle do laço - Nr. Fatura
+                if db_update(laUPDATE,lcTABLE,laWHERE) == -1
+                   error_sys(db_error())
+                endif
+             enddo
+          elseif x == 3
+             y          := 1
+             lcTABLE    := 'fatura_honorario'
+             liPOS      := ascan(laNM_WICDO,'lstFATURA_HONORARIO')
+             lcITEM     := '_'+alltrim(str(y))
+             lcNM_FIELD := laVAR_WICDO[liPOS,1]+lcITEM //Controle do laço - Nr. Fatura
+             do while WGet(lcNM_FIELD,'B')
+                laUPDATE := {{'NM_NARRATIVA_FATURA'},{WGet(laVAR_WICDO[liPOS,3]+lcITEM,'C')}}
+                laWHERE  := {'NR_FATURA='+WGet(laVAR_WICDO[liPOS,1]+lcITEM,'C')+;
+                             ' and CD_TB_HONORARIO='+WGet(laVAR_WICDO[liPOS,2]+lcITEM,'C')}
+                y++
+                lcITEM     := '_'+alltrim(str(y))
+                lcNM_FIELD := laVAR_WICDO[liPOS,1]+lcITEM //Controle do laço - Nr. Fatura
+                if db_update(laUPDATE,lcTABLE,laWHERE) == -1
+                   error_sys(db_error())
+                endif
+             enddo
+          elseif x == 4
+             y          := 1
+             lcTABLE    := 'fatura_avulso'
+             liPOS      := ascan(laNM_WICDO,'lstFATURA_AVULSO')
+             lcITEM     := '_'+alltrim(str(y))
+             lcNM_FIELD := laVAR_WICDO[liPOS,1]+lcITEM //Controle do laço - Nr. Fatura
+             do while WGet(lcNM_FIELD,'B')
+                laUPDATE := {{'NM_NARRATIVA_FATURA','VL_TOTAL'},;
+                             {WGet(laVAR_WICDO[liPOS,4]+lcITEM,'C'),; //Narrativa
+                              WGet(laVAR_WICDO[liPOS,5]+lcITEM,'N')}} //Valor Total Avulso
+                laWHERE  := {'NR_FATURA='+WGet(laVAR_WICDO[liPOS,1]+lcITEM,'C')+;      //Nr da Fatura
+                             ' and NR_PASTA='+WGet(laVAR_WICDO[liPOS,2]+lcITEM,'C')+;  //Pasta
+                             ' and NR_SERVICO='+WGet(laVAR_WICDO[liPOS,3]+lcITEM,'C')} //Servico
+                y++
+                lcITEM     := '_'+alltrim(str(y))
+                lcNM_FIELD := laVAR_WICDO[liPOS,1]+lcITEM //Controle do laço - Nr. Fatura
+                if db_update(laUPDATE,lcTABLE,laWHERE) == -1
+                   error_sys(db_error())
+                endif
+             enddo
+          endif
+      next x
+
+      atzTotalFat(lcNR_FATURA,WGet('PC_IRRF','N'),WGet('PC_PIS','N'),WGet('PC_CSLL','N'))
+      get2Put()
+      carrega_fat()
+   elseif lcACTION = 'CANCEL'
+      lcWHERE := 'NR_FATURA='+lcNR_FATURA
+      for x := 1 to 7
+          if x == 1
+             lcFROM := 'fatura_servico'
+          elseif x == 2
+             lcFROM := 'fatura_pacote'
+          elseif x == 3
+             lcFROM := 'fatura_moeda'
+          elseif x == 4
+             lcFROM := 'fatura_honorario'
+          elseif x == 5
+             lcFROM := 'fatura_despesa'
+          elseif x == 6
+             lcFROM := 'fatura_avulso'
+          elseif x == 7
+             lcFROM := 'fatura'
+          endif
+          if db_delete(lcFROM,lcWHERE) == -1
+             error_sys(db_error())
+          endif
+      next x
+      if db_update({{'NR_FATURA'},{''}},'mvt_servico',{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      WSet('_USER_INTERFACE','fat.lst.revisa.html')
+      fat_lst_revisa_html()
+   else
+      wSet('_USER_INTERFACE','fat.lst.revisa.html')
+      fat_lst_revisa_html()
+   endif
+return
+
+/*
+* Function..: carrega_fat()
+* Objetivo..: Carregar todos os itens da fatura. Pacote,Servico,Honorario,Avulso e Moedas
+* Parâmetros:
+*    Nenhum
+* Retorno...:
+*    Nenhum
+*/
+static function carrega_fat()
+   local laFOREIGN := {} ,;
+         laPUT     := {} ,;
+         laRES     := {} as array
+
+   local x := 0 as int
+
+   laFOREIGN := {{'natureza_operacao','NATUREZA_OPERACAO'},;
+                 {'nf_tp_servico','NF_TP_SERVICO'}}
+
+   for x := 1 to len(laFOREIGN)
+       if db_select({laFOREIGN[x,2]},laFOREIGN[x,1]) == -1
+          error_sys('carrega_fat: ('+alltrim(str(procline()))+') - '+db_error())
+       endif
+       laRES := db_fetchall()
+       aadd(laPUT,{''})
+       for y := 2 to len(laRES)
+           aadd(laPUT,laRES[y,1])
+       next y
+       wPut(laFOREIGN[x,2]+'_OPT',laPUT)
+       laPUT := {}
+   next ii
+
+   for x := 1 to len(laSELECT)
+      if db_select(laSELECT[x,1],laSELECT[x,2],,laSELECT[x,3]) == -1
+         error_sys('carrega_fat: ('+alltrim(str(procline()))+') - '+db_error())
+      endif
+      laRESULT := db_fetchall()
+      if len(laRESULT) > 0
+         aadd(laPUT,laVAR_WICDO[x])
+         for y := 2 to len(laRESULT)
+             lcITEM := '_'+alltrim(str(y-1))
+             if laNM_WICDO[x] == 'lstFATURA_AVULSO' .or. laNM_WICDO[x] == 'lstFATURA_MOEDA'
+                aadd(laPUT,{laVAR_WICDO[x,1]+lcITEM,;
+                            laVAR_WICDO[x,2]+lcITEM,;
+                            laVAR_WICDO[x,3]+lcITEM,;
+                            laVAR_WICDO[x,4]+lcITEM,;
+                            laVAR_WICDO[x,5]+lcITEM})
+             else
+                aadd(laPUT,{laVAR_WICDO[x,1]+lcITEM,;
+                            laVAR_WICDO[x,2]+lcITEM,;
+                            laVAR_WICDO[x,3]+lcITEM,;
+                            laVAR_WICDO[x,4]+lcITEM})
+             endif
+             for ii := 1 to len(laVAR_WICDO[x])
+                 wPut(laVAR_WICDO[x,ii]+lcITEM,laRESULT[y,ii])
+             next ii
+         next y
+         wPut(laNM_WICDO[x],laPUT)
+         laPUT := {}
+      endif
+   next
+return(nil)

@@ -1,0 +1,200 @@
+/*
+
+Project      : gr5
+Program      : mnt.cob.cliente.html
+Function     : mnt_cob_cliente_html
+Created on   : 20-Aug-2002   10:32:16
+Descripition : Manutenção de Cobrança de cliente
+
+*/
+
+   local lcACTION    := '',;
+         lcWHERE     := '',;
+         lcTABLE     := '',;
+         lcCIP       := '',;
+         lcTP_PASTA  := '',;
+         lcVALIDA    := '' as string
+
+   local laRESULT   := {} ,;
+         laRESULT2  := {} ,;
+         laSAVE     := {} ,;
+         laSAVE_AUX := {} ,;
+         laFIELDS   := {} ,;
+         laVALIDA   := {} ,;
+         laTP_PASTA  := {} ,;
+         laFOREIGN  := {} as array
+
+   local ii := 0 as int
+
+   lcACTION     := upper(WGet('ACTION'))
+   lcCIP        := WGet('CIP','C')
+   lcTP_PASTA   := WGet('TP_PASTA','C')
+   lcTABLE      := 'cobranca_cliente'
+   lcWHERE      := 'CIP_EMPRESA = '+DLAP+lcCIP+DLAP+' and '+'TP_PASTA = '+DLAP+lcTP_PASTA+DLAP
+   laFIELDS     := structtable(WSet("DB_ACTIVE"),lcTABLE,1,'N')
+   laLABELS     := structtable(WSet("DB_ACTIVE"),lcTABLE,11,'N')
+   laFIELDS_CLI := structtable(WSet("DB_ACTIVE"),'pfpj',1,'N')
+
+   if db_select({'TP_PASTA'},'pasta_config') == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   for ii := 2 to len(laRESULT)
+      aadd(laTP_PASTA,laRESULT[ii,1])
+   next ii
+   wPut('TP_PASTA_OPT',laTP_PASTA)
+
+   /* Tabelas extrangeiras
+   * Formato do array abaixo
+   * 1 - nome da tabela a pesquisar
+   * 2 - campo do relacionamento
+   * 3 - descricao
+   */
+   laFOREIGN := {{'tabela_honorario','CD_TB_HONORARIO','NM_TB_HONORARIO'},;
+                 {'tabela_servico','CD_TB_SERVICO','NM_TB_SERVICO'},;
+                 {'tabela_despesa','CD_TB_DESPESA','NM_TB_DESPESA'},;
+                 {'cobranca','CD_COBRANCA','NM_COBRANCA'}}
+
+   /* Campos obrigatórios
+   * Formato do array abaixo
+   * 1 - Campo para captura da informação no HTML - WGet()
+   * 2 - Parte do label a exibir em caso de erro, esta inf. á capturada do Wictrix
+   */
+   laVALIDA := {{'TP_PASTA',laLABELS[ascan(laFIELDS,'TP_PASTA')]},;
+                {'CD_TB_HONORARIO',laLABELS[ascan(laFIELDS,'CD_TB_HONORARIO')]},;
+                {'CD_TB_SERVICO',laLABELS[ascan(laFIELDS,'CD_TB_SERVICO')]},;
+                {'CD_TB_DESPESA',laLABELS[ascan(laFIELDS,'CD_TB_DESPESA')]},;
+                {'CD_COBRANCA',laLABELS[ascan(laFIELDS,'CD_COBRANCA')]}}
+
+   /* Relacionamentos que devem ser validados
+   * Formato do array abaixo
+   * 1 - Tabela
+   * 2 - Campo para captura da informação no HTML - WGet()
+   * 3 - Campo para montagem da cláusula WHERE usada em old_db_findrec()
+   * 4 - Parte do label a exibir em caso de erro, está inf. e capturado do Wictrix
+   */
+   laFIND_REC := {{'tabela_honorario','CD_TB_HONORARIO','CD_TB_HONORARIO',laLABELS[ascan(laFIELDS,'CD_TB_HONORARIO')]},;
+                  {'tabela_despesa','CD_TB_DESPESA','CD_TB_DESPESA',laLABELS[ascan(laFIELDS,'CD_TB_DESPESA')]},;
+                  {'tabela_servico','CD_TB_SERVICO','CD_TB_SERVICO',laLABELS[ascan(laFIELDS,'CD_TB_SERVICO')]},;
+                  {'cobranca','CD_COBRANCA','CD_COBRANCA',laLABELS[ascan(laFIELDS,'CD_COBRANCA')]}}
+
+   if empty(lcCIP)
+      walert('CIP não definido!')
+      wSet('_USER_INTERFACE','lst.cob.cliente.html')
+      lst_cob_cliente_html()
+      return
+   elseif empty(lcACTION)
+      lcACTION = 'NEW'
+   endif
+
+   if db_select(laFIELDS_CLI,'pfpj',,{'CIP='+DLAP+lcCIP+DLAP}) == -1
+      error_sys(db_error())
+   endif
+   laRESULT := db_fetchall()
+   if len(laRESULT) > 1
+      db2put(laRESULT)
+   else
+      wSet('_USER_INTERFACE','lst.cob.cliente.html')
+      lst_cob_cliente_html()
+   endif
+   laRESULT := {}
+   if lcACTION = 'NEW' .and. gbWAC_CREATE
+      wPut('TITLE','Inclusão de novo Cobrança Cliente')
+   elseif lcACTION = 'ALTER' .and. gbWAC_READ
+      if db_select(laFIELDS,lcTABLE,,{lcWHERE}) == -1
+         error_sys(db_error())
+      endif
+      laRESULT := db_fetchrow()
+      if len(laRESULT) > 0
+         for ii := 1 to len(laFIELDS)
+            liPOS_COD := ascan2(laFOREIGN,2,laFIELDS[ii])
+            if liPOS_COD > 0
+               if db_select({laFOREIGN[liPOS_COD,3]},laFOREIGN[liPOS_COD,1],,;
+                            {laFOREIGN[liPOS_COD,2]+'='+alltrim(str(laRESULT[ii]))}) == -1
+                  error_sys(db_error())
+               endif
+               laRESULT2 := db_fetchrow()
+               if len(laRESULT2) > 0
+                  wPut(laFOREIGN[liPOS_COD,3],laRESULT2[1])
+               endif
+            endif
+            wPut(laFIELDS[ii],laRESULT[ii])
+         next ii
+      endif
+      wPut('TITLE','Alteração da Cobrança Cliente')
+   elseif lcACTION = 'SAVE' .and. gbWAC_WRITE
+      for ii := 1 to len(laVALIDA)
+          lcVALIDA := alltrim(WGet(laVALIDA[ii,1],'C'))
+          if empty(lcVALIDA)
+             walert(laVALIDA[ii,2]+' é um campo obrigatório!')
+             get2Put()
+             lista_cobcli(lcTABLE,laFIELDS,lcTABLE+'.CIP_EMPRESA='+DLAP+lcCIP+DLAP,{lcTABLE+'.TP_PASTA'})
+             return(.f.)
+          endif
+      next ii
+      for ii := 1 to len(laFIND_REC)
+          lcVALIDA := alltrim(WGet(laFIND_REC[ii,2],'C'))
+          if !empty(lcVALIDA)
+             if len(db_findrec({laFIND_REC[ii,3]},laFIND_REC[ii,1],laFIND_REC[ii,3]+'='+lcVALIDA)) = 0
+                walert(laFIND_REC[ii,4]+' é inválido(a) ou não pode ser encontrado(a)!')
+                lista_cobcli(lcTABLE,laFIELDS,lcTABLE+'.CIP_EMPRESA='+DLAP+lcCIP+DLAP,{lcTABLE+'.TP_PASTA'})
+                get2Put()
+                return(.f.)
+             endif
+          endif
+      next ii
+
+      aadd(laSAVE,laFIELDS)
+      for ii := 1 to len(laFIELDS)
+         if laFIELDS[ii] == 'CIP_EMPRESA'
+            aadd(laSAVE_AUX,WGet('CIP','C'))
+         else
+            aadd(laSAVE_AUX,WGet(laFIELDS[ii]))
+         endif
+      next ii
+      aadd(laSAVE,laSAVE_AUX)
+      if db_replace(laSAVE,lcTABLE,{lcWHERE}) = -1
+         error_sys(db_error())
+      endif
+      wPut('TITLE','Inclusão de nova Cobrança Cliente')
+   elseif lcACTION = 'DELETE' .and. gbWAC_DELETE
+      if db_delete(lcTABLE,lcWHERE) == -1
+         error_sys(db_error())
+      endif
+   endif
+   lista_cobcli(lcTABLE,laFIELDS,lcTABLE+'.CIP_EMPRESA='+DLAP+lcCIP+DLAP,{lcTABLE+'.TP_PASTA'})
+return
+
+/*
+* Function..: lista_cobcli(fcTABLE,faFIELDS,fcWHERE,faORDER_BY)
+* Objetivo..: Validar uma lista de usuários
+* Parâmetros:
+*    fcTABLE...: Tabela alvo
+*    faFIELDS..: Array com a lista de campos a selecionar
+*    fcWHERE...: Condição de pesquisa
+*    faORDER_BY: Ordenação
+* Retorno...: nil
+*/
+static function lista_cobcli(fcTABLE,faFIELDS,fcWHERE,faORDER_BY)
+   local laWHERE := {} as array
+   local ii := 0 as int
+
+   for ii := 1 to len(faFIELDS)
+       faFIELDS[ii] := fcTABLE+'.'+faFIELDS[ii]
+   next ii
+   aadd(faFIELDS,'tabela_honorario.NM_TB_HONORARIO as NM_TB_HONORARIO_1')
+   aadd(faFIELDS,'tabela_servico.NM_TB_SERVICO as NM_TB_SERVICO_1')
+   aadd(faFIELDS,'cobranca.NM_COBRANCA as NM_COBRANCA_1')
+   aadd(faFIELDS,'tabela_despesa.NM_TB_DESPESA as NM_TB_DESPESA_1')
+
+   aadd(laWHERE,fcWHERE)
+   aadd(laWHERE,'tabela_honorario.CD_TB_HONORARIO=cobranca_cliente.CD_TB_HONORARIO')
+   aadd(laWHERE,'tabela_servico.CD_TB_SERVICO=cobranca_cliente.CD_TB_SERVICO')
+   aadd(laWHERE,'cobranca.CD_COBRANCA=cobranca_cliente.CD_COBRANCA')
+   aadd(laWHERE,'tabela_despesa.CD_TB_DESPESA=cobranca_cliente.CD_TB_DESPESA')
+   if db_select(faFIELDS,'cobranca_cliente,tabela_honorario,tabela_servico,cobranca,tabela_despesa',,;
+                laWHERE,faORDER_BY) == -1
+      error_sys('lista_cobcli: '+db_error())
+   endif
+   wPut('lstCOBCLIENTE',db_fetchall())
+return(nil)

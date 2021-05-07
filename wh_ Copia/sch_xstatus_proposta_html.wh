@@ -1,0 +1,44 @@
+/*
+Project      : gr5
+Program      : sch.xstatus.proposta.html
+Function     : sch_xstatus_proposta_html
+Created on   : 02-07-2012   21:50
+Descripition : Pesquisa de status de proposta
+*/
+
+local laFIELDS       := {},;
+      laJAVA         := {},;
+      laQUICK_SEARCH := {} as array
+
+laFIELDS       := {'ID_STATUS_PROPOSTA','STATUS_PROPOSTA'} 
+laJAVA         := {'mntform',{{'ID_STATUS_PROPOSTA','ID_STATUS_PROPOSTA'},{'STATUS_PROPOSTA','STATUS_PROPOSTA'}}}
+laQUICK_SEARCH := {'STATUS_PROPOSTA'}
+laWHERE        := {'FL_ATIVO <> '+DLAP+'I'+DLAP}
+
+xbp          ('status_proposta',;       //Tabela Alvo
+              ,;                        //Join
+              laWHERE,;                        //Where
+              ,;                        //Order by
+              ,;                        //Sort [A]-Ascendente [D]-Descentende
+              ,;                        //Group by
+              ,;                        //Limit
+              ,;                        //Banco de Dados
+              3,;                       //Modo de funcionamento [1]-Listagem/Form para manutenção [2]-Listagem e Manutenção [3]-Search
+              'gr5',;                  //Modulo do programa chamador
+              WSet('_USER_INTERFACE'),; //Programa chamador
+              ,;                        //Parametros para linhas clicáveis
+              ,;                        //Botoes (nil)
+              'sch.xstatus.proposta.html',;  //Programa chamado pelos links (linhas clicáveis)
+              'gr5',;                  //Módulo do programa chamado pelos links
+              laJAVA,;                  //Retorno java (nil) - usado apenas no search
+              laQUICK_SEARCH,;          //Campos usados na pesquisa rápida
+              ,;                        //Campos ocultos. Usado apenas em manutenções    ***
+              ,;                        //Campos da área de manutenção/entrada de dados  ***
+              laFIELDS,;                //Campos mostratos no grid
+              laFIELDS)                 //Campos usados no select
+return
+
+
+
+
+

@@ -1,0 +1,57 @@
+/*
+
+Project      : gr5
+Program      : pfpj.atividade.html
+Function     : pfpj_atividade_html
+Created on   : 17-Nov-2004   15:16:58
+Descripition :
+
+*/
+
+local laPARAM        := {},;
+      laINPUT_OBJ    := {},;
+      laSELECT       := {} as array
+
+laPARAM := {{'PFPJ_ATIVIDADE',''     ,'*'},;
+            {'FL_ATIVO','',},;
+            {'ACTION'        ,'ALTER',   }}
+
+laINPUT_OBJ := {{'PFPJ_ATIVIDADE',0, ,'Y',},;
+                {,,,,},;
+                {'FL_ATIVO',1,,'Y','{"S","I","D"}' }}
+
+laSELECT := {'PFPJ_ATIVIDADE','FL_ATIVO'}
+
+if upper(alltrim(WGet('ACTIONBP'))) == 'ALTER'
+   mkgedico('pfpj_atividade',WGet('PFPJ_ATIVIDADE','C'))
+endif
+
+xbp2('pfpj_atividade',;                                                  //Tabela alvo
+    ,;                                                                  //Joins
+    ,;                                                                  //Where
+    {'PFPJ_ATIVIDADE'},;                                                //Order by
+    ,;                                                                  //Sort [A]-Ascendente [D]-Descentende
+    ,;                                                                  //Group by
+    ,;                                                                  //Limit
+    ,;                                                                  //Banco de Dados
+    2,;                                                                 //Tipo do programa 1-Listagem/Manutenção, 2-Ambos, 3-Search
+    'gr5',;                                                             //Modulo do programa chamador
+    WSet('_USER_INTERFACE'),;                                           //Programa chamador
+    laPARAM,;                                                           //Parametros das linhas clicaveis do grid
+    ,;                                                                  //Parâmetros para os botões das linhas do grid
+    'pfpj.atividade.html',;                                             //Programa que os links/botoes do grid deverao chamar
+    'gr5',;                                                             //Módulo do programa chamado pelos links/botoes do grid
+    ,;                                                                  //Retorno java (nil) - usado apenas para Search
+    ,;                                                                  //Campos usados na pesquisa rápida
+    ,;                                                                  //Campos Ocultos
+    laINPUT_OBJ,;                                                       //Campos da área de manutenção/entrada de dados
+    laSELECT ,;                                                         //Campos exibidos no grid
+    laSELECT)                                                           //Campos usados no select
+return
+
+
+
+
+
+
+
